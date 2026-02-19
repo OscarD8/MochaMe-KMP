@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.composeMultiplatform)
@@ -6,11 +8,18 @@ plugins {
 }
 
 kotlin {
-    androidLibrary {
-        compileSdk = 36
-        minSdk = 26
-        namespace = "com.plcoding.kmp_gradle9_migration.composeapp"
-        experimentalProperties["android.experimental.kmp.enableAndroidResources"] = true
+    android {
+        namespace = "com.mochame.app"
+        compileSdk = libs.versions.android.compileSdk.get().toInt()
+        minSdk = libs.versions.android.minSdk.get().toInt()
+
+        androidResources {
+            enable = true
+        }
+
+        compilerOptions {
+            jvmTarget.set(JvmTarget.JVM_21)
+        }
     }
 
     listOf(
@@ -22,6 +31,8 @@ kotlin {
             isStatic = true
         }
     }
+
+    jvm()
 
     sourceSets {
         androidMain.dependencies {
@@ -40,6 +51,10 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+        }
+        jvmMain.dependencies {
+            implementation(compose.desktop.currentOs)
+            // If you have coroutines for desktop, add them here
         }
     }
 }
