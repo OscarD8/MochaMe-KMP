@@ -51,15 +51,20 @@ kotlin {
             implementation(libs.adaptive.navigation3)
             implementation(libs.jetbrains.navigation3.ui)
             implementation(libs.jetbrains.lifecycle.viewmodelNavigation3)
-
+            implementation(libs.material.icons.extended)
+            implementation(libs.compose.ui.tooling.preview)
             // Mocha Me Logic & Data
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.datetime)
             implementation(libs.kotlinx.serialization.json)
-            implementation(libs.koin.core)
-            implementation(libs.koin.compose)
             implementation(libs.room.runtime)
             implementation(libs.sqlite.bundled) // Essential for Linux DB
+            // Core Koin
+            implementation(libs.koin.core)
+            // The DSL for 'viewModel { ... }'
+            implementation(libs.koin.compose.viewmodel)
+            // For 'koinViewModel()' inside @Composable
+            implementation(libs.koin.compose)
         }
 
         // 2. ANDROID SPECIFICS: Only for the phone
@@ -92,4 +97,17 @@ dependencies {
     add("kspCommonMainMetadata", libs.room.compiler)
     add("kspAndroid", libs.room.compiler)
     add("kspJvm", libs.room.compiler)
+}
+
+compose.desktop {
+    application {
+        // If your package is 'com.mochame.app', use that prefix.
+        mainClass = "com.mochame.app.MainKt"
+
+        nativeDistributions {
+            targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Deb)
+            packageName = "MochaMe"
+            packageVersion = "1.0.0"
+        }
+    }
 }
