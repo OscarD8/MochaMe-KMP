@@ -3,6 +3,7 @@ package com.mochame.androidapp
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import com.mochame.app.App
 import com.mochame.app.di.initKoin
 import com.mochame.app.ui.ProofOfLifeScreen
 import com.mochame.app.ui.ProofOfLifeViewModel
@@ -13,18 +14,18 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // 1. Initialize the global Koin instance.
-        // Because we call this here, Koin is already available to Compose.
+        /**
+         * THE ANDROID ADAPTATION
+         * We are now INSIDE the Ribosome. We call 'androidContext',
+         * which is an internal Koin tool, to grab the 'Security Key' (this Activity).
+         * Without this key, the organism cannot open the Room Database bank vault.
+         */
         initKoin {
             androidContext(this@MainActivity)
         }
 
         setContent {
-            // 2. Direct access to the ViewModel.
-            // koinViewModel() handles finding the Koin instance on its own now.
-            val viewModel: ProofOfLifeViewModel = koinViewModel()
-
-            ProofOfLifeScreen(viewModel)
+            App()
         }
     }
 }

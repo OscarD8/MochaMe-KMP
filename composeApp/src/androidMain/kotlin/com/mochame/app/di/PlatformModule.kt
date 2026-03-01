@@ -6,11 +6,16 @@ import com.mochame.app.database.MochaDatabase
 import org.koin.dsl.module
 
 actual val platformModule = module {
+    /**
+     * THE DATABASE HEARTBEAT (ANDROID)
+     * This defines how to grow the "Database Limb" on the Android planet.
+     */
     single<MochaDatabase> {
-        // 1. Get the Context and create the Android-specific builder
+        // 'get()' tells Koin: "Go into your safe and find that Security Key (Context)
+        // we saved during the Ribosome briefing in MainActivity".
         val androidBuilder = getDatabaseBuilder(get())
 
-        // 2. Pass that builder into the shared config to add the Bundled Driver
+        // Use the key to find the path, then build the binary heart.
         getRoomDatabase(androidBuilder)
     }
 }

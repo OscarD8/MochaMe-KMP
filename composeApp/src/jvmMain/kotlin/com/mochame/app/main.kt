@@ -8,16 +8,18 @@ import com.mochame.app.ui.ProofOfLifeViewModel
 import org.koin.compose.viewmodel.koinViewModel
 
 fun main() = application {
-    // 1. Initialize Koin for the Desktop environment
-    // Note: No androidContext() here, so it uses the getDesktopDatabase() actual.
+    /**
+     * THE LINUX EXPRESSION
+     * No briefing needed here. The Ribosome starts with default instructions
+     * because on the Linux planet, we don't need a special security key
+     * to access the filesystem.
+     */
     initKoin()
 
     Window(
         onCloseRequest = ::exitApplication,
         title = "Mocha Me: Linux Kernel Test"
     ) {
-        // 2. Launch the Shared UI
-        val viewModel = koinViewModel<ProofOfLifeViewModel>()
-        ProofOfLifeScreen(viewModel)
+        App()
     }
 }
