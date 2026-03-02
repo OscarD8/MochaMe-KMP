@@ -2,13 +2,14 @@ package com.mochame.app.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.mochame.app.domain.telemetry.Category
-import com.mochame.app.domain.telemetry.TelemetryRepository
-import com.mochame.app.domain.bio.BioRepository // New Import
-import com.mochame.app.domain.bio.DailyContext  // New Import
+import com.mochame.app.domain.model.Category
+import com.mochame.app.database.entity.DailyContext
+import com.mochame.app.domain.repository.BioRepository
+import com.mochame.app.domain.repository.TelemetryRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlin.collections.emptyList
 import kotlin.random.Random
 
 class ProofOfLifeViewModel(

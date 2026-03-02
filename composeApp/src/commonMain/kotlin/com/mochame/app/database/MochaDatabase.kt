@@ -4,25 +4,42 @@ import androidx.room.ConstructedBy
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
+import androidx.room.TypeConverters
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
-import com.mochame.app.data.bio.BioDao
-import com.mochame.app.database.entities.CategoryEntity
-import com.mochame.app.database.entities.DailyContextEntity
-import com.mochame.app.data.telemetry.TelemetryDao
+import com.mochame.app.database.dao.BioDao
+import com.mochame.app.database.dao.SignalDao
+import com.mochame.app.database.dao.TelemetryDao
+import com.mochame.app.database.entity.*
+import com.mochame.app.database.converter.MochaConverters
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 
+@ConstructedBy(MochaDatabaseConstructor::class)
 @Database(
     entities = [
+        // BIO MODULE
         DailyContextEntity::class,
+
+        // TELEMETRY MODULE
+        MomentEntity::class,
         CategoryEntity::class,
+        TopicEntity::class,
+
+        // SIGNAL MODULE
+        AuthorEntity::class,
+        BookEntity::class,
+        QuoteEntity::class
     ],
-    version = 1
+    version = 1,
+    exportSchema = false // Standard for Phase 1 local-only development
 )
-@ConstructedBy(MochaDatabaseConstructor::class)
+@TypeConverters(MochaConverters::class)
 abstract class MochaDatabase : RoomDatabase() {
+
+    // Kernel Access Points (The Engines)
     abstract fun bioDao(): BioDao
     abstract fun telemetryDao(): TelemetryDao
+    abstract fun signalDao(): SignalDao
 }
 
 // Defining the override satisfies the compiler's interface check.

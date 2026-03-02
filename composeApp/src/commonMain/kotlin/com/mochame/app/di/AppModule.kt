@@ -1,11 +1,11 @@
 package com.mochame.app.di
 
+import com.mochame.app.data.repository.BioRepositoryImpl
 import com.mochame.app.ui.ProofOfLifeViewModel
-import com.mochame.app.data.telemetry.TelemetryRepositoryImpl
-import com.mochame.app.data.bio.BioRepositoryImpl
+import com.mochame.app.data.repository.TelemetryRepositoryImpl
 import com.mochame.app.database.MochaDatabase
-import com.mochame.app.domain.telemetry.TelemetryRepository
-import com.mochame.app.domain.bio.BioRepository
+import com.mochame.app.domain.repository.BioRepository
+import com.mochame.app.domain.repository.TelemetryRepository
 import org.koin.dsl.module
 // THE UPDATED IMPORT FOR KOIN 4.0
 import org.koin.core.module.dsl.viewModel

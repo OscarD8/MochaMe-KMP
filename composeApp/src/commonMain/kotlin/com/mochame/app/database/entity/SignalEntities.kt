@@ -1,0 +1,57 @@
+package com.mochame.app.database.entity
+
+import androidx.room.Entity
+import androidx.room.ForeignKey
+import androidx.room.Index
+import androidx.room.PrimaryKey
+import com.mochame.app.domain.model.Emotion
+
+@Entity(tableName = "authors")
+data class AuthorEntity(
+    @PrimaryKey val id: String,
+    val name: String,
+    val lastModified: Long
+)
+
+@Entity(
+    tableName = "books",
+    foreignKeys = [
+        ForeignKey(
+            entity = AuthorEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["authorId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index(value = ["authorId"])] // Optimized for Author -> Book lookups
+)
+data class BookEntity(
+    @PrimaryKey val id: String,
+    val authorId: String,
+    val title: String,
+    val dateAdded: Long,
+    val dateFinished: Long?,
+    val isActive: Boolean,
+    val lastModified: Long
+)
+
+@Entity(
+    tableName = "quotes",
+    foreignKeys = [
+        ForeignKey(
+            entity = BookEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["bookId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index(value = ["bookId"])] // Optimized for Book -> Quote lookups
+)
+data class QuoteEntity(
+    @PrimaryKey val id: String,
+    val bookId: String,
+    val content: String,
+    val emotion: Emotion, // Handled by TypeConverter
+    val viewCount: Int = 0,
+    val lastModified: Long
+)

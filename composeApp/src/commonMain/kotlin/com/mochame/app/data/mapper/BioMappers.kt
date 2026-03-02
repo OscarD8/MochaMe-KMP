@@ -1,7 +1,8 @@
-package com.mochame.app.data.bio
+package com.mochame.app.data.mapper
 
-import com.mochame.app.domain.bio.DailyContext
-import com.mochame.app.database.entities.DailyContextEntity
+
+import com.mochame.app.database.entity.DailyContextEntity
+import com.mochame.app.domain.model.DailyContext
 import kotlin.time.Clock
 
 /**
@@ -12,7 +13,9 @@ fun DailyContextEntity.toDomain(): DailyContext {
     return DailyContext(
         id = this.id,
         epochDay = this.epochDay,
-        sleepHours = this.sleepHours
+        sleepHours = this.sleepHours,
+        readinessScore = this.readinessScore,
+        lastModified = this.lastModified
     )
 }
 
@@ -20,13 +23,12 @@ fun DailyContextEntity.toDomain(): DailyContext {
  * Domain Layer -> Data Layer
  * Bridges the gap between the clean model and the Room entity.
  */
-fun DailyContext.toEntity(
-    lastModified: Long = Clock.System.now().toEpochMilliseconds()
-): DailyContextEntity {
+fun DailyContext.toEntity(): DailyContextEntity {
     return DailyContextEntity(
         id = this.id,
         epochDay = this.epochDay,
         sleepHours = this.sleepHours,
-        lastModified = lastModified
+        readinessScore = this.readinessScore,
+        lastModified = this.lastModified
     )
 }

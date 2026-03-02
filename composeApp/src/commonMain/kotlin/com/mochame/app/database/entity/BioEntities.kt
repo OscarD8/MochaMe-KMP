@@ -1,0 +1,23 @@
+package com.mochame.app.database.entity
+
+import androidx.room.Entity
+import androidx.room.Index
+import androidx.room.PrimaryKey
+
+@Entity(
+    tableName = "daily_context",
+    indices = [Index(value = ["epochDay"], unique = true)]
+)
+data class DailyContextEntity(
+    @PrimaryKey
+    val id: String,
+
+    val epochDay: Long,
+
+    val sleepHours: Double,
+
+    // the qualitative metric
+    val readinessScore: Int = 0,
+
+    val lastModified: Long
+)

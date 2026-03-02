@@ -53,6 +53,7 @@ kotlin {
             implementation(libs.jetbrains.lifecycle.viewmodelNavigation3)
             implementation(libs.material.icons.extended)
             implementation(libs.compose.ui.tooling.preview)
+            implementation(libs.uuid)
             // Mocha Me Logic & Data
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.datetime)
@@ -85,6 +86,11 @@ kotlin {
         commonTest.dependencies {
             implementation(libs.kotlin.test)
         }
+
+    }
+    sourceSets.all {
+        languageSettings.optIn("kotlin.time.ExperimentalTime")
+        languageSettings.optIn("kotlinx.datetime.ExperimentalKotlinxDateTimeApi")
     }
 }
 
