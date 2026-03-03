@@ -1,16 +1,19 @@
 package com.mochame.app.data.repository
 
 import com.benasher44.uuid.uuid4
-import com.mochame.app.core.CategoryAlreadyExistsException
-import com.mochame.app.core.CategoryInUseException
-import com.mochame.app.core.CategoryNotFoundException
+import com.mochame.app.core.DomainAlreadyExistsException
+import com.mochame.app.core.DomainInUseException
+import com.mochame.app.core.DomainNotFoundException
+import com.mochame.app.core.DomainInUseException
+import com.mochame.app.core.DomainNotFoundException
 import com.mochame.app.core.TopicAlreadyExistsException
 import com.mochame.app.core.TopicInUseException
 import com.mochame.app.core.TopicNotFoundException
 import com.mochame.app.data.mapper.toDomain
 import com.mochame.app.data.mapper.toEntity
 import com.mochame.app.database.dao.TelemetryDao
-import com.mochame.app.domain.model.Category
+import com.mochame.app.domain.model.Domain
+import com.mochame.app.domain.model.Domain
 import com.mochame.app.domain.model.Moment
 import com.mochame.app.domain.model.Topic
 import com.mochame.app.domain.repository.TelemetryRepository
@@ -38,10 +41,11 @@ class TelemetryRepositoryImpl(
     }
 
     override suspend fun logMoment(
-        categoryId: String,
+        domainId: String,
         topicId: String?,
         note: String,
         durationMinutes: Int,
+
         satisfactionScore: Int,
         energyScore: Int,
         moodScore: Int
@@ -53,7 +57,7 @@ class TelemetryRepositoryImpl(
             id = uuid4().toString(),
             timestamp = now().toEpochMilliseconds(),
             associatedEpochDay = currentBioDay,
-            categoryId = categoryId,
+            domainId = domainId,
             topicId = topicId,
             durationMinutes = durationMinutes,
             satisfactionScore = satisfactionScore,
@@ -81,49 +85,55 @@ class TelemetryRepositoryImpl(
     }
 
 
-    // --- CATEGORIES ---
-    private val categoryMutex = Mutex()
+    // --- DOMAINS ---
+    private val domainMutex = Mutex()
 
-    override fun getActiveCategories(): Flow<List<Category>> {
-        return telemetryDao.getActiveCategories().map { entities ->
+    override fun getActiveDomains(): Flow<List<Domain>> {
+        return telemetryDao.getActiveDomains().map { entities ->
             entities.map { it.toDomain() }
         }
     }
 
-    override suspend fun upsertCategory(category: Category) = withContext(Dispatchers.IO) {
-        val updatedCategory = category.copy(
-            lastModified = now().toEpochMilliseconds()
-        )
-        telemetryDao.upsertCategory(updatedCategory.toEntity())
+    override fun getInactiveDomains(): Flow<List<Domain>> {
+        return telemetryDao.getInactiveDomains().map { entities ->
+            entities.map { it.toDomain() }
+        }
     }
 
-    override suspend fun deleteCategory(categoryId: String) = categoryMutex.withLock {
+    override suspend fun upsertDomain(domain: Domain) = withContext(Dispatchers.IO) {
+        val updatedDomain = domain.copy(
+            lastModified = now().toEpochMilliseconds()
+        )
+        telemetryDao.upsertDomain(updatedDomain.toEntity())
+    }
+
+    override suspend fun deleteDomain(domainId: String) = domainMutex.withLock {
         withContext(Dispatchers.IO) {
             // Atomic Check-and-Delete: No moments can be added to this ID while we are checking.
-            val usageCount = telemetryDao.getMomentCountForCategory(categoryId)
+            val usageCount = telemetryDao.getMomentCountForDomain(domainId)
 
             if (usageCount == 0) {
-                telemetryDao.deleteCategoryById(categoryId)
+                telemetryDao.deleteDomainById(domainId)
             } else {
-                throw CategoryInUseException(usageCount)
+                throw DomainInUseException(usageCount)
             }
         }
     }
 
     // Separate function to handle the "Hide" intent
-    override suspend fun archiveCategory(categoryId: String) = withContext(Dispatchers.IO) {
+    override suspend fun archiveDomain(domainId: String) = withContext(Dispatchers.IO) {
         val existing =
-            telemetryDao.getCategoryById(categoryId) ?: throw CategoryNotFoundException(categoryId)
+            telemetryDao.getDomainById(domainId) ?: throw DomainNotFoundException(domainId)
 
         val updated = existing.toDomain().copy(
             isActive = false,
             lastModified = now().toEpochMilliseconds()
         )
 
-        telemetryDao.upsertCategory(updated.toEntity())
+        telemetryDao.upsertDomain(updated.toEntity())
     }
 
-    override suspend fun logCategory(
+    override suspend fun logDomain(
         name: String,
         hexColor: String,
         isActive: Boolean
@@ -131,33 +141,36 @@ class TelemetryRepositoryImpl(
         val cleanName = name.trim()
 
         // 1. The Lock: Only one 'Creation' attempt happens at a time
-        categoryMutex.withLock {
+        domainMutex.withLock {
             // 2. The Check
-            val existing = telemetryDao.getCategoryByName(cleanName.lowercase())
+            val existing = telemetryDao.getDomainByName(cleanName.lowercase())
 
             if (existing != null) {
                 // 3. The Block: We don't 'Guess' intent. We report the conflict.
-                throw CategoryAlreadyExistsException(cleanName)
+                throw DomainAlreadyExistsException(cleanName)
             }
 
             // 4. The Creation (Only reached if name is truly unique)
-            val newCategory = Category(
+            val newDomain = Domain(
                 id = uuid4().toString(),
                 name = cleanName,
                 hexColor = hexColor,
                 isActive = isActive,
                 lastModified = now().toEpochMilliseconds()
             )
-            telemetryDao.upsertCategory(newCategory.toEntity())
+            telemetryDao.upsertDomain(newDomain.toEntity())
         }
     }
+
+    override fun getDomain(id: String): Flow<Domain?> =
+        telemetryDao.getDomainByIdFlow(id).map { it?.toDomain() }
 
 
     // --- TOPICS ---
     private val topicMutex = Mutex()
 
-    override fun getAllTopicsByCategory(categoryId: String): Flow<List<Topic>> {
-        return telemetryDao.getTopicsByCategory(categoryId).map { entities ->
+    override fun getAllTopicsByDomain(domainId: String): Flow<List<Topic>> {
+        return telemetryDao.getTopicsByDomain(domainId).map { entities ->
             entities.map { it.toDomain() }
         }
     }

@@ -8,40 +8,50 @@ import androidx.room.PrimaryKey
 @Entity(
     tableName = "moments",
     foreignKeys = [
-        ForeignKey(
-            entity = CategoryEntity::class,
-            parentColumns = ["id"],
-            childColumns = ["categoryId"],
-            onDelete = ForeignKey.RESTRICT
-        )
+        ForeignKey(entity = DomainEntity::class, parentColumns = ["id"], childColumns = ["domainId"], onDelete = ForeignKey.RESTRICT),
+        ForeignKey(entity = SpaceEntity::class, parentColumns = ["id"], childColumns = ["spaceId"], onDelete = ForeignKey.SET_NULL)
     ],
-    indices = [
-        Index(value = ["categoryId"]), // The performance booster
-        Index(value = ["topicId"])     // Good practice to index this too
-    ]
+    indices = [Index("domainId"), Index("spaceId"), Index("associatedEpochDay")]
 )
 data class MomentEntity(
     @PrimaryKey val id: String,
+    val domainId: String,
+
+    // Pulse
+    val satisfactionScore: Int,
+    val moodScore: Int,
+    val energyScore: Int,
+
+    // Enrichment
+    val note: String?,
+    val topicId: String?,
+    val spaceId: String?,
+    val isFocusTime: Boolean?,
+    val socialScale: Int?,
+    val energyDrain: Int?,
+    val biophiliaScale: Int?,
+    val durationMinutes: Int?,
+
+    // Weather Context
+    val isDaylight: Boolean?,
+    val cloudDensity: Int?,
+    val isPrecipitating: Boolean?,
+
+    // System
     val timestamp: Long,
     val associatedEpochDay: Long,
-    val categoryId: String,
-    val topicId: String?,
-    val durationMinutes: Int,
-    val satisfactionScore: Int,
-    val energyScore: Int,
-    val moodScore: Int,
-    val note: String,
-    val lastModified: Long // Must be set explicitly by Repository
+    val lastModified: Long
 )
 
 @Entity(
-    tableName = "categories",
+    tableName = "domains",
     indices = [Index(value = ["name"], unique = true)] // Category names should be unique
 )
-data class CategoryEntity(
+data class DomainEntity(
     @PrimaryKey val id: String,
     val name: String,
     val hexColor: String,
+    val iconKey: String, // e.g., "ic_work", "ic_heart"
     val isActive: Boolean,
     val lastModified: Long
 )
@@ -65,6 +75,22 @@ data class TopicEntity(
     @PrimaryKey val id: String,
     val parentId: String?,
     val name: String,
+    val isActive: Boolean,
+    val lastModified: Long
+)
+
+@Entity(tableName = "spaces")
+data class SpaceEntity(
+    @PrimaryKey val id: String,
+    val name: String,
+    val iconKey: String, // e.g., "ic_home", "ic_cafe", "ic_park"
+
+    // --- The Atmospheric Baseline ---
+    // Users can define the "Default Atmosphere" of a space
+    val defaultBiophilia: Int?,     // 1-5
+    val noiseLevel: Int?,           // 1-5 (Quiet to Chaotic)
+    val isControlled: Boolean,      // Private vs. Public
+
     val isActive: Boolean,
     val lastModified: Long
 )

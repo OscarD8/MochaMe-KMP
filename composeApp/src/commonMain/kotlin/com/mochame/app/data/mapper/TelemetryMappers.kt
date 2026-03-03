@@ -1,54 +1,72 @@
 package com.mochame.app.data.mapper
 
-import com.mochame.app.database.entity.CategoryEntity
+import com.mochame.app.database.entity.DomainEntity
 import com.mochame.app.database.entity.MomentEntity
 import com.mochame.app.database.entity.TopicEntity
-import com.mochame.app.domain.model.Category
+import com.mochame.app.domain.model.Domain
 import com.mochame.app.domain.model.Moment
 import com.mochame.app.domain.model.Topic
 
 // --- MOMENT MAPPERS ---
-internal fun MomentEntity.toDomain(): Moment = Moment(
+fun MomentEntity.toDomain(): Moment = Moment(
     id = id,
+    domainId = domainId,
+    satisfactionScore = satisfactionScore,
+    moodScore = moodScore,
+    energyScore = energyScore,
+    note = note,
+    topicId = topicId,
+    spaceId = spaceId,
+    isFocusTime = isFocusTime,
+    socialScale = socialScale,
+    energyDrain = energyDrain,
+    biophiliaScale = biophiliaScale,
+    durationMinutes = durationMinutes,
+    isDaylight = isDaylight,
+    cloudDensity = cloudDensity,
+    isPrecipitating = isPrecipitating,
     timestamp = timestamp,
     associatedEpochDay = associatedEpochDay,
-    categoryId = categoryId,
-    topicId = topicId,
-    durationMinutes = durationMinutes,
-    satisfactionScore = satisfactionScore,
-    energyScore = energyScore,
-    moodScore = moodScore,
-    note = note,
     lastModified = lastModified
 )
 
-internal fun Moment.toEntity(): MomentEntity = MomentEntity(
+fun Moment.toEntity(): MomentEntity = MomentEntity(
     id = id,
+    domainId = domainId,
+    satisfactionScore = satisfactionScore,
+    moodScore = moodScore,
+    energyScore = energyScore,
+    note = note,
+    topicId = topicId,
+    spaceId = spaceId,
+    isFocusTime = isFocusTime,
+    socialScale = socialScale,
+    energyDrain = energyDrain,
+    biophiliaScale = biophiliaScale,
+    durationMinutes = durationMinutes,
+    isDaylight = isDaylight,
+    cloudDensity = cloudDensity,
+    isPrecipitating = isPrecipitating,
     timestamp = timestamp,
     associatedEpochDay = associatedEpochDay,
-    categoryId = categoryId,
-    topicId = topicId,
-    durationMinutes = durationMinutes,
-    satisfactionScore = satisfactionScore,
-    energyScore = energyScore,
-    moodScore = moodScore,
-    note = note,
     lastModified = lastModified
 )
 
 // --- CATEGORY MAPPERS ---
-internal fun CategoryEntity.toDomain(): Category = Category(
+fun DomainEntity.toDomain(): Domain = Domain(
     id = id,
     name = name,
     hexColor = hexColor,
+    iconKey = iconKey,
     isActive = isActive,
     lastModified = lastModified
 )
 
-internal fun Category.toEntity(): CategoryEntity = CategoryEntity(
+fun Domain.toEntity(): DomainEntity = DomainEntity(
     id = id,
     name = name,
     hexColor = hexColor,
+    iconKey = iconKey,
     isActive = isActive,
     lastModified = lastModified
 )

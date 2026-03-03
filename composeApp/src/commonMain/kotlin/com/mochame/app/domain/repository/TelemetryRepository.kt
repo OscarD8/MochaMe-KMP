@@ -1,6 +1,6 @@
 package com.mochame.app.domain.repository
 
-import com.mochame.app.domain.model.Category
+import com.mochame.app.domain.model.Domain
 import com.mochame.app.domain.model.Moment
 import com.mochame.app.domain.model.Topic
 import kotlinx.coroutines.flow.Flow
@@ -27,7 +27,7 @@ interface TelemetryRepository {
     suspend fun saveMoment(moment: Moment)
 
     suspend fun logMoment(
-        categoryId: String,
+        domainId: String,
         topicId: String?,
         note: String = "",
         durationMinutes: Int = 0,
@@ -42,13 +42,13 @@ interface TelemetryRepository {
     suspend fun deleteMoment(momentId: String)
 
 
-    // --- CATEGORIES ---
+    // --- DOMAINS ---
     /**
      * The Foundation Constructor:
-     * Creates a new activity category.
+     * Creates a new Domain.
      * hexColor defaults to a neutral 'Mocha' (#8D775F) if not specified.
      */
-    suspend fun logCategory(
+    suspend fun logDomain(
         name: String,
         hexColor: String = "#8D775F",
         isActive: Boolean = true
@@ -57,24 +57,35 @@ interface TelemetryRepository {
     /**
      * Streams all active categories for the UI taxonomy picker.
      */
-    fun getActiveCategories(): Flow<List<Category>>
+    fun getActiveDomains(): Flow<List<Domain>>
 
     /**
-     * Persists or updates a Category and refreshes its sync heartbeat.
+     * Streams all inactive categories for the UI taxonomy picker.
      */
-    suspend fun upsertCategory(category: Category)
+    fun getInactiveDomains(): Flow<List<Domain>>
 
     /**
-     * Removes a category.
+     * Persists or updates a Domain and refreshes its sync heartbeat.
+     */
+    suspend fun upsertDomain(domain: Domain)
+
+    /**
+     * Removes a Domain.
      * Note: Underlying persistence should handle cascading deletes for orphaned moments/topics.
      */
-    suspend fun deleteCategory(categoryId: String)
+    suspend fun deleteDomain(domainId: String)
 
     /**
-     * Updates the status on a category to inactive.
-     * Useful in cases where a category has linked data.
+     * Updates the status on a Domain to inactive.
+     * Useful in cases where a Domain has linked data.
      */
-    suspend fun archiveCategory(categoryId: String)
+    suspend fun archiveDomain(domainId: String)
+
+    /**
+     * Streams a specific Domain for observation or editing.
+     * Emits null if the Domain is deleted during observation.
+     */
+    fun getDomain(id: String): Flow<Domain?>
 
 
     // --- TOPICS ---
@@ -85,9 +96,9 @@ interface TelemetryRepository {
     )
 
     /**
-     * Streams active topics associated with a parent category.
+     * Streams active topics associated with a parent Domain.
      */
-    fun getAllTopicsByCategory(categoryId: String): Flow<List<Topic>>
+    fun getAllTopicsByDomain(domainId: String): Flow<List<Topic>>
 
     /**
      * Updates an existing topic's details (name, parent, etc.)
