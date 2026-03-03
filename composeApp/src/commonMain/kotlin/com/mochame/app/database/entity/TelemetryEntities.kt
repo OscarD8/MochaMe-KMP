@@ -60,25 +60,25 @@ data class DomainEntity(
     tableName = "topics",
     foreignKeys = [
         ForeignKey(
-            entity = TopicEntity::class,
+            entity = DomainEntity::class, // The Anchor
             parentColumns = ["id"],
-            childColumns = ["topicId"],
-            onDelete = ForeignKey.RESTRICT // THE SHIELD: No orphaned moments
+            childColumns = ["domainId"],
+            onDelete = ForeignKey.RESTRICT // If the Domain has Topics, you can't delete the Domain
         )
     ],
     indices = [
-        Index(value = ["categoryId"]),
-        Index(value = ["topicId"]) // THE ACCELERATOR: Fast usage checks
+        Index(value = ["domainId"]),
+        // A name must be unique WITHIN its domain
+        Index(value = ["domainId", "name"], unique = true)
     ]
 )
 data class TopicEntity(
     @PrimaryKey val id: String,
-    val parentId: String?,
+    val domainId: String,
     val name: String,
     val isActive: Boolean,
     val lastModified: Long
 )
-
 @Entity(tableName = "spaces")
 data class SpaceEntity(
     @PrimaryKey val id: String,
@@ -88,7 +88,6 @@ data class SpaceEntity(
     // --- The Atmospheric Baseline ---
     // Users can define the "Default Atmosphere" of a space
     val defaultBiophilia: Int?,     // 1-5
-    val noiseLevel: Int?,           // 1-5 (Quiet to Chaotic)
     val isControlled: Boolean,      // Private vs. Public
 
     val isActive: Boolean,

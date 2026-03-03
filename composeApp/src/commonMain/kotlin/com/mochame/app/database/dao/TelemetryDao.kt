@@ -74,14 +74,24 @@ interface TelemetryDao {
     @Query("SELECT * FROM topics WHERE id = :id LIMIT 1")
     suspend fun getTopicById(id: String): TopicEntity?
 
-    @Query("SELECT * FROM topics WHERE parentId = :domainId AND isActive = 1")
+    @Query("SELECT * FROM topics WHERE domainId = :domainId AND isActive = 1")
     fun getTopicsByDomain(domainId: String): Flow<List<TopicEntity>>
 
+    /**
+     * THE SCOPED LOOKUP:
+     * Finds a topic by name, but only within a specific domain.
+     * This allows "Basics" to exist in 'Cooking' and 'Code' simultaneously.
+     */
+    @Query("SELECT * FROM topics WHERE LOWER(name) = :name AND domainId = :domainId LIMIT 1")
+    suspend fun getTopicByNameInDomain(name: String, domainId: String): TopicEntity?
     @Query("SELECT COUNT(id) FROM moments WHERE topicId = :topicId")
     suspend fun getMomentCountForTopic(topicId: String): Int
 
     @Query("DELETE FROM topics WHERE id = :topicId")
     suspend fun deleteTopicById(topicId: String)
+
+    @Query("SELECT * FROM topics WHERE id = :topicId LIMIT 1")
+    fun getTopicByIdFlow(topicId: String): Flow<TopicEntity?>
 
 
     // SPACES
@@ -100,4 +110,6 @@ interface TelemetryDao {
     @Query("SELECT COUNT(*) FROM moments WHERE spaceId = :spaceId")
     suspend fun getMomentCountForSpace(spaceId: String): Int
 
+    @Query("SELECT * FROM spaces WHERE LOWER(name) = :name LIMIT 1")
+    suspend fun getSpaceByName(name: String): SpaceEntity?
 }

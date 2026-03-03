@@ -2,6 +2,7 @@ package com.mochame.app.domain.repository
 
 import com.mochame.app.domain.model.Domain
 import com.mochame.app.domain.model.Moment
+import com.mochame.app.domain.model.Space
 import com.mochame.app.domain.model.Topic
 import kotlinx.coroutines.flow.Flow
 
@@ -28,12 +29,18 @@ interface TelemetryRepository {
 
     suspend fun logMoment(
         domainId: String,
-        topicId: String?,
-        note: String = "",
-        durationMinutes: Int = 0,
-        satisfactionScore: Int = 0,
-        energyScore: Int = 0,
-        moodScore: Int = 0
+        satisfactionScore: Int,
+        moodScore: Int,
+        energyScore: Int,
+        // Optional Enrichment
+        topicId: String? = null,
+        spaceId: String? = null,
+        note: String? = null,
+        isFocusTime: Boolean? = null,
+        socialScale: Int? = null,
+        energyDrain: Int? = null,
+        biophiliaScale: Int? = null,
+        durationMinutes: Int? = null
     )
 
     /**
@@ -51,6 +58,7 @@ interface TelemetryRepository {
     suspend fun logDomain(
         name: String,
         hexColor: String = "#8D775F",
+        iconKey: String,
         isActive: Boolean = true
     )
 
@@ -85,15 +93,21 @@ interface TelemetryRepository {
      * Streams a specific Domain for observation or editing.
      * Emits null if the Domain is deleted during observation.
      */
-    fun getDomain(id: String): Flow<Domain?>
+    fun getDomainByIdFlow(id: String): Flow<Domain?>
 
 
     // --- TOPICS ---
     suspend fun logTopic(
         name: String,
-        parentId: String? = null,
+        domainId: String,
         isActive: Boolean = true
     )
+
+    /**
+     * Streams a specific Topic for observation or editing.
+     * Emits null if the Topic is deleted during observation.
+     */
+    fun getTopic(topicId: String): Flow<Topic?>
 
     /**
      * Streams active topics associated with a parent Domain.
@@ -114,4 +128,20 @@ interface TelemetryRepository {
      * Archives a topic by setting isActive = false.
      */
     suspend fun archiveTopic(topicId: String)
+
+    // --- SPACES ---
+    fun getActiveSpaces(): Flow<List<Space>>
+
+    suspend fun getSpaceById(id: String): Space?
+
+    suspend fun logSpace(
+        name: String,
+        iconKey: String,
+        defaultBiophilia: Int?,
+        isControlled: Boolean
+    )
+
+    suspend fun deleteSpace(id: String)
+
+    suspend fun upsertSpace(space: Space)
 }

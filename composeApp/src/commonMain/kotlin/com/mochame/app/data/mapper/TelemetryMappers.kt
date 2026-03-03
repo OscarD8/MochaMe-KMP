@@ -2,9 +2,11 @@ package com.mochame.app.data.mapper
 
 import com.mochame.app.database.entity.DomainEntity
 import com.mochame.app.database.entity.MomentEntity
+import com.mochame.app.database.entity.SpaceEntity
 import com.mochame.app.database.entity.TopicEntity
 import com.mochame.app.domain.model.Domain
 import com.mochame.app.domain.model.Moment
+import com.mochame.app.domain.model.Space
 import com.mochame.app.domain.model.Topic
 
 // --- MOMENT MAPPERS ---
@@ -75,7 +77,7 @@ fun Domain.toEntity(): DomainEntity = DomainEntity(
 // --- TOPIC MAPPERS ---
 internal fun TopicEntity.toDomain(): Topic = Topic(
     id = id,
-    parentId = parentId,
+    domainId = domainId,
     name = name,
     isActive = isActive,
     lastModified = lastModified
@@ -83,8 +85,30 @@ internal fun TopicEntity.toDomain(): Topic = Topic(
 
 internal fun Topic.toEntity(): TopicEntity = TopicEntity(
     id = id,
-    parentId = parentId,
+    domainId = domainId,
     name = name,
+    isActive = isActive,
+    lastModified = lastModified
+)
+
+
+// --- SPACE MAPPERS ---
+fun SpaceEntity.toDomain(): Space = Space(
+    id = id,
+    name = name,
+    iconKey = iconKey,
+    defaultBiophilia = defaultBiophilia,
+    isControlled = isControlled,
+    isActive = isActive,
+    lastModified = lastModified
+)
+
+fun Space.toEntity(): SpaceEntity = SpaceEntity(
+    id = id,
+    name = name,
+    iconKey = iconKey,
+    defaultBiophilia = defaultBiophilia,
+    isControlled = isControlled,
     isActive = isActive,
     lastModified = lastModified
 )

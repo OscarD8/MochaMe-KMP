@@ -45,7 +45,7 @@ data class Domain(
 
 data class Topic(
     val id: String,
-    val parentId: String?,
+    val domainId: String,
     val name: String,
     val isActive: Boolean,
     val lastModified: Long
@@ -56,7 +56,6 @@ data class Space(
     val name: String,
     val iconKey: String,
     val defaultBiophilia: Int?,
-    val noiseLevel: Int?,
     val isControlled: Boolean,
     val isActive: Boolean,
     val lastModified: Long
