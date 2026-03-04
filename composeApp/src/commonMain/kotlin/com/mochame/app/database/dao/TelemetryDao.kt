@@ -25,9 +25,9 @@ interface TelemetryDao {
     fun getMomentsByEpochDay(epochDay: Long): Flow<List<MomentEntity>>
 
     @Query("""
-        SELECT * FROM moments 
-        WHERE associatedEpochDay IN (SELECT epochDay FROM daily_context)
-        ORDER BY timestamp DESC
+        SELECT m.* FROM moments m
+        INNER JOIN daily_context d ON m.associatedEpochDay = d.epochDay
+        ORDER BY m.timestamp DESC
     """)
     fun getMomentsWithBioContext(): Flow<List<MomentEntity>>
 
@@ -52,7 +52,7 @@ interface TelemetryDao {
     @Query("SELECT * FROM domains WHERE isActive = 0 ORDER BY name ASC")
     fun getInactiveDomains(): Flow<List<DomainEntity>>
 
-    @Query("SELECT * FROM domains WHERE name = :name LIMIT 1")
+    @Query("SELECT * FROM domains WHERE LOWER(name) = LOWER(:name) LIMIT 1")
     suspend fun getDomainByName(name: String): DomainEntity?
 
     @Query("SELECT * FROM domains WHERE id = :domainId LIMIT 1")
@@ -68,7 +68,7 @@ interface TelemetryDao {
     @Upsert
     suspend fun upsertTopic(topic: TopicEntity)
 
-    @Query("SELECT * FROM topics WHERE name = :name LIMIT 1")
+    @Query("SELECT * FROM topics WHERE name = LOWER(:name) LIMIT 1")
     suspend fun getTopicByName(name: String): TopicEntity?
 
     @Query("SELECT * FROM topics WHERE id = :id LIMIT 1")
@@ -82,7 +82,7 @@ interface TelemetryDao {
      * Finds a topic by name, but only within a specific domain.
      * This allows "Basics" to exist in 'Cooking' and 'Code' simultaneously.
      */
-    @Query("SELECT * FROM topics WHERE LOWER(name) = :name AND domainId = :domainId LIMIT 1")
+    @Query("SELECT * FROM topics WHERE LOWER(name) = LOWER(:name) AND domainId = :domainId LIMIT 1")
     suspend fun getTopicByNameInDomain(name: String, domainId: String): TopicEntity?
     @Query("SELECT COUNT(id) FROM moments WHERE topicId = :topicId")
     suspend fun getMomentCountForTopic(topicId: String): Int
@@ -110,6 +110,6 @@ interface TelemetryDao {
     @Query("SELECT COUNT(*) FROM moments WHERE spaceId = :spaceId")
     suspend fun getMomentCountForSpace(spaceId: String): Int
 
-    @Query("SELECT * FROM spaces WHERE LOWER(name) = :name LIMIT 1")
+    @Query("SELECT * FROM spaces WHERE LOWER(name) = LOWER(:name) LIMIT 1")
     suspend fun getSpaceByName(name: String): SpaceEntity?
 }

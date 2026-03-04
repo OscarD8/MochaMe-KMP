@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.mochame.app.domain.model.Category
 import com.mochame.app.database.entity.DailyContext
 import com.mochame.app.domain.repository.BioRepository
-import com.mochame.app.domain.repository.TelemetryRepository
+import com.mochame.app.domain.repository.telemetry.TelemetryRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch

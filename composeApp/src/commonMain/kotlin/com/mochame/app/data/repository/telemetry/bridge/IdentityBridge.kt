@@ -1,0 +1,243 @@
+package com.mochame.app.data.repository.telemetry.bridge
+
+import com.benasher44.uuid.uuid4
+import com.mochame.app.core.DomainAlreadyExistsException
+import com.mochame.app.core.DomainInUseException
+import com.mochame.app.core.DomainNotFoundException
+import com.mochame.app.core.SpaceAlreadyExistsException
+import com.mochame.app.core.SpaceInUseException
+import com.mochame.app.core.SpaceNotFoundException
+import com.mochame.app.core.TopicAlreadyExistsException
+import com.mochame.app.core.TopicInUseException
+import com.mochame.app.core.TopicNotFoundException
+import com.mochame.app.data.mapper.toDomain
+import com.mochame.app.data.mapper.toEntity
+import com.mochame.app.database.dao.TelemetryDao
+import com.mochame.app.domain.model.Domain
+import com.mochame.app.domain.model.Space
+import com.mochame.app.domain.model.Topic
+import com.mochame.app.domain.repository.telemetry.IdentityActions
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import kotlin.time.Clock
+
+
+/**
+ * IdentityBridge: SQLite-backed implementation of [IdentityActions].
+ *
+ * This bridge utilizes [TelemetryDao] to enforce structural constraints at the
+ * database level.
+ */
+internal class IdentityBridge(
+    private val telemetryDao: TelemetryDao,
+) : IdentityActions {
+
+    // --- DOMAIN ---
+    private val domainMutex = Mutex()
+
+    override suspend fun logDomain(
+        name: String,
+        hexColor: String,
+        iconKey: String, // The new semantic anchor
+        isActive: Boolean
+    ) = withContext(Dispatchers.IO) {
+        val cleanName = name.trim()
+
+        // 1. The Lock: Prevents naming collisions across concurrent threads
+        domainMutex.withLock {
+
+            // 2. The Check: Using lowercase to ensure "Work" and "work" don't coexist
+            val existing = telemetryDao.getDomainByName(cleanName.lowercase())
+
+            if (existing != null) {
+                // 3. The Block: Explicit error reporting for the UI to handle
+                throw DomainAlreadyExistsException(cleanName)
+            }
+
+            // 4. The Creation: Mapping to the Domain molecule first
+            val newDomain = Domain(
+                id = uuid4().toString(),
+                name = cleanName,
+                hexColor = hexColor,
+                iconKey = iconKey, // Anchoring the icon
+                isActive = isActive,
+                lastModified = Clock.System.now().toEpochMilliseconds()
+            )
+
+            // 5. The Persistence: Converting to the SQLite Entity for storage
+            telemetryDao.upsertDomain(newDomain.toEntity())
+        }
+    }
+
+    override suspend fun upsertDomain(domain: Domain) = withContext(Dispatchers.IO) {
+        val updatedDomain = domain.copy(
+            lastModified = Clock.System.now().toEpochMilliseconds()
+        )
+        telemetryDao.upsertDomain(updatedDomain.toEntity())
+    }
+
+    override suspend fun deleteDomain(domainId: String) = domainMutex.withLock {
+        withContext(Dispatchers.IO) {
+            // Atomic Check-and-Delete: No moments can be added to this ID while we are checking.
+            val usageCount = telemetryDao.getMomentCountForDomain(domainId)
+
+            if (usageCount == 0) {
+                telemetryDao.deleteDomainById(domainId)
+            } else {
+                throw DomainInUseException(usageCount)
+            }
+        }
+    }
+
+    override suspend fun archiveDomain(domainId: String) = withContext(Dispatchers.IO) {
+        val existing =
+            telemetryDao.getDomainById(domainId) ?: throw DomainNotFoundException(domainId)
+
+        val updated = existing.toDomain().copy(
+            isActive = false,
+            lastModified = Clock.System.now().toEpochMilliseconds()
+        )
+
+        telemetryDao.upsertDomain(updated.toEntity())
+    }
+
+    // --- TOPIC ---
+    private val topicMutex = Mutex()
+
+    override suspend fun logTopic(
+        name: String,
+        domainId: String,
+        isActive: Boolean
+    ) = withContext(Dispatchers.IO) {
+        val cleanName = name.trim()
+
+        topicMutex.withLock {
+            // We check if this name exists ALREADY in this specific domain
+            val existing = telemetryDao.getTopicByNameInDomain(cleanName.lowercase(), domainId)
+
+            if (existing != null) {
+                throw TopicAlreadyExistsException(cleanName, domainId)
+            }
+
+            val newTopic = Topic(
+                id = uuid4().toString(),
+                domainId = domainId,
+                name = cleanName,
+                isActive = isActive,
+                lastModified = Clock.System.now().toEpochMilliseconds()
+            )
+
+            telemetryDao.upsertTopic(newTopic.toEntity())
+        }
+    }
+
+    override suspend fun upsertTopic(topic: Topic) = withContext(Dispatchers.IO) {
+        val updatedTopic = topic.copy(
+            lastModified = Clock.System.now().toEpochMilliseconds()
+        )
+        telemetryDao.upsertTopic(updatedTopic.toEntity())
+    }
+
+    override suspend fun deleteTopic(topicId: String) = topicMutex.withLock {
+        withContext(Dispatchers.IO) {
+            val usageCount = telemetryDao.getMomentCountForTopic(topicId)
+
+            if (usageCount == 0) {
+                telemetryDao.deleteTopicById(topicId)
+            } else {
+                throw TopicInUseException(usageCount)
+            }
+        }
+    }
+
+    override suspend fun archiveTopic(topicId: String) = withContext(Dispatchers.IO) {
+        val existing = telemetryDao.getTopicById(topicId) ?: throw TopicNotFoundException(topicId)
+
+        val archived = existing.toDomain().copy(
+            isActive = false,
+            lastModified = Clock.System.now().toEpochMilliseconds()
+        )
+
+        telemetryDao.upsertTopic(archived.toEntity())
+    }
+
+    // --- SPACE ---
+    private val spaceMutex = Mutex()
+
+    override suspend fun logSpace(
+        name: String,
+        iconKey: String,
+        defaultBiophilia: Int?,
+        isControlled: Boolean
+    ) = withContext(Dispatchers.IO) {
+        val cleanName = name.trim()
+
+        spaceMutex.withLock {
+            // 1. The Identity Guard: Check for semantic duplication
+            val existing = telemetryDao.getSpaceByName(cleanName.lowercase())
+
+            if (existing != null) {
+                // 2. The Block: Report the collision
+                throw SpaceAlreadyExistsException(cleanName)
+            }
+
+            // 3. The Creation: Proceed only if the path is clear
+            val now = Clock.System.now().toEpochMilliseconds()
+
+            val newSpace = Space(
+                id = uuid4().toString(),
+                name = cleanName,
+                iconKey = iconKey,
+                defaultBiophilia = defaultBiophilia,
+                isControlled = isControlled,
+                isActive = true,
+                lastModified = now
+            )
+
+            telemetryDao.upsertSpace(newSpace.toEntity())
+        }
+    }
+
+    override suspend fun upsertSpace(space: Space) = withContext(Dispatchers.IO) {
+        // We update the timestamp so the "Brain" (ok Gemini) knows this data is fresh
+        val updatedSpace = space.copy(lastModified = Clock.System.now().toEpochMilliseconds())
+
+        telemetryDao.upsertSpace(updatedSpace.toEntity())
+    }
+
+    override suspend fun deleteSpace(id: String) = withContext(Dispatchers.IO) {
+        // 1. Audit the Space's history
+        val usageCount = telemetryDao.getMomentCountForSpace(id)
+
+        if (usageCount > 0) {
+            // 2. Raise the Shield
+            throw SpaceInUseException(id, usageCount)
+        } else {
+            // 3. Perform the excision
+            telemetryDao.deleteSpaceById(id)
+        }
+    }
+
+    override suspend fun archiveSpace(id: String) = withContext(Dispatchers.IO) {
+        // 1. The Fetch: Retrieve the entity from the DAO
+        // Note: Ensure your SpaceNotFoundException is defined in your CustomExceptions.kt
+        val existing = telemetryDao.getSpaceById(id) ?: throw SpaceNotFoundException(id)
+
+        // 2. The Mutation: Convert to Domain molecule and flip the isActive bit
+        // Using the .toDomain() extension function from TelemetryMappers.kt
+        val archived = existing.toDomain().copy(
+            isActive = false,
+            lastModified = Clock.System.now().toEpochMilliseconds()
+        )
+
+        // 3. The Persistence: Map back to Entity and save
+        telemetryDao.upsertSpace(archived.toEntity())
+    }
+
+}
+
+
+

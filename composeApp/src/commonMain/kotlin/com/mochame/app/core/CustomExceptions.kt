@@ -16,3 +16,5 @@ class SpaceInUseException(spaceId: String, momentCount: Int) :
     Exception("Cannot delete space: $spaceId. $momentCount moments are still anchored here.")
 class SpaceAlreadyExistsException(val name: String) :
     Exception("A space with the name '$name' already exists.")
+
+class SpaceNotFoundException(id: String) : Exception("Space with ID $id was not found.")

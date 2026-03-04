@@ -1,41 +1,59 @@
 package com.mochame.app.di
 
+import com.mochame.app.core.DateTimeUtils
 import com.mochame.app.data.repository.BioRepositoryImpl
 import com.mochame.app.ui.ProofOfLifeViewModel
-import com.mochame.app.data.repository.TelemetryRepositoryImpl
+import com.mochame.app.data.repository.telemetry.TelemetryRepositoryImpl
+import com.mochame.app.data.repository.telemetry.bridge.ChronicleBridge
+import com.mochame.app.data.repository.telemetry.bridge.IdentityBridge
+import com.mochame.app.data.repository.telemetry.bridge.ObservationBridge
 import com.mochame.app.database.MochaDatabase
 import com.mochame.app.domain.repository.BioRepository
-import com.mochame.app.domain.repository.TelemetryRepository
+import com.mochame.app.domain.repository.telemetry.TelemetryRepository
+import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
 // THE UPDATED IMPORT FOR KOIN 4.0
-import org.koin.core.module.dsl.viewModel
+import org.koin.core.module.dsl.viewModelOf
 
 val appModule = module {
-    /**
-     * THE UNIVERSAL BRAIN (DAOs)
-     * These are the "Synapses."
-     * The Brain asks the 'MochaDatabase' (The Heart) to provide these tools.
-     * It doesn't care if the Heart is on Android or Linux;
-     * it just knows it can call 'telemetryDao()' once the Heart is beating.
-     */
+
+    /** --- THE TOOLS --- */
+    singleOf(::DateTimeUtils) // 2026 DSL: Auto-wires constructor params
+
+    /** --- THE SYNAPSES (DAOs) --- */
+    // Scoped specifically to the Database instance
     single { get<MochaDatabase>().telemetryDao() }
     single { get<MochaDatabase>().bioDao() }
 
-    /**
-     * THE REPOSITORIES
-     * These are the "Reflexes."
-     * They take the raw data Synapses (DAOs) and wrap them in clean logic.
-     * They are 'single' because we only need one set of reflexes for the whole life.
+    /** * --- THE INTERNAL BRIDGES ---
+     * We do NOT give these public interfaces here.
+     * We keep them as their concrete types so ONLY the Repository can find them.
      */
-    single<TelemetryRepository> { TelemetryRepositoryImpl(get()) }
-    single<BioRepository> { BioRepositoryImpl(get()) }
+    factory { IdentityBridge(telemetryDao = get()) }
+    factory { ChronicleBridge(dao = get()) }
+    factory {
+        ObservationBridge(
+            dao = get(),
+            dateTimeUtils = get()
+        )
+    }
 
-    /**
-     * THE CONSCIOUSNESS (ViewModel)
-     * This is the highest level of the organism's thought process.
-     * We use 'viewModel' instead of 'factory' because this part of the brain
-     * needs to stay alive during "Environmental Shifts" (like rotating a phone).
-     * It asks the Ribosome for both the Telemetry and Bio reflexes.
-     */
-    viewModel { ProofOfLifeViewModel(get(), get()) }
+    /** --- THE PUBLIC REPOSITORIES (The Seal) --- */
+    single<TelemetryRepository> {
+        TelemetryRepositoryImpl(
+            identity = get<IdentityBridge>(),    // Explicitly fetching the bridge
+            observation = get<ObservationBridge>(),
+            chronicle = get<ChronicleBridge>()
+        )
+    }
+
+    single<BioRepository> {
+        BioRepositoryImpl(
+            bioDao = get(),
+            dateTimeUtils = get()
+        )
+    }
+
+    /** --- THE CONSCIOUSNESS --- */
+    viewModelOf(::ProofOfLifeViewModel) // Clean, reflective, and K2-friendly
 }

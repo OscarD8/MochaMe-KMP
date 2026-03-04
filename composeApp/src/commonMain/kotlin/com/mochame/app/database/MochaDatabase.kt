@@ -22,8 +22,9 @@ import kotlinx.coroutines.IO
 
         // TELEMETRY MODULE
         MomentEntity::class,
-        CategoryEntity::class,
+        DomainEntity::class,
         TopicEntity::class,
+        SpaceEntity::class,
 
         // SIGNAL MODULE
         AuthorEntity::class,

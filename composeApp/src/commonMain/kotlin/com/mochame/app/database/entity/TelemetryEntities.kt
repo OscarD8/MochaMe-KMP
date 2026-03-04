@@ -9,9 +9,17 @@ import androidx.room.PrimaryKey
     tableName = "moments",
     foreignKeys = [
         ForeignKey(entity = DomainEntity::class, parentColumns = ["id"], childColumns = ["domainId"], onDelete = ForeignKey.RESTRICT),
-        ForeignKey(entity = SpaceEntity::class, parentColumns = ["id"], childColumns = ["spaceId"], onDelete = ForeignKey.SET_NULL)
+        ForeignKey(entity = SpaceEntity::class, parentColumns = ["id"], childColumns = ["spaceId"], onDelete = ForeignKey.SET_NULL),
+        ForeignKey(entity = TopicEntity::class, parentColumns = ["id"], childColumns = ["topicId"], onDelete = ForeignKey.RESTRICT)
     ],
-    indices = [Index("domainId"), Index("spaceId"), Index("associatedEpochDay")]
+    indices = [
+        Index("domainId"),
+        Index("topicId"),
+        Index("spaceId"),
+        Index("associatedEpochDay"),
+        Index("timestamp"),    // Added for UI Feed performance
+        Index("lastModified")  // Added for Sync Delta performance
+    ]
 )
 data class MomentEntity(
     @PrimaryKey val id: String,
@@ -45,7 +53,10 @@ data class MomentEntity(
 
 @Entity(
     tableName = "domains",
-    indices = [Index(value = ["name"], unique = true)] // Category names should be unique
+    indices = [
+        Index(value = ["name"], unique = true), // Category names should be unique
+        Index("lastModified") // Added for Sync Delta
+    ]
 )
 data class DomainEntity(
     @PrimaryKey val id: String,
@@ -67,9 +78,8 @@ data class DomainEntity(
         )
     ],
     indices = [
-        Index(value = ["domainId"]),
-        // A name must be unique WITHIN its domain
-        Index(value = ["domainId", "name"], unique = true)
+        Index(value = ["domainId", "name"], unique = true), // name must be unique within its domain
+        Index("lastModified") // Added for Sync Delta
     ]
 )
 data class TopicEntity(
@@ -79,17 +89,23 @@ data class TopicEntity(
     val isActive: Boolean,
     val lastModified: Long
 )
-@Entity(tableName = "spaces")
+
+
+@Entity(
+    tableName = "spaces",
+    indices = [
+        // Taxonomy Integrity: Prevents "Home" and "home" duplicates
+        Index(value = ["name"], unique = true),
+        // Sync & Analytical Integrity: Used for localized analysis windows
+        Index(value = ["lastModified"])
+    ]
+)
 data class SpaceEntity(
     @PrimaryKey val id: String,
     val name: String,
-    val iconKey: String, // e.g., "ic_home", "ic_cafe", "ic_park"
-
-    // --- The Atmospheric Baseline ---
-    // Users can define the "Default Atmosphere" of a space
-    val defaultBiophilia: Int?,     // 1-5
-    val isControlled: Boolean,      // Private vs. Public
-
+    val iconKey: String,
+    val defaultBiophilia: Int?,
+    val isControlled: Boolean,
     val isActive: Boolean,
     val lastModified: Long
 )

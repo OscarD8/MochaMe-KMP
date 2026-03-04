@@ -1,6 +1,7 @@
 package com.mochame.app.data.repository
 
 import com.benasher44.uuid.uuid4
+import com.mochame.app.core.DateTimeUtils
 import com.mochame.app.data.mapper.toDomain
 import com.mochame.app.data.mapper.toEntity
 import com.mochame.app.database.dao.BioDao
@@ -15,17 +16,21 @@ import kotlinx.datetime.*
 import kotlin.time.Clock
 
 class BioRepositoryImpl(
-    private val bioDao: BioDao
+    private val bioDao: BioDao,
+    private val dateTimeUtils: DateTimeUtils
 ) : BioRepository {
+
 
     /**
      * The Master Clock Authority:
      * Enforces the 4:00 AM Midnight Rule globally.
      */
     override fun getCurrentBioDay(): Long {
-        val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
-        val epochDays = now.date.toEpochDays()
-        return if (now.hour < 4) epochDays - 1 else epochDays
+        TODO("This should refer to the global tool of datetime utils")
+
+//        val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
+//        val epochDays = now.date.toEpochDays()
+//        return if (now.hour < 4) epochDays - 1 else epochDays
     }
 
     override fun getTodaysContext(): Flow<DailyContext?> {
