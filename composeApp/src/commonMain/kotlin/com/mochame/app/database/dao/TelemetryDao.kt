@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface TelemetryDao {
+
     // --- MOMENTS ---
     @Upsert
     suspend fun upsertMoment(moment: MomentEntity)
@@ -63,6 +64,7 @@ interface TelemetryDao {
 
     @Query("SELECT * FROM domains WHERE id = :id LIMIT 1")
     fun getDomainByIdFlow(id: String): Flow<DomainEntity?>
+
 
     // --- TOPICS ---
     @Upsert

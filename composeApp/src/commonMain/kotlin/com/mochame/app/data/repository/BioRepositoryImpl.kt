@@ -11,6 +11,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.*
 import kotlin.time.Clock
@@ -20,37 +22,55 @@ class BioRepositoryImpl(
     private val dateTimeUtils: DateTimeUtils
 ) : BioRepository {
 
+    // Guards against concurrent initialization during 4:00 AM state shifts
+    private val bioMutex = Mutex()
 
-    /**
-     * The Master Clock Authority:
-     * Enforces the 4:00 AM Midnight Rule globally.
-     */
     override fun getCurrentBioDay(): Long {
-        TODO("This should refer to the global tool of datetime utils")
-
-//        val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault())
-//        val epochDays = now.date.toEpochDays()
-//        return if (now.hour < 4) epochDays - 1 else epochDays
+        // Correcting the call to use the hardened utility pattern
+        return dateTimeUtils.calculateBiologicalEpochDay(dateTimeUtils.now())
     }
 
     override fun getTodaysContext(): Flow<DailyContext?> {
-        return bioDao.getContextByEpochDay(getCurrentBioDay()).map { it?.toDomain() }
+        return bioDao.getContextByEpochDay(getCurrentBioDay())
+            .map { it?.toDomain() }
     }
 
     /**
-     * Non-Blocking Initialization:
-     * Creates the (BioContext) without touching existing (Moments).
+     * Hardened Initialization:
+     * Ensures "The Cup" has a stable ID and respects the "Last Modified" heartbeat.
      */
     override suspend fun initializeDay(
         sleepHours: Double,
         readinessScore: Int
-    ) = withContext(Dispatchers.IO) {
-        val newContext = DailyContext(
-            id = uuid4().toString(),
-            epochDay = getCurrentBioDay(),
-            sleepHours = sleepHours,
-            readinessScore = readinessScore,
-            lastModified = Clock.System.now().toEpochMilliseconds()
+    ) = bioMutex.withLock {
+        withContext(Dispatchers.IO) {
+            val epochDay = getCurrentBioDay()
+
+            // 1. Check if the "Cup" already exists for this biological day
+            val existingContext = bioDao.getContextByEpochDaySync(epochDay)
+
+            val contextToSave = existingContext?.
+            toDomain()?.copy( // Update existing record, preserving the stable ID
+                sleepHours = sleepHours,
+                readinessScore = readinessScore,
+                lastModified = dateTimeUtils.now().toEpochMilliseconds()
+            )
+                ?: // Create a new anchor for this biological day
+                DailyContext(
+                    id = uuid4().toString(),
+                    epochDay = epochDay,
+                    sleepHours = sleepHours,
+                    readinessScore = readinessScore,
+                    lastModified = dateTimeUtils.now().toEpochMilliseconds()
+                )
+
+            bioDao.upsertDailyContext(contextToSave.toEntity())
+        }
+    }
+
+    override suspend fun upsertContext(context: DailyContext) {
+        val newContext = context.copy(
+            lastModified = dateTimeUtils.now().toEpochMilliseconds()
         )
         bioDao.upsertDailyContext(newContext.toEntity())
     }

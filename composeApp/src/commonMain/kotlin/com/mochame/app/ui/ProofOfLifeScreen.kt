@@ -37,7 +37,10 @@ fun ProofOfLifeScreen(viewModel: ProofOfLifeViewModel) {
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { viewModel.addTestData() }) {
+            FloatingActionButton(onClick = {
+                viewModel.addTestData()
+                viewModel.initializeDailyContext(6.5,3)
+            }) {
                 Icon(Icons.Default.Add, contentDescription = "Inject Data")
             }
         }

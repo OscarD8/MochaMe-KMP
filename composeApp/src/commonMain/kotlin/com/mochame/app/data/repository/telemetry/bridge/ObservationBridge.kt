@@ -38,7 +38,7 @@ internal class ObservationBridge(
         val now = Clock.System.now().toEpochMilliseconds()
 
         // 1. The Midnight Rule: Calculate biological day using the 4 AM Anchor
-        val biologicalDay = dateTimeUtils.calculateBiologicalEpochDay(Clock.System.now())
+        val biologicalDay = dateTimeUtils.calculateBiologicalEpochDay(dateTimeUtils.now())
 
         // 2. Space Enrichment: Fallback to Space defaults if user didn't specify
         val finalBiophilia = if (biophiliaScale == null && spaceId != null) {

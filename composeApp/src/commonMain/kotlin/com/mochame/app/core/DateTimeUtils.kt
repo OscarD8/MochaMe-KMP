@@ -4,13 +4,14 @@ import kotlinx.datetime.*
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlin.time.Clock
+import kotlin.time.Instant
 
 class DateTimeUtils {
 
     /**
      * Returns the current system instant.
      */
-    fun now(): kotlin.time.Instant = Clock.System.now()
+    fun now(): Instant = Clock.System.now()
 
     /**
      * The Biological Anchor logic.

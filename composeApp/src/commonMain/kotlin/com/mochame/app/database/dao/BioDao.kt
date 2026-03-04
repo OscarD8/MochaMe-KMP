@@ -32,4 +32,12 @@ interface BioDao {
      */
     @Query("DELETE FROM daily_context WHERE id = :id")
     suspend fun deleteContextById(id: String)
+
+    /**
+     * One-shot retrieval for the "Check-and-Act" initialization pattern.
+     * * Unlike the Flow-based observers, this provides a point-in-time snapshot
+     * to prevent race conditions during the 4:00 AM state transition.
+     */
+    @Query("SELECT * FROM daily_context WHERE epochDay = :epochDay LIMIT 1")
+    suspend fun getContextByEpochDaySync(epochDay: Long): DailyContextEntity?
 }

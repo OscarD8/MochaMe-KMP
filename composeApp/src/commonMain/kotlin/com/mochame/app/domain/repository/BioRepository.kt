@@ -6,9 +6,7 @@ import kotlinx.coroutines.flow.Flow
 interface BioRepository {
 
     /**
-     * The Master Clock Authority:
-     * Calculates the current epoch day based on the 4:00 AM biological rollover.
-     * UI components use this to label headers (e.g., "Monday's Fuel").
+     * Calculates the current epoch day based on the 4:00 AM rollover.
      */
     fun getCurrentBioDay(): Long
 
@@ -37,4 +35,6 @@ interface BioRepository {
      * This allows for "Soft Recovery" if the day is re-initialized.
      */
     suspend fun deleteContext(id: String)
+
+    suspend fun upsertContext(context: DailyContext)
 }

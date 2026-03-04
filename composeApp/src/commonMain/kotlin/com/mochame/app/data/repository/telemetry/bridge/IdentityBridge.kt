@@ -35,6 +35,7 @@ internal class IdentityBridge(
     private val telemetryDao: TelemetryDao,
 ) : IdentityActions {
 
+
     // --- DOMAIN ---
     private val domainMutex = Mutex()
 
@@ -104,6 +105,7 @@ internal class IdentityBridge(
         telemetryDao.upsertDomain(updated.toEntity())
     }
 
+
     // --- TOPIC ---
     private val topicMutex = Mutex()
 
@@ -163,6 +165,7 @@ internal class IdentityBridge(
 
         telemetryDao.upsertTopic(archived.toEntity())
     }
+
 
     // --- SPACE ---
     private val spaceMutex = Mutex()
