@@ -31,13 +31,12 @@ import kotlinx.coroutines.IO
         BookEntity::class,
         QuoteEntity::class
     ],
-    version = 2,
+    version = 4,
     exportSchema = false // Standard for Phase 1 local-only development
 )
 @TypeConverters(MochaConverters::class)
 abstract class MochaDatabase : RoomDatabase() {
 
-    // Kernel Access Points (The Engines)
     abstract fun bioDao(): BioDao
     abstract fun telemetryDao(): TelemetryDao
     abstract fun signalDao(): SignalDao

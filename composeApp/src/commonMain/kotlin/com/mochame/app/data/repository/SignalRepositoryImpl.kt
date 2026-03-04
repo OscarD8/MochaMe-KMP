@@ -1,8 +1,12 @@
 package com.mochame.app.data.repository
 
+import com.mochame.app.core.AuthorInUseException
+import com.mochame.app.core.BookInUseException
+import com.mochame.app.core.DateTimeUtils
 import com.mochame.app.data.mapper.toDomain
 import com.mochame.app.data.mapper.toEntity
 import com.mochame.app.database.dao.SignalDao
+import com.mochame.app.database.entity.QuoteEntity
 import com.mochame.app.domain.model.Author
 import com.mochame.app.domain.model.Book
 import com.mochame.app.domain.model.Emotion
@@ -12,28 +16,45 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import kotlin.time.Clock
 
 class SignalRepositoryImpl(
-    private val signalDao: SignalDao
+    private val signalDao: SignalDao,
+    private val dateTimeUtils: DateTimeUtils
 ) : SignalRepository {
 
-    // --- THE INFINITE LOOP (Wisdom Injection) ---
+    // --- QUOTE FETCH ---
+    private val signalMutex: Mutex = Mutex()
 
-    override suspend fun getNextSignal(): Quote? = withContext(Dispatchers.IO) {
-        // Atomic fetch-and-increment handled by the DAO Transaction
-        signalDao.getAndIncrementNextSignal()?.toDomain()
+    override suspend fun getNextSignal(): Quote? = signalMutex.withLock {
+        incrementViewAndMap(signalDao.getNextSignalCandidate())
     }
 
-    override suspend fun getSignalByEmotion(emotion: Emotion): Quote? = withContext(Dispatchers.IO) {
-        // Consistency Fix: Semantic hits also increment viewCount
-        signalDao.getAndIncrementSignalByEmotion(emotion)?.toDomain()
+    override suspend fun getSignalByEmotion(emotion: Emotion): Quote? = signalMutex.withLock {
+        incrementViewAndMap(signalDao.getQuoteByEmotionCandidate(emotion))
+    }
+
+    /**
+     * A private helper that handles the transition from a raw entity to a
+     * used/viewed domain model.
+     */
+    private suspend fun incrementViewAndMap(candidate: QuoteEntity?): Quote? {
+        if (candidate == null) return null
+
+        val updated = candidate.copy(
+            viewCount = candidate.viewCount + 1,
+            lastModified = dateTimeUtils.now().toEpochMilliseconds()
+        )
+
+        signalDao.upsertQuote(updated)
+        return updated.toDomain()
     }
 
     override suspend fun upsertQuote(quote: Quote) = withContext(Dispatchers.IO) {
         val syncReadyQuote = quote.copy(
-            lastModified = Clock.System.now().toEpochMilliseconds()
+            lastModified = dateTimeUtils.now().toEpochMilliseconds()
         )
         signalDao.upsertQuote(syncReadyQuote.toEntity())
     }
@@ -41,6 +62,15 @@ class SignalRepositoryImpl(
     override suspend fun deleteQuote(quoteId: String) = withContext(Dispatchers.IO) {
         signalDao.deleteQuoteById(quoteId)
     }
+
+    override fun getAuthorFlow(id: String): Flow<Author?> =
+        signalDao.getAuthorByIdFlow(id).map { it?.toDomain() }
+
+    override fun getBookFlow(id: String): Flow<Book?> =
+        signalDao.getBookByIdFlow(id).map { it?.toDomain() }
+
+    override fun getQuoteFlow(id: String): Flow<Quote?> =
+        signalDao.getQuoteByIdFlow(id).map { it?.toDomain() }
 
     // --- AUTHOR & BOOK MANAGEMENT ---
 
@@ -52,7 +82,7 @@ class SignalRepositoryImpl(
 
     override suspend fun upsertAuthor(author: Author) = withContext(Dispatchers.IO) {
         val syncReadyAuthor = author.copy(
-            lastModified = Clock.System.now().toEpochMilliseconds()
+            lastModified = dateTimeUtils.now().toEpochMilliseconds()
         )
         signalDao.upsertAuthor(syncReadyAuthor.toEntity())
     }
@@ -63,15 +93,45 @@ class SignalRepositoryImpl(
         }
     }
 
+    override suspend fun archiveBook(bookId: String) = withContext(Dispatchers.IO) {
+        val existing = signalDao.getBookById(bookId) ?: return@withContext
+
+        // Use the master clock to refresh the sync heartbeat
+        val archived = existing.toDomain().copy(
+            isActive = false,
+            lastModified = dateTimeUtils.now().toEpochMilliseconds()
+        )
+        signalDao.upsertBook(archived.toEntity())
+    }
+
     override suspend fun upsertBook(book: Book) = withContext(Dispatchers.IO) {
         val syncReadyBook = book.copy(
-            lastModified = Clock.System.now().toEpochMilliseconds()
+            lastModified = dateTimeUtils.now().toEpochMilliseconds()
         )
         signalDao.upsertBook(syncReadyBook.toEntity())
     }
 
     override suspend fun deleteBook(bookId: String) = withContext(Dispatchers.IO) {
-        // Atomic deletion; FK CASCADE in SQLite cleans up associated Quotes
+        // 1. The Audit: Count the "Wisdom" inside
+        val quoteCount = signalDao.getQuoteCountByBook(bookId)
+
+        if (quoteCount > 0) {
+            // 2. The Protective Block:
+            // We do not delete. We throw an exception that the UI can catch
+            // to show a "Warning: This book contains $quoteCount quotes" dialog.
+            throw BookInUseException(bookId, quoteCount)
+        }
+
+        // 3. The Act: Only if it's empty
         signalDao.deleteBookById(bookId)
+    }
+
+    override suspend fun deleteAuthor(authorId: String) = withContext(Dispatchers.IO) {
+        // Audit check to prevent RESTRICT crash
+        val booksByAuthor = signalDao.getBooksByAuthorSync(authorId)
+        if (booksByAuthor.isNotEmpty()) {
+            throw AuthorInUseException(authorId, booksByAuthor.size)
+        }
+        signalDao.deleteAuthorById(authorId)
     }
 }

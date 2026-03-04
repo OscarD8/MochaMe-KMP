@@ -6,37 +6,16 @@ import com.mochame.app.database.entity.BookEntity
 import com.mochame.app.database.entity.QuoteEntity
 import com.mochame.app.domain.model.Emotion
 import kotlinx.coroutines.flow.Flow
-import kotlin.time.Clock
 
 @Dao
 interface SignalDao {
 
-    // --- ATOMIC WISDOM INJECTION ---
+    // --- QUOTES (READS) ---
 
-    @Transaction
-    suspend fun getAndIncrementNextSignal(): QuoteEntity? {
-        val quote = getNextSignalQuote() ?: return null
-        val updated = quote.copy(
-            viewCount = quote.viewCount + 1,
-            lastModified = Clock.System.now().toEpochMilliseconds()
-        )
-        upsertQuote(updated)
-        return quote
-    }
-
-    @Transaction
-    suspend fun getAndIncrementSignalByEmotion(emotion: Emotion): QuoteEntity? {
-        val quote = getQuoteByEmotion(emotion) ?: return null
-        val updated = quote.copy(
-            viewCount = quote.viewCount + 1,
-            lastModified = Clock.System.now().toEpochMilliseconds()
-        )
-        upsertQuote(updated)
-        return quote
-    }
-
-    // --- PRIVATE QUERY HELPERS ---
-
+    /**
+     * Finds a candidate quote for a signal.
+     * Picks from the 5 least-seen quotes and randomizes the result.
+     */
     @Query("""
         SELECT * FROM (
             SELECT * FROM quotes 
@@ -44,19 +23,15 @@ interface SignalDao {
             LIMIT 5
         ) ORDER BY RANDOM() LIMIT 1
     """)
-    suspend fun getNextSignalQuote(): QuoteEntity?
+    suspend fun getNextSignalCandidate(): QuoteEntity?
 
     @Query("SELECT * FROM quotes WHERE emotion = :emotion ORDER BY viewCount ASC LIMIT 1")
-    suspend fun getQuoteByEmotion(emotion: Emotion): QuoteEntity?
+    suspend fun getQuoteByEmotionCandidate(emotion: Emotion): QuoteEntity?
 
-    /**
-     * Senior Directive: Replaced @Update with @Upsert for Quotes.
-     * This handles both initial insertion and the 'viewCount' increment logic.
-     */
+    // --- PERSISTENCE ---
+
     @Upsert
     suspend fun upsertQuote(quote: QuoteEntity)
-
-    // --- AUTHOR & BOOK MANAGEMENT ---
 
     @Upsert
     suspend fun upsertAuthor(author: AuthorEntity)
@@ -64,20 +39,56 @@ interface SignalDao {
     @Upsert
     suspend fun upsertBook(book: BookEntity)
 
+    // --- OBSERVATION FLOWS ---
+
     @Query("SELECT * FROM authors ORDER BY name ASC")
     fun getAllAuthorsFlow(): Flow<List<AuthorEntity>>
 
-    /**
-     * Optimized by the index on 'authorId' in BookEntity.
-     */
+    @Query("SELECT COUNT(*) FROM quotes WHERE bookId = :bookId")
+    suspend fun getQuoteCountByBook(bookId: String): Int
+
+    @Query("SELECT * FROM quotes WHERE id = :id LIMIT 1")
+    fun getQuoteByIdFlow(id: String): Flow<QuoteEntity?>
+
     @Query("SELECT * FROM books WHERE authorId = :authorId")
     fun getBooksByAuthor(authorId: String): Flow<List<BookEntity>>
 
-    // --- ATOMIC DELETIONS (2026 Standard) ---
+    @Query("SELECT * FROM books WHERE id = :id LIMIT 1")
+    suspend fun getBookById(id: String): BookEntity?
+
+    /**
+     * Observes a specific Author by their unique identifier.
+     * Returns a Flow that emits null if the author does not exist.
+     */
+    @Query("SELECT * FROM authors WHERE id = :id LIMIT 1")
+    fun getAuthorByIdFlow(id: String): Flow<AuthorEntity?>
+
+    /**
+     * One-shot retrieval of books by author for deletion auditing.
+     * Used by the SignalRepository to prevent RESTRICT crashes.
+     */
+    @Query("SELECT * FROM books WHERE authorId = :authorId")
+    suspend fun getBooksByAuthorSync(authorId: String): List<BookEntity>
+
+    /**
+     * Observes a specific Book by its unique identifier.
+     * Returns a Flow that emits null if the book does not exist.
+     */
+    @Query("SELECT * FROM books WHERE id = :id LIMIT 1")
+    fun getBookByIdFlow(id: String): Flow<BookEntity?>
+
+    // --- ATOMIC DELETIONS ---
 
     @Query("DELETE FROM quotes WHERE id = :id")
     suspend fun deleteQuoteById(id: String)
 
     @Query("DELETE FROM books WHERE id = :id")
     suspend fun deleteBookById(id: String)
+
+    @Query("DELETE FROM authors WHERE id = :id")
+    suspend fun deleteAuthorById(id: String)
+
+    @Query("DELETE FROM quotes WHERE bookId = :bookId")
+    suspend fun deleteQuotesByBookId(bookId: String)
 }
+

@@ -41,7 +41,7 @@ class DateTimeUtils {
      * Determines if the current time is roughly 'Daylight' for the telemetry log.
      * This is a "Calm-Tech" heuristic—avoiding a heavy GPS-based API for a simple utility.
      */
-    fun isDaylight(instant: kotlin.time.Instant): Boolean {
+    fun isDaylight(instant: Instant): Boolean {
         val hour = instant.toLocalDateTime(TimeZone.currentSystemDefault()).hour
         return hour in 6..19 // 6 AM to 7:59 PM
     }

@@ -18,3 +18,11 @@ class SpaceAlreadyExistsException(val name: String) :
     Exception("A space with the name '$name' already exists.")
 
 class SpaceNotFoundException(id: String) : Exception("Space with ID $id was not found.")
+
+class BookInUseException(val id: String, val quoteCount: Int) :
+    Exception("Cannot delete Book[$id]. It is currently anchoring $quoteCount quotes.")
+
+class AuthorInUseException(
+    val authorId: String,
+    val bookCount: Int
+) : Exception("Cannot delete author $authorId: It still contains $bookCount books.")

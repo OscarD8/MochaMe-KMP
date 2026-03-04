@@ -6,7 +6,10 @@ import androidx.room.PrimaryKey
 
 @Entity(
     tableName = "daily_context",
-    indices = [Index(value = ["epochDay"], unique = true)]
+    indices = [
+        Index(value = ["epochDay"], unique = true),
+        Index("lastModified")
+    ]
 )
 data class DailyContextEntity(
     @PrimaryKey

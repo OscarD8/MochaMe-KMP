@@ -2,6 +2,7 @@ package com.mochame.app.di
 
 import com.mochame.app.core.DateTimeUtils
 import com.mochame.app.data.repository.BioRepositoryImpl
+import com.mochame.app.data.repository.SignalRepositoryImpl
 import com.mochame.app.ui.ProofOfLifeViewModel
 import com.mochame.app.data.repository.telemetry.TelemetryRepositoryImpl
 import com.mochame.app.data.repository.telemetry.bridge.ChronicleBridge
@@ -9,6 +10,7 @@ import com.mochame.app.data.repository.telemetry.bridge.IdentityBridge
 import com.mochame.app.data.repository.telemetry.bridge.ObservationBridge
 import com.mochame.app.database.MochaDatabase
 import com.mochame.app.domain.repository.BioRepository
+import com.mochame.app.domain.repository.SignalRepository
 import com.mochame.app.domain.repository.telemetry.TelemetryRepository
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
@@ -18,12 +20,13 @@ import org.koin.core.module.dsl.viewModelOf
 val appModule = module {
 
     /** --- THE TOOLS --- */
-    singleOf(::DateTimeUtils) // 2026 DSL: Auto-wires constructor params
+    singleOf(::DateTimeUtils) // Auto-wires constructor params
 
-    /** --- THE SYNAPSES (DAOs) --- */
+    /** --- THE DAOS --- */
     // Scoped specifically to the Database instance
     single { get<MochaDatabase>().telemetryDao() }
     single { get<MochaDatabase>().bioDao() }
+    single { get<MochaDatabase>().signalDao() }
 
     /** * --- THE INTERNAL BRIDGES ---
      * We do NOT give these public interfaces here.
@@ -54,6 +57,8 @@ val appModule = module {
         )
     }
 
-    /** --- THE CONSCIOUSNESS --- */
+    single<SignalRepository> { SignalRepositoryImpl(signalDao = get(), dateTimeUtils = get()) }
+
+    /** --- UI LAYER --- */
     viewModelOf(::ProofOfLifeViewModel) // Clean, reflective, and K2-friendly
 }

@@ -20,7 +20,7 @@ data class AuthorEntity(
             entity = AuthorEntity::class,
             parentColumns = ["id"],
             childColumns = ["authorId"],
-            onDelete = ForeignKey.CASCADE
+            onDelete = ForeignKey.RESTRICT
         )
     ],
     indices = [Index(value = ["authorId"])] // Optimized for Author -> Book lookups
@@ -45,7 +45,12 @@ data class BookEntity(
             onDelete = ForeignKey.CASCADE
         )
     ],
-    indices = [Index(value = ["bookId"])] // Optimized for Book -> Quote lookups
+    indices = [
+        Index("bookId"),
+        Index("emotion"),
+        Index("viewCount"),
+        Index("lastModified")
+    ]
 )
 data class QuoteEntity(
     @PrimaryKey val id: String,

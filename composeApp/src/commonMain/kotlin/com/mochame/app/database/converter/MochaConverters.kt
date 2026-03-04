@@ -2,6 +2,7 @@ package com.mochame.app.database.converter
 
 import androidx.room.TypeConverter
 import com.mochame.app.domain.model.Emotion
+import kotlin.time.Instant
 
 class MochaConverters {
     /**
@@ -25,5 +26,20 @@ class MochaConverters {
             // 2027 Safety: Default to a neutral emotion if data is corrupted
             Emotion.LOGIC
         }
+    }
+
+    // --- TEMPORAL INSTANTS ---
+    /**
+     * Bridges the gap between the Domain's [Instant] and the Database's [Long].
+     * Essential for sync heartbeats and timestamps.
+     */
+    @TypeConverter
+    fun fromInstant(instant: Instant?): Long? {
+        return instant?.toEpochMilliseconds()
+    }
+
+    @TypeConverter
+    fun toInstant(millis: Long?): Instant? {
+        return millis?.let { Instant.fromEpochMilliseconds(it) }
     }
 }
