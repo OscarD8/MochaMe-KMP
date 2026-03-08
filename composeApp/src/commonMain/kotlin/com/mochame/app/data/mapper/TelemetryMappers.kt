@@ -10,49 +10,34 @@ import com.mochame.app.domain.model.Space
 import com.mochame.app.domain.model.Topic
 
 // --- MOMENT MAPPERS ---
-fun MomentEntity.toDomain(): Moment = Moment(
-    id = id,
-    domainId = domainId,
-    satisfactionScore = satisfactionScore,
-    moodScore = moodScore,
-    energyScore = energyScore,
-    note = note,
-    topicId = topicId,
-    spaceId = spaceId,
-    isFocusTime = isFocusTime,
-    socialScale = socialScale,
-    energyDrain = energyDrain,
-    biophiliaScale = biophiliaScale,
-    durationMinutes = durationMinutes,
-    isDaylight = isDaylight,
-    cloudDensity = cloudDensity,
-    isPrecipitating = isPrecipitating,
-    timestamp = timestamp,
-    associatedEpochDay = associatedEpochDay,
-    lastModified = lastModified
-)
 
-fun Moment.toEntity(): MomentEntity = MomentEntity(
-    id = id,
-    domainId = domainId,
-    satisfactionScore = satisfactionScore,
-    moodScore = moodScore,
-    energyScore = energyScore,
-    note = note,
-    topicId = topicId,
-    spaceId = spaceId,
-    isFocusTime = isFocusTime,
-    socialScale = socialScale,
-    energyDrain = energyDrain,
-    biophiliaScale = biophiliaScale,
-    durationMinutes = durationMinutes,
-    isDaylight = isDaylight,
-    cloudDensity = cloudDensity,
-    isPrecipitating = isPrecipitating,
-    timestamp = timestamp,
-    associatedEpochDay = associatedEpochDay,
-    lastModified = lastModified
-)
+// --- Data -> Domain ---
+fun MomentEntity.toDomain(): Moment {
+    return Moment(
+        id = id,
+        domainId = domainId,
+        topicId = topicId,
+        spaceId = spaceId,
+        core = core,          // Embedded objects map 1-to-1
+        detail = detail,
+        context = context,
+        metadata = metadata
+    )
+}
+
+// --- Domain -> Data ---
+fun Moment.toEntity(): MomentEntity {
+    return MomentEntity(
+        id = id,
+        domainId = domainId,
+        topicId = topicId,
+        spaceId = spaceId,
+        core = core,
+        detail = detail,
+        context = context,
+        metadata = metadata
+    )
+}
 
 // --- CATEGORY MAPPERS ---
 fun DomainEntity.toDomain(): Domain = Domain(

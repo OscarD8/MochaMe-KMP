@@ -1,9 +1,14 @@
 package com.mochame.app.database.entity
 
+import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.mochame.app.domain.model.MomentClimate
+import com.mochame.app.domain.model.MomentCore
+import com.mochame.app.domain.model.MomentDetail
+import com.mochame.app.domain.model.MomentMetadata
 
 @Entity(
     tableName = "moments",
@@ -13,42 +18,20 @@ import androidx.room.PrimaryKey
         ForeignKey(entity = TopicEntity::class, parentColumns = ["id"], childColumns = ["topicId"], onDelete = ForeignKey.RESTRICT)
     ],
     indices = [
-        Index("domainId"),
-        Index("topicId"),
-        Index("spaceId"),
-        Index("associatedEpochDay"),
-        Index("timestamp"),    // Added for UI Feed performance
-        Index("lastModified")  // Added for Sync Delta performance
+        Index("domainId"), Index("topicId"), Index("spaceId"),
+        Index("associatedEpochDay"), Index("timestamp"), Index("lastModified")
     ]
 )
 data class MomentEntity(
     @PrimaryKey val id: String,
     val domainId: String,
-
-    // Pulse
-    val satisfactionScore: Int,
-    val moodScore: Int,
-    val energyScore: Int,
-
-    // Enrichment
-    val note: String?,
     val topicId: String?,
     val spaceId: String?,
-    val isFocusTime: Boolean?,
-    val socialScale: Int?,
-    val energyDrain: Int?,
-    val biophiliaScale: Int?,
-    val durationMinutes: Int?,
 
-    // Weather Context
-    val isDaylight: Boolean?,
-    val cloudDensity: Int?,
-    val isPrecipitating: Boolean?,
-
-    // System
-    val timestamp: Long,
-    val associatedEpochDay: Long,
-    val lastModified: Long
+    @Embedded val core: MomentCore,
+    @Embedded val detail: MomentDetail,
+    @Embedded val context: MomentClimate,
+    @Embedded val metadata: MomentMetadata
 )
 
 @Entity(

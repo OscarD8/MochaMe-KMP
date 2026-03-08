@@ -31,9 +31,10 @@ import kotlinx.coroutines.IO
         BookEntity::class,
         QuoteEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false // Standard for Phase 1 local-only development
 )
+
 @TypeConverters(MochaConverters::class)
 abstract class MochaDatabase : RoomDatabase() {
 
@@ -49,6 +50,7 @@ abstract class MochaDatabase : RoomDatabase() {
 expect object MochaDatabaseConstructor : RoomDatabaseConstructor<MochaDatabase> {
     override fun initialize(): MochaDatabase
 }
+
 /**
  * A helper function to create the database builder.
  * This will be called by the platform-specific drivers.

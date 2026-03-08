@@ -40,4 +40,7 @@ interface BioDao {
      */
     @Query("SELECT * FROM daily_context WHERE epochDay = :epochDay LIMIT 1")
     suspend fun getContextByEpochDaySync(epochDay: Long): DailyContextEntity?
+
+    @Query("SELECT * FROM daily_context WHERE id = :id")
+    suspend fun getById(id: String): DailyContextEntity?
 }

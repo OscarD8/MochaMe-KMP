@@ -1,6 +1,7 @@
 package com.mochame.app.domain.repository.telemetry
 
 import com.mochame.app.domain.model.Moment
+import com.mochame.app.domain.model.MomentDraft
 
 /**
  * Defines the high-frequency ingestion of "Moments" into the system.
@@ -14,20 +15,7 @@ interface ObservationActions {
      * The primary entry point for capturing a biological moment.
      * Enforces the 4:00 AM Midnight Rule and handles Space-based enrichment.
      */
-    suspend fun logMoment(
-        domainId: String,
-        satisfactionScore: Int,
-        moodScore: Int,
-        energyScore: Int,
-        topicId: String? = null,
-        spaceId: String? = null,
-        note: String? = null,
-        isFocusTime: Boolean? = null,
-        socialScale: Int? = null,
-        energyDrain: Int? = null,
-        biophiliaScale: Int? = null,
-        durationMinutes: Int? = null
-    )
+    suspend fun logMoment(draft: MomentDraft)
 
     /**
      * Persists an existing Moment molecule, typically used for updates.

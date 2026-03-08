@@ -7,7 +7,7 @@ import org.koin.dsl.module
 
 actual val platformModule = module {
     /**
-     * THE DATABASE HEARTBEAT (ANDROID)
+     * THE DATABASE (ANDROID)
      * This defines how to grow the "Database Limb" on the Android planet.
      */
     single<MochaDatabase> {

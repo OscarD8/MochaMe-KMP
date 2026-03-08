@@ -7,6 +7,7 @@ plugins {
 
 configure<ApplicationExtension> {
     namespace = "com.mochame.androidapp"
+
     compileSdk = 36
 
     defaultConfig {
@@ -48,14 +49,14 @@ dependencies {
     implementation(libs.material.v1120)
 
     // Standard AndroidX & Compose Shell
-    implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.activity.compose)
     implementation(libs.compose.ui)
     implementation(libs.compose.material3)
+    implementation(libs.androidx.core.ktx)
 
     // Testing
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.testExt.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
+//    testImplementation(libs.junit)
+//    androidTestImplementation(libs.androidx.testExt.junit)
+//    androidTestImplementation(libs.androidx.espresso.core)
 }
