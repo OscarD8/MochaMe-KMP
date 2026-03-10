@@ -1,5 +1,6 @@
 @file:OptIn(ExperimentalKotlinGradlePluginApi::class)
 
+import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSetTree
@@ -14,12 +15,17 @@ plugins {
     alias(libs.plugins.kotlinSerialization)
 }
 
+
+// Keep specialized JUnit settings for the Host/JVM tasks
 tasks.withType<Test>().configureEach {
-    useJUnitPlatform()
+    if (name.contains("jvm", ignoreCase = true)) {
+        useJUnitPlatform()
+    } else if (name.contains("Host", ignoreCase = true)) {
+        useJUnit()
+    }
 }
 
 kotlin {
-
     android {
         namespace = "com.mocha.app"
         compileSdk = libs.versions.android.compileSdk.get().toInt()
@@ -43,13 +49,21 @@ kotlin {
         }
     }
 
-    listOf(
-        iosArm64(),
-        iosSimulatorArm64()
-    ).forEach { iosTarget ->
-        iosTarget.binaries.framework {
-            baseName = "ComposeApp"
-            isStatic = true
+    val isMac = System.getProperty("os.name") == "Mac OS X"
+
+    if (isMac) {
+        // 1. Define the targets
+        val iosTargets = listOf(
+            iosArm64(),
+            iosSimulatorArm64()
+        )
+
+        // 2. Configure the targets
+        iosTargets.forEach { iosTarget ->
+            iosTarget.binaries.framework {
+                baseName = "ComposeApp"
+                isStatic = true
+            }
         }
     }
 
@@ -102,11 +116,12 @@ kotlin {
         }
 
         jvmTest.dependencies {
-            implementation(libs.test.junit.jupiter)
+            // This is the specific string Kotlin uses to bridge to JUnit 5
+            implementation(kotlin("test-junit5"))
         }
 
         commonTest.dependencies {
-            implementation(libs.kotlin.test)
+            implementation(kotlin("test"))
             // Essential for runTest and coroutine control
             implementation(libs.kotlinx.coroutines.test)
             // Highly recommended for testing StateFlows/Flows from your DAOs
@@ -116,17 +131,20 @@ kotlin {
 
         val androidHostTest by getting {
             dependencies {
-                // 1. THE ENGINE
-                implementation(libs.junit4)  // Provides @RunWith and org.junit.Test
-                // 2. THE SHADOW (Robolectric)
-                implementation(libs.test.robolectric)
-                // 3. THE MOCKS
-                implementation(libs.test.mockk)
-                // Allows test context
-                implementation(libs.androidx.core)
+                // The Core Framework (JUnit 4)
+                implementation(libs.junit4)
 
-                // necessary as something like the junit runner is not working without it for robolectric
+                // The Environment (Robolectric)
+                implementation(libs.test.robolectric)
+
+                // The Mocking (MockK)
+                implementation(libs.test.mockk)
+
+                // The Runner Adapter (Essential for Gradle to see JUnit 4 tests in 2026)
                 runtimeOnly(libs.junit.vintage.engine)
+
+                // Android Context Support (Robolectric needs this for Activity/Context tests)
+                implementation(libs.androidx.test.core)
             }
         }
 
@@ -140,8 +158,7 @@ kotlin {
                 // Note: Engine is provided by the Android-KMP plugin's test runner
 
                 // THE REAL BODY (No Robolectric)
-                implementation(libs.androidx.core)
-                implementation(libs.test.mockk)
+                implementation(libs.androidx.test.core)
 
                 // THE NERVOUS SYSTEM (Must match Host)
                 implementation(libs.koin.android)
@@ -161,6 +178,8 @@ room {
 }
 
 dependencies {
+    val isMac = System.getProperty("os.name") == "Mac OS X"
+
     add("kspCommonMainMetadata", libs.room.compiler)
     add("kspAndroid", libs.room.compiler)
 
@@ -170,9 +189,12 @@ dependencies {
     add("kspJvm", libs.room.compiler)
 
     // iOS targets
-    add("kspIosSimulatorArm64", libs.room.compiler)
-    add("kspIosArm64", libs.room.compiler)
-    add("kspIosSimulatorArm64Test", libs.room.compiler)
+    if (isMac) {
+        add("kspIosArm64", libs.room.compiler)
+        add("kspIosSimulatorArm64", libs.room.compiler)
+        add("kspIosSimulatorArm64Test", libs.room.compiler)
+    }
+
 }
 
 compose.desktop {
@@ -181,9 +203,112 @@ compose.desktop {
         mainClass = "com.mochame.app.MainKt"
 
         nativeDistributions {
-            targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Deb)
+            targetFormats(TargetFormat.Deb)
             packageName = "MochaMe"
             packageVersion = "1.0.0"
         }
     }
 }
+
+// ======================== Lint KSP Race Conditions? ===========================
+
+// 1. Modern (?) fix for KSP/Lint racing conditions
+// This ensures the compiler doesn't have to 'infer' the type from the filter
+val kspTasks: TaskCollection<Task> = tasks.matching {
+    it.name.startsWith("ksp")
+}
+
+val lintTasks: TaskCollection<Task> = tasks.matching {
+    it.name.contains("Lint", ignoreCase = true)
+}
+
+// 2. Use configureEach to lazily apply the ordering
+lintTasks.configureEach {
+    // 'this' is now explicitly a Task within the collection
+    mustRunAfter(kspTasks)
+}
+
+
+// =========================== TESTING FORMATTING ===========================
+val targetTaskNames = setOf("jvmTest", "connectedAndroidDeviceTest", "testAndroidHostTest")
+
+tasks.configureEach {
+    // 2. Check if the current task is in our list OR is a standard Test task
+    // We use the full class name for the Android task to avoid import issues
+    val isExecutionTask = targetTaskNames.contains(name) ||
+            this is Test ||
+            this.javaClass.name.contains("DeviceProviderInstrumentTestTask")
+
+    // 3. Filter out the "Noise" (ignore compile, process, and prebuild tasks)
+    val isNoise = name.contains("compile", ignoreCase = true) ||
+            name.contains("process", ignoreCase = true) ||
+            name.contains("preBuild", ignoreCase = true)
+
+    if (isExecutionTask && !isNoise) {
+        // Force the rerun behavior
+        outputs.upToDateWhen { false }
+
+        doFirst {
+            val banner = "─".repeat(50)
+            println("\n$banner")
+            // I deemed this emoji mandatory
+            println("🚀 RUNNING: ${path.uppercase()}")
+            println(banner)
+        }
+
+        // 2. The "Detailed Stats" Logic (Refactored)
+        // We only add the listener if the task is a standard 'Test' task
+        if (this is Test) {
+            addTestListener(object : TestListener {
+                override fun beforeSuite(suite: TestDescriptor) {}
+                override fun beforeTest(suite: TestDescriptor) {}
+                override fun afterTest(suite: TestDescriptor, result: TestResult) {}
+                override fun afterSuite(suite: TestDescriptor, result: TestResult) {
+                    if (suite.parent == null) {
+                        println("STATS   : ${result.testCount} Total (${result.successfulTestCount} Passed, ${result.failedTestCount} Failed)")
+                    }
+                }
+            })
+        }
+
+        doLast {
+            val border = "=".repeat(40)
+            println("\n$border")
+            println("FINISH  : ${name.uppercase()}")
+            println("$border\n")
+        }
+    }
+}
+
+tasks.register("verify") {
+    group = "verification"
+    description = "Runs the Big Three test suites (JVM, Host, and Device)."
+
+    // We target the lifecycle tasks which pull in the sub-tasks
+    dependsOn(":composeApp:allTests", ":composeApp:connectedAndroidDeviceTest")
+}
+
+tasks.register("verifyAll") {
+    group = "verification"
+    description = "Wipes the slate clean and runs all tests."
+
+    dependsOn("clean", "verify")
+}
+
+tasks.register("verifyLocal") {
+    group = "verification"
+    description = "Runs JVM and Host tests only, skipping physical device tests."
+
+    // This pulls in jvmTest and testAndroidHostTest via the KMP lifecycle
+    dependsOn(":composeApp:allTests")
+}
+
+tasks.register("verifyLocalAll") {
+    group = "verification"
+    description = "Wipes the build and runs JVM + Host tests from a blank slate."
+
+    // The chain: Clean -> All Local Unit Tests
+    dependsOn("clean", "verifyLocal")
+}
+
+// =====================================================================

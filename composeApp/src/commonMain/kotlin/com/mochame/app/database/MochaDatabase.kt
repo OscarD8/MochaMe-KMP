@@ -46,7 +46,6 @@ abstract class MochaDatabase : RoomDatabase() {
 // Defining the override satisfies the compiler's interface check.
 // We use the @Suppress ONLY because Android Studio's editor
 // can't "see" the KSP-generated file, even when the build works.
-@Suppress("KotlinNoActualForExpect")
 expect object MochaDatabaseConstructor : RoomDatabaseConstructor<MochaDatabase> {
     override fun initialize(): MochaDatabase
 }
