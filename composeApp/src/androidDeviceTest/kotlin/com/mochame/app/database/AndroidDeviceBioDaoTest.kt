@@ -5,14 +5,21 @@ import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.runner.RunWith
 import androidx.test.platform.app.InstrumentationRegistry
+import org.koin.core.module.Module
+import org.koin.dsl.module
 
 @RunWith(AndroidJUnit4::class)
-class AndroidDeviceBioDaoTest : SharedBioDaoTest() {
+class AndroidDeviceBioDaoTest : BaseBioDaoTest() {
 
-    override fun createDatabase(): MochaDatabase {
-        val context = InstrumentationRegistry.getInstrumentation().targetContext
-        return Room.inMemoryDatabaseBuilder(context, MochaDatabase::class.java)
-            .setDriver(BundledSQLiteDriver())
-            .build()
+    override val platformTestModule = module {
+        single<MochaDatabase> {
+            Room.inMemoryDatabaseBuilder<MochaDatabase>(
+                InstrumentationRegistry.getInstrumentation().context
+            )
+                .allowMainThreadQueries()
+                .setDriver(BundledSQLiteDriver())
+                .build()
+        }
+        single { get<MochaDatabase>().bioDao() }
     }
 }

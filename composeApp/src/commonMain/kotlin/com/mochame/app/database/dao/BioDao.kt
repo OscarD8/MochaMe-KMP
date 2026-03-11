@@ -12,20 +12,26 @@ interface BioDao {
      * Returns null if the user hasn't initialized their day yet.
      */
     @Query("SELECT * FROM daily_context WHERE epochDay = :epochDay LIMIT 1")
-    fun getContextByEpochDay(epochDay: Long): Flow<DailyContextEntity?>
+    fun observeContextByDay(epochDay: Long): Flow<DailyContextEntity?>
 
     /**
      * Persists or updates the context for the day.
-     * The @Upsert handles the unique index on epochDay automatically.
+     * The @Insert handles the unique index on epochDay automatically.
      */
-    @Upsert
-    suspend fun upsertDailyContext(context: DailyContextEntity)
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOrReplace(context: DailyContextEntity)
 
     /**
-     * Fetches all history for daily context long-term analysis.
+     * Fetches all history for daily context long-term analysis as a flow.
      */
     @Query("SELECT * FROM daily_context ORDER BY epochDay DESC")
-    fun getAllContextsFlow(): Flow<List<DailyContextEntity>>
+    fun observeAllContexts(): Flow<List<DailyContextEntity>>
+
+    /**
+     * Fetches all history for daily context long-term analysis as a list.
+     */
+    @Query("SELECT * FROM daily_context ORDER BY epochDay DESC")
+    suspend fun getAllContexts(): List<DailyContextEntity>
 
     /**
      * Atomic Deletion by ID for UI cleanup or data resets.
@@ -35,12 +41,27 @@ interface BioDao {
 
     /**
      * One-shot retrieval for the "Check-and-Act" initialization pattern.
-     * * Unlike the Flow-based observers, this provides a point-in-time snapshot
-     * to prevent race conditions during the 4:00 AM state transition.
      */
     @Query("SELECT * FROM daily_context WHERE epochDay = :epochDay LIMIT 1")
-    suspend fun getContextByEpochDaySync(epochDay: Long): DailyContextEntity?
+    suspend fun getContextByDay(epochDay: Long): DailyContextEntity?
 
     @Query("SELECT * FROM daily_context WHERE id = :id")
     suspend fun getById(id: String): DailyContextEntity?
+
+    // NAPS
+    // --- STATIC LISTS (One-shot) ---
+
+    @Query("SELECT * FROM daily_context WHERE isNapped = 1")
+    suspend fun getAllNappedContexts(): List<DailyContextEntity>
+
+    @Query("SELECT * FROM daily_context WHERE isNapped = 0")
+    suspend fun getAllNonNappedContexts(): List<DailyContextEntity>
+
+    // --- FLOWS (Reactive Streams) ---
+
+    @Query("SELECT * FROM daily_context WHERE isNapped = 1")
+    fun observeAllNappedContexts(): Flow<List<DailyContextEntity>>
+
+    @Query("SELECT * FROM daily_context WHERE isNapped = 0")
+    fun observeAllNonNappedContexts(): Flow<List<DailyContextEntity>>
 }

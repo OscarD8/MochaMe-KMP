@@ -8,14 +8,11 @@ import com.mochame.app.database.dao.BioDao
 import com.mochame.app.domain.model.DailyContext
 import com.mochame.app.domain.repository.BioRepository
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import kotlinx.datetime.*
-import kotlin.time.Clock
 
 class BioRepositoryImpl(
     private val bioDao: BioDao,
@@ -31,7 +28,7 @@ class BioRepositoryImpl(
     }
 
     override fun getTodaysContext(): Flow<DailyContext?> {
-        return bioDao.getContextByEpochDay(getCurrentBioDay())
+        return bioDao.observeContextByDay(getCurrentBioDay())
             .map { it?.toDomain() }
     }
 
@@ -47,7 +44,7 @@ class BioRepositoryImpl(
             val epochDay = getCurrentBioDay()
 
             // 1. Check if the "Cup" already exists for this biological day
-            val existingContext = bioDao.getContextByEpochDaySync(epochDay)
+            val existingContext = bioDao.getContextByDay(epochDay)
 
             val contextToSave = existingContext?.
             toDomain()?.copy( // Update existing record, preserving the stable ID
@@ -64,7 +61,7 @@ class BioRepositoryImpl(
                     lastModified = dateTimeUtils.now().toEpochMilliseconds()
                 )
 
-            bioDao.upsertDailyContext(contextToSave.toEntity())
+            bioDao.insertOrReplace(contextToSave.toEntity())
         }
     }
 
@@ -72,11 +69,11 @@ class BioRepositoryImpl(
         val newContext = context.copy(
             lastModified = dateTimeUtils.now().toEpochMilliseconds()
         )
-        bioDao.upsertDailyContext(newContext.toEntity())
+        bioDao.insertOrReplace(newContext.toEntity())
     }
 
     override fun getHistory(): Flow<List<DailyContext>> {
-        return bioDao.getAllContextsFlow().map { entities ->
+        return bioDao.observeAllContexts().map { entities ->
             entities.map { it.toDomain() }
         }
     }

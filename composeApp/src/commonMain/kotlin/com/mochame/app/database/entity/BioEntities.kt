@@ -14,13 +14,10 @@ import androidx.room.PrimaryKey
 data class DailyContextEntity(
     @PrimaryKey
     val id: String,
-
     val epochDay: Long,
-
     val sleepHours: Double,
-
     // the qualitative metric
     val readinessScore: Int = 0,
-
-    val lastModified: Long
+    val lastModified: Long,
+    val isNapped: Boolean = false
 )

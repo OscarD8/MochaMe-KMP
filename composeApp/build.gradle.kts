@@ -32,7 +32,7 @@ kotlin {
         minSdk = libs.versions.android.minSdk.get().toInt()
 
         // This command "unlocks" the folder you are looking for
-        withHostTestBuilder {  }
+        withHostTestBuilder { }
 
         // The "Device Test" (Hardware Realism)
         withDeviceTestBuilder {
@@ -122,27 +122,25 @@ kotlin {
 
         commonTest.dependencies {
             implementation(kotlin("test"))
-            // Essential for runTest and coroutine control
+            // Concurrency
             implementation(libs.kotlinx.coroutines.test)
             // Highly recommended for testing StateFlows/Flows from your DAOs
             implementation(libs.turbine)
+            // Koin
             implementation(libs.koin.test)
+            implementation(libs.koin.core)
         }
 
         val androidHostTest by getting {
             dependencies {
                 // The Core Framework (JUnit 4)
                 implementation(libs.junit4)
-
                 // The Environment (Robolectric)
                 implementation(libs.test.robolectric)
-
                 // The Mocking (MockK)
                 implementation(libs.test.mockk)
-
                 // The Runner Adapter (Essential for Gradle to see JUnit 4 tests in 2026)
                 runtimeOnly(libs.junit.vintage.engine)
-
                 // Android Context Support (Robolectric needs this for Activity/Context tests)
                 implementation(libs.androidx.test.core)
             }
@@ -156,10 +154,8 @@ kotlin {
                 implementation(libs.androidx.test.ext.junit)
                 implementation(libs.androidx.runner)
                 // Note: Engine is provided by the Android-KMP plugin's test runner
-
                 // THE REAL BODY (No Robolectric)
                 implementation(libs.androidx.test.core)
-
                 // THE NERVOUS SYSTEM (Must match Host)
                 implementation(libs.koin.android)
                 implementation(libs.koin.test)
@@ -182,10 +178,8 @@ dependencies {
 
     add("kspCommonMainMetadata", libs.room.compiler)
     add("kspAndroid", libs.room.compiler)
-
-    // NEW: Ensure Room generates the _Impl classes for your Robolectric tests
+    // Ensure Room generates the _Impl classes for the Robolectric tests
     add("kspAndroidHostTest", libs.room.compiler)
-
     add("kspJvm", libs.room.compiler)
 
     // iOS targets
@@ -199,7 +193,6 @@ dependencies {
 
 compose.desktop {
     application {
-        // If your package is 'com.mochame.app', use that prefix.
         mainClass = "com.mochame.app.MainKt"
 
         nativeDistributions {
@@ -212,8 +205,8 @@ compose.desktop {
 
 // ======================== Lint KSP Race Conditions? ===========================
 
-// 1. Modern (?) fix for KSP/Lint racing conditions
-// This ensures the compiler doesn't have to 'infer' the type from the filter
+// 1. Fix for KSP/Lint racing conditions
+// This ensures the compiler doesn't have to 'infer' the type from the filter?
 val kspTasks: TaskCollection<Task> = tasks.matching {
     it.name.startsWith("ksp")
 }
@@ -249,7 +242,7 @@ tasks.configureEach {
         outputs.upToDateWhen { false }
 
         doFirst {
-            val banner = "─".repeat(50)
+            val banner = "─".repeat(70)
             println("\n$banner")
             // I deemed this emoji mandatory
             println("🚀 RUNNING: ${path.uppercase()}")
@@ -265,17 +258,39 @@ tasks.configureEach {
                 override fun afterTest(suite: TestDescriptor, result: TestResult) {}
                 override fun afterSuite(suite: TestDescriptor, result: TestResult) {
                     if (suite.parent == null) {
-                        println("STATS   : ${result.testCount} Total (${result.successfulTestCount} Passed, ${result.failedTestCount} Failed)")
+                        val total = result.testCount
+                        val passed = result.successfulTestCount
+                        val failed = result.failedTestCount
+                        val skipped = result.skippedTestCount
+
+                        // Choose the vibe based on the outcome
+                        val icon = if (failed > 0) "❌" else "✅"
+                        val resultText =
+                            if (failed > 0) "TEST SUITE FAILED" else "TEST SUITE PASSED"
+
+                        println(
+                            """
+        
+        ╔══════════════════════════════════════════════════════════╗
+        ║  $icon  $resultText
+        ╠══════════════════════════════════════════════════════════╣
+        ║  📊  TOTAL: $total |  ✅  PASSED: $passed |  ❌  FAILED: $failed  
+        ╚══════════════════════════════════════════════════════════╝
+    """.trimIndent()
+                        )
                     }
                 }
             })
         }
 
         doLast {
-            val border = "=".repeat(40)
+            val border = "=".repeat(70)
             println("\n$border")
-            println("FINISH  : ${name.uppercase()}")
+            println("FINISH  : ${name.uppercase()} ☕")
             println("$border\n")
+            println()
+            println()
+            println()
         }
     }
 }
@@ -310,5 +325,6 @@ tasks.register("verifyLocalAll") {
     // The chain: Clean -> All Local Unit Tests
     dependsOn("clean", "verifyLocal")
 }
+
 
 // =====================================================================
