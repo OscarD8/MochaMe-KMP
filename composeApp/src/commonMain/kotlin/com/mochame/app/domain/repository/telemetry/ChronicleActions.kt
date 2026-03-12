@@ -1,9 +1,9 @@
 package com.mochame.app.domain.repository.telemetry
 
-import com.mochame.app.domain.model.Domain
-import com.mochame.app.domain.model.Moment
-import com.mochame.app.domain.model.Space
-import com.mochame.app.domain.model.Topic
+import com.mochame.app.domain.model.telemetry.Domain
+import com.mochame.app.domain.model.telemetry.Moment
+import com.mochame.app.domain.model.telemetry.Space
+import com.mochame.app.domain.model.telemetry.Topic
 import kotlinx.coroutines.flow.Flow
 
 /**

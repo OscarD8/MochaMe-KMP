@@ -4,7 +4,7 @@ import androidx.room.*
 import com.mochame.app.database.entity.AuthorEntity
 import com.mochame.app.database.entity.BookEntity
 import com.mochame.app.database.entity.QuoteEntity
-import com.mochame.app.domain.model.Emotion
+import com.mochame.app.domain.model.Resonance
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -25,8 +25,8 @@ interface SignalDao {
     """)
     suspend fun getNextSignalCandidate(): QuoteEntity?
 
-    @Query("SELECT * FROM quotes WHERE emotion = :emotion ORDER BY viewCount ASC LIMIT 1")
-    suspend fun getQuoteByEmotionCandidate(emotion: Emotion): QuoteEntity?
+    @Query("SELECT * FROM quotes WHERE resonance = :resonance ORDER BY viewCount ASC LIMIT 1")
+    suspend fun getQuoteByResonanceCandidate(resonance: Resonance): QuoteEntity?
 
     // --- PERSISTENCE ---
 

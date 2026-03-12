@@ -31,7 +31,7 @@ import kotlinx.coroutines.IO
         BookEntity::class,
         QuoteEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false // Standard for Phase 1 local-only development
 )
 
@@ -60,6 +60,7 @@ fun getRoomDatabase(
     return builder
         .setDriver(BundledSQLiteDriver()) // <--- THIS is the magic for 2026 parity
         .setQueryCoroutineContext(Dispatchers.IO)
+//        .enableMultiInstanceInvalidation() Possible consideration for local first implementation
         .fallbackToDestructiveMigration(dropAllTables = true)
         .build()
 }

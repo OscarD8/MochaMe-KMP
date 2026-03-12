@@ -1,7 +1,7 @@
 package com.mochame.app.domain.repository.telemetry
 
-import com.mochame.app.domain.model.Moment
-import com.mochame.app.domain.model.MomentDraft
+import com.mochame.app.domain.model.telemetry.Moment
+import com.mochame.app.domain.model.telemetry.MomentDraft
 
 /**
  * Defines the high-frequency ingestion of "Moments" into the system.

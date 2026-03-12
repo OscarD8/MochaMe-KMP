@@ -1,13 +1,16 @@
 package com.mochame.app.domain.repository
 
 import com.mochame.app.domain.model.*
+import com.mochame.app.domain.model.telemetry.Mood
 import kotlinx.coroutines.flow.Flow
 
 interface SignalRepository {
 
     suspend fun getNextSignal(): Quote?
 
-    suspend fun getSignalByEmotion(emotion: Emotion): Quote?
+    suspend fun getSignalByEmotion(resonance: Resonance): Quote?
+
+    suspend fun getResonantQuote(currentMood: Mood): Quote?
 
     suspend fun upsertQuote(quote: Quote)
 

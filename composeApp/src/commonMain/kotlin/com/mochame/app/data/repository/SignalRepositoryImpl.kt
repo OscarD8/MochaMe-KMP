@@ -9,11 +9,12 @@ import com.mochame.app.database.dao.SignalDao
 import com.mochame.app.database.entity.QuoteEntity
 import com.mochame.app.domain.model.Author
 import com.mochame.app.domain.model.Book
-import com.mochame.app.domain.model.Emotion
+import com.mochame.app.domain.model.Resonance
 import com.mochame.app.domain.model.Quote
+import com.mochame.app.domain.model.telemetry.Mood
+import com.mochame.app.domain.model.telemetry.targetResonance
 import com.mochame.app.domain.repository.SignalRepository
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
@@ -32,8 +33,23 @@ class SignalRepositoryImpl(
         incrementViewAndMap(signalDao.getNextSignalCandidate())
     }
 
-    override suspend fun getSignalByEmotion(emotion: Emotion): Quote? = signalMutex.withLock {
-        incrementViewAndMap(signalDao.getQuoteByEmotionCandidate(emotion))
+    override suspend fun getSignalByEmotion(resonance: Resonance): Quote? = signalMutex.withLock {
+        incrementViewAndMap(signalDao.getQuoteByResonanceCandidate(resonance))
+    }
+
+    /**
+     * Find resonant quote based on mood. Increment viewCount.
+     */
+    override suspend fun getResonantQuote(currentMood: Mood): Quote? = signalMutex.withLock {
+        val target = currentMood.targetResonance
+
+        // Fetch the least-viewed quote in the target resonance
+        val quote = signalDao.getQuoteByResonanceCandidate(target)
+
+        // Atomic increment to push it to the back of the loop
+        quote?.let { incrementViewAndMap(quote) }
+
+        return quote as Quote?
     }
 
     /**

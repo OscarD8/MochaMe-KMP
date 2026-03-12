@@ -4,7 +4,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.mochame.app.domain.model.Emotion
+import com.mochame.app.domain.model.Resonance
 
 @Entity(tableName = "authors")
 data class AuthorEntity(
@@ -47,7 +47,7 @@ data class BookEntity(
     ],
     indices = [
         Index("bookId"),
-        Index("emotion"),
+        Index("resonance"),
         Index("viewCount"),
         Index("lastModified")
     ]
@@ -56,7 +56,7 @@ data class QuoteEntity(
     @PrimaryKey val id: String,
     val bookId: String,
     val content: String,
-    val emotion: Emotion, // Handled by TypeConverter
+    val resonance: Resonance, // Handled by TypeConverter
     val viewCount: Int = 0,
     val lastModified: Long
 )

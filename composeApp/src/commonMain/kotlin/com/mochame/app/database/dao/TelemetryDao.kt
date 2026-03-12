@@ -70,6 +70,12 @@ interface TelemetryDao {
     @Upsert
     suspend fun upsertTopic(topic: TopicEntity)
 
+    @Query("SELECT domainId FROM topics WHERE :id = id LIMIT 1")
+    suspend fun getTopicDomainId(id: String) : String
+
+    @Query("SELECT id FROM topics WHERE :topicId = id LIMIT 1")
+    suspend fun getTopicId(topicId: String) : String?
+
     @Query("SELECT * FROM topics WHERE name = LOWER(:name) LIMIT 1")
     suspend fun getTopicByName(name: String): TopicEntity?
 

@@ -8,7 +8,7 @@ interface BioRepository {
     /**
      * Calculates the current epoch day based on the 4:00 AM rollover.
      */
-    fun getCurrentBioDay(): Long
+    fun getMochaDay(): Long
 
     /**
      * Initialization Interceptor:

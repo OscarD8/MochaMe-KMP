@@ -49,7 +49,7 @@ internal fun QuoteEntity.toDomain(): Quote = Quote(
     id = id,
     bookId = bookId,
     content = content,
-    emotion = emotion, // MochaConverters handles the DB-level mapping
+    resonance = resonance, // MochaConverters handles the DB-level mapping
     viewCount = viewCount,
     lastModified = lastModified
 )
@@ -58,7 +58,7 @@ internal fun Quote.toEntity(): QuoteEntity = QuoteEntity(
     id = id,
     bookId = bookId,
     content = content,
-    emotion = emotion,
+    resonance = resonance,
     viewCount = viewCount,
     lastModified = lastModified
 )

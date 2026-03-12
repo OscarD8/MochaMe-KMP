@@ -1,4 +1,4 @@
-package com.mochame.app.domain.model
+package com.mochame.app.domain.model.telemetry
 
 /**
  * A specific moment of logging.
@@ -25,7 +25,7 @@ data class Moment(
 // 1. The Core (Required User Input)
 data class MomentCore(
     val satisfactionScore: Int,
-    val moodScore: Int,
+    val mood: Mood,
     val energyDelta: Int,
     val intensityScale: Int,
 )
@@ -83,3 +83,27 @@ data class Space(
     val isActive: Boolean,
     val lastModified: Long
 )
+
+/**
+ * PAD (Pleasure, Arousal, Dominance) Emotional State Model.
+ * Scaled -2 to +2 for mathematical centering in AI analysis.
+ */
+enum class Mood(
+    val pleasure: Int,   // Valence/Pleasure
+    val arousal: Int,    // Activation/Energy
+    val dominance: Int   // Agency/Control
+) {
+    FOCUS(1, 2, 2),
+    WONDER(2, 1, 1),
+    ENERGIZED(1, 2, 1),
+    CALM(1, -1, 2),
+    NEUTRAL(0, 0, 0),
+    BORED(-1, -2, 0),
+    TIRED(-1, -2, -1),
+    SAD(-2, -1, -2),
+    FRUSTRATED(-2, 2, -1);
+
+    companion object {
+        fun fromName(name: String?): Mood = entries.find { it.name == name } ?: NEUTRAL
+    }
+}

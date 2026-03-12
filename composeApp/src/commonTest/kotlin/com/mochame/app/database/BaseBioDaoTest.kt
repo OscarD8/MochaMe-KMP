@@ -1,5 +1,6 @@
 package com.mochame.app.database
 
+import app.cash.turbine.test
 import com.mochame.app.database.dao.BioDao
 import com.mochame.app.database.entity.DailyContextEntity
 import kotlinx.coroutines.test.runTest
@@ -82,4 +83,40 @@ abstract class BaseBioDaoTest : KoinTest {
         val all = dao.getAllContexts()
         assertEquals(2, all.size)
     }
+
+    // -----------------------------------------------------------
+    // TYPE MAPPING
+    // -----------------------------------------------------------
+//    @Test
+//    fun verify_nap_filter_reactivity_and_exclusivity() {
+//        runTest(EmptyCoroutineContext, timeout = 5000L.milliseconds) {
+//            // 1. Given: A mix of Napped and Non-Napped days
+//            val day1 = DailyContextEntity("id1", 20001, 7.0, 5, 1000, isNapped = true)
+//            val day2 = DailyContextEntity("id2", 20002, 8.0, 5, 1000, isNapped = false)
+//
+//            dao.insertOrReplace(day1)
+//            dao.insertOrReplace(day2)
+//
+//            // 2. When: We observe ONLY the Napped contexts
+//            dao.observeAllNappedContexts().test {
+//                val list = awaitItem()
+//                // 3. Then: Exclusivity Check
+//                assertEquals(1, list.size, "Napped list should only contain napped days.")
+//                assertEquals("id1", list[0].id)
+//
+//                // 4. Then: Reactivity Check (User edits day2 to include a nap)
+//                val updatedDay2 = day2.copy(isNapped = true)
+//                dao.insertOrReplace(updatedDay2)
+//
+//                val updatedList = awaitItem()
+//                assertEquals(
+//                    2,
+//                    updatedList.size,
+//                    "Flow should emit automatically when a record is updated to match the filter."
+//                )
+//            }
+//        }
+//    }
+
+
 }

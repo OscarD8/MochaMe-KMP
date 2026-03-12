@@ -3,6 +3,7 @@ package com.mochame.app.database
 
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import com.mochame.app.core.DateTimeUtils
 import org.junit.runner.RunWith
 import org.koin.dsl.module
 import org.robolectric.RobolectricTestRunner
@@ -16,5 +17,6 @@ class AndroidBioDaoTest : BaseBioDaoTest() {
             ).build()
         }
         single { get<MochaDatabase>().bioDao() }
+        single { get<DateTimeUtils>() }
     }
 }

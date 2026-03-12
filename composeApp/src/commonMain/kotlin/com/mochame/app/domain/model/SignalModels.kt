@@ -29,7 +29,7 @@ data class Quote(
     val id: String, // UUID
     val bookId: String, // FK to Book
     val content: String,
-    val emotion: Emotion, // Domain enum for semantic "Blend" serving
+    val resonance: Resonance, // Domain enum for semantic "Blend" serving
     val viewCount: Int, // Key for the "Infinite Loop" selection logic
     val lastModified: Long
 )
@@ -37,7 +37,7 @@ data class Quote(
 /**
  * The "Flavor" - Categorization for targeted wisdom delivery.
  */
-enum class Emotion {
+enum class Resonance {
     WONDER,
     LOGIC,
     SADNESS,

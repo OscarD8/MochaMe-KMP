@@ -4,13 +4,13 @@ import com.benasher44.uuid.uuid4
 import com.mochame.app.core.DateTimeUtils
 import com.mochame.app.data.mapper.toEntity
 import com.mochame.app.database.dao.TelemetryDao
-import com.mochame.app.domain.model.Moment
-import com.mochame.app.domain.model.MomentClimate
-import com.mochame.app.domain.model.MomentDraft
-import com.mochame.app.domain.model.MomentMetadata
+import com.mochame.app.domain.model.telemetry.Moment
+import com.mochame.app.domain.model.telemetry.MomentClimate
+import com.mochame.app.domain.model.telemetry.MomentDetail
+import com.mochame.app.domain.model.telemetry.MomentDraft
+import com.mochame.app.domain.model.telemetry.MomentMetadata
 import com.mochame.app.domain.repository.telemetry.ObservationActions
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.withContext
 
 /**
@@ -26,35 +26,21 @@ internal class ObservationBridge(
     override suspend fun logMoment(draft: MomentDraft) = withContext(Dispatchers.IO) {
         val now = dateTimeUtils.now().toEpochMilliseconds()
 
-        // 1. The Midnight Rule: Calculate biological day using the 4 AM Anchor
         val biologicalDay = dateTimeUtils.calculateBiologicalEpochDay(dateTimeUtils.now())
+        val validatedDomainId = resolveDomainId(draft)
+        val enrichedDetail = enrichBiophilia(draft.spaceId, draft.detail)
 
-        // 2. Space Enrichment: Fallback to Space defaults if user didn't specify
-        val finalBiophilia = if (draft.detail.biophiliaScale == null && draft.spaceId != null) {
-            dao.getSpaceById(draft.spaceId)?.defaultBiophilia
-        } else {
-            draft.detail.biophiliaScale
-        }
-
-        val finalDetail = draft.detail.copy(biophiliaScale = finalBiophilia)
-
-        // 3. Simple Molecule Assembly
         val newMoment = Moment(
             id = uuid4().toString(),
-            domainId = draft.domainId,
+            domainId = validatedDomainId,
             topicId = draft.topicId,
             spaceId = draft.spaceId,
             core = draft.core,
-            detail = finalDetail,
-            context = MomentClimate(), // Initialized as null/default
-            metadata = MomentMetadata(
-                timestamp = now,
-                associatedEpochDay = biologicalDay,
-                lastModified = now
-            )
+            detail = enrichedDetail,
+            context = MomentClimate(),
+            metadata = createMetadata(now, biologicalDay) // Standardized assembly
         )
 
-        // 4. Persistence via Mapper
         dao.upsertMoment(newMoment.toEntity())
     }
 
@@ -65,10 +51,40 @@ internal class ObservationBridge(
         val updatedMoment = moment.copy(
             metadata = updatedMetaData
         )
+
         dao.upsertMoment(updatedMoment.toEntity())
     }
 
     override suspend fun deleteMoment(momentId: String) = withContext(Dispatchers.IO) {
         dao.deleteMomentById(momentId)
     }
+
+    // --- Helpers ---
+    private suspend fun resolveDomainId(draft: MomentDraft): String {
+        return draft.topicId?.let { id ->
+            dao.getTopicDomainId(id)
+        } ?: draft.domainId
+    }
+
+    private suspend fun enrichBiophilia(
+        spaceId: String?,
+        currentDetail: MomentDetail
+    ): MomentDetail {
+        // 1If user already provided a scale, respect the manual override.
+        if (currentDetail.biophiliaScale != null) return currentDetail
+
+        // If no manual scale, check for a Space default.
+        val defaultScale = spaceId?.let {
+            dao.getSpaceById(it)?.defaultBiophilia
+        }
+
+        // Return a copy with the fallback or null.
+        return currentDetail.copy(biophiliaScale = defaultScale)
+    }
+
+    private fun createMetadata(now: Long, day: Long) = MomentMetadata(
+        timestamp = now,
+        associatedEpochDay = day,
+        lastModified = now
+    )
 }

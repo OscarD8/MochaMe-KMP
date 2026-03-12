@@ -1,38 +1,48 @@
 package com.mochame.app.data.mapper
 
 import com.mochame.app.database.entity.DomainEntity
+import com.mochame.app.database.entity.MomentCoreEntity
 import com.mochame.app.database.entity.MomentEntity
 import com.mochame.app.database.entity.SpaceEntity
 import com.mochame.app.database.entity.TopicEntity
-import com.mochame.app.domain.model.Domain
-import com.mochame.app.domain.model.Moment
-import com.mochame.app.domain.model.Space
-import com.mochame.app.domain.model.Topic
+import com.mochame.app.domain.model.telemetry.Domain
+import com.mochame.app.domain.model.telemetry.Moment
+import com.mochame.app.domain.model.telemetry.MomentCore
+import com.mochame.app.domain.model.telemetry.Mood
+import com.mochame.app.domain.model.telemetry.Space
+import com.mochame.app.domain.model.telemetry.Topic
 
 // --- MOMENT MAPPERS ---
-
-// --- Data -> Domain ---
 fun MomentEntity.toDomain(): Moment {
     return Moment(
         id = id,
         domainId = domainId,
         topicId = topicId,
         spaceId = spaceId,
-        core = core,          // Embedded objects map 1-to-1
+        core = MomentCore(
+            satisfactionScore = core.satisfactionScore,
+            mood = Mood.fromName(core.moodKey), // PAD mapping happens here
+            energyDelta = core.energyDelta,
+            intensityScale = core.intensityScale
+        ),
         detail = detail,
         context = context,
         metadata = metadata
     )
 }
 
-// --- Domain -> Data ---
 fun Moment.toEntity(): MomentEntity {
     return MomentEntity(
         id = id,
         domainId = domainId,
         topicId = topicId,
         spaceId = spaceId,
-        core = core,
+        core = MomentCoreEntity(
+            satisfactionScore = core.satisfactionScore,
+            moodKey = core.mood.name, // Convert back to string for DB
+            energyDelta = core.energyDelta,
+            intensityScale = core.intensityScale
+        ),
         detail = detail,
         context = context,
         metadata = metadata

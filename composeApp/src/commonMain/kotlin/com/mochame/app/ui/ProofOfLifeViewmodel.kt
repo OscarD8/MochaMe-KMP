@@ -3,7 +3,7 @@ package com.mochame.app.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mochame.app.domain.model.DailyContext
-import com.mochame.app.domain.model.Domain
+import com.mochame.app.domain.model.telemetry.Domain
 import com.mochame.app.domain.repository.BioRepository
 import com.mochame.app.domain.repository.telemetry.TelemetryRepository
 import kotlinx.coroutines.flow.SharingStarted

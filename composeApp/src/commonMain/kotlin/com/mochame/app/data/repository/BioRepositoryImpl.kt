@@ -22,13 +22,13 @@ class BioRepositoryImpl(
     // Guards against concurrent initialization during 4:00 AM state shifts
     private val bioMutex = Mutex()
 
-    override fun getCurrentBioDay(): Long {
+    override fun getMochaDay(): Long {
         // Correcting the call to use the hardened utility pattern
         return dateTimeUtils.calculateBiologicalEpochDay(dateTimeUtils.now())
     }
 
     override fun getTodaysContext(): Flow<DailyContext?> {
-        return bioDao.observeContextByDay(getCurrentBioDay())
+        return bioDao.observeContextByDay(getMochaDay())
             .map { it?.toDomain() }
     }
 
@@ -41,7 +41,7 @@ class BioRepositoryImpl(
         readinessScore: Int
     ) = bioMutex.withLock {
         withContext(Dispatchers.IO) {
-            val epochDay = getCurrentBioDay()
+            val epochDay = getMochaDay()
 
             // 1. Check if the "Cup" already exists for this biological day
             val existingContext = bioDao.getContextByDay(epochDay)
