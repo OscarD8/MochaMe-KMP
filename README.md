@@ -69,6 +69,7 @@ classDiagram
         +Long epochDay "Unique Index"
         +Double sleepHours
         +Int readinessScore
+        +Bool isNapped "The Outlier Flag"
         +Long lastModified "Sync Timestamp"
     }
 
@@ -86,7 +87,7 @@ classDiagram
     class Topic {
         <<Entity>>
         +String id PK "UUID"
-        +String domainId FK "UUID (Nullable)"
+        +String domainId FK "UUID"
         +String name
         +Boolean isActive
         +Long lastModified "Sync Timestamp"
@@ -99,7 +100,7 @@ classDiagram
         +String? topicId FK
         +String? spaceId FK
         +Int satisfactionScore "1-10"
-        +Int moodScore "1-5"
+        +Int mood
         +Int energyDelta "-5 to +5"
         +Int intensityScale "1-10"
         +Int? entryEnergy "1-10"
@@ -165,6 +166,23 @@ classDiagram
         JOY
     }
 
+    class Mood {
+        <<Enumeration>>
+        FOCUS
+        WONDER
+        ENERGIZED
+        CALM
+        NEUTRAL
+        BORED
+        TIRED
+        SAD
+        FRUSTRATED
+        +pleasure: Int
+        +arousal: Int
+        +dominance: Int
+        +fromName(name: String) Mood$
+    }
+
     %% --- RELATIONSHIPS ---
     Moment "*" --> "1" Space : occurs in
     Domain "1" -- "*" Topic : contains
@@ -173,8 +191,10 @@ classDiagram
     DailyContext .. Moment : Analytic Link (Join on epochDay)
     Author "1" -- "*" Book : writes
     Book "1" -- "*" Quote : contains
-    Quote ..> Resonance : uses
+    Quote ..> Resonance : matches
+    Moment ..> Mood : holds
 ```
+
 
 </details>
 
