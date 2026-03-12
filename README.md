@@ -167,7 +167,7 @@ classDiagram
     }
 
     class Mood {
-        <<Enumeration>>
+        <<Enumeration (PAD MODEL)>>
         FOCUS
         WONDER
         ENERGIZED
@@ -179,7 +179,7 @@ classDiagram
         FRUSTRATED
         +pleasure: Int
         +arousal: Int
-        +dominance: Int
+        +agency: Int
         +fromName(name: String) Mood$
     }
 
