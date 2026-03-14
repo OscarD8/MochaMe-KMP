@@ -53,12 +53,13 @@ val appModule = module {
     single<BioRepository> {
         BioRepositoryImpl(
             bioDao = get(),
-            dateTimeUtils = get()
+            dateTimeUtils = get(),
+            dispatchers = get()
         )
     }
 
     single<SignalRepository> { SignalRepositoryImpl(signalDao = get(), dateTimeUtils = get()) }
 
     /** --- UI LAYER --- */
-    viewModelOf(::ProofOfLifeViewModel) // Clean, reflective, and K2-friendly
+    viewModelOf(::ProofOfLifeViewModel)
 }

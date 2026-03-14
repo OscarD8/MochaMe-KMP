@@ -85,13 +85,13 @@ data class Space(
 )
 
 /**
- * PAD (Pleasure, Arousal, Dominance) Emotional State Model.
- * Scaled -2 to +2 for mathematical centering in AI analysis.
+ * PAD (Pleasure, Energy, Agency) Emotional State Model.
+ * Scaled -2 to +2 for centering in AI analysis.
  */
 enum class Mood(
     val pleasure: Int,   // Valence/Pleasure
-    val arousal: Int,    // Activation/Energy
-    val dominance: Int   // Agency/Control
+    val energy: Int,    // Activation/Energy
+    val agency: Int   // Agency/Control
 ) {
     FOCUS(1, 2, 2),
     WONDER(2, 1, 1),

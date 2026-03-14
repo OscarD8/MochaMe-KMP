@@ -23,6 +23,9 @@ tasks.withType<Test>().configureEach {
     } else if (name.contains("Host", ignoreCase = true)) {
         useJUnit()
     }
+    testLogging {
+        showStandardStreams = true
+    }
 }
 
 kotlin {

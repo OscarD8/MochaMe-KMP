@@ -2,7 +2,10 @@ package com.mochame.app.database.dao
 
 import androidx.room.*
 import com.mochame.app.database.entity.DailyContextEntity
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.withContext
 
 @Dao
 interface BioDao {
@@ -18,8 +21,24 @@ interface BioDao {
      * Persists or updates the context for the day.
      * The @Insert handles the unique index on epochDay automatically.
      */
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertOrReplace(context: DailyContextEntity)
+    @Upsert
+    suspend fun upsert(context: DailyContextEntity)
+
+    /**
+     * Confirms if an existing record for that epochDay exists.
+     * Uses the lastModified attribute to determine
+     */
+    @Transaction
+    suspend fun upsertSync(newContext: DailyContextEntity) {
+        val existing = getContextByDay(newContext.epochDay)
+
+        existing?.let {
+            if (newContext.lastModified > it.lastModified) {
+                upsert(newContext.copy(id = it.id))
+            }
+        } ?: upsert(newContext)
+        // If entity.lastModified <= existing.lastModified, we do nothing.
+    }
 
     /**
      * Fetches all history for daily context long-term analysis as a flow.
@@ -64,4 +83,13 @@ interface BioDao {
 
     @Query("SELECT * FROM daily_context WHERE isNapped = 0")
     fun observeAllNonNappedContexts(): Flow<List<DailyContextEntity>>
+
+
+    // -- CONFIRMING DEPENDENCY INJECTION IGNORE FOR FUNCTIONALITY
+    // WITHOUT DI: This test will take 2 seconds to run.
+    // WITH DI: This test will take 0.001 seconds to run.
+    suspend fun insertWithRealLag(context: DailyContextEntity) {
+        delay(2000) // The stability window
+        upsertSync(context)
+    }
 }

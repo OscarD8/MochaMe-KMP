@@ -16,10 +16,10 @@ fun Moment.calculateStrain(): Double {
     // Arousal range is -2..2.
     val arousalFactor = if (isFocus) {
         // High Tax: Focus extremes are costly (Range 2.0 to 4.0)
-        abs(currentMood.arousal.toDouble()) + 2.0
+        abs(currentMood.energy.toDouble()) + 2.0
     } else {
         // Low Tax: General existence (Range 1.5 to 2.5)
-        (abs(currentMood.arousal.toDouble()) * 0.5) + 1.5
+        (abs(currentMood.energy.toDouble()) * 0.5) + 1.5
     }
 
     // 2. DIMENSIONAL DATA
@@ -29,7 +29,7 @@ fun Moment.calculateStrain(): Double {
     // 3. RESILIENCE BUFFER (Pleasure + Dominance + Biophilia)
     // Shifts -2..2 scale to 1.0..5.0. Biophilia is already 1-5.
     val pleasureWeight = currentMood.pleasure + 3.0
-    val dominanceWeight = currentMood.dominance + 3.0
+    val dominanceWeight = currentMood.agency + 3.0
     val biophiliaWeight = this.detail.biophiliaScale?.toDouble() ?: 1.0 // Default to minimum buffer
 
     val resilience = pleasureWeight + dominanceWeight + biophiliaWeight

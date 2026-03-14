@@ -31,7 +31,7 @@ import kotlinx.coroutines.IO
         BookEntity::class,
         QuoteEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false // Standard for Phase 1 local-only development
 )
 

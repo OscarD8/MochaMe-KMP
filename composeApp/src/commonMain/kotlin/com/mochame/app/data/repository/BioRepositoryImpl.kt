@@ -5,6 +5,7 @@ import com.mochame.app.core.DateTimeUtils
 import com.mochame.app.data.mapper.toDomain
 import com.mochame.app.data.mapper.toEntity
 import com.mochame.app.database.dao.BioDao
+import com.mochame.app.di.DispatcherProvider
 import com.mochame.app.domain.model.DailyContext
 import com.mochame.app.domain.repository.BioRepository
 import kotlinx.coroutines.Dispatchers
@@ -16,8 +17,10 @@ import kotlinx.coroutines.withContext
 
 class BioRepositoryImpl(
     private val bioDao: BioDao,
-    private val dateTimeUtils: DateTimeUtils
+    private val dateTimeUtils: DateTimeUtils,
+    private val dispatchers: DispatcherProvider
 ) : BioRepository {
+    // Implement dispatcher here:
 
     // Guards against concurrent initialization during 4:00 AM state shifts
     private val bioMutex = Mutex()
@@ -61,7 +64,7 @@ class BioRepositoryImpl(
                     lastModified = dateTimeUtils.now().toEpochMilliseconds()
                 )
 
-            bioDao.insertOrReplace(contextToSave.toEntity())
+            bioDao.upsert(contextToSave.toEntity())
         }
     }
 
@@ -69,7 +72,7 @@ class BioRepositoryImpl(
         val newContext = context.copy(
             lastModified = dateTimeUtils.now().toEpochMilliseconds()
         )
-        bioDao.insertOrReplace(newContext.toEntity())
+        bioDao.upsert(newContext.toEntity())
     }
 
     override fun getHistory(): Flow<List<DailyContext>> {

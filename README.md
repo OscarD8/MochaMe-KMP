@@ -178,7 +178,7 @@ classDiagram
         SAD
         FRUSTRATED
         +pleasure: Int
-        +arousal: Int
+        +energy: Int
         +agency: Int
         +fromName(name: String) Mood$
     }

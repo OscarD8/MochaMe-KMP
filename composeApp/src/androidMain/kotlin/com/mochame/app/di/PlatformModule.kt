@@ -3,6 +3,7 @@ package com.mochame.app.di
 import com.mochame.app.database.getDatabaseBuilder // The Android-only path finder
 import com.mochame.app.database.getRoomDatabase    // The Shared configuration
 import com.mochame.app.database.MochaDatabase
+import kotlinx.coroutines.Dispatchers
 import org.koin.dsl.module
 
 actual val platformModule = module {
@@ -17,5 +18,12 @@ actual val platformModule = module {
 
         // Use the key to find the path, then build the binary heart.
         getRoomDatabase(androidBuilder)
+    }
+    single<DispatcherProvider> {
+        object : DispatcherProvider {
+            override val main = Dispatchers.Main
+            override val io = Dispatchers.IO
+            override val unconfined = Dispatchers.Unconfined
+        }
     }
 }
