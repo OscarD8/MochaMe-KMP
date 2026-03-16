@@ -3,6 +3,8 @@ package com.mochame.app.database
 import app.cash.turbine.test
 import com.mochame.app.database.dao.BioDao
 import com.mochame.app.database.entity.DailyContextEntity
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
@@ -108,12 +110,46 @@ abstract class BaseBioDaoTest : KoinTest {
         assertEquals("uuid-local", result?.id, "Database should have kept the original ID.")
     }
 
+    @Test
+    fun should_returnPartitionedLists_when_databaseContainsMixedNappingStates() = runTest {
+        // Given:
+        val napped = DailyContextEntity(
+            id = "1",
+            isNapped = true,
+            epochDay = 1L,
+            sleepHours = 6.0,
+            lastModified = 0L
+        )
+        val notNapped = DailyContextEntity(
+            id = "2",
+            isNapped = false,
+            epochDay = 2L,
+            sleepHours = 3.0,
+            lastModified = 0L
+        )
+
+        // When:
+        dao.upsertSync(napped)
+        dao.upsertSync(notNapped)
+
+        // Then: napped
+        val nappedResults = dao.getAllNappedContexts()
+        assertEquals(1, nappedResults.size, "Should only find the napped entry.")
+        assertEquals("1", nappedResults[0].id)
+
+        // Then: not napped
+        val nonNappedResults = dao.getAllNonNappedContexts()
+        assertEquals(1, nonNappedResults.size, "Should only find the non-napped entry.")
+        assertEquals("2", nonNappedResults[0].id)
+    }
+
     // -----------------------------------------------------------
     // DAILY CONTEXT FLOWS
     // -----------------------------------------------------------
 
     @Test
     fun should_notEmit_when_staleDataIsUpserted() = runTest {
+        // Given:
         val dayKey = 20500L
         val initial = DailyContextEntity(id = "u1", epochDay = dayKey, isNapped = true, sleepHours = 6.5, lastModified = 2000L)
 
@@ -151,8 +187,9 @@ abstract class BaseBioDaoTest : KoinTest {
             assertEquals(0, awaitItem().size, "Flow should start empty.")
 
             // When:
-            dao.upsertSync(notNappedContext)
-            expectNoEvents()
+            dao.upsertSync(notNappedContext) // Room sees a change and notifies all collectors.
+            assertEquals(0, awaitItem().size, "Emission for an empty list expected.")
+
             val nappedUpdate = notNappedContext.copy(isNapped = true, lastModified = 1001L)
             dao.upsertSync(nappedUpdate)
 
@@ -163,6 +200,7 @@ abstract class BaseBioDaoTest : KoinTest {
 
             expectNoEvents()
             cancelAndIgnoreRemainingEvents()
+            // cancel the reamining events becaseu th
         }
     }
 

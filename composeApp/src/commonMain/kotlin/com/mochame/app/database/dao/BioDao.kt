@@ -85,11 +85,4 @@ interface BioDao {
     fun observeAllNonNappedContexts(): Flow<List<DailyContextEntity>>
 
 
-    // -- CONFIRMING DEPENDENCY INJECTION IGNORE FOR FUNCTIONALITY
-    // WITHOUT DI: This test will take 2 seconds to run.
-    // WITH DI: This test will take 0.001 seconds to run.
-    suspend fun insertWithRealLag(context: DailyContextEntity) {
-        delay(2000) // The stability window
-        upsertSync(context)
-    }
 }
