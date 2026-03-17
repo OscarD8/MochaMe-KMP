@@ -79,7 +79,6 @@ class ProofOfLifeViewModel(
             // This proves the 'Upsert' logic works in Room KMP
             bioRepo.upsertContext(
                 DailyContext(
-                    id = "initial_proof",
                     epochDay = 0,
                     sleepHours = 7.5 + Random.nextDouble(),
                     readinessScore = 1,

@@ -1,6 +1,5 @@
 package com.mochame.app.data.repository
 
-import com.benasher44.uuid.uuid4
 import com.mochame.app.core.DateTimeUtils
 import com.mochame.app.data.mapper.toDomain
 import com.mochame.app.data.mapper.toEntity
@@ -31,7 +30,7 @@ class BioRepositoryImpl(
     }
 
     override fun getTodaysContext(): Flow<DailyContext?> {
-        return bioDao.observeContextByDay(getMochaDay())
+        return bioDao.observeContext(getMochaDay())
             .map { it?.toDomain() }
     }
 
@@ -47,7 +46,7 @@ class BioRepositoryImpl(
             val epochDay = getMochaDay()
 
             // 1. Check if the "Cup" already exists for this biological day
-            val existingContext = bioDao.getContextByDay(epochDay)
+            val existingContext = bioDao.getContext(epochDay)
 
             val contextToSave = existingContext?.
             toDomain()?.copy( // Update existing record, preserving the stable ID
@@ -57,7 +56,6 @@ class BioRepositoryImpl(
             )
                 ?: // Create a new anchor for this biological day
                 DailyContext(
-                    id = uuid4().toString(),
                     epochDay = epochDay,
                     sleepHours = sleepHours,
                     readinessScore = readinessScore,
@@ -85,7 +83,7 @@ class BioRepositoryImpl(
      * Resilient Deletion:
      * Removes the context but leaves the moments intact for potential 'Soft Recovery'.
      */
-    override suspend fun deleteContext(id: String) = withContext(Dispatchers.IO) {
-        bioDao.deleteContextById(id)
+    override suspend fun deleteContext(epochDay: Long) = withContext(Dispatchers.IO) {
+        bioDao.deleteContext(epochDay)
     }
 }

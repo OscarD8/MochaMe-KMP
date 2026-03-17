@@ -11,7 +11,6 @@ import kotlin.time.Clock
  */
 fun DailyContextEntity.toDomain(): DailyContext {
     return DailyContext(
-        id = this.id,
         epochDay = this.epochDay,
         sleepHours = this.sleepHours,
         readinessScore = this.readinessScore,
@@ -25,7 +24,6 @@ fun DailyContextEntity.toDomain(): DailyContext {
  */
 fun DailyContext.toEntity(): DailyContextEntity {
     return DailyContextEntity(
-        id = this.id,
         epochDay = this.epochDay,
         sleepHours = this.sleepHours,
         readinessScore = this.readinessScore,

@@ -34,7 +34,7 @@ interface BioRepository {
      * Removes the 'Cup' (BioContext) but leaves the 'Brew' (Moments) intact.
      * This allows for "Soft Recovery" if the day is re-initialized.
      */
-    suspend fun deleteContext(id: String)
+    suspend fun deleteContext(epochDay: Long)
 
     suspend fun upsertContext(context: DailyContext)
 }

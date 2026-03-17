@@ -6,17 +6,12 @@ import androidx.room.PrimaryKey
 
 @Entity(
     tableName = "daily_context",
-    indices = [
-        Index(value = ["epochDay"], unique = true),
-        Index("lastModified")
-    ]
+    indices = [Index("lastModified")] // epochDay is now PK, so it's indexed by default
 )
 data class DailyContextEntity(
     @PrimaryKey
-    val id: String,
-    val epochDay: Long,
+    val epochDay: Long, // Use the 4am Rule/Epoch Day as the unique identifier
     val sleepHours: Double,
-    // the qualitative metric
     val readinessScore: Int = 0,
     val lastModified: Long,
     val isNapped: Boolean = false

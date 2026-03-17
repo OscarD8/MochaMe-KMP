@@ -5,7 +5,6 @@ package com.mochame.app.domain.model
  * This acts as the framing context for all telemetry logged during this period.
  */
 data class DailyContext(
-    val id: String, // UUID String for sync-readiness
     val epochDay: Long, // Unique anchor for the biological day
     val sleepHours: Double, // The primary "fuel" metric
     val readinessScore: Int, // Qualitative metric

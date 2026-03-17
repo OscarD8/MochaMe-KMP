@@ -1,50 +1,49 @@
 package com.mochame.app.database.dao
 
-import androidx.room.*
+import androidx.room.Dao
+import androidx.room.Query
+import androidx.room.Transaction
+import androidx.room.Upsert
 import com.mochame.app.database.entity.DailyContextEntity
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.withContext
 
 @Dao
 interface BioDao {
+
+    /**
+     * Persists or updates the context for the day.
+     * Room's @Upsert will handle the conflict by updating existing rows.
+     * For sync, we often want "Last-Write-Wins" based on timestamps.
+     */
+    @Upsert
+    suspend fun upsert(context: DailyContextEntity)
+
+    /**
+     * The Sync-Safe Resolver:
+     * Only updates the local database if the incoming data is newer.
+     * This prevents an older "Cloud" record from overwriting a newer "Local" change.
+     */
+    @Transaction
+    suspend fun resolveSync(incoming: DailyContextEntity) {
+        val existing = getContext(incoming.epochDay)
+        if (existing == null || incoming.lastModified > existing.lastModified) {
+            upsert(incoming)
+        }
+    }
+
+    /**
+     * One-shot retrieval for the "Check-and-Act" initialization pattern.
+     */
+    @Query("SELECT * FROM daily_context WHERE epochDay = :epochDay LIMIT 1")
+    suspend fun getContext(epochDay: Long): DailyContextEntity?
+
     /**
      * The "Initialization Interceptor" Query:
      * Fetches the biological context for a specific day.
      * Returns null if the user hasn't initialized their day yet.
      */
     @Query("SELECT * FROM daily_context WHERE epochDay = :epochDay LIMIT 1")
-    fun observeContextByDay(epochDay: Long): Flow<DailyContextEntity?>
-
-    /**
-     * Persists or updates the context for the day.
-     * The @Insert handles the unique index on epochDay automatically.
-     */
-    @Upsert
-    suspend fun upsert(context: DailyContextEntity)
-
-    /**
-     * Confirms if an existing record for that epochDay exists.
-     * Uses the lastModified attribute to determine
-     */
-    @Transaction
-    suspend fun upsertSync(newContext: DailyContextEntity) {
-        val existing = getContextByDay(newContext.epochDay)
-
-        existing?.let {
-            if (newContext.lastModified > it.lastModified) {
-                upsert(newContext.copy(id = it.id))
-            }
-        } ?: upsert(newContext)
-        // If entity.lastModified <= existing.lastModified, we do nothing.
-    }
-
-    /**
-     * Fetches all history for daily context long-term analysis as a flow.
-     */
-    @Query("SELECT * FROM daily_context ORDER BY epochDay DESC")
-    fun observeAllContexts(): Flow<List<DailyContextEntity>>
+    fun observeContext(epochDay: Long): Flow<DailyContextEntity?>
 
     /**
      * Fetches all history for daily context long-term analysis as a list.
@@ -53,30 +52,24 @@ interface BioDao {
     suspend fun getAllContexts(): List<DailyContextEntity>
 
     /**
-     * Atomic Deletion by ID for UI cleanup or data resets.
+     * Fetches all history for daily context long-term analysis as a flow.
      */
-    @Query("DELETE FROM daily_context WHERE id = :id")
-    suspend fun deleteContextById(id: String)
+    @Query("SELECT * FROM daily_context ORDER BY epochDay DESC")
+    fun observeAllContexts(): Flow<List<DailyContextEntity>>
 
     /**
-     * One-shot retrieval for the "Check-and-Act" initialization pattern.
+     * Atomic Deletion by ID for UI cleanup or data resets.
      */
-    @Query("SELECT * FROM daily_context WHERE epochDay = :epochDay LIMIT 1")
-    suspend fun getContextByDay(epochDay: Long): DailyContextEntity?
+    @Query("DELETE FROM daily_context WHERE epochDay = :epochDay")
+    suspend fun deleteContext(epochDay: Long)
 
-    @Query("SELECT * FROM daily_context WHERE id = :id")
-    suspend fun getById(id: String): DailyContextEntity?
 
-    // NAPS
-    // --- STATIC LISTS (One-shot) ---
-
+    // NAP
     @Query("SELECT * FROM daily_context WHERE isNapped = 1")
     suspend fun getAllNappedContexts(): List<DailyContextEntity>
 
     @Query("SELECT * FROM daily_context WHERE isNapped = 0")
     suspend fun getAllNonNappedContexts(): List<DailyContextEntity>
-
-    // --- FLOWS (Reactive Streams) ---
 
     @Query("SELECT * FROM daily_context WHERE isNapped = 1")
     fun observeAllNappedContexts(): Flow<List<DailyContextEntity>>
