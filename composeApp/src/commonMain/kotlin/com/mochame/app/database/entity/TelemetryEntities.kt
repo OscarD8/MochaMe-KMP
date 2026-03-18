@@ -12,9 +12,9 @@ import com.mochame.app.domain.model.telemetry.MomentMetadata
 @Entity(
     tableName = "moments",
     foreignKeys = [
-        ForeignKey(entity = DomainEntity::class, parentColumns = ["id"], childColumns = ["domainId"], onDelete = ForeignKey.RESTRICT),
+        ForeignKey(entity = DomainEntity::class, parentColumns = ["id"], childColumns = ["domainId"], onDelete = ForeignKey.CASCADE),
         ForeignKey(entity = SpaceEntity::class, parentColumns = ["id"], childColumns = ["spaceId"], onDelete = ForeignKey.SET_NULL),
-        ForeignKey(entity = TopicEntity::class, parentColumns = ["id"], childColumns = ["topicId"], onDelete = ForeignKey.RESTRICT)
+        ForeignKey(entity = TopicEntity::class, parentColumns = ["id"], childColumns = ["topicId"], onDelete = ForeignKey.SET_NULL)
     ],
     indices = [
         Index("domainId"), Index("topicId"), Index("spaceId"),
@@ -44,7 +44,7 @@ data class MomentCoreEntity(
 @Entity(
     tableName = "domains",
     indices = [
-        Index(value = ["name"], unique = true), // Category names should be unique
+        Index(value = ["name"], unique = true),
         Index("lastModified") // Added for Sync Delta
     ]
 )
@@ -64,7 +64,7 @@ data class DomainEntity(
             entity = DomainEntity::class, // The Anchor
             parentColumns = ["id"],
             childColumns = ["domainId"],
-            onDelete = ForeignKey.RESTRICT // If the Domain has Topics, you can't delete the Domain
+            onDelete = ForeignKey.CASCADE
         )
     ],
     indices = [

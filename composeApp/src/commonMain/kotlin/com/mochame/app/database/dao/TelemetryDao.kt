@@ -12,7 +12,9 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface TelemetryDao {
 
-    // --- MOMENTS ---
+//    ================================================================================
+//    MOMENTS
+//    ================================================================================
     @Upsert
     suspend fun upsertMoment(moment: MomentEntity)
 
@@ -20,22 +22,19 @@ interface TelemetryDao {
     suspend fun getMomentById(id: String): MomentEntity?
 
     @Query("SELECT * FROM moments ORDER BY timestamp DESC")
-    fun getAllMomentsFlow(): Flow<List<MomentEntity>>
+    fun observeAllMoments(): Flow<List<MomentEntity>>
 
     @Query("SELECT * FROM moments WHERE associatedEpochDay = :epochDay ORDER BY timestamp ASC")
-    fun getMomentsByEpochDay(epochDay: Long): Flow<List<MomentEntity>>
+    fun observeMomentsByEpochDay(epochDay: Long): Flow<List<MomentEntity>>
 
     @Query("""
         SELECT m.* FROM moments m
-        INNER JOIN daily_context d ON m.associatedEpochDay = d.epochDay
+        LEFT JOIN daily_context d ON m.associatedEpochDay = d.epochDay
+        WHERE m.associatedEpochDay = :epochDay        
         ORDER BY m.timestamp DESC
     """)
-    fun getMomentsWithBioContext(): Flow<List<MomentEntity>>
+    fun observeMomentsForDay(epochDay: Long): Flow<List<MomentEntity>>
 
-    /**
-     * Atomic deletion using the Primary Key.
-     * This removes the need to construct a dummy MomentEntity in the repository layer.
-     */
     @Query("DELETE FROM moments WHERE id = :id")
     suspend fun deleteMomentById(id: String)
 
@@ -43,15 +42,17 @@ interface TelemetryDao {
     suspend fun getMomentCountForDomain(domainId: String): Int
 
 
-    // --- DOMAINS ---
+//    ================================================================================
+//    DOMAINS
+//    ================================================================================
     @Upsert
     suspend fun upsertDomain(domain: DomainEntity)
 
     @Query("SELECT * FROM domains WHERE isActive = 1 ORDER BY name ASC")
-    fun getActiveDomains(): Flow<List<DomainEntity>>
+    fun observeActiveDomains(): Flow<List<DomainEntity>>
 
     @Query("SELECT * FROM domains WHERE isActive = 0 ORDER BY name ASC")
-    fun getInactiveDomains(): Flow<List<DomainEntity>>
+    fun observeInactiveDomains(): Flow<List<DomainEntity>>
 
     @Query("SELECT * FROM domains WHERE LOWER(name) = LOWER(:name) LIMIT 1")
     suspend fun getDomainByName(name: String): DomainEntity?
@@ -62,11 +63,13 @@ interface TelemetryDao {
     @Query("DELETE FROM domains WHERE id = :domainId")
     suspend fun deleteDomainById(domainId: String)
 
-    @Query("SELECT * FROM domains WHERE id = :id LIMIT 1")
-    fun getDomainByIdFlow(id: String): Flow<DomainEntity?>
+    @Query("SELECT * FROM domains WHERE id = :domainId LIMIT 1")
+    fun observeDomainById(domainId: String): Flow<DomainEntity?>
 
 
-    // --- TOPICS ---
+//    ================================================================================
+//    TOPICS
+//    ================================================================================
     @Upsert
     suspend fun upsertTopic(topic: TopicEntity)
 
@@ -83,10 +86,12 @@ interface TelemetryDao {
     suspend fun getTopicById(id: String): TopicEntity?
 
     @Query("SELECT * FROM topics WHERE domainId = :domainId AND isActive = 1")
-    fun getTopicsByDomain(domainId: String): Flow<List<TopicEntity>>
+    fun observeActiveTopicsInDomain(domainId: String): Flow<List<TopicEntity>>
+
+    @Query("SELECT * FROM topics WHERE domainId = :domainId AND isActive = 0")
+    fun observeInactiveTopicsInDomain(domainId: String): Flow<List<TopicEntity>>
 
     /**
-     * THE SCOPED LOOKUP:
      * Finds a topic by name, but only within a specific domain.
      * This allows "Basics" to exist in 'Cooking' and 'Code' simultaneously.
      */
@@ -99,15 +104,20 @@ interface TelemetryDao {
     suspend fun deleteTopicById(topicId: String)
 
     @Query("SELECT * FROM topics WHERE id = :topicId LIMIT 1")
-    fun getTopicByIdFlow(topicId: String): Flow<TopicEntity?>
+    fun observeTopicById(topicId: String): Flow<TopicEntity?>
 
 
-    // SPACES
+//    ================================================================================
+//    SPACES
+//    ================================================================================
     @Upsert
     suspend fun upsertSpace(space: SpaceEntity)
 
     @Query("SELECT * FROM spaces WHERE isActive = 1")
-    fun getActiveSpacesFlow(): Flow<List<SpaceEntity>>
+    fun observeActiveSpaces(): Flow<List<SpaceEntity>>
+
+    @Query("SELECT * FROM spaces WHERE isActive = 0")
+    fun observeInactiveSpaces(): Flow<List<SpaceEntity>>
 
     @Query("SELECT * FROM spaces WHERE id = :id")
     suspend fun getSpaceById(id: String): SpaceEntity?
@@ -120,4 +130,17 @@ interface TelemetryDao {
 
     @Query("SELECT * FROM spaces WHERE LOWER(name) = LOWER(:name) LIMIT 1")
     suspend fun getSpaceByName(name: String): SpaceEntity?
+
+
+//    ================================================================================
+//    DELETION
+//    ================================================================================
+    @Query("DELETE FROM domains WHERE id = :id")
+    suspend fun hardDeleteDomain(id: String)
+
+    @Query("DELETE FROM topics WHERE id = :id")
+    suspend fun hardDeleteTopic(id: String)
+
+    @Query("DELETE FROM moments WHERE id = :id")
+    suspend fun hardDeleteMoment(id: String)
 }

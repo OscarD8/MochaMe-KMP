@@ -27,6 +27,7 @@ val appModule = module {
     single { get<MochaDatabase>().telemetryDao() }
     single { get<MochaDatabase>().bioDao() }
     single { get<MochaDatabase>().signalDao() }
+    single { get<MochaDatabase>().syncTombstoneDao() }
 
     /** * --- THE INTERNAL BRIDGES ---
      * We do NOT give these public interfaces here.

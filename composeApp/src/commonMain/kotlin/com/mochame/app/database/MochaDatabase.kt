@@ -5,12 +5,16 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
 import androidx.room.TypeConverters
+import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.mochame.app.database.dao.BioDao
 import com.mochame.app.database.dao.SignalDao
 import com.mochame.app.database.dao.TelemetryDao
 import com.mochame.app.database.entity.*
 import com.mochame.app.database.converter.MochaConverters
+import com.mochame.app.database.dao.SyncTombstoneDao
+import com.mochame.app.database.triggers.DatabaseTriggerFactory
+import com.mochame.app.database.triggers.SYNC_TRIGGER_CALLBACK
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 
@@ -29,9 +33,12 @@ import kotlinx.coroutines.IO
         // SIGNAL MODULE
         AuthorEntity::class,
         BookEntity::class,
-        QuoteEntity::class
+        QuoteEntity::class,
+
+        // SYNC HANDLING
+        SyncTombstoneEntity::class
     ],
-    version = 8,
+    version = 10,
     exportSchema = false // Standard for Phase 1 local-only development
 )
 
@@ -41,6 +48,7 @@ abstract class MochaDatabase : RoomDatabase() {
     abstract fun bioDao(): BioDao
     abstract fun telemetryDao(): TelemetryDao
     abstract fun signalDao(): SignalDao
+    abstract fun syncTombstoneDao(): SyncTombstoneDao
 }
 
 // Defining the override satisfies the compiler's interface check.
@@ -62,5 +70,6 @@ fun getRoomDatabase(
         .setQueryCoroutineContext(Dispatchers.IO)
 //        .enableMultiInstanceInvalidation() Possible consideration for local first implementation
         .fallbackToDestructiveMigration(dropAllTables = true)
+        .addCallback(SYNC_TRIGGER_CALLBACK)
         .build()
 }

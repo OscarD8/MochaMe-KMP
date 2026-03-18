@@ -5,7 +5,7 @@ import com.mochame.app.database.dao.BioDao
 import com.mochame.app.database.entity.DailyContextEntity
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -15,31 +15,15 @@ import org.koin.core.module.Module
 import org.koin.core.parameter.parametersOf
 import org.koin.test.KoinTest
 import org.koin.test.get
+import kotlin.coroutines.ContinuationInterceptor
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 
 
 abstract class BaseBioDaoTest : KoinTest {
     // Each platform (Species) provides its own Room/SQLite configuration
     abstract val platformTestModule: Module
-
-//    private val db: MochaDatabase by inject()
-//    private val dao: BioDao by inject()
-
-//    @BeforeTest
-//    fun setup() {
-//        startKoin {
-//            modules(platformTestModule)
-//        }
-//    }
-//
-//    @AfterTest
-//    fun tearDown() {
-//        db.close()
-//        stopKoin()
-//    }
 
     /**
      * Wrapper as solution for accessing a TestScheduler, to be passed
@@ -53,7 +37,8 @@ abstract class BaseBioDaoTest : KoinTest {
      */
     fun runTestWrapper(block: suspend TestScope.(BioDao) -> Unit) = runTest {
         // 1. Create the dispatcher tied to THIS test's scheduler
-        val currentDispatcher = StandardTestDispatcher(testScheduler)
+        // val roomDispatcher = StandardTestDispatcher(testScheduler)
+        val testDispatcher = this.coroutineContext[ContinuationInterceptor] as TestDispatcher
 
         // 2. Start Koin specifically for this test run
         startKoin {
@@ -62,7 +47,7 @@ abstract class BaseBioDaoTest : KoinTest {
 
         // 3. Request the DB and PASS this dispatcher as a parameter
         // .setQueryCoroutineContext(testDispatcher) for each platform
-        val db: MochaDatabase = get { parametersOf(currentDispatcher) }
+        val db: MochaDatabase = get { parametersOf(testDispatcher) }
         val dao = db.bioDao()
 
         try {
@@ -325,7 +310,7 @@ abstract class BaseBioDaoTest : KoinTest {
         val finalState = DailyContextEntity(dayKey, actualSleepHours, 0, actualLastModified)
 
         // Given: A flurry of concurrent sync attempts with varying timestamps
-        val syncAttempts = (1..50).map { i ->
+        val syncAttempts = (1..1000).map { i ->
             DailyContextEntity(dayKey, sleepHours = 8.0, lastModified = i.toLong())
         } + finalState
 
