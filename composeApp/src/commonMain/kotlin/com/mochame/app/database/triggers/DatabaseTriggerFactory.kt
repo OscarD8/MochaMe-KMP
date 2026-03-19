@@ -2,6 +2,7 @@ package com.mochame.app.database.triggers
 
 import androidx.room.RoomDatabase
 import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.execSQL
 
 // commonMain
 object DatabaseTriggerFactory {
@@ -20,6 +21,14 @@ object DatabaseTriggerFactory {
         BEGIN
             INSERT INTO sync_tombstones (entityId, tableName, deletedAt)
             VALUES (OLD.id, 'topics', (STRFTIME('%s','now') * 1000));
+        END;
+        """,
+        """
+        CREATE TRIGGER IF NOT EXISTS tr_daily_context_tombstone
+        AFTER DELETE ON daily_context
+        BEGIN
+            INSERT INTO sync_tombstones (entityId, tableName, deletedAt)
+            VALUES (OLD.id, 'daily_context', (strftime('%s','now') * 1000));
         END;
         """,
         """

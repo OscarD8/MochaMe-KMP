@@ -9,19 +9,19 @@ import com.mochame.app.domain.model.telemetry.MomentClimate
 import com.mochame.app.domain.model.telemetry.MomentDetail
 import com.mochame.app.domain.model.telemetry.MomentDraft
 import com.mochame.app.domain.model.telemetry.MomentMetadata
-import com.mochame.app.domain.repository.telemetry.ObservationActions
+import com.mochame.app.domain.repository.telemetry.MomentRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * ObservationBridge: SQLite-backed implementation of [ObservationActions].
+ * ObservationBridge: SQLite-backed implementation of [MomentRepository].
  * * Uses [DateTimeUtils] to calculate biological anchors and
  * [TelemetryDao] for persistent storage.
  */
-internal class ObservationBridge(
+internal class MomentBridge(
     private val dao: TelemetryDao,
     private val dateTimeUtils: DateTimeUtils
-) : ObservationActions {
+) : MomentRepository {
 
     override suspend fun logMoment(draft: MomentDraft) = withContext(Dispatchers.IO) {
         val now = dateTimeUtils.now().toEpochMilliseconds()

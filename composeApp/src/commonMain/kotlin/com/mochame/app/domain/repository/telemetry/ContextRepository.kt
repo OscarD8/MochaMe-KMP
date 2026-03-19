@@ -17,7 +17,7 @@ import com.mochame.app.domain.model.telemetry.Topic
  *
  * Architectural Role: Organizational Law & Structural Integrity.
  */
-interface IdentityActions {
+interface ContextRepository {
 
     // Domains
     suspend fun logDomain(name: String, hexColor: String = "#8D775F", iconKey: String, isActive: Boolean = true)

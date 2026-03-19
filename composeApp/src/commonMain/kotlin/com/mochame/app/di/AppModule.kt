@@ -1,26 +1,51 @@
 package com.mochame.app.di
 
 import com.mochame.app.core.DateTimeUtils
+import com.mochame.app.core.HlcFactory
 import com.mochame.app.data.repository.BioRepositoryImpl
 import com.mochame.app.data.repository.SignalRepositoryImpl
 import com.mochame.app.ui.ProofOfLifeViewModel
 import com.mochame.app.data.repository.telemetry.TelemetryRepositoryImpl
-import com.mochame.app.data.repository.telemetry.bridge.ChronicleBridge
-import com.mochame.app.data.repository.telemetry.bridge.IdentityBridge
-import com.mochame.app.data.repository.telemetry.bridge.ObservationBridge
+import com.mochame.app.data.repository.telemetry.bridge.AnalyticsBridge
+import com.mochame.app.data.repository.telemetry.bridge.ContextBridge
+import com.mochame.app.data.repository.telemetry.bridge.MomentBridge
 import com.mochame.app.database.MochaDatabase
+import com.mochame.app.domain.model.DailyContext
+import com.mochame.app.domain.model.telemetry.Moment
 import com.mochame.app.domain.repository.BioRepository
 import com.mochame.app.domain.repository.SignalRepository
 import com.mochame.app.domain.repository.telemetry.TelemetryRepository
+import com.mochame.app.domain.sync.SyncCoordinator
+import com.mochame.app.domain.sync.SyncGateway
 import org.koin.core.module.dsl.singleOf
 import org.koin.dsl.module
-// THE UPDATED IMPORT FOR KOIN 4.0
 import org.koin.core.module.dsl.viewModelOf
+import org.koin.core.module.dsl.bind
 
 val appModule = module {
 
     /** --- THE TOOLS --- */
     singleOf(::DateTimeUtils) // Auto-wires constructor params
+    singleOf(::HlcFactory)
+
+    singleOf(::BioRepositoryImpl) {
+        // Here we 'tag' the instance with the roles it plays
+        bind<BioRepository>() // Scenario A: The UI
+        bind<SyncGateway<DailyContext>>() // Scenario B: The Sync
+    }
+//
+//    singleOf(::TelemetryRepositoryImpl) {
+//        bind<TelemetryRepository>()
+//        bind<SyncGateway<Moment>>()
+//    }
+
+    single {
+        SyncCoordinator(
+            // Koin 4.0 collects all the 'binds' into this list automatically
+            gateways = getAll<SyncGateway<*>>(),
+//            cloudApi = get()
+        )
+    }
 
     /** --- THE DAOS --- */
     // Scoped specifically to the Database instance
@@ -33,10 +58,10 @@ val appModule = module {
      * We do NOT give these public interfaces here.
      * We keep them as their concrete types so ONLY the Repository can find them.
      */
-    factory { IdentityBridge(telemetryDao = get()) }
-    factory { ChronicleBridge(dao = get()) }
+    factory { ContextBridge(telemetryDao = get()) }
+    factory { AnalyticsBridge(dao = get()) }
     factory {
-        ObservationBridge(
+        MomentBridge(
             dao = get(),
             dateTimeUtils = get()
         )
@@ -45,9 +70,9 @@ val appModule = module {
     /** --- THE PUBLIC REPOSITORIES (The Seal) --- */
     single<TelemetryRepository> {
         TelemetryRepositoryImpl(
-            identity = get<IdentityBridge>(),    // Explicitly fetching the bridge
-            observation = get<ObservationBridge>(),
-            chronicle = get<ChronicleBridge>()
+            context = get<ContextBridge>(),    // Explicitly fetching the bridge
+            moment = get<MomentBridge>(),
+            analytics = get<AnalyticsBridge>()
         )
     }
 

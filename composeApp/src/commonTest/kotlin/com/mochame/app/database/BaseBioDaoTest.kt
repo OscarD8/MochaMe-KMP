@@ -61,9 +61,11 @@ abstract class BaseBioDaoTest : KoinTest {
     @Test
     fun should_updateToLatestData_when_newerTimestampProvidedForExistingDay() = runTestWrapper { dao ->
         val dayKey = 20500L // Example epoch day
+        val id = "uuid-1"
 
         // Given: An initial entry for sleep
         val initialContext = DailyContextEntity(
+            id = id,
             epochDay = dayKey,
             sleepHours = 6.0,
             readinessScore = 5,
@@ -80,7 +82,7 @@ abstract class BaseBioDaoTest : KoinTest {
         dao.resolveSync(updatedContext)
 
         // Then: The database should only have ONE record for that day with updated values
-        val result = dao.getContext(dayKey)
+        val result = dao.getContextByDay(dayKey)
         assertNotNull(result)
         assertEquals(8.5, result.sleepHours, "Updated context values did not update.")
         assertEquals(9, result.readinessScore, "Updated context values did not update.")
@@ -92,7 +94,10 @@ abstract class BaseBioDaoTest : KoinTest {
     @Test
     fun should_ignoreIncomingData_when_timestampIsOlderThanLocal() = runTestWrapper { dao ->
         val dayKey = 20500L
+        val id = "uuid-1"
+
         val existing = DailyContextEntity(
+            id = id,
             epochDay = dayKey,
             sleepHours = 8.0,
             lastModified = 5000L // Newer
@@ -105,7 +110,7 @@ abstract class BaseBioDaoTest : KoinTest {
         )
         dao.resolveSync(staleIncoming)
 
-        val result = dao.getContext(dayKey)
+        val result = dao.getContextByDay(dayKey)
         assertEquals(8.0, result?.sleepHours, "Database should have kept the newer local data.")
         assertEquals( dayKey, result?.epochDay, "Database should have kept the original ID.")
     }
@@ -114,12 +119,14 @@ abstract class BaseBioDaoTest : KoinTest {
     fun should_returnPartitionedLists_when_databaseContainsMixedNappingStates() = runTestWrapper { dao ->
         // Given:
         val napped = DailyContextEntity(
+            id = "uuid-1",
             isNapped = true,
             epochDay = 1L,
             sleepHours = 6.0,
             lastModified = 0L
         )
         val notNapped = DailyContextEntity(
+            id = "uuid-2",
             isNapped = false,
             epochDay = 2L,
             sleepHours = 3.0,
@@ -144,9 +151,9 @@ abstract class BaseBioDaoTest : KoinTest {
     @Test
     fun should_returnContextsInDescendingOrder_when_fetchingAll() = runTestWrapper { dao ->
         // Given: Three separate days
-        val day1 = DailyContextEntity(epochDay = 1L, sleepHours = 3.0, lastModified = 1000L)
-        val day2 = DailyContextEntity(epochDay = 2L, sleepHours = 2.0, lastModified = 1000L)
-        val day3 = DailyContextEntity(epochDay = 3L, sleepHours = 8.0, lastModified = 1000L)
+        val day1 = DailyContextEntity(id = "uuid-1", epochDay = 1L, sleepHours = 3.0, lastModified = 1000L)
+        val day2 = DailyContextEntity(id = "uuid-2", epochDay = 2L, sleepHours = 2.0, lastModified = 1000L)
+        val day3 = DailyContextEntity(id = "uuid-3", epochDay = 3L, sleepHours = 8.0, lastModified = 1000L)
 
         dao.resolveSync(day1)
         dao.resolveSync(day3)
@@ -169,7 +176,7 @@ abstract class BaseBioDaoTest : KoinTest {
     @Test
     fun should_emitNewData_when_specificallyObservedDayIsUpdated() = runTestWrapper { dao ->
         val dayKey = 20500L
-        val initial = DailyContextEntity(epochDay = dayKey, sleepHours = 5.0, lastModified = 1000L)
+        val initial = DailyContextEntity(id = "uuid-1", epochDay = dayKey, sleepHours = 5.0, lastModified = 1000L)
 
         dao.observeContext(dayKey).test {
             // Given: Initially null (or empty)
@@ -193,7 +200,7 @@ abstract class BaseBioDaoTest : KoinTest {
     fun should_notEmit_when_staleDataIsUpserted() = runTestWrapper { dao ->
         // Given:
         val dayKey = 20500L
-        val initial = DailyContextEntity(epochDay = dayKey, isNapped = true, sleepHours = 6.5, lastModified = 2000L)
+        val initial = DailyContextEntity(id = "uuid-1", epochDay = dayKey, isNapped = true, sleepHours = 6.5, lastModified = 2000L)
 
         dao.observeAllContexts().test {
             assertEquals(0, awaitItem().size, "Flow should start empty.")
@@ -217,6 +224,7 @@ abstract class BaseBioDaoTest : KoinTest {
         // Given:
         val dayKey = 20500L
         val notNappedContext = DailyContextEntity(
+            id = "uuid-1",
             epochDay = dayKey,
             sleepHours = 7.0,
             readinessScore = 7,
@@ -251,6 +259,7 @@ abstract class BaseBioDaoTest : KoinTest {
         // Given:
         val dayKey = 20500L
         val initialNapped = DailyContextEntity(
+            id = "uuid-1",
             epochDay = dayKey,
             isNapped = true,
             sleepHours = 6.0,
@@ -286,14 +295,14 @@ abstract class BaseBioDaoTest : KoinTest {
     fun should_removeContext_when_deleteContextByIdIsCalled() = runTestWrapper { dao ->
         // Given: A day exists
         val dayKey = 20500L
-        val entity = DailyContextEntity(epochDay = dayKey, sleepHours = 7.0, lastModified = 1000L)
+        val entity = DailyContextEntity(id = "uuid-1", epochDay = dayKey, sleepHours = 7.0, lastModified = 1000L)
         dao.resolveSync(entity)
 
         // When: We clear the day
         dao.deleteContext(dayKey)
 
         // Then: The record should be gone
-        val result = dao.getContext(dayKey)
+        val result = dao.getContextByDay(dayKey)
         assertEquals(null, result, "Record should have been deleted from the database.")
     }
 
@@ -307,11 +316,11 @@ abstract class BaseBioDaoTest : KoinTest {
         val dayKey = 20500L
         val actualLastModified = 200000L
         val actualSleepHours = 9.0
-        val finalState = DailyContextEntity(dayKey, actualSleepHours, 0, actualLastModified)
+        val finalState = DailyContextEntity("uuid-1", dayKey, actualSleepHours, 0, actualLastModified)
 
         // Given: A flurry of concurrent sync attempts with varying timestamps
         val syncAttempts = (1..1000).map { i ->
-            DailyContextEntity(dayKey, sleepHours = 8.0, lastModified = i.toLong())
+            DailyContextEntity("uuid-2", dayKey, sleepHours = 8.0, lastModified = i.toLong())
         } + finalState
 
         // When: They all rush the DAO at once (simulating multi-device sync)
@@ -321,7 +330,7 @@ abstract class BaseBioDaoTest : KoinTest {
         advanceUntilIdle()
 
         // Then: Only the one with the highest timestamp should remain
-        val result = dao.getContext(dayKey)
+        val result = dao.getContextByDay(dayKey)
         assertEquals(actualLastModified, result?.lastModified, "The highest timestamp did not win the race.")
         assertEquals(9.0, result?.sleepHours)
     }

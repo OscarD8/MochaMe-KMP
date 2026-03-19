@@ -1,18 +1,18 @@
 package com.mochame.app.data.repository.telemetry
 
 
-import com.mochame.app.domain.repository.telemetry.ChronicleActions
-import com.mochame.app.domain.repository.telemetry.IdentityActions
-import com.mochame.app.domain.repository.telemetry.ObservationActions
+import com.mochame.app.domain.repository.telemetry.AnalyticsRepository
+import com.mochame.app.domain.repository.telemetry.ContextRepository
+import com.mochame.app.domain.repository.telemetry.MomentRepository
 import com.mochame.app.domain.repository.telemetry.TelemetryRepository
 
 
 // The Repository is now a pure "Router"
 internal class TelemetryRepositoryImpl(
-    private val identity: IdentityActions,
-    private val observation: ObservationActions,
-    private val chronicle: ChronicleActions
+    private val context: ContextRepository,
+    private val moment: MomentRepository,
+    private val analytics: AnalyticsRepository
 ) : TelemetryRepository,
-    IdentityActions by identity,
-    ObservationActions by observation,
-    ChronicleActions by chronicle
+    ContextRepository by context,
+    MomentRepository by moment,
+    AnalyticsRepository by analytics

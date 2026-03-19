@@ -32,7 +32,8 @@ abstract class BaseTelemetryDaoTest : KoinTest {
     ) = runTest {
         // 1. Create the dispatcher tied to THIS test's scheduler
         // val roomDispatcher = StandardTestDispatcher(testScheduler)
-        val testDispatcher = this.coroutineContext[ContinuationInterceptor] as TestDispatcher
+        // I have now tried to unify to a single dispatcher... unsure if necessary
+        val testDispatcher = this.coroutineContext[ContinuationInterceptor]
 
         // 2. Start Koin specifically for this test run
         startKoin {

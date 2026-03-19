@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.Flow
  *
  * Architectural Role: Analytical Engine & History Provider.
  */
-interface ChronicleActions {
+interface AnalyticsRepository {
 
     // DOMAIN
     fun getActiveDomains(): Flow<List<Domain>>

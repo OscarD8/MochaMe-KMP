@@ -7,7 +7,7 @@ package com.mochame.app.domain.repository.telemetry
  * to be injected via Koin.
  */
 interface TelemetryRepository :
-    IdentityActions,    // Managing the "Context" (Domains, Topics, Spaces)
-    ObservationActions, // The act of logging "Moments"
-    ChronicleActions,   // Querying historical data and streams
-    AtmosphereActions   // Environmental context (Weather/Sensors)
+    ContextRepository,    // Managing the "Context" (Domains, Topics, Spaces)
+    MomentRepository, // The act of logging "Moments"
+    AnalyticsRepository,   // Querying historical data and streams
+    EnvironmentRepository   // Environmental context (Weather/Sensors)

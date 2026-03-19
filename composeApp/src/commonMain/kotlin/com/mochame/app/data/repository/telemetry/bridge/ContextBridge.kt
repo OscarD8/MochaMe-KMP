@@ -16,7 +16,7 @@ import com.mochame.app.database.dao.TelemetryDao
 import com.mochame.app.domain.model.telemetry.Domain
 import com.mochame.app.domain.model.telemetry.Space
 import com.mochame.app.domain.model.telemetry.Topic
-import com.mochame.app.domain.repository.telemetry.IdentityActions
+import com.mochame.app.domain.repository.telemetry.ContextRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -25,14 +25,14 @@ import kotlin.time.Clock
 
 
 /**
- * IdentityBridge: SQLite-backed implementation of [IdentityActions].
+ * IdentityBridge: SQLite-backed implementation of [ContextRepository].
  *
  * This bridge utilizes [TelemetryDao] to enforce structural constraints at the
  * database level.
  */
-internal class IdentityBridge(
+internal class ContextBridge(
     private val telemetryDao: TelemetryDao,
-) : IdentityActions {
+) : ContextRepository {
 
 
     // --- DOMAIN ---

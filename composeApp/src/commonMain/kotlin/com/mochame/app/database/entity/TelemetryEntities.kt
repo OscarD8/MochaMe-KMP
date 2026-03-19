@@ -5,6 +5,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.mochame.app.core.SyncStatus
 import com.mochame.app.domain.model.telemetry.MomentClimate
 import com.mochame.app.domain.model.telemetry.MomentDetail
 import com.mochame.app.domain.model.telemetry.MomentMetadata
@@ -18,7 +19,8 @@ import com.mochame.app.domain.model.telemetry.MomentMetadata
     ],
     indices = [
         Index("domainId"), Index("topicId"), Index("spaceId"),
-        Index("associatedEpochDay"), Index("timestamp"), Index("lastModified")
+        Index("associatedEpochDay"), Index("timestamp"),
+        Index("lastModified"), Index("syncStatus")
     ]
 )
 data class MomentEntity(
@@ -30,9 +32,8 @@ data class MomentEntity(
     @Embedded val core: MomentCoreEntity, // not a 1-1 map with domain
     @Embedded val detail: MomentDetail,
     @Embedded val context: MomentClimate,
-    @Embedded val metadata: MomentMetadata
+    @Embedded val metadata: MomentMetadata,
 )
-
 
 data class MomentCoreEntity(
     val satisfactionScore: Int,
@@ -41,11 +42,13 @@ data class MomentCoreEntity(
     val intensityScale: Int
 )
 
+
 @Entity(
     tableName = "domains",
     indices = [
         Index(value = ["name"], unique = true),
-        Index("lastModified") // Added for Sync Delta
+        Index("lastModified"), // Added for Sync Delta
+        Index("syncStatus")
     ]
 )
 data class DomainEntity(
@@ -54,8 +57,10 @@ data class DomainEntity(
     val hexColor: String,
     val iconKey: String, // e.g., "ic_work", "ic_heart"
     val isActive: Boolean,
-    val lastModified: Long
+    val lastModified: Long,
+    val syncStatus: Int = SyncStatus.PENDING.value
 )
+
 
 @Entity(
     tableName = "topics",
@@ -69,7 +74,7 @@ data class DomainEntity(
     ],
     indices = [
         Index(value = ["domainId", "name"], unique = true), // name must be unique within its domain
-        Index("lastModified") // Added for Sync Delta
+        Index("lastModified"), Index("syncStatus") // Added for Sync Delta
     ]
 )
 data class TopicEntity(
@@ -77,7 +82,8 @@ data class TopicEntity(
     val domainId: String,
     val name: String,
     val isActive: Boolean,
-    val lastModified: Long
+    val lastModified: Long,
+    val syncStatus: Int = SyncStatus.PENDING.value
 )
 
 
@@ -87,7 +93,7 @@ data class TopicEntity(
         // Taxonomy Integrity: Prevents "Home" and "home" duplicates
         Index(value = ["name"], unique = true),
         // Sync & Analytical Integrity: Used for localized analysis windows
-        Index(value = ["lastModified"])
+        Index("lastModified"), Index("syncStatus")
     ]
 )
 data class SpaceEntity(
@@ -97,5 +103,6 @@ data class SpaceEntity(
     val defaultBiophilia: Int?,
     val isControlled: Boolean,
     val isActive: Boolean,
-    val lastModified: Long
+    val lastModified: Long,
+    val syncStatus: Int = SyncStatus.PENDING.value
 )

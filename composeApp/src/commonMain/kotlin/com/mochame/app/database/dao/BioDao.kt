@@ -25,17 +25,27 @@ interface BioDao {
      */
     @Transaction
     suspend fun resolveSync(incoming: DailyContextEntity) {
-        val existing = getContext(incoming.epochDay)
-        if (existing == null || incoming.lastModified > existing.lastModified) {
+        val localRecord = getContextByDay(incoming.epochDay)
+
+        if (localRecord == null) {
             upsert(incoming)
+        } else if (incoming.lastModified > localRecord.lastModified) {
+            // we don't break local FK constraints on Moments
+            upsert(incoming.copy(id = localRecord.id))
         }
     }
 
     /**
-     * One-shot retrieval for the "Check-and-Act" initialization pattern.
+     * One-shot retrieval for the context. Can return null.
      */
     @Query("SELECT * FROM daily_context WHERE epochDay = :epochDay LIMIT 1")
-    suspend fun getContext(epochDay: Long): DailyContextEntity?
+    suspend fun getContextByDay(epochDay: Long): DailyContextEntity?
+
+    /**
+     * One-shot retrieval for the context. Can return null.
+     */
+    @Query("SELECT * FROM daily_context WHERE id = :id LIMIT 1")
+    suspend fun getContextById(id: String): DailyContextEntity?
 
     /**
      * The "Initialization Interceptor" Query:
@@ -78,4 +88,9 @@ interface BioDao {
     fun observeAllNonNappedContexts(): Flow<List<DailyContextEntity>>
 
 
+    // SYNC
+    override suspend fun lockForSync(ids: List<String>, sessionId: String) {
+        // Move from PENDING (1) to SYNCING (2) and tag with ID
+        bioDao.updateSyncStatus(ids, oldStatus = 1, newStatus = 2, sessionId = sessionId)
+    }
 }

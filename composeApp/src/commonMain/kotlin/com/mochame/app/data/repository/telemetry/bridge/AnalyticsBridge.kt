@@ -6,13 +6,13 @@ import com.mochame.app.domain.model.telemetry.Domain
 import com.mochame.app.domain.model.telemetry.Moment
 import com.mochame.app.domain.model.telemetry.Space
 import com.mochame.app.domain.model.telemetry.Topic
-import com.mochame.app.domain.repository.telemetry.ChronicleActions
+import com.mochame.app.domain.repository.telemetry.AnalyticsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
 /**
- * ChronicleBridge: SQLite-backed implementation of [ChronicleActions].
+ * ChronicleBridge: SQLite-backed implementation of [AnalyticsRepository].
  *
  * This bridge leverages [TelemetryDao] to execute high-performance historical
  * queries.
@@ -21,9 +21,9 @@ import kotlinx.coroutines.flow.map
  * lightweight stream mapping to prevent memory pressure during
  * background analysis by Gemini Nano.
  */
-internal class ChronicleBridge(
+internal class AnalyticsBridge(
     private val dao: TelemetryDao
-) : ChronicleActions {
+) : AnalyticsRepository {
 
     // --- DOMAINS ---
     override fun getActiveDomains(): Flow<List<Domain>> {

@@ -10,7 +10,7 @@ import com.mochame.app.domain.model.telemetry.MomentDraft
  * telemetry is anchored to the user's biological day (The Cup) rather than
  * strict chronological time (The Brew).
  */
-interface ObservationActions {
+interface MomentRepository {
     /**
      * The primary entry point for capturing a biological moment.
      * Enforces the 4:00 AM Midnight Rule and handles Space-based enrichment.

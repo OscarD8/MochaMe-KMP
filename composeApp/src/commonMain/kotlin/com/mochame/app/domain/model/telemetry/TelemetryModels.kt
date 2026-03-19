@@ -1,5 +1,7 @@
 package com.mochame.app.domain.model.telemetry
 
+import com.mochame.app.core.SyncStatus
+
 /**
  * A specific moment of logging.
  */
@@ -51,7 +53,8 @@ data class MomentClimate(
 data class MomentMetadata(
     val timestamp: Long,
     val associatedEpochDay: Long,
-    val lastModified: Long
+    val lastModified: Long,
+    val syncStatus: Int = SyncStatus.PENDING.value // New: State-Aware Flag
 )
 
 

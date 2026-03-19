@@ -182,6 +182,12 @@ classDiagram
         +agency: Int
         +fromName(name: String) Mood$
     }
+    
+    class SyncTombstoneEntity {
+        +String entityId <<PK>>
+        +String tableName
+        +Long deletedAt
+    }
 
     %% --- RELATIONSHIPS ---
     Moment "*" --> "1" Space : occurs in
@@ -255,3 +261,43 @@ For pre-merge verification and final system checks.
 </details>
 
 ---
+
+<details>
+<summary><b>Local First Architecture</b></summary>
+
+<br>
+
+```mermaid
+---
+config:
+    themeVariables:
+        fontFamily: "Courier New"
+---
+graph TD
+    subgraph Client [Local-First Architecture]
+        UI([UI / ViewModels]) <-- Flows --> Repo([Repositories])
+        Repo <-- Flows --> DAO([Local DAOs - Room KMP])
+        DAO <-.-> DB[(SQLite DB)]
+
+        subgraph SQLite [Triggers]
+            DB -- AFTER DELETE --> TS[SyncTombstones Table]
+            DB -- AFTER UPDATE --> LM[Update lastModified]
+        end
+
+        subgraph Cloud [Cloud Infrastructure]
+            API[Sync API - Ktor] --> Ledger[(PostgreSQL - Append-Only Ledger)]
+            Ledger -- "Global Sequence ID (Watermark)" --> API
+        end
+
+        SM[SyncManager - expect/actual] -- Debounced Trigger --> SC[SyncCoordinator]
+        SC[SyncCoordinator] <-- Consumes --> SG(((SyncGateway - Interface)))
+        SP[SyncPolicy - Domain Logic] -- Conflict Rules --> SC
+        Repo <-- Implements --> SG
+    end
+
+
+
+    SC <== "REST / JSON (Deltas + HLC)" ==> API
+```
+
+</details>
