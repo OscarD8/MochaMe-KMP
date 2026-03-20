@@ -1,6 +1,9 @@
 package com.mochame.app.database.converter
 
 import androidx.room.TypeConverter
+import com.mochame.app.core.HLC
+import com.mochame.app.core.MutationOp
+import com.mochame.app.core.SyncStatus
 import com.mochame.app.domain.model.Resonance
 import com.mochame.app.domain.model.telemetry.Mood
 import kotlin.time.Instant
@@ -51,4 +54,26 @@ class MochaConverters {
 
     @TypeConverter
     fun toMood(name: String): Mood = Mood.fromName(name)
+
+
+    // --- SYNC TOOLS ---
+    @TypeConverter
+    fun fromHlc(hlc: HLC): String = hlc.toString()
+
+    @TypeConverter
+    fun toHlc(hlcString: String): HLC = HLC.parse(hlcString)
+
+    // MutationOp <-> Int
+    @TypeConverter
+    fun fromOp(op: MutationOp): Int = op.id
+
+    @TypeConverter
+    fun toOp(id: Int): MutationOp = MutationOp.fromId(id)
+
+    // SyncStatus <-> Int
+    @TypeConverter
+    fun fromStatus(status: SyncStatus): Int = status.id
+
+    @TypeConverter
+    fun toStatus(id: Int): SyncStatus = SyncStatus.fromId(id)
 }

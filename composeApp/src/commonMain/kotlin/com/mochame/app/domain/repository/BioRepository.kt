@@ -6,16 +6,11 @@ import kotlinx.coroutines.flow.Flow
 interface BioRepository {
 
     /**
-     * Calculates the current epoch day based on the 4:00 AM rollover.
-     */
-    fun getMochaDay(): Long
-
-    /**
      * Initialization Interceptor:
      * Observes the context for the current biological day.
      * If null, the UI triggers the "Pour Your Fuel" modal.
      */
-    fun getTodaysContext(): Flow<DailyContext?>
+    fun observeContext(epochDay: Long): Flow<DailyContext?>
 
     /**
      * The Day Starter (Smart Constructor):
@@ -24,17 +19,23 @@ interface BioRepository {
      */
     suspend fun initializeDay(sleepHours: Double, readinessScore: Int)
 
-    /**
-     * Historical 'Fuel' record for long-term efficiency analysis.
-     */
-    fun getHistory(): Flow<List<DailyContext>>
+//    /**
+//     * Historical 'Fuel' record for long-term efficiency analysis.
+//     */
+//    fun getHistory(): Flow<List<DailyContext>>
 
     /**
      * Resilient Deletion:
      * Removes the 'Cup' (BioContext) but leaves the 'Brew' (Moments) intact.
      * This allows for "Soft Recovery" if the day is re-initialized.
      */
-    suspend fun deleteContext(epochDay: Long)
+    suspend fun deleteContext(epochDay: Long): Int
 
-    suspend fun upsertContext(context: DailyContext)
+//    suspend fun upsertContext(context: DailyContext)
+
+    suspend fun fetchForSync(entityIds: List<String>): List<DailyContext>
+
+    suspend fun storeRemoteChanges(changes: List<DailyContext>)
+    suspend fun pruneOldTombstones(cutoff: Long)
+    suspend fun getTombstoneCount(): Int
 }

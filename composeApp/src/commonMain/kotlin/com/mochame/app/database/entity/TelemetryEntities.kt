@@ -5,10 +5,10 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.mochame.app.core.SyncStatus
 import com.mochame.app.domain.model.telemetry.MomentClimate
 import com.mochame.app.domain.model.telemetry.MomentDetail
 import com.mochame.app.domain.model.telemetry.MomentMetadata
+import com.mochame.app.domain.model.telemetry.Mood
 
 @Entity(
     tableName = "moments",
@@ -20,7 +20,7 @@ import com.mochame.app.domain.model.telemetry.MomentMetadata
     indices = [
         Index("domainId"), Index("topicId"), Index("spaceId"),
         Index("associatedEpochDay"), Index("timestamp"),
-        Index("lastModified"), Index("syncStatus")
+        Index("lastModified")
     ]
 )
 data class MomentEntity(
@@ -37,7 +37,7 @@ data class MomentEntity(
 
 data class MomentCoreEntity(
     val satisfactionScore: Int,
-    val moodKey: String, // String for SQLite storage
+    val mood: Mood, // String for SQLite storage
     val energyDelta: Int,
     val intensityScale: Int
 )
@@ -48,7 +48,6 @@ data class MomentCoreEntity(
     indices = [
         Index(value = ["name"], unique = true),
         Index("lastModified"), // Added for Sync Delta
-        Index("syncStatus")
     ]
 )
 data class DomainEntity(
@@ -58,7 +57,6 @@ data class DomainEntity(
     val iconKey: String, // e.g., "ic_work", "ic_heart"
     val isActive: Boolean,
     val lastModified: Long,
-    val syncStatus: Int = SyncStatus.PENDING.value
 )
 
 
@@ -74,7 +72,7 @@ data class DomainEntity(
     ],
     indices = [
         Index(value = ["domainId", "name"], unique = true), // name must be unique within its domain
-        Index("lastModified"), Index("syncStatus") // Added for Sync Delta
+        Index("lastModified")
     ]
 )
 data class TopicEntity(
@@ -83,7 +81,6 @@ data class TopicEntity(
     val name: String,
     val isActive: Boolean,
     val lastModified: Long,
-    val syncStatus: Int = SyncStatus.PENDING.value
 )
 
 
@@ -93,7 +90,7 @@ data class TopicEntity(
         // Taxonomy Integrity: Prevents "Home" and "home" duplicates
         Index(value = ["name"], unique = true),
         // Sync & Analytical Integrity: Used for localized analysis windows
-        Index("lastModified"), Index("syncStatus")
+        Index("lastModified")
     ]
 )
 data class SpaceEntity(
@@ -104,5 +101,4 @@ data class SpaceEntity(
     val isControlled: Boolean,
     val isActive: Boolean,
     val lastModified: Long,
-    val syncStatus: Int = SyncStatus.PENDING.value
 )

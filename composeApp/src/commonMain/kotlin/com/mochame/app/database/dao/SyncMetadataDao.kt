@@ -2,24 +2,55 @@ package com.mochame.app.database.dao
 
 import androidx.room.Dao
 import androidx.room.Query
+import androidx.room.Upsert
+import com.mochame.app.core.SyncStatus
 import com.mochame.app.database.entity.SyncMetadataEntity
 
 @Dao
 interface SyncMetadataDao {
 
     @Query("SELECT * FROM sync_metadata WHERE moduleName = :moduleName")
-    suspend fun getMetadata(moduleName: String): SyncMetadataEntity?
+    suspend fun getMetadataForModule(moduleName: String): SyncMetadataEntity?
 
-    @Query("UPDATE sync_metadata SET lastWatermark = :watermark, activeSessionId = NULL, lastSyncStatus = 0, lastSyncTime = :timestamp WHERE moduleName = :moduleName")
-    suspend fun updateWatermark(moduleName: String, watermark: String, timestamp: Long)
+    @Query("SELECT * FROM sync_metadata")
+    suspend fun getAllMetadata(): List<SyncMetadataEntity>
 
-    @Query("UPDATE sync_metadata SET activeSessionId = :sessionId, lastSyncStatus = 1 WHERE moduleName = :moduleName")
-    suspend fun beginSession(moduleName: String, sessionId: String)
+    /**
+     * The 2026 Way: Atomic update or insert without row destruction.
+     */
+    @Upsert
+    suspend fun upsertMetadata(metadata: SyncMetadataEntity)
 
-    @Query("UPDATE sync_metadata SET activeSessionId = NULL, lastSyncStatus = :status WHERE moduleName = :moduleName")
-    suspend fun endSession(moduleName: String, status: Int)
+    /**
+     * Intent-Driven Lock: Room uses the TypeConverter to map the Enum 'status'.
+     */
+    @Query("""
+        UPDATE sync_metadata 
+        SET syncStatus = :status, activeSyncId = :syncId 
+        WHERE moduleName = :moduleName
+    """)
+    suspend fun updateSyncLock(
+        moduleName: String,
+        syncId: String?,
+        status: SyncStatus = SyncStatus.SYNCING
+    )
 
-    // THE JANITOR: Finds sessions that are "In-Progress" but have no active worker
-    @Query("SELECT * FROM sync_metadata WHERE activeSessionId IS NOT NULL")
-    suspend fun getInProgressSessions(): List<SyncMetadataEntity>
+    /**
+     * The Resume Operation: Swapped hardcoded 'IDLE' for a parameter
+     * to ensure Enum/TypeConverter compatibility.
+     */
+    @Query("""
+        UPDATE sync_metadata 
+        SET serverWatermark = :watermark, 
+            lastSyncTime = :timestamp, 
+            syncStatus = :status, 
+            activeSyncId = NULL
+        WHERE moduleName = :moduleName
+    """)
+    suspend fun finalizeSync(
+        moduleName: String,
+        watermark: String?,
+        timestamp: Long,
+        status: SyncStatus = SyncStatus.PENDING // Reconciled from IDLE
+    )
 }

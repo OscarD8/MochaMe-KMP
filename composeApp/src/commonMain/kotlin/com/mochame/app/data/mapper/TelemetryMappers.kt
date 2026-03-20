@@ -21,7 +21,7 @@ fun MomentEntity.toDomain(): Moment {
         spaceId = spaceId,
         core = MomentCore(
             satisfactionScore = core.satisfactionScore,
-            mood = Mood.fromName(core.moodKey), // PAD mapping happens here
+            mood = core.mood, // PAD mapping happens here
             energyDelta = core.energyDelta,
             intensityScale = core.intensityScale
         ),
@@ -39,7 +39,7 @@ fun Moment.toEntity(): MomentEntity {
         spaceId = spaceId,
         core = MomentCoreEntity(
             satisfactionScore = core.satisfactionScore,
-            moodKey = core.mood.name, // Convert back to string for DB
+            mood = core.mood, // Convert back to string for DB
             energyDelta = core.energyDelta,
             intensityScale = core.intensityScale
         ),

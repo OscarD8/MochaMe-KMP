@@ -1,133 +1,101 @@
 package com.mochame.app.data.repository
 
-import com.benasher44.uuid.Uuid
 import com.mochame.app.core.DateTimeUtils
+import com.mochame.app.core.HLC
 import com.mochame.app.core.HlcFactory
+import com.mochame.app.core.MochaModule
+import com.mochame.app.core.MutationOp
 import com.mochame.app.data.mapper.toDomain
 import com.mochame.app.data.mapper.toEntity
+import com.mochame.app.database.MochaDatabase
 import com.mochame.app.database.dao.BioDao
-import com.mochame.app.database.dao.SyncMetadataDao
-import com.mochame.app.di.DispatcherProvider
+import com.mochame.app.database.dao.MutationLedgerDao
 import com.mochame.app.domain.model.DailyContext
 import com.mochame.app.domain.repository.BioRepository
+import com.mochame.app.domain.sync.BaseRepository
 import com.mochame.app.domain.sync.SyncGateway
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
 
 class BioRepositoryImpl(
     private val bioDao: BioDao,
-    private val metadataDao: SyncMetadataDao, // For watermarks
-    private val hlcFactory: HlcFactory,       // For Causality
+    private val database: MochaDatabase,
+    private val hlcFactory: HlcFactory,
     private val dateTimeUtils: DateTimeUtils,
-    private val dispatchers: DispatcherProvider
-) : BioRepository, SyncGateway<DailyContext> {
+    ledgerDao: MutationLedgerDao
+) : BaseRepository<DailyContext>(
+    hlcFactory = hlcFactory,
+    database = database,
+    ledgerDao = ledgerDao,
+    moduleName = MochaModule.Bio
+), BioRepository, SyncGateway<DailyContext> {
 
-    private val bioMutex = Mutex()
+    override suspend fun initializeDay(sleepHours: Double, readinessScore: Int): DailyContext {
+        val id = dateTimeUtils.getMochaDay().toString()
 
-    // --- BIO REPOSITORY (UI FACING) ---
-    override fun getMochaDay(): Long {
-        // Correcting the call to use the hardened utility pattern
-        return dateTimeUtils.calculateBiologicalEpochDay(dateTimeUtils.now())
-    }
+        return mutate(entityId = id, op = MutationOp.UPSERT) { newHlc ->
+            // 1. ABSOLUTE CONVERGENCE: Parse the pulse provided by the engine
+            val hlc = HLC.parse(newHlc)
+            val existing = bioDao.getContextById(id)
 
-    override fun getTodaysContext(): Flow<DailyContext?> {
-        return bioDao.observeContext(getMochaDay())
-            .map { it?.toDomain() }
-    }
-
-    /**
-     * Hardened Initialization:
-     * Ensures "The Cup" has a stable ID and respects the "Last Modified" heartbeat.
-     */
-    override suspend fun initializeDay(
-        sleepHours: Double,
-        readinessScore: Int
-    ) = bioMutex.withLock {
-        withContext(Dispatchers.IO) {
-            val epochDay = getMochaDay()
-
-            // 1. Check if the "Cup" already exists for this biological day
-            val existingContext = bioDao.getContextByDay(epochDay)
-
-            val contextToSave = existingContext?.
-            toDomain()?.copy( // Update existing record, preserving the stable ID
+            val contextToSave = existing?.toDomain()?.copy(
                 sleepHours = sleepHours,
                 readinessScore = readinessScore,
-                lastModified = dateTimeUtils.now().toEpochMilliseconds()
+                isDeleted = false
+            ) ?: DailyContext(
+                id = id,
+                epochDay = hlc.ts / (24 * 60 * 60 * 1000), // Optional: Double-check day alignment
+                sleepHours = sleepHours,
+                readinessScore = readinessScore
             )
-                ?: // Create a new anchor for this biological day
-                DailyContext(
-                    id = Uuid.randomUUID().toString(),
-                    epochDay = epochDay,
-                    sleepHours = sleepHours,
-                    readinessScore = readinessScore,
-                    lastModified = dateTimeUtils.now().toEpochMilliseconds()
-                )
 
-            bioDao.upsert(contextToSave.toEntity())
+            // 2. STAMP: Sync the Logical Pulse and Physical UI Time
+            val stamped = contextToSave
+                .withHlc(newHlc)
+                .withPhysicalTime(hlc.ts)
+
+            bioDao.upsert(stamped.toEntity())
+            stamped
         }
     }
 
-    override suspend fun upsertContext(context: DailyContext) {
-        val newContext = context.copy(
-            lastModified = dateTimeUtils.now().toEpochMilliseconds()
+    override suspend fun deleteContext(epochDay: Long): Int = mutate(
+        entityId = epochDay.toString(),
+        op = MutationOp.DELETE
+    ) { newHlc ->
+        val hlc = HLC.parse(newHlc)
+        // markAsDeleted should be defined to return Int (the number of rows affected)
+        bioDao.markAsDeleted(
+            id = epochDay.toString(),
+            newHlc = newHlc,
+            timestamp = hlc.ts
         )
-        bioDao.upsert(newContext.toEntity())
     }
 
-    override fun getHistory(): Flow<List<DailyContext>> {
-        return bioDao.observeAllContexts().map { entities ->
-            entities.map { it.toDomain() }
-        }
-    }
+    // --- MAINTENANCE (JANITOR FACING) ---
 
     /**
-     * Resilient Deletion:
-     * Removes the context but leaves the moments intact for potential 'Soft Recovery'.
+     * Called by the Janitor during off-peak hours.
+     * This does NOT use 'mutate' because pruning is a local cleanup,
+     * not a new syncable event.
      */
-    override suspend fun deleteContext(epochDay: Long) = withContext(Dispatchers.IO) {
-        bioDao.deleteContext(epochDay)
+    override suspend fun pruneOldTombstones(cutoff: Long) {
+        bioDao.hardDeletePruning(cutoff)
     }
 
+    override suspend fun getTombstoneCount(): Int = bioDao.getTombstoneCount()
 
     // --- SYNC GATEWAY (COORDINATOR FACING) ---
 
-    override suspend fun getPendingUploads(): List<DailyContext> {
-        return bioDao.getPendingUploads().map { it.toDomain() }
-    }
-
-    override suspend fun lockForSync(ids: List<String>, sessionId: String) {
-        // Move from PENDING (1) to SYNCING (2) and tag with ID
-        bioDao.updateSyncStatus(ids, oldStatus = 1, newStatus = 2, sessionId = sessionId)
-    }
-
-    override suspend fun ingestRemoteChanges(changes: List<DailyContext>, newWatermark: String) {
-        bioDao.withTransaction {
-            changes.forEach { remote ->
-                val local = bioDao.getById(remote.id)
-
-                // THE DIRTY MERGE: Only update if Remote is "newer" (LWW)
-                if (local == null || remote.lastModified > local.lastModified) {
-                    // PRESERVE DIRTY STATUS: If local was edited, keep it as PENDING
-                    val targetStatus = if (local?.syncStatus == 1) 1 else 0
-                    bioDao.upsert(remote.copy(syncStatus = targetStatus).toEntity())
-                }
-            }
-            metadataDao.updateWatermark("bio_module", newWatermark)
+    override suspend fun fetchForSync(entityIds: List<String>): List<DailyContext> {
+        // Hydrates the full domain objects (including the isDeleted flag) for the server
+        return entityIds.mapNotNull { id ->
+            bioDao.getContextById(id)?.toDomain()
         }
     }
 
-    override suspend fun resolveAck(sessionId: String, wasSuccessful: Boolean) {
-        if (wasSuccessful) {
-            // THE ATOMIC ACK: Only clear if still status 2 and matches session
-            bioDao.clearSyncedRecords(sessionId)
-        } else {
-            // RECOVERY: Move back to PENDING (1)
-            bioDao.resetSyncingRecords(sessionId)
+    override suspend fun storeRemoteChanges(changes: List<DailyContext>) {
+        changes.forEach { remote ->
+            // Delegates to the 'Smart Resolver' in the DAO
+            bioDao.resolveSync(remote.toEntity())
         }
     }
 }

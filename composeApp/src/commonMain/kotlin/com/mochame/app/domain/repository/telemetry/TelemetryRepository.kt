@@ -1,10 +1,10 @@
 package com.mochame.app.domain.repository.telemetry
 
-/**
- * The unified contract for the Telemetry "Nervous System".
- * * By inheriting from specialized action interfaces, we maintain
- * strict separation of concerns while allowing a single implementation
- * to be injected via Koin.
+/*
+"Composite Interface." It doesn't add new logic; it just defines a required set of capabilities.
+By passing this "single composition" (the Shell) up to the ViewModel,
+you keep the ViewModel's constructor clean. Instead of the ViewModel
+needing 5 different repos, it needs one "Cell" that happens to have 5 "Ribosomes" inside it.
  */
 interface TelemetryRepository :
     ContextRepository,    // Managing the "Context" (Domains, Topics, Spaces)

@@ -12,6 +12,7 @@ import com.mochame.app.database.dao.SignalDao
 import com.mochame.app.database.dao.TelemetryDao
 import com.mochame.app.database.entity.*
 import com.mochame.app.database.converter.MochaConverters
+import com.mochame.app.database.dao.SyncMetadataDao
 import com.mochame.app.database.dao.SyncTombstoneDao
 import com.mochame.app.database.triggers.DatabaseTriggerFactory
 import com.mochame.app.database.triggers.SYNC_TRIGGER_CALLBACK
@@ -36,7 +37,8 @@ import kotlinx.coroutines.IO
         QuoteEntity::class,
 
         // SYNC HANDLING
-        SyncTombstoneEntity::class
+        SyncTombstoneEntity::class,
+        SyncMetadataEntity::class
     ],
     version = 10,
     exportSchema = false // Standard for Phase 1 local-only development
@@ -49,6 +51,7 @@ abstract class MochaDatabase : RoomDatabase() {
     abstract fun telemetryDao(): TelemetryDao
     abstract fun signalDao(): SignalDao
     abstract fun syncTombstoneDao(): SyncTombstoneDao
+    abstract fun syncMetadataDao(): SyncMetadataDao
 }
 
 // Defining the override satisfies the compiler's interface check.
@@ -69,6 +72,7 @@ fun getRoomDatabase(
         .setDriver(BundledSQLiteDriver()) // <--- THIS is the magic for 2026 parity
         .setQueryCoroutineContext(Dispatchers.IO)
 //        .enableMultiInstanceInvalidation() Possible consideration for local first implementation
+        .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
         .fallbackToDestructiveMigration(dropAllTables = true)
         .addCallback(SYNC_TRIGGER_CALLBACK)
         .build()

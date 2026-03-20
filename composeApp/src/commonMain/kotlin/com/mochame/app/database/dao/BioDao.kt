@@ -11,86 +11,89 @@ import kotlinx.coroutines.flow.Flow
 interface BioDao {
 
     /**
-     * Persists or updates the context for the day.
-     * Room's @Upsert will handle the conflict by updating existing rows.
-     * For sync, we often want "Last-Write-Wins" based on timestamps.
+     * The Standard Write: Persists local changes.
+     * Used by the [BaseRepository] block.
      */
     @Upsert
     suspend fun upsert(context: DailyContextEntity)
 
     /**
-     * The Sync-Safe Resolver:
-     * Only updates the local database if the incoming data is newer.
-     * This prevents an older "Cloud" record from overwriting a newer "Local" change.
+     * The Conflict Resolver:
+     * Handles incoming Cloud changes by comparing Hybrid Logical Clocks.
+     * This method handles both remote updates and remote tombstones (deletions).
      */
     @Transaction
     suspend fun resolveSync(incoming: DailyContextEntity) {
-        val localRecord = getContextByDay(incoming.epochDay)
+        val local = getContextById(incoming.id)
 
-        if (localRecord == null) {
+        // 1. If no local record exists, or the incoming HLC is logically "newer"
+        //    (Alphabetical comparison works perfectly for HLC strings)
+        if (local == null || incoming.hlc > local.hlc) {
             upsert(incoming)
-        } else if (incoming.lastModified > localRecord.lastModified) {
-            // we don't break local FK constraints on Moments
-            upsert(incoming.copy(id = localRecord.id))
         }
     }
 
     /**
-     * One-shot retrieval for the context. Can return null.
+     * Logical Delete:
+     * We no longer use 'DELETE FROM'. We flip the bit and update the HLC.
      */
-    @Query("SELECT * FROM daily_context WHERE epochDay = :epochDay LIMIT 1")
-    suspend fun getContextByDay(epochDay: Long): DailyContextEntity?
+    @Query("""
+        UPDATE daily_context 
+        SET isDeleted = 1, hlc = :newHlc, lastModified = :timestamp 
+        WHERE id = :id
+    """)
+    suspend fun markAsDeleted(id: String, newHlc: String, timestamp: Long): Int
 
     /**
-     * One-shot retrieval for the context. Can return null.
+     * THE PRUNING PROTOCOL:
+     * Physically removes tombstones that have been synced to the cloud
+     * and aged out of the 30-day "Dissemination Window."
+     * * @param cutoff The physical timestamp (System.now() - 30.days)
+     */
+    @Query("""
+        DELETE FROM daily_context 
+        WHERE isDeleted = 1 
+        AND lastModified < :cutoff
+    """)
+    suspend fun hardDeletePruning(cutoff: Long)
+
+    /**
+     * Integrity Check:
+     * Returns the count of tombstones currently being held.
+     */
+    @Query("SELECT COUNT(*) FROM daily_context WHERE isDeleted = 1")
+    suspend fun getTombstoneCount(): Int
+
+
+    // --- LOOKUPS ---
+
+    /**
+     * Direct lookup for Sync/Repository logic.
+     * Includes deleted records so we can update existing tombstones.
      */
     @Query("SELECT * FROM daily_context WHERE id = :id LIMIT 1")
     suspend fun getContextById(id: String): DailyContextEntity?
 
-    /**
-     * The "Initialization Interceptor" Query:
-     * Fetches the biological context for a specific day.
-     * Returns null if the user hasn't initialized their day yet.
-     */
     @Query("SELECT * FROM daily_context WHERE epochDay = :epochDay LIMIT 1")
+    suspend fun getContextByDay(epochDay: Long): DailyContextEntity?
+
+    // --- UI OBSERVABLES (Filtered) ---
+
+    /**
+     * The UI Anchor:
+     * Filters out tombstones so the user doesn't see "deleted" days.
+     */
+    @Query("SELECT * FROM daily_context WHERE epochDay = :epochDay AND isDeleted = 0 LIMIT 1")
     fun observeContext(epochDay: Long): Flow<DailyContextEntity?>
 
-    /**
-     * Fetches all history for daily context long-term analysis as a list.
-     */
-    @Query("SELECT * FROM daily_context ORDER BY epochDay DESC")
-    suspend fun getAllContexts(): List<DailyContextEntity>
-
-    /**
-     * Fetches all history for daily context long-term analysis as a flow.
-     */
-    @Query("SELECT * FROM daily_context ORDER BY epochDay DESC")
+    @Query("SELECT * FROM daily_context WHERE isDeleted = 0 ORDER BY epochDay DESC")
     fun observeAllContexts(): Flow<List<DailyContextEntity>>
 
-    /**
-     * Atomic Deletion by ID for UI cleanup or data resets.
-     */
-    @Query("DELETE FROM daily_context WHERE epochDay = :epochDay")
-    suspend fun deleteContext(epochDay: Long)
+    // --- NAP LOGIC (Filtered) ---
 
-
-    // NAP
-    @Query("SELECT * FROM daily_context WHERE isNapped = 1")
-    suspend fun getAllNappedContexts(): List<DailyContextEntity>
-
-    @Query("SELECT * FROM daily_context WHERE isNapped = 0")
-    suspend fun getAllNonNappedContexts(): List<DailyContextEntity>
-
-    @Query("SELECT * FROM daily_context WHERE isNapped = 1")
+    @Query("SELECT * FROM daily_context WHERE isNapped = 1 AND isDeleted = 0")
     fun observeAllNappedContexts(): Flow<List<DailyContextEntity>>
 
-    @Query("SELECT * FROM daily_context WHERE isNapped = 0")
+    @Query("SELECT * FROM daily_context WHERE isNapped = 0 AND isDeleted = 0")
     fun observeAllNonNappedContexts(): Flow<List<DailyContextEntity>>
-
-
-    // SYNC
-    override suspend fun lockForSync(ids: List<String>, sessionId: String) {
-        // Move from PENDING (1) to SYNCING (2) and tag with ID
-        bioDao.updateSyncStatus(ids, oldStatus = 1, newStatus = 2, sessionId = sessionId)
-    }
 }

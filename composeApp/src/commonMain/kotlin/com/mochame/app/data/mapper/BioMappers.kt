@@ -6,29 +6,31 @@ import com.mochame.app.domain.model.DailyContext
 import kotlin.time.Clock
 
 /**
- * Data Layer -> Domain Layer
- * Extracts only the fields the UI/Logic needs.
+ * Entity -> Domain
+ * Used when reading from the database or receiving remote changes via SyncGateway.
  */
-fun DailyContextEntity.toDomain(): DailyContext {
-    return DailyContext(
-        id = id,
-        epochDay = epochDay,
-        sleepHours = sleepHours,
-        readinessScore = readinessScore,
-        lastModified = lastModified
-    )
-}
+fun DailyContextEntity.toDomain() = DailyContext(
+    id = id,
+    hlc = hlc,
+    epochDay = epochDay,
+    sleepHours = sleepHours,
+    readinessScore = readinessScore,
+    isNapped = isNapped,
+    isDeleted = isDeleted,
+    lastModified = lastModified
+)
 
 /**
- * Domain Layer -> Data Layer
- * Bridges the gap between the clean model and the Room entity.
+ * Domain -> Entity
+ * Used when persisting local changes or resolving remote conflicts in the DAO.
  */
-fun DailyContext.toEntity(): DailyContextEntity {
-    return DailyContextEntity(
-        id = id,
-        epochDay = epochDay,
-        sleepHours = sleepHours,
-        readinessScore = readinessScore,
-        lastModified = lastModified
-    )
-}
+fun DailyContext.toEntity() = DailyContextEntity(
+    id = id,
+    hlc = hlc,
+    epochDay = epochDay,
+    sleepHours = sleepHours,
+    readinessScore = readinessScore,
+    isNapped = isNapped,
+    isDeleted = isDeleted,
+    lastModified = lastModified
+)

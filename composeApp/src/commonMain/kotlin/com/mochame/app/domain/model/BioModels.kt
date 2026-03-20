@@ -5,9 +5,25 @@ package com.mochame.app.domain.model
  * This acts as the framing context for all telemetry logged during this period.
  */
 data class DailyContext(
-    val id: String,
-    val epochDay: Long, // Unique anchor for the biological day
-    val sleepHours: Double, // The primary "fuel" metric
-    val readinessScore: Int, // Qualitative metric
-    val lastModified: Long // Timestamp for conflict resolution
-)
+    override val id: String,        // Deterministic: epochDay.toString()
+    override val hlc: String = "",  // The "Pulse" of the record
+    val epochDay: Long,
+    val sleepHours: Double,
+    val readinessScore: Int,
+    val isNapped: Boolean = false,
+    val isDeleted: Boolean = false, // The "Tombstone" flag
+    val lastModified: Long = 0L     // Driven by hlc.ts for UI consistency
+) : LocalFirstEntity<DailyContext> {
+
+    /**
+     * The Contract Implementation:
+     * Returns a NEW instance with the updated HLC pulse.
+     */
+    override fun withHlc(hlc: String): DailyContext = copy(hlc = hlc)
+
+    /**
+     * UI Refinement:
+     * Anchors the 'Human' timestamp to the 'Logical' HLC timestamp.
+     */
+    fun withPhysicalTime(ts: Long): DailyContext = copy(lastModified = ts)
+}
