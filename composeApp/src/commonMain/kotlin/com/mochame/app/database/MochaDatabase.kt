@@ -5,19 +5,18 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
 import androidx.room.TypeConverters
-import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.mochame.app.database.dao.BioDao
 import com.mochame.app.database.dao.SignalDao
 import com.mochame.app.database.dao.TelemetryDao
 import com.mochame.app.database.entity.*
 import com.mochame.app.database.converter.MochaConverters
-import com.mochame.app.database.dao.SyncMetadataDao
-import com.mochame.app.database.dao.SyncTombstoneDao
-import com.mochame.app.database.triggers.DatabaseTriggerFactory
+import com.mochame.app.database.dao.sync.MutationLedgerDao
+import com.mochame.app.database.dao.SettingsDao
+import com.mochame.app.database.dao.sync.SyncMetadataDao
+import com.mochame.app.database.dao.sync.SyncTombstoneDao
 import com.mochame.app.database.triggers.SYNC_TRIGGER_CALLBACK
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 
 @ConstructedBy(MochaDatabaseConstructor::class)
 @Database(
@@ -38,7 +37,10 @@ import kotlinx.coroutines.IO
 
         // SYNC HANDLING
         SyncTombstoneEntity::class,
-        SyncMetadataEntity::class
+        SyncMetadataEntity::class,
+        MutationEntryEntity::class,
+
+        GlobalSettingsEntity::class
     ],
     version = 10,
     exportSchema = false // Standard for Phase 1 local-only development
@@ -52,6 +54,8 @@ abstract class MochaDatabase : RoomDatabase() {
     abstract fun signalDao(): SignalDao
     abstract fun syncTombstoneDao(): SyncTombstoneDao
     abstract fun syncMetadataDao(): SyncMetadataDao
+    abstract fun mutationLedgerDao(): MutationLedgerDao
+    abstract fun settingsDao(): SettingsDao
 }
 
 // Defining the override satisfies the compiler's interface check.

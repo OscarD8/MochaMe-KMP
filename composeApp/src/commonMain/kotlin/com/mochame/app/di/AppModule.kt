@@ -13,13 +13,16 @@ import com.mochame.app.domain.model.DailyContext
 import com.mochame.app.domain.repository.BioRepository
 import com.mochame.app.domain.repository.SignalRepository
 import com.mochame.app.domain.repository.telemetry.TelemetryRepository
-import com.mochame.app.domain.sync.SyncCoordinator
-import com.mochame.app.domain.sync.SyncGateway
+import com.mochame.app.domain.repository.sync.SyncCoordinator
+import com.mochame.app.domain.repository.sync.SyncGateway
+import com.mochame.app.domain.repository.sync.SyncJanitor
+import com.mochame.app.domain.system.IdentityManager
 import com.mochame.app.ui.ProofOfLifeViewModel
 import org.koin.core.module.dsl.bind
-import org.koin.core.module.dsl.factoryOf
+import org.koin.core.module.dsl.createdAtStart
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModelOf
+import org.koin.dsl.binds
 import org.koin.dsl.module
 
 val appModule = module {
@@ -27,9 +30,10 @@ val appModule = module {
     /** --- CORE & TOOLS --- */
     singleOf(::DateTimeUtils)
     singleOf(::HlcFactory)
+    singleOf(::IdentityManager)
 
     /** --- CLOUD API (CURRENTLY MOCKED) --- */
-    single<MochaCloudApi> { MockCloudApi() }
+//    single<MochaCloudApi> { MockCloudApi() }
 
     /** --- DAOS (From Database Instance) --- */
     single { get<MochaDatabase>().telemetryDao() }
@@ -37,13 +41,21 @@ val appModule = module {
     single { get<MochaDatabase>().signalDao() }
     single { get<MochaDatabase>().syncTombstoneDao() }
     single { get<MochaDatabase>().syncMetadataDao() }
+    single { get<MochaDatabase>().mutationLedgerDao() }
+    single { get<MochaDatabase>().settingsDao() }
 
     /** --- REPOSITORIES (Multi-Role Implementation) --- */
-    singleOf(::BioRepositoryImpl) {
-        // Here we 'tag' the instance with the roles it plays
-        bind<BioRepository>() // Scenario A: The UI
-        bind<SyncGateway<DailyContext>>() // Scenario B: The Sync
-    }
+    single<BioRepositoryImpl> {
+        BioRepositoryImpl(
+            dateTimeUtils = get(),
+            bioDao = get(),
+            logger = get(),
+            metadataDao = get(),
+            database = get(),
+            hlcFactory = get(),
+            ledgerDao = get()
+        )
+    }.binds(arrayOf(BioRepository::class, SyncGateway::class))
 
     singleOf(::TelemetryRepositoryImpl) {
         bind<TelemetryRepository>()
@@ -60,6 +72,10 @@ val appModule = module {
     singleOf ( ::MomentBridge )
 
     /** --- SYNC LAYER --- */
+    singleOf(::SyncJanitor) {
+        createdAtStart()
+    }
+
     single {
         SyncCoordinator(
             // Koin 4.0 collects all the 'binds' into this list automatically

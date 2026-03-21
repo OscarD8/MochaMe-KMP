@@ -1,4 +1,4 @@
-package com.mochame.app.domain.sync
+package com.mochame.app.domain.repository.sync
 
 interface SyncPolicy<T> {
     /**

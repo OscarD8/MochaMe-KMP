@@ -1,7 +1,7 @@
 package com.mochame.app.data.repository.sync
 
 import com.mochame.app.database.entity.DailyContextEntity
-import com.mochame.app.domain.sync.SyncPolicy
+import com.mochame.app.domain.repository.sync.SyncPolicy
 
 class BioSyncPolicy : SyncPolicy<DailyContextEntity> {
 

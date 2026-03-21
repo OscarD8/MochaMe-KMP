@@ -1,4 +1,4 @@
-package com.mochame.app.database.dao
+package com.mochame.app.database.dao.sync
 
 import androidx.room.Dao
 import androidx.room.Delete
@@ -87,25 +87,10 @@ interface MutationLedgerDao {
     fun observePendingCount(status: SyncStatus = SyncStatus.PENDING): Flow<Int>
 
     // ----- CLEAN UP (Janitor Support) ------
-
-    @Query("""
-        UPDATE mutation_ledger 
-        SET syncStatus = :targetStatus, syncId = NULL 
-        WHERE entityType = :moduleName AND syncId = :staleSyncId
-    """)
-    suspend fun unlockOrphanedRecords(
-        moduleName: String,
-        staleSyncId: String,
-        targetStatus: SyncStatus = SyncStatus.PENDING
-    )
-
-    @Query("""
-        UPDATE mutation_ledger 
-        SET syncStatus = :targetStatus, syncId = NULL 
-        WHERE entityType = :moduleName AND syncId IS NOT NULL
-    """)
-    suspend fun clearAllStaleLocks(
-        moduleName: String,
-        targetStatus: SyncStatus = SyncStatus.PENDING
-    )
+    /**
+     * If any row in the entire ledger has a syncId, its stale and the result of a crash.
+     * No sync should be active.
+     */
+    @Query("UPDATE mutation_ledger SET syncId = NULL WHERE syncId IS NOT NULL")
+    suspend fun clearAllLocksForNonIdleModules()
 }

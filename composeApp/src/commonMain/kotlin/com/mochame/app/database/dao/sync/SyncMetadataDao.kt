@@ -1,6 +1,8 @@
-package com.mochame.app.database.dao
+package com.mochame.app.database.dao.sync
 
 import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Upsert
 import com.mochame.app.core.SyncStatus
@@ -8,6 +10,12 @@ import com.mochame.app.database.entity.SyncMetadataEntity
 
 @Dao
 interface SyncMetadataDao {
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun seedDefaultMetadata(metadata: List<SyncMetadataEntity>)
+
+    @Query("SELECT COUNT(*) FROM sync_metadata")
+    suspend fun getMetadataCount(): Int
 
     @Query("SELECT * FROM sync_metadata WHERE moduleName = :moduleName")
     suspend fun getMetadataForModule(moduleName: String): SyncMetadataEntity?
@@ -35,22 +43,56 @@ interface SyncMetadataDao {
         status: SyncStatus = SyncStatus.SYNCING
     )
 
+    @Query("SELECT localMaxHlc FROM sync_metadata WHERE moduleName = :moduleName")
+    suspend fun getModuleMaxHlc(moduleName: String) : String?
+
+    @Query("SELECT localMaxHlc FROM sync_metadata")
+    suspend fun getAllLocalMaxHlcs(): List<String?>
+
+    @Query("SELECT MAX(localMaxHlc) FROM sync_metadata")
+    suspend fun getGlobalMaxHlc() : String?
+
+    /**
+     * Records the heartbeat of a local write.
+     * Respects the "Mutation vs Sync" distinction.
+     */
+    @Query("""
+        UPDATE sync_metadata 
+        SET localMaxHlc = :hlc, 
+            lastLocalMutationTime = :now 
+        WHERE moduleName = :moduleName
+    """)
+    suspend fun recordLocalMutation(moduleName: String, hlc: String, now: Long)
+
     /**
      * The Resume Operation: Swapped hardcoded 'IDLE' for a parameter
      * to ensure Enum/TypeConverter compatibility.
      */
-    @Query("""
+    @Query(
+        """
         UPDATE sync_metadata 
         SET serverWatermark = :watermark, 
-            lastSyncTime = :timestamp, 
+            lastServerSyncTime = :timestamp, 
             syncStatus = :status, 
             activeSyncId = NULL
         WHERE moduleName = :moduleName
-    """)
+    """
+    )
     suspend fun finalizeSync(
         moduleName: String,
         watermark: String?,
         timestamp: Long,
         status: SyncStatus = SyncStatus.PENDING // Reconciled from IDLE
     )
+
+    /**
+     * Flips any module that isn't 'IDLE' back to 'PENDING'.
+     * Returns the number of rows affected so the Janitor can log it.
+     */
+    @Query("""
+        UPDATE sync_metadata 
+        SET syncStatus = 'PENDING', activeSyncId = NULL 
+        WHERE syncStatus != 'IDLE'
+    """)
+    suspend fun bulkResetDirtyModules(): Int
 }

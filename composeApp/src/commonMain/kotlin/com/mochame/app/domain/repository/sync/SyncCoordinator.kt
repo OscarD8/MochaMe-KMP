@@ -1,6 +1,4 @@
-package com.mochame.app.domain.sync
-
-import com.mochame.app.database.entity.DailyContextEntity
+package com.mochame.app.domain.repository.sync
 
 class SyncCoordinator(
     private val gateways: List<SyncGateway<*>>,

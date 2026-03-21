@@ -1,15 +1,16 @@
-package com.mochame.app.domain.sync
+package com.mochame.app.domain.repository.sync
 
 import androidx.room.Transactor
 import androidx.room.useWriterConnection
+import co.touchlab.kermit.Logger
 import com.mochame.app.core.HlcFactory
 import com.mochame.app.core.MochaModule
 import com.mochame.app.core.MutationOp
 import com.mochame.app.core.SyncStatus
 import com.mochame.app.database.MochaDatabase
-import com.mochame.app.database.dao.MutationLedgerDao
+import com.mochame.app.database.dao.sync.MutationLedgerDao
+import com.mochame.app.database.dao.sync.SyncMetadataDao
 import com.mochame.app.database.entity.MutationEntryEntity
-import com.mochame.app.domain.model.LocalFirstEntity
 
 
 /**
@@ -24,7 +25,9 @@ abstract class BaseRepository<T : LocalFirstEntity<T>>(
     private val hlcFactory: HlcFactory,
     private val database: MochaDatabase,
     private val ledgerDao: MutationLedgerDao,
-    private val moduleName: MochaModule
+    private val metadataDao: SyncMetadataDao,
+    private val moduleName: MochaModule,
+    protected val logger: Logger
 ) {
     /**
      * The primary entry point for all database writes.
@@ -48,18 +51,18 @@ abstract class BaseRepository<T : LocalFirstEntity<T>>(
         return database.useWriterConnection { connection ->
             // Start an IMMEDIATE transaction to prevent lock-upgrade deadlocks
             connection.withTransaction(Transactor.SQLiteTransactionType.IMMEDIATE) {
-                // 1. Generate the pulse (HLC object)
-                val hlc = hlcFactory.now()
+                // 1. Generate the device time
+                val hlc = hlcFactory.getNextHlc()
 
                 // 2. Execute DAO change
                 val result = businessAction(hlc.toString())
 
-                // 3. Modern Guard: Logic is now based on Enums, not magic numbers
+                // 3. Guard:
                 val isGhostDelete = op == MutationOp.DELETE && (result as? Int) == 0
 
                 if (!isGhostDelete) {
                     // 4. For Compaction:
-                    val pending = ledgerDao.getPendingMutation(entityId, moduleName.toString())
+                    val pending = ledgerDao.getPendingMutation(entityId, moduleName.tag)
 
                     // 4. Pruning:
                     val effectiveCreatedAt = if (pending != null) {
@@ -87,11 +90,18 @@ abstract class BaseRepository<T : LocalFirstEntity<T>>(
                         MutationEntryEntity(
                             hlc = hlc,
                             entityId = entityId,
-                            entityType = moduleName.toString(),
+                            entityType = moduleName.tag,
                             operation = op,
                             syncStatus = SyncStatus.PENDING,
                             createdAt = effectiveCreatedAt
                         )
+                    )
+
+                    // 7. Update the latest HLC for that module
+                    metadataDao.recordLocalMutation(
+                        moduleName = moduleName.toString(),
+                        hlc = hlc.toString(),
+                        now = hlc.ts
                     )
                 }
 

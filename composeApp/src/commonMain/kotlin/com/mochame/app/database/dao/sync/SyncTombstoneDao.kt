@@ -1,4 +1,4 @@
-package com.mochame.app.database.dao
+package com.mochame.app.database.dao.sync
 
 import androidx.room.Dao
 import androidx.room.Query

@@ -1,5 +1,7 @@
 package com.mochame.app.domain.model
 
+import com.mochame.app.domain.repository.sync.LocalFirstEntity
+
 /**
  * Represents the biological capacity and readiness for a single day.
  * This acts as the framing context for all telemetry logged during this period.

@@ -1,16 +1,14 @@
 package com.mochame.app.domain.model
 
+import com.mochame.app.core.MochaModule
 import com.mochame.app.core.SyncStatus
 
-interface LocalFirstEntity<T : LocalFirstEntity<T>> {
-    val id: String
-    val hlc: String // This replaced lastModified
-    fun withHlc(hlc: String): T
-}
-
 data class SyncMetadata(
-    val module: String,
-    val watermark: String?,
+    val module: MochaModule,
+    val serverWatermark: String?,
+    val localMaxHlc: String?,
+    val activeSyncId: String?,
     val status: SyncStatus,
-    val lastSync: Long
+    val lastServerSyncTime: Long,
+    val lastLocalMutationTime: Long
 )

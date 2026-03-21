@@ -2,6 +2,7 @@ package com.mochame.app.database.converter
 
 import androidx.room.TypeConverter
 import com.mochame.app.core.HLC
+import com.mochame.app.core.MochaModule
 import com.mochame.app.core.MutationOp
 import com.mochame.app.core.SyncStatus
 import com.mochame.app.domain.model.Resonance
@@ -76,4 +77,13 @@ class MochaConverters {
 
     @TypeConverter
     fun toStatus(id: Int): SyncStatus = SyncStatus.fromId(id)
+
+    @TypeConverter
+    fun fromMochaModule(module: MochaModule): String = module.tag
+
+    @TypeConverter
+    fun toMochaModule(tag: String): MochaModule {
+        return MochaModule.entries.find { it.tag == tag }
+            ?: throw IllegalArgumentException("Unknown MochaModule tag: $tag")
+    }
 }

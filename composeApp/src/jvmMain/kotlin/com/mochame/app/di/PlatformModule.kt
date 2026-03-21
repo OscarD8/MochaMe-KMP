@@ -3,7 +3,10 @@ package com.mochame.app.di
 import com.mochame.app.database.MochaDatabase
 import com.mochame.app.database.getDatabaseBuilder // THIS SHOULD NOW RESOLVE
 import com.mochame.app.database.getRoomDatabase    // FROM COMMON
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
 actual val platformModule = module {
@@ -19,4 +22,10 @@ actual val platformModule = module {
         }
     }
 
+    single(named("AppScope")) {
+        val dispatchers = get<DispatcherProvider>()
+        // We use Main for the Scope's base, but the Janitor
+        // will switch to .io internally for the heavy lifting.
+        CoroutineScope(SupervisorJob() + dispatchers.main)
+    }
 }

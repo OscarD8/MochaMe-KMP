@@ -101,6 +101,8 @@ kotlin {
             implementation(libs.koin.compose.viewmodel)
             // For 'koinViewModel()' inside @Composable
             implementation(libs.koin.compose)
+            // Logging
+            implementation(libs.kermit)
         }
 
         // 2. ANDROID SPECIFICS: Only for the phone

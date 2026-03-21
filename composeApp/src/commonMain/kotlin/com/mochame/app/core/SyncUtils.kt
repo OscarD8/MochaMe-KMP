@@ -1,6 +1,10 @@
 package com.mochame.app.core
 
 enum class SyncStatus(val id: Int) {
+    /** * Metadata: Everything is in sync. No work to do.
+     */
+    IDLE(0),
+
     /** * Ledger: Record is waiting in the outbox.
      * Metadata: Module is doing nothing.
      */
@@ -35,10 +39,12 @@ enum class MutationOp(val id: Int) {
 }
 
 
-sealed interface MochaModule {
-    val tag: String
+enum class MochaModule(val tag: String) {
+    BIO("bio"),
+    SIGNAL("signal"),
+    TELEMETRY("telemetry");
 
-    data object Bio : MochaModule { override val tag = "BIO" }
-    data object Signal : MochaModule { override val tag = "SIGNAL" }
-    data object Telemetry : MochaModule { override val tag = "TELEMETRY" }
+    companion object {
+        val allTags get() = entries.map { it.tag }
+    }
 }

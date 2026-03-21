@@ -5,17 +5,32 @@ import com.mochame.app.database.entity.SyncMetadataEntity
 import com.mochame.app.domain.model.SyncMetadata
 
 
-fun SyncMetadataEntity.toDomain() = SyncMetadata(
-    module = moduleName,
-    watermark = lastWatermark,
-    status = SyncStatus.fromInt(lastSyncStatus), // Now the compiler is happy
-    lastSync = lastSyncTime
-)
+/**
+ * Database Entity -> Domain Model
+ */
+fun SyncMetadataEntity.toDomain(): SyncMetadata {
+    return SyncMetadata(
+        module = moduleName,
+        serverWatermark = serverWatermark,
+        localMaxHlc = localMaxHlc,
+        activeSyncId = activeSyncId,
+        status = syncStatus,
+        lastServerSyncTime = lastServerSyncTime,
+        lastLocalMutationTime = lastLocalMutationTime
+    )
+}
 
-fun SyncMetadata.toEntity(sessionId: String?) = SyncMetadataEntity(
-    moduleName = module,
-    lastWatermark = watermark,
-    lastSyncStatus = status.value, // Maps the enum back to an Int
-    activeSessionId = sessionId,
-    lastSyncTime = lastSync
-)
+/**
+ * Domain Model -> Database Entity
+ */
+fun SyncMetadata.toEntity(): SyncMetadataEntity {
+    return SyncMetadataEntity(
+        moduleName = module,
+        serverWatermark = serverWatermark,
+        localMaxHlc = localMaxHlc,
+        activeSyncId = activeSyncId,
+        syncStatus = status,
+        lastServerSyncTime = lastServerSyncTime,
+        lastLocalMutationTime = lastLocalMutationTime
+    )
+}

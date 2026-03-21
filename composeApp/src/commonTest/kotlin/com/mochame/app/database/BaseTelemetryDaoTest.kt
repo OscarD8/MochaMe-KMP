@@ -1,13 +1,10 @@
 package com.mochame.app.database
 
 import app.cash.turbine.test
-import com.mochame.app.core.DateTimeUtils
-import com.mochame.app.database.dao.SyncTombstoneDao
+import com.mochame.app.database.dao.sync.SyncTombstoneDao
 import com.mochame.app.database.dao.TelemetryDao
 import com.mochame.app.database.entity.DomainEntity
 import com.mochame.app.database.entity.TopicEntity
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.koin.core.context.startKoin

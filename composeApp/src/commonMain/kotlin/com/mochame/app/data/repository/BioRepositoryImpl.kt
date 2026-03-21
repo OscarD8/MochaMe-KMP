@@ -1,5 +1,6 @@
 package com.mochame.app.data.repository
 
+import co.touchlab.kermit.Logger
 import com.mochame.app.core.DateTimeUtils
 import com.mochame.app.core.HLC
 import com.mochame.app.core.HlcFactory
@@ -9,23 +10,28 @@ import com.mochame.app.data.mapper.toDomain
 import com.mochame.app.data.mapper.toEntity
 import com.mochame.app.database.MochaDatabase
 import com.mochame.app.database.dao.BioDao
-import com.mochame.app.database.dao.MutationLedgerDao
+import com.mochame.app.database.dao.sync.MutationLedgerDao
+import com.mochame.app.database.dao.sync.SyncMetadataDao
 import com.mochame.app.domain.model.DailyContext
 import com.mochame.app.domain.repository.BioRepository
-import com.mochame.app.domain.sync.BaseRepository
-import com.mochame.app.domain.sync.SyncGateway
+import com.mochame.app.domain.repository.sync.BaseRepository
+import com.mochame.app.domain.repository.sync.SyncGateway
 
 class BioRepositoryImpl(
-    private val bioDao: BioDao,
-    private val database: MochaDatabase,
-    private val hlcFactory: HlcFactory,
     private val dateTimeUtils: DateTimeUtils,
+    private val bioDao: BioDao,
+    logger: Logger,
+    metadataDao: SyncMetadataDao,
+    database: MochaDatabase,
+    hlcFactory: HlcFactory,
     ledgerDao: MutationLedgerDao
 ) : BaseRepository<DailyContext>(
     hlcFactory = hlcFactory,
     database = database,
     ledgerDao = ledgerDao,
-    moduleName = MochaModule.Bio
+    metadataDao = metadataDao,
+    moduleName = MochaModule.BIO,
+    logger = logger
 ), BioRepository, SyncGateway<DailyContext> {
 
     override suspend fun initializeDay(sleepHours: Double, readinessScore: Int): DailyContext {

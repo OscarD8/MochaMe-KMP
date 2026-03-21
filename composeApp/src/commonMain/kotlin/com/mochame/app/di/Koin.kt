@@ -15,5 +15,5 @@ fun initKoin(appDeclaration: KoinAppDeclaration = {}) = startKoin {
     // 1. Execute the planet-specific briefing (empty on Linux, Context on Android)
     appDeclaration()
     // 2. Load the shared genetic traits (DAOs, UI Logic) and platform limbs (Database)
-    modules(platformModule, appModule)
+    modules(platformModule, appModule, loggingModule)
 }

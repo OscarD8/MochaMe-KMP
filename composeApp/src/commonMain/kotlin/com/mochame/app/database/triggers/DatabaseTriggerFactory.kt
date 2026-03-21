@@ -3,6 +3,12 @@ package com.mochame.app.database.triggers
 import androidx.room.RoomDatabase
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.execSQL
+import com.mochame.app.core.MochaModule
+import com.mochame.app.core.SyncStatus
+import com.mochame.app.database.MochaDatabase
+import com.mochame.app.database.entity.SyncMetadataEntity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 // commonMain
 object DatabaseTriggerFactory {

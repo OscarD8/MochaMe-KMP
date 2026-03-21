@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.mochame.app.core.HLC
+import com.mochame.app.core.MochaModule
 import com.mochame.app.core.MutationOp
 import com.mochame.app.core.SyncStatus
 
@@ -25,11 +26,13 @@ data class SyncTombstoneEntity(
 @Entity(tableName = "sync_metadata")
 data class SyncMetadataEntity(
     @PrimaryKey
-    val moduleName: String,         // e.g., "BIO"
-    val serverWatermark: String?,   // The "Bookmark" from the Vault
-    val activeSyncId: String?,      // The lock for the current session
-    val syncStatus: SyncStatus,     // IDLE, SYNCING, FAILED
-    val lastSyncTime: Long          // System Millis for UI display
+    val moduleName: MochaModule,          // e.g., "BIO"
+    val serverWatermark: String? = null,     // The "Bookmark" from the Vault
+    val localMaxHlc: String? = null,     // The highest HLC this module has ever seen
+    val activeSyncId: String? = null,    // The lock for the current session
+    val syncStatus: SyncStatus = SyncStatus.PENDING,
+    val lastServerSyncTime: Long = 0L,          // Wall-clock of the last successful 200 OK
+    val lastLocalMutationTime: Long = 0L         // Wall-clock of the last local HLC generation
 )
 
 @Entity(

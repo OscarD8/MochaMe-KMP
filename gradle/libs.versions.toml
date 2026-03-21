@@ -14,6 +14,7 @@ composeMultiplatform = "1.10.2"
 compose-multiplatform-lifecycle = "2.10.0-beta01"
 coreKtx = "1.17.0"
 foundation = "1.10.1"
+kermit = "2.1.0"
 kotlin = "2.3.10"
 coroutines = "1.10.2"
 materialIconsExtended = "1.7.3"
@@ -70,6 +71,7 @@ compose-components-resources = { module = "org.jetbrains.compose.components:comp
 compose-ui-tooling-preview = { group = "org.jetbrains.compose.ui", name = "ui-tooling-preview", version.ref = "composeMultiplatform" }
 
 # Tools
+kermit = { module = "co.touchlab:kermit", version.ref = "kermit" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutinesSwing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "coroutines" }
 material-icons-extended = { module = "org.jetbrains.compose.material:material-icons-extended", version.ref = "materialIconsExtended" }
