@@ -45,7 +45,6 @@ interface BioDao {
     suspend fun markAsDeleted(id: String, newHlc: String, timestamp: Long): Int
 
     /**
-     * THE PRUNING PROTOCOL:
      * Physically removes tombstones that have been synced to the cloud
      * and aged out of the 30-day "Dissemination Window."
      * * @param cutoff The physical timestamp (System.now() - 30.days)
@@ -76,6 +75,15 @@ interface BioDao {
 
     @Query("SELECT * FROM daily_context WHERE epochDay = :epochDay LIMIT 1")
     suspend fun getContextByDay(epochDay: Long): DailyContextEntity?
+
+    @Query("SELECT * FROM daily_context WHERE isDeleted = 0 ORDER BY epochDay DESC")
+    suspend fun getAllContexts(): List<DailyContextEntity>
+
+    @Query("SELECT * FROM daily_context WHERE isNapped = 1 AND isDeleted = 0")
+    suspend fun getAllNappedContexts(): List<DailyContextEntity>
+
+    @Query("SELECT * FROM daily_context WHERE isNapped = 0 AND isDeleted = 0")
+    suspend fun getAllNonNappedContexts(): List<DailyContextEntity>
 
     // --- UI OBSERVABLES (Filtered) ---
 

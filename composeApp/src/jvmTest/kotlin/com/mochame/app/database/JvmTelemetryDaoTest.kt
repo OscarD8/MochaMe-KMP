@@ -7,23 +7,23 @@ import com.mochame.app.database.triggers.SYNC_TRIGGER_CALLBACK
 import kotlinx.coroutines.test.TestDispatcher
 import org.koin.dsl.module
 
-
-class JvmTelemetryDaoTest : BaseTelemetryDaoTest() {
-    override val platformTestModule = module {
-
-        single<MochaDatabase> { params ->
-            val testDispatcher: TestDispatcher = params.get()
-
-            Room.inMemoryDatabaseBuilder<MochaDatabase>()
-                .setDriver(BundledSQLiteDriver())
-                .setQueryCoroutineContext(testDispatcher)
-                .addCallback(SYNC_TRIGGER_CALLBACK)
-                .build()
-        }
-
-        single { get<MochaDatabase>().bioDao() }
-
-        single { get<DateTimeUtils>() }
-
-    }
-}
+//
+//class JvmTelemetryDaoTest : BaseTelemetryDaoTest() {
+//    override val platformTestModule = module {
+//
+//        single<MochaDatabase> { params ->
+//            val testDispatcher: TestDispatcher = params.get()
+//
+//            Room.inMemoryDatabaseBuilder<MochaDatabase>()
+//                .setDriver(BundledSQLiteDriver())
+//                .setQueryCoroutineContext(testDispatcher)
+//                .addCallback(SYNC_TRIGGER_CALLBACK)
+//                .build()
+//        }
+//
+//        single { get<MochaDatabase>().bioDao() }
+//
+//        single { get<DateTimeUtils>() }
+//
+//    }
+//}

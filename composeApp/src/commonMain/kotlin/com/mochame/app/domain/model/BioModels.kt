@@ -8,7 +8,7 @@ import com.mochame.app.domain.repository.sync.LocalFirstEntity
  */
 data class DailyContext(
     override val id: String,        // Deterministic: epochDay.toString()
-    override val hlc: String = "",  // The "Pulse" of the record
+    override val hlc: String = "",
     val epochDay: Long,
     val sleepHours: Double,
     val readinessScore: Int,

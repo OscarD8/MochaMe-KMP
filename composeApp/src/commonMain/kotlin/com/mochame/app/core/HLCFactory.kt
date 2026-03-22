@@ -1,5 +1,7 @@
 package com.mochame.app.core
 
+import kotlinx.coroutines.yield
+
 /**
  * Outcomes for the [HlcFactory] startup sequence.
  */
@@ -55,13 +57,8 @@ data class HLC(
     }
 }
 
-
 /**
- * Generates monotonically increasing timestamps for local-first data integrity.
- * * This component prevents issues where records appear to happen in the past
- * or future due to manual clock changes or dead batteries.
- *
- * @param dateTimeUtils Provider for system wall-clock time.
+ * Implements Non-Blocking Busy-Wait and NodeID Re-stamping.
  */
 class HlcFactory(
     private val dateTimeUtils: DateTimeUtils
@@ -70,64 +67,84 @@ class HlcFactory(
     @Volatile private var lastHlc: HLC? = null
     @Volatile private var isHydrated = false
 
-    private val MAX_COUNTER = 65535 // 16-bit counter limit for sanity
+    private val MIN_VALID_TIME = 1740787200000L // March 2026
+    private val MAX_COUNTER = 65535             // 16-bit limit
 
-    /**
-     * The Handover: Locks the factory to a specific identity and restores state.
-     */
-    fun hydrate(existingHlcString: String?, nodeId: String): HydrationResult {
-        return synchronized(this) {
-            if (isHydrated) return@synchronized HydrationResult.Success(lastHlc!!)
+    fun hydrate(lastKnownHlc: String?, currentNodeId: String): HydrationResult = synchronized(this) {
+        if (isHydrated) return@synchronized HydrationResult.Success(lastHlc!!)
 
-            this.nodeId = nodeId
-            val wallClock = dateTimeUtils.now().toEpochMilliseconds()
+        val wallClock = dateTimeUtils.now().toEpochMilliseconds()
 
-            val initialHlc = if (existingHlcString.isNullOrBlank()) {
-                // No previous state, start with wall clock
-                this.lastHlc = HLC(ts = wallClock, count = 0, nodeId = nodeId)
-                return@synchronized HydrationResult.NewInstall(lastHlc)
-            } else {
-                val incoming = HLC.parse(existingHlcString)
-                // Monotonicity Guard: If DB is ahead of System Clock, stay with DB time
-                if (incoming.ts >= wallClock) {
-                    incoming
-                } else {
-                    HLC(ts = wallClock, count = 0, nodeId = nodeId)
-                }
-            }
+        // 1. Guard against hardware clock resets
+        if (wallClock < MIN_VALID_TIME) {
+            return@synchronized HydrationResult.ClockSkewDetected(MIN_VALID_TIME - wallClock)
+        }
 
-            this.lastHlc = initialHlc
-            this.isHydrated = true
+        // 2. Load DB history
+        val history = parseHistory(lastKnownHlc).onFailure { error ->
+            return@synchronized HydrationResult.InvalidData(error)
+        }.getOrNull()
+
+        // 3. Reconcile with NodeID Ownership
+        // We always adopt the current nodeId, even if using history timestamp.
+        val initialHlc = when {
+            history == null -> HLC(wallClock, 0, currentNodeId)
+            history.ts >= wallClock -> history.copy(nodeId = currentNodeId)
+            else -> HLC(wallClock, 0, currentNodeId)
+        }
+
+        this.nodeId = currentNodeId
+        this.lastHlc = initialHlc
+        this.isHydrated = true
+
+        return@synchronized if (history == null) {
+            HydrationResult.NewInstall(initialHlc)
+        } else {
             HydrationResult.Success(initialHlc)
         }
     }
 
     /**
      * Generates the next monotonic HLC.
+     * Replaces Exception-on-Overflow with a Busy-Wait yield.
      */
-    fun getNextHlc(): HLC = synchronized(this) {
-        val currentId = nodeId ?: throw IllegalStateException("HlcFactory: Missing NodeID (Call hydrate first)")
-        val last = lastHlc ?: throw IllegalStateException("HlcFactory: Missing LastHLC")
+    suspend fun getNextHlc(): HLC {
+        // We use a loop to handle the rare Case C: Counter Overflow
+        while (true) {
+            synchronized(this) {
+                val currentId = nodeId ?: throw IllegalStateException("Factory not hydrated")
+                val last = lastHlc ?: throw IllegalStateException("Missing lastHlc")
+                val wallClock = dateTimeUtils.now().toEpochMilliseconds()
 
-        val wallClock = dateTimeUtils.now().toEpochMilliseconds()
+                when {
+                    // Case A: Normal forward progress
+                    wallClock > last.ts -> {
+                        return updateAndReturn(HLC(wallClock, 0, currentId))
+                    }
 
-        val nextTimestamp = when {
-            // Case A: Wall clock has moved forward. Reset counter to 0.
-            wallClock > last.ts -> {
-                HLC(ts = wallClock, count = 0, nodeId = currentId)
-            }
-            // Case B: Wall clock is behind or equal. Increment logical counter.
-            else -> {
-                if (last.count >= MAX_COUNTER) {
-                    // This is the "Clock Exhaustion" check mentioned by your auditor.
-                    throw IllegalStateException("HLC Counter Overflow: Too many events in a single millisecond.")
+                    // Case B: Same millisecond, increment counter
+                    wallClock <= last.ts && last.count < MAX_COUNTER -> {
+                        return updateAndReturn(HLC(last.ts, last.count + 1, currentId))
+                    }
+
+                    // Case C: Counter Exhaustion (Safety Valve)
+                    else -> {
+                        // Logic falls through to the 'yield()' below the synchronized block
+                    }
                 }
-                HLC(ts = last.ts, count = last.count + 1, nodeId = currentId)
             }
+            // If we hit Case C, we suspend and let the clock tick.
+            // This prevents a "Crash-Loop" during high-volume operations.
+            yield()
         }
+    }
 
-        lastHlc = nextTimestamp
-        return@synchronized nextTimestamp
+    private fun updateAndReturn(newHlc: HLC): HLC {
+        this.lastHlc = newHlc
+        return newHlc
+    }
+
+    private fun parseHistory(unverifiedHlc: String?): Result<HLC?> = runCatching {
+        unverifiedHlc?.takeIf { it.isNotBlank() }?.let { HLC.parse(it) }
     }
 }
-

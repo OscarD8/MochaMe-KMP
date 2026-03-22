@@ -16,22 +16,22 @@ import com.mochame.app.core.SyncStatus
     ]
 )
 data class SyncTombstoneEntity(
-    @PrimaryKey val entityId: String,
+    @PrimaryKey val candidateKey: String,
     val tableName: String,
+    val hlc: HLC,
     val deletedAt: Long,
     val syncId: String? = null,
-    val retryCount: Int = 0          // Circuit breaker for "Poison" records
 )
 
 @Entity(tableName = "sync_metadata")
 data class SyncMetadataEntity(
     @PrimaryKey
-    val moduleName: MochaModule,          // e.g., "BIO"
-    val serverWatermark: String? = null,     // The "Bookmark" from the Vault
-    val localMaxHlc: String? = null,     // The highest HLC this module has ever seen
-    val activeSyncId: String? = null,    // The lock for the current session
-    val syncStatus: SyncStatus = SyncStatus.PENDING,
-    val lastServerSyncTime: Long = 0L,          // Wall-clock of the last successful 200 OK
+    val moduleName: MochaModule,                        // e.g., "BIO"
+    val serverWatermark: String? = null,              // The "Bookmark" from the Vault
+    val localMaxHlc: String? = null,                 // The highest HLC this module has ever seen
+    val syncId: String? = null,                     // The lock for the current session
+    val syncStatus: SyncStatus = SyncStatus.IDLE,
+    val lastServerSyncTime: Long = 0L,                // Wall-clock of the last successful 200 OK
     val lastLocalMutationTime: Long = 0L         // Wall-clock of the last local HLC generation
 )
 
@@ -39,26 +39,31 @@ data class SyncMetadataEntity(
     tableName = "mutation_ledger",
     indices = [
         // 1. For the SyncCoordinator: "Find all PENDING work"
-        Index(value = ["sync_status"]),
+        Index(value = ["syncStatus"]),
 
         // 2. For the BaseRepository: "Is there a PENDING mutation for this specific record?"
         // This makes the Compaction check O(1) instead of a table scan.
-        Index(value = ["entity_id", "entity_type", "sync_status"]),
+        Index(value = ["candidateKey", "entityType", "syncStatus"]),
 
         // 3. For the Pruning Worker: "Delete everything SYNCED and older than 30 days"
-        Index(value = ["sync_status", "created_at"]),
+        Index(value = ["syncStatus", "createdAt"]),
 
         // 4. For Module Routing: "Give me only BIO mutations"
-        Index(value = ["entity_type", "sync_status"])
+        Index(value = ["entityType", "syncStatus"]),
+
+        // 5. Records scanned after 200 OK
+        Index(value = ["syncId"])
     ]
 )
 data class MutationEntryEntity(
     @PrimaryKey
-    val hlc: HLC,                // Changed from String to HLC
-    val entityId: String,
+    val hlc: HLC,
+    val candidateKey: String,
     val entityType: String,
-    val operation: MutationOp,   // Changed from Int to MutationOp (Enum)
-    val syncStatus: SyncStatus,  // Changed from Int to SyncStatus (Enum)
+    val operation: MutationOp,
+    val syncStatus: SyncStatus,
     val syncId: String? = null,
+    val hasConflict: Boolean = false,
+    val retryCount: Int = 0,
     val createdAt: Long
 )

@@ -54,7 +54,6 @@ data class MomentMetadata(
     val timestamp: Long,
     val associatedEpochDay: Long,
     val lastModified: Long,
-    val syncStatus: Int = SyncStatus.PENDING.value // New: State-Aware Flag
 )
 
 

@@ -28,7 +28,7 @@ class ProofOfLifeViewModel(
 
     // Observe Bio Data (The denominator)
     // For proof-of-life, we'll observe a fixed epochDay (e.g., Day 0)
-    val dailyContext = bioRepo.getTodaysContext()
+    val dailyContext = bioRepo.observeContext(1000L)
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -77,14 +77,10 @@ class ProofOfLifeViewModel(
 
             // 2. Add/Update Bio Context for "Day 0"
             // This proves the 'Upsert' logic works in Room KMP
-            bioRepo.upsertContext(
-                DailyContext(
-                    id = "uuid",
-                    epochDay = 0,
-                    sleepHours = 7.5 + Random.nextDouble(),
-                    readinessScore = 1,
-                    lastModified = Clock.System.now().toEpochMilliseconds()
-                )
+            bioRepo.initializeDay(
+                sleepHours = 5.0,
+                readinessScore = 9,
+                isNapped = false
             )
         }
     }

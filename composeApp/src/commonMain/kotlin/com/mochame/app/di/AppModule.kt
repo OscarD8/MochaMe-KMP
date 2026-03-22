@@ -9,13 +9,11 @@ import com.mochame.app.data.repository.telemetry.bridge.AnalyticsBridge
 import com.mochame.app.data.repository.telemetry.bridge.ContextBridge
 import com.mochame.app.data.repository.telemetry.bridge.MomentBridge
 import com.mochame.app.database.MochaDatabase
-import com.mochame.app.domain.model.DailyContext
 import com.mochame.app.domain.repository.BioRepository
 import com.mochame.app.domain.repository.SignalRepository
-import com.mochame.app.domain.repository.telemetry.TelemetryRepository
-import com.mochame.app.domain.repository.sync.SyncCoordinator
 import com.mochame.app.domain.repository.sync.SyncGateway
 import com.mochame.app.domain.repository.sync.SyncJanitor
+import com.mochame.app.domain.repository.telemetry.TelemetryRepository
 import com.mochame.app.domain.system.IdentityManager
 import com.mochame.app.ui.ProofOfLifeViewModel
 import org.koin.core.module.dsl.bind
@@ -53,7 +51,8 @@ val appModule = module {
             metadataDao = get(),
             database = get(),
             hlcFactory = get(),
-            ledgerDao = get()
+            ledgerDao = get(),
+            janitor = get()
         )
     }.binds(arrayOf(BioRepository::class, SyncGateway::class))
 
@@ -76,13 +75,13 @@ val appModule = module {
         createdAtStart()
     }
 
-    single {
-        SyncCoordinator(
-            // Koin 4.0 collects all the 'binds' into this list automatically
-            gateways = getAll<SyncGateway<*>>(),
-//            cloudApi = get()
-        )
-    }
+//    single {
+//        SyncCoordinator(
+//            // Koin 4.0 collects all the 'binds' into this list automatically
+//            gateways = getAll<SyncGateway<*>>(),
+////            cloudApi = get()
+//        )
+//    }
 
     /** --- UI LAYER --- */
     viewModelOf(::ProofOfLifeViewModel)

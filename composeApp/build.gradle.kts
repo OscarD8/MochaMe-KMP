@@ -134,6 +134,7 @@ kotlin {
             // Koin
             implementation(libs.koin.test)
             implementation(libs.koin.core)
+            implementation(libs.kermit.test)
         }
 
         val androidHostTest by getting {
@@ -257,6 +258,19 @@ tasks.configureEach {
         // 2. The "Detailed Stats" Logic (Refactored)
         // We only add the listener if the task is a standard 'Test' task
         if (this is Test) {
+            testLogging {
+                testLogging {
+                    // 2. Hide the logs for successful tests
+                    showStandardStreams = true
+
+                    // 3. De-clutter the stack trace
+                    showExceptions = true
+                    showCauses = true
+                    showStackTraces = true
+                    exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.SHORT
+                }
+            }
+
             addTestListener(object : TestListener {
                 override fun beforeSuite(suite: TestDescriptor) {}
                 override fun beforeTest(suite: TestDescriptor) {}

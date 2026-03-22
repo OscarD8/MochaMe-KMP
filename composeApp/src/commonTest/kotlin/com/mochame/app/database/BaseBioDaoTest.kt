@@ -1,8 +1,15 @@
 package com.mochame.app.database
 
 import app.cash.turbine.test
+import co.touchlab.kermit.ExperimentalKermitApi
+import co.touchlab.kermit.Logger
+import co.touchlab.kermit.Severity
+import co.touchlab.kermit.StaticConfig
+import co.touchlab.kermit.TestLogWriter
+import co.touchlab.kermit.platformLogWriter
 import com.mochame.app.database.dao.BioDao
 import com.mochame.app.database.entity.DailyContextEntity
+import com.mochame.app.domain.model.DailyContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestDispatcher
@@ -13,17 +20,26 @@ import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import org.koin.core.module.Module
 import org.koin.core.parameter.parametersOf
+import org.koin.dsl.module
 import org.koin.test.KoinTest
 import org.koin.test.get
+import org.koin.test.inject
 import kotlin.coroutines.ContinuationInterceptor
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 
 
 abstract class BaseBioDaoTest : KoinTest {
-    // Each platform (Species) provides its own Room/SQLite configuration
     abstract val platformTestModule: Module
+    @OptIn(ExperimentalKermitApi::class)
+    protected val testLogWriter = TestLogWriter(Severity.Verbose)
+    protected val logger: Logger by inject()
+
+    private fun createHlc(ts: Long, count: Int = 0, node: String = "test-node"): String {
+        return "$ts:$count:$node"
+    }
 
     /**
      * Wrapper as solution for accessing a TestScheduler, to be passed
@@ -35,18 +51,23 @@ abstract class BaseBioDaoTest : KoinTest {
      * ensuring all components of a test belong to the same scheduler
      * and virtual clock.
      */
+    @OptIn(ExperimentalKermitApi::class)
     fun runTestWrapper(block: suspend TestScope.(BioDao) -> Unit) = runTest {
-        // 1. Create the dispatcher tied to THIS test's scheduler
-        // val roomDispatcher = StandardTestDispatcher(testScheduler)
+        testLogWriter.reset()
+
         val testDispatcher = this.coroutineContext[ContinuationInterceptor] as TestDispatcher
 
-        // 2. Start Koin specifically for this test run
-        startKoin {
-            modules(platformTestModule)
+        val testLoggingModule = module {
+            single {
+                Logger(
+                    config = StaticConfig(logWriterList = listOf(testLogWriter, platformLogWriter())),
+                    tag = "Test"
+                )
+            }
         }
 
-        // 3. Request the DB and PASS this dispatcher as a parameter
-        // .setQueryCoroutineContext(testDispatcher) for each platform
+        startKoin { modules(platformTestModule, testLoggingModule) }
+
         val db: MochaDatabase = get { parametersOf(testDispatcher) }
         val dao = db.bioDao()
 
@@ -69,23 +90,24 @@ abstract class BaseBioDaoTest : KoinTest {
             epochDay = dayKey,
             sleepHours = 6.0,
             readinessScore = 5,
+            hlc = createHlc(1000L),
             lastModified = 1000L
         )
         dao.resolveSync(initialContext)
 
-        // When: The user updates their sleep (The "Double Wake-up")
+        // When: A newer HLC arrives (Simulating Cloud Sync)
         val updatedContext = initialContext.copy(
             sleepHours = 8.5,
-            readinessScore = 9,
+            hlc = createHlc(1001L),
             lastModified = 1001L
         )
         dao.resolveSync(updatedContext)
 
-        // Then: The database should only have ONE record for that day with updated values
+        // Then: The higher HLC must win
         val result = dao.getContextByDay(dayKey)
         assertNotNull(result)
-        assertEquals(8.5, result.sleepHours, "Updated context values did not update.")
-        assertEquals(9, result.readinessScore, "Updated context values did not update.")
+        assertEquals(8.5, result.sleepHours)
+        assertEquals(createHlc(1001L), result.hlc)
 
         val allRecords = dao.getAllContexts()
         assertEquals(1, allRecords.size, "Database should contain exactly one record after an resolveSync on the same epochDay")
@@ -99,20 +121,23 @@ abstract class BaseBioDaoTest : KoinTest {
         val existing = DailyContextEntity(
             id = id,
             epochDay = dayKey,
+            hlc = createHlc(5000L),
             sleepHours = 8.0,
             lastModified = 5000L // Newer
         )
         dao.resolveSync(existing)
 
+        // When: Stale data arrives from an old sync packet
         val staleIncoming = existing.copy(
             sleepHours = 4.0, // Should be ignored
             lastModified = 2000L // Older
         )
         dao.resolveSync(staleIncoming)
 
+        // Then: Local data remains untouched
         val result = dao.getContextByDay(dayKey)
-        assertEquals(8.0, result?.sleepHours, "Database should have kept the newer local data.")
-        assertEquals( dayKey, result?.epochDay, "Database should have kept the original ID.")
+        assertEquals(8.0, result?.sleepHours)
+        assertEquals(createHlc(5000L), result?.hlc)
     }
 
     @Test
@@ -123,6 +148,7 @@ abstract class BaseBioDaoTest : KoinTest {
             isNapped = true,
             epochDay = 1L,
             sleepHours = 6.0,
+            hlc = createHlc(5000L),
             lastModified = 0L
         )
         val notNapped = DailyContextEntity(
@@ -130,6 +156,7 @@ abstract class BaseBioDaoTest : KoinTest {
             isNapped = false,
             epochDay = 2L,
             sleepHours = 3.0,
+            hlc = createHlc(5001L),
             lastModified = 0L
         )
 
@@ -149,24 +176,21 @@ abstract class BaseBioDaoTest : KoinTest {
     }
 
     @Test
-    fun should_returnContextsInDescendingOrder_when_fetchingAll() = runTestWrapper { dao ->
-        // Given: Three separate days
-        val day1 = DailyContextEntity(id = "uuid-1", epochDay = 1L, sleepHours = 3.0, lastModified = 1000L)
-        val day2 = DailyContextEntity(id = "uuid-2", epochDay = 2L, sleepHours = 2.0, lastModified = 1000L)
-        val day3 = DailyContextEntity(id = "uuid-3", epochDay = 3L, sleepHours = 8.0, lastModified = 1000L)
+    fun should_returnContextsInDescendingOrder_ignoringDeleted() = runTestWrapper { dao ->
+        val days = (1L..3L).map {
+            DailyContextEntity(id = "id-$it", epochDay = it, hlc = createHlc(1000L), readinessScore = 8, sleepHours = 9.0, lastModified = 5000L)
+        }
+        days.forEach { dao.resolveSync(it) }
 
-        dao.resolveSync(day1)
-        dao.resolveSync(day3)
-        dao.resolveSync(day2)
+        // Delete the middle day
+        dao.markAsDeleted("id-2", createHlc(2000L), 2000L)
 
-        // When: Fetching all history
-        val results = dao.getAllContexts()
-
-        // Then: The order should be 3, 2, 1 (DESC)
-        assertEquals(3, results.size, "Expected three contexts.")
-        assertEquals(3L, results[0].epochDay, "Expected correct ordering of contexts")
-        assertEquals(2L, results[1].epochDay, "Expected correct ordering of contexts")
-        assertEquals(1L, results[2].epochDay, "Expected correct ordering of contexts")
+        dao.observeAllContexts().test {
+            val list = awaitItem()
+            assertEquals(2, list.size)
+            assertEquals(3L, list[0].epochDay) // Descending
+            assertEquals(1L, list[1].epochDay)
+        }
     }
 
     // -----------------------------------------------------------
@@ -176,7 +200,7 @@ abstract class BaseBioDaoTest : KoinTest {
     @Test
     fun should_emitNewData_when_specificallyObservedDayIsUpdated() = runTestWrapper { dao ->
         val dayKey = 20500L
-        val initial = DailyContextEntity(id = "uuid-1", epochDay = dayKey, sleepHours = 5.0, lastModified = 1000L)
+        val initial = DailyContextEntity(id = "uuid-1", epochDay = dayKey, sleepHours = 5.0, lastModified = 1000L, hlc = createHlc(5001L))
 
         dao.observeContext(dayKey).test {
             // Given: Initially null (or empty)
@@ -184,10 +208,11 @@ abstract class BaseBioDaoTest : KoinTest {
 
             // When: Data is inserted
             dao.resolveSync(initial)
+
             assertEquals(5.0, awaitItem()?.sleepHours)
 
             // When: Updated via sync with newer timestamp
-            val update = initial.copy(sleepHours = 9.0, lastModified = 2000L)
+            val update = initial.copy(sleepHours = 9.0, lastModified = 2000L, hlc = createHlc(5002L))
             dao.resolveSync(update)
 
             // Then:
@@ -200,7 +225,7 @@ abstract class BaseBioDaoTest : KoinTest {
     fun should_notEmit_when_staleDataIsUpserted() = runTestWrapper { dao ->
         // Given:
         val dayKey = 20500L
-        val initial = DailyContextEntity(id = "uuid-1", epochDay = dayKey, isNapped = true, sleepHours = 6.5, lastModified = 2000L)
+        val initial = DailyContextEntity(id = "uuid-1", epochDay = dayKey, isNapped = true, sleepHours = 6.5, lastModified = 2000L, hlc = createHlc(5001L))
 
         dao.observeAllContexts().test {
             assertEquals(0, awaitItem().size, "Flow should start empty.")
@@ -229,7 +254,8 @@ abstract class BaseBioDaoTest : KoinTest {
             sleepHours = 7.0,
             readinessScore = 7,
             isNapped = false, // Initially, no nap
-            lastModified = 1000L
+            lastModified = 1000L,
+            hlc = createHlc(5001L)
         )
 
         dao.observeAllNappedContexts().test {
@@ -239,7 +265,7 @@ abstract class BaseBioDaoTest : KoinTest {
             dao.resolveSync(notNappedContext) // Room sees a change and notifies all collectors.
             assertEquals(0, awaitItem().size, "Emission for an empty list expected.")
 
-            val nappedUpdate = notNappedContext.copy(isNapped = true, lastModified = 1001L)
+            val nappedUpdate = notNappedContext.copy(isNapped = true, lastModified = 1001L, hlc = createHlc(ts = 5001, count = 1))
             dao.resolveSync(nappedUpdate)
 
             // Then:
@@ -263,7 +289,8 @@ abstract class BaseBioDaoTest : KoinTest {
             epochDay = dayKey,
             isNapped = true,
             sleepHours = 6.0,
-            lastModified = 1000L
+            lastModified = 1000L,
+            hlc = createHlc(5001L)
         )
 
         dao.observeAllNappedContexts().test {
@@ -273,7 +300,7 @@ abstract class BaseBioDaoTest : KoinTest {
             dao.resolveSync(initialNapped)
             val initialNappedEmission = awaitItem()
 
-            val collisionItem = initialNapped.copy(sleepHours = 8.0, lastModified = 1001L)
+            val collisionItem = initialNapped.copy(sleepHours = 8.0, lastModified = 1001L, hlc = createHlc(5002L))
             dao.resolveSync(collisionItem)
             val collisionEmission = awaitItem() // there should be a single 'update' emission.
 
@@ -287,52 +314,148 @@ abstract class BaseBioDaoTest : KoinTest {
         }
     }
 
+    @Test
+    fun should_deterministicallyWin_basedOnNodeId_whenTimestampsMatch() = runTestWrapper { dao ->
+        val id = "uuid-1"
+        val ts = 5000L
+
+        // Node B arrives
+        val nodeB = DailyContextEntity(
+            id = id,
+            hlc = "5000:0:NodeB",
+            sleepHours = 2.0,
+            epochDay = 2000L,
+            readinessScore = 5,
+            lastModified = 1000
+        )
+        dao.resolveSync(nodeB)
+
+        // Node A arrives (Alphabetically 'NodeA' < 'NodeB')
+        val nodeA = nodeB.copy(hlc = "5000:0:NodeA")
+        dao.resolveSync(nodeA)
+
+        // Then: NodeB should still be the winner because "NodeB" > "NodeA" string-wise
+        val result = dao.getContextById(id)
+        assertEquals("5000:0:NodeB", result?.hlc)
+    }
+
     // -----------------------------------------------------------
     // DELETION
     // -----------------------------------------------------------
 
     @Test
-    fun should_removeContext_when_deleteContextByIdIsCalled() = runTestWrapper { dao ->
-        // Given: A day exists
+    fun should_hideDeletedRecords_fromUiObservables() = runTestWrapper { dao ->
         val dayKey = 20500L
-        val entity = DailyContextEntity(id = "uuid-1", epochDay = dayKey, sleepHours = 7.0, lastModified = 1000L)
+        val entity = DailyContextEntity(
+            id = "uuid-1",
+            epochDay = dayKey,
+            hlc = createHlc(1000L),
+            sleepHours = 5.0,
+            readinessScore = 0,
+            lastModified = 0L,
+            isDeleted = false
+        )
+
         dao.resolveSync(entity)
 
-        // When: We clear the day
-        dao.deleteContext(dayKey)
+        dao.observeContext(dayKey).test {
+            assertNotNull(awaitItem())
 
-        // Then: The record should be gone
-        val result = dao.getContextByDay(dayKey)
-        assertEquals(null, result, "Record should have been deleted from the database.")
+            // When: Logically deleted (Marked as Tombstone)
+            dao.markAsDeleted("uuid-1", createHlc(2000L), 2000L)
+
+            // Then: UI Flow should emit null because the record is "gone" to the user
+            assertNull(awaitItem())
+
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun should_maintainTombstone_evenWhenOldDataIsSynced() = runTestWrapper { dao ->
+        val id = "uuid-1"
+        // Given: A context:
+        dao.resolveSync(DailyContextEntity(id, epochDay = 20500L, readinessScore = 0, sleepHours = 5.0, lastModified = 2000L, hlc = createHlc(1000L)))
+
+        // When: Soft Delete, then old sync packet arrives:
+        dao.markAsDeleted(id, createHlc(2000L), 2000L)
+
+        val staleSync = DailyContextEntity(id, epochDay = 20500L, hlc = createHlc(1000L), isDeleted = false, readinessScore = 0, sleepHours = 5.0, lastModified = 2000L)
+        dao.resolveSync(staleSync)
+
+        // Then: The record MUST remain deleted because HLC 2000 > HLC 1000
+        val finalRecord = dao.getContextById(id)
+        assertEquals(true, finalRecord?.isDeleted, "Tombstone was overwritten by stale data!")
+    }
+
+    @Test
+    fun should_resurrectRecord_when_newerUpdateFollowsTombstone() = runTestWrapper { dao ->
+        val id = "uuid-1"
+        val day = 20500L
+
+        dao.upsert(DailyContextEntity(
+            id = id,
+            hlc = createHlc(1000),
+            epochDay = day,
+            sleepHours = 5.6,
+            readinessScore = 5,
+            lastModified = 1000L
+        ))
+
+        // 1. Record is Deleted (HLC 2000)
+        dao.markAsDeleted(id, createHlc(2000L), 2000L)
+
+        // 2. A newer update arrives (HLC 3000, isDeleted = false)
+        val resurrection = DailyContextEntity(
+            id = id, epochDay = day, hlc = createHlc(3000L),
+            isDeleted = false, sleepHours = 7.0, lastModified = 3000L
+        )
+        dao.resolveSync(resurrection)
+
+        // Then: Record must be visible again
+        val result = dao.getContextById(id)
+        assertEquals(false, result?.isDeleted)
+        assertEquals(7.0, result?.sleepHours)
+    }
+
+    @Test
+    fun should_onlyPruneOldTombstones_leavingRecentOnesIntact() = runTestWrapper { dao ->
+        // Given: One old tombstone, one fresh tombstone
+        dao.resolveSync(DailyContextEntity(id = "old", epochDay = 1L, hlc = createHlc(1000L), isDeleted = true, sleepHours = 5.0, lastModified = 1000L))
+        dao.resolveSync(DailyContextEntity(id = "new", epochDay = 2L, hlc = createHlc(5000L), isDeleted = true, sleepHours = 5.0, lastModified = 5000L))
+
+        // When: Pruning with cutoff at 3000
+        dao.hardDeletePruning(3000L)
+
+        // Then:
+        assertNull(dao.getContextById("old"), "Old tombstone should be purged")
+        assertNotNull(dao.getContextById("new"), "New tombstone must remain for sync dissemination")
     }
 
     // -----------------------------------------------------------
-    // SYNC
+    // SYNC / RACE CONDITIONS
     // -----------------------------------------------------------
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
-    fun should_maintainIntegrity_when_multipleDevicesSyncSimultaneously() = runTestWrapper { dao ->
+    fun should_surviveHlcRaceCondition_withDeterministicWinner() = runTestWrapper { dao ->
         val dayKey = 20500L
-        val actualLastModified = 200000L
-        val actualSleepHours = 9.0
-        val finalState = DailyContextEntity("uuid-1", dayKey, actualSleepHours, 0, actualLastModified)
+        val id = "uuid-global"
 
-        // Given: A flurry of concurrent sync attempts with varying timestamps
-        val syncAttempts = (1..1000).map { i ->
-            DailyContextEntity("uuid-2", dayKey, sleepHours = 8.0, lastModified = i.toLong())
-        } + finalState
+        // Given: a flurry of chaotic updates
+        val attempts = (1000..2000).map { i ->
+            DailyContextEntity(id = id, epochDay = dayKey, sleepHours = i.toDouble(), readinessScore = 9, hlc = createHlc(i.toLong()), lastModified = 1000L)
+        }
 
-        // When: They all rush the DAO at once (simulating multi-device sync)
-        syncAttempts.shuffled().forEach { incoming ->
+        attempts.shuffled().forEach { incoming ->
             launch { dao.resolveSync(incoming) }
         }
         advanceUntilIdle()
 
-        // Then: Only the one with the highest timestamp should remain
+        // Then: The record with the largest HLC (2000) must be the winner
         val result = dao.getContextByDay(dayKey)
-        assertEquals(actualLastModified, result?.lastModified, "The highest timestamp did not win the race.")
-        assertEquals(9.0, result?.sleepHours)
+        assertEquals(createHlc(2000L), result?.hlc)
+        assertEquals(2000.0, result?.sleepHours)
     }
     
 }

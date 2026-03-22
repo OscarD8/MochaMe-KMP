@@ -22,34 +22,45 @@ interface MutationLedgerDao {
     /**
      * Compaction Lookup: Finds an unsynced mutation for a specific record.
      */
-    @Query("""
+    @Query(
+        """
         SELECT * FROM mutation_ledger 
-        WHERE entityId = :entityId 
+        WHERE candidateKey = :candidateKey 
         AND entityType = :entityType 
         AND syncStatus = :status 
         LIMIT 1
     """)
     suspend fun getPendingMutation(
-        entityId: String,
+        candidateKey: String,
         entityType: String,
         status: SyncStatus = SyncStatus.PENDING
     ): MutationEntryEntity?
 
+    // Step 1: Claim the batch with a unique ID
+    @Query("""
+    UPDATE mutation_ledger 
+    SET syncId = :sessionId, syncStatus = :syncingStatus
+    WHERE hlc IN (
+        SELECT hlc FROM mutation_ledger
+        WHERE syncId IS NULL 
+        AND entityType = :type 
+        AND syncStatus = :pendingStatus
+        LIMIT :limit
+    )
+    """)
+    suspend fun claimBatch(
+        sessionId: String,
+        type: String,
+        limit: Int,
+        pendingStatus: SyncStatus = SyncStatus.PENDING,
+        syncingStatus: SyncStatus = SyncStatus.SYNCING
+    ): Int
+
     /**
      * Batch Collector: Grabs changes to ship to the Cloud Vault.
      */
-    @Query("""
-        SELECT * FROM mutation_ledger 
-        WHERE entityType = :entityType 
-        AND syncStatus = :status 
-        ORDER BY hlc ASC 
-        LIMIT :limit
-    """)
-    suspend fun getNextBatch(
-        entityType: String,
-        limit: Int,
-        status: SyncStatus = SyncStatus.PENDING
-    ): List<MutationEntryEntity>
+    @Query("SELECT * FROM mutation_ledger WHERE syncId = :sessionId")
+    suspend fun getClaimedBatch(sessionId: String): List<MutationEntryEntity>
 
     /**
      * Final ACK: Marks a batch of mutations as successfully synced.
@@ -80,7 +91,7 @@ interface MutationLedgerDao {
     @Upsert
     suspend fun upsert(entry: MutationEntryEntity)
 
-    @Delete
+    @Query("DELETE FROM mutation_ledger WHERE hlc = :hlc")
     suspend fun deleteByHlc(hlc: HLC)
 
     @Query("SELECT COUNT(*) FROM mutation_ledger WHERE syncStatus = :status")

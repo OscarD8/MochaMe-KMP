@@ -61,14 +61,19 @@ class SyncJanitor(
                 val nodeId = identityManager.getOrCreateNodeId()
 
                 // 4. HLC:
-                val result = hlcFactory.hydrate(lastKnownHlc, nodeId)
+                val result = hlcFactory.hydrate(lastKnownHlc.toString(), nodeId)
 
                 // 5. UI STATUS:
                 handleHydrationResult(result)
 
+                if(result is HydrationResult.Success || result is HydrationResult.NewInstall) {
+                    _isInitialized.complete(Unit)
+                    logger.i { "Janitor signaled BaseRepository ." }
+                }
             } catch (e: Exception) {
-                logger.e(e) { "Critical Startup Failure" }
+                logger.e(e) { "Critical Startup Failure. BaseRepository will be blocked" }
                 _systemStatus.value = SystemStatus.Error("Database Repair Failed")
+                _isInitialized.completeExceptionally(e)
             }
         }
     }
@@ -99,7 +104,7 @@ class SyncJanitor(
                 SystemStatus.Ready
             }
             is HydrationResult.NewInstall -> {
-                SystemStatus.Initializing
+                SystemStatus.Ready
             }
             is HydrationResult.InvalidData -> {
                 SystemStatus.Error("Time Integrity Failure: Local data is unreadable.")

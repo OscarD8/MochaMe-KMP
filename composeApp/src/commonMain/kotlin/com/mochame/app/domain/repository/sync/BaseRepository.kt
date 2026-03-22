@@ -3,14 +3,18 @@ package com.mochame.app.domain.repository.sync
 import androidx.room.Transactor
 import androidx.room.useWriterConnection
 import co.touchlab.kermit.Logger
+import com.mochame.app.core.HLC
 import com.mochame.app.core.HlcFactory
 import com.mochame.app.core.MochaModule
 import com.mochame.app.core.MutationOp
+import com.mochame.app.core.SyncInitializationException
 import com.mochame.app.core.SyncStatus
 import com.mochame.app.database.MochaDatabase
 import com.mochame.app.database.dao.sync.MutationLedgerDao
 import com.mochame.app.database.dao.sync.SyncMetadataDao
 import com.mochame.app.database.entity.MutationEntryEntity
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
 
 
 /**
@@ -27,6 +31,7 @@ abstract class BaseRepository<T : LocalFirstEntity<T>>(
     private val ledgerDao: MutationLedgerDao,
     private val metadataDao: SyncMetadataDao,
     private val moduleName: MochaModule,
+    private val janitor: SyncJanitor,
     protected val logger: Logger
 ) {
     /**
@@ -39,94 +44,102 @@ abstract class BaseRepository<T : LocalFirstEntity<T>>(
      * 3. **Monotonicity:** The [newHlc] is generated immediately before the write to
      * ensure causality.
      *
-     * @param entityId The UUID of the record being modified.
+     * @param candidateKey The UUID of the record being modified.
      * @param op The type of operation (UPSERT or DELETE).
      * @param businessAction The DAO call. Must return [Int] (affected rows) for DELETES.
      */
-    protected suspend fun <R> mutate(
-        entityId: String,
+    protected suspend fun <R> commitWithIntent(
+        candidateKey: String,
         op: MutationOp,
         businessAction: suspend (newHlc: String) -> R
     ): R {
+        // 1. Ensure the HLC and Janitor are ready
+        ensureReady()
+
         return database.useWriterConnection { connection ->
-            // Start an IMMEDIATE transaction to prevent lock-upgrade deadlocks
             connection.withTransaction(Transactor.SQLiteTransactionType.IMMEDIATE) {
-                // 1. Generate the device time
+                // 2. STAMP: Generate the device's timestamp
                 val hlc = hlcFactory.getNextHlc()
 
-                // 2. Execute DAO change
+                // 3. EXECUTE: Perform the actual database write
                 val result = businessAction(hlc.toString())
 
-                // 3. Guard:
-                val isGhostDelete = op == MutationOp.DELETE && (result as? Int) == 0
+                // 4. GUARD: If a delete found nothing to delete, do not log an intent.
+                if (isGhostDelete(op, result)) return@withTransaction result
 
-                if (!isGhostDelete) {
-                    // 4. For Compaction:
-                    val pending = ledgerDao.getPendingMutation(entityId, moduleName.tag)
+                // 5. LEDGER: Atomic compaction and intent logging
+                recordIntent(candidateKey, op, hlc)
 
-                    // 4. Pruning:
-                    val effectiveCreatedAt = if (pending != null) {
-                        // If we are compacting a DELETE into an existing DELETE,
-                        // we keep the ORIGINAL timestamp to prevent resetting the pruning clock.
-                        if (op == MutationOp.DELETE && pending.operation == MutationOp.DELETE) {
-                            pending.createdAt
-                        } else {
-                            // For everything else (Upsert-on-Upsert, Delete-on-Upsert),
-                            // this is a fresh intent, so we use the new HLC time.
-                            hlc.ts
-                        }
-                    } else {
-                        // New mutation entry
-                        hlc.ts
-                    }
-
-                    // 5. Compaction Fix: Delete the old record if it exists
-                    if (pending != null) {
-                        ledgerDao.deleteByHlc(pending.hlc)
-                    }
-
-                    // 6. Write the Fresh Intent
-                    ledgerDao.upsert(
-                        MutationEntryEntity(
-                            hlc = hlc,
-                            entityId = entityId,
-                            entityType = moduleName.tag,
-                            operation = op,
-                            syncStatus = SyncStatus.PENDING,
-                            createdAt = effectiveCreatedAt
-                        )
-                    )
-
-                    // 7. Update the latest HLC for that module
-                    metadataDao.recordLocalMutation(
-                        moduleName = moduleName.toString(),
-                        hlc = hlc.toString(),
-                        now = hlc.ts
-                    )
-                }
+                // 6. METADATA: Update module-level high-water marks
+                updateModuleMetadata(hlc)
 
                 result
             }
         }
     }
+
+    private fun isGhostDelete(op: MutationOp, result: Any?): Boolean {
+        return op == MutationOp.DELETE && (result as? Int) == 0
+    }
+
+    private suspend fun recordIntent(candidateKey: String, op: MutationOp, hlc: HLC) {
+        // Look for existing work that hasn't been synced yet
+        val pending = ledgerDao.getPendingMutation(candidateKey, moduleName.tag)
+
+        val effectiveCreatedAt = resolvePruningTimestamp(pending, op, hlc.ts)
+
+        // Compaction: Remove the old intent before writing the new one
+        pending?.let { ledgerDao.deleteByHlc(it.hlc) }
+
+        ledgerDao.upsert(
+            MutationEntryEntity(
+                hlc = hlc,
+                candidateKey = candidateKey,
+                entityType = moduleName.tag,
+                operation = op,
+                syncStatus = SyncStatus.PENDING,
+                createdAt = effectiveCreatedAt
+            )
+        )
+    }
+
+    private fun resolvePruningTimestamp(
+        pending: MutationEntryEntity?,
+        currentOp: MutationOp,
+        now: Long
+    ): Long {
+        return if (pending != null && currentOp == MutationOp.DELETE && pending.operation == MutationOp.DELETE) {
+            // Preservation: Don't reset the pruning clock for double-deletes
+            pending.createdAt
+        } else {
+            now
+        }
+    }
+
+    private suspend fun updateModuleMetadata(hlc: HLC) {
+        metadataDao.recordLocalMutation(
+            moduleName = moduleName.toString(),
+            hlc = hlc,
+            now = hlc.ts
+        )
+    }
+
+    /**
+     * Centralizes the timeout and error handling for the Janitor's boot sequence.
+     */
+    private suspend fun ensureReady() {
+        try {
+            withTimeout(5000L) {
+                janitor.isInitialized.await()
+            }
+        } catch (e: TimeoutCancellationException) {
+            logger.e { "Critical: SyncJanitor timeout. System stalled: $e" }
+            throw SyncInitializationException("Startup timeout. Please retry. $e")
+        } catch (e: Exception) {
+            logger.e(e) { "Mutation blocked: Janitor reported failure." }
+            throw e
+        }
+    }
+
 }
-
-
-/**
- * override suspend fun deleteBioEntry(id: String): Int = mutate(
- *     entityId = id,
- *     operationType = MutationOp.DELETE
- * ) {
- *     bioDao.deleteById(id) // Now atomic with the ledger!
- * }
- *
- * override suspend fun saveBioEntry(entry: DailyContext): DailyContext = mutate(
- *     entityId = entry.id,
- *     operationType = MutationOp.UPSERT
- * ) { newHlc ->
- *     val stamped = entry.withHlc(newHlc)
- *     bioDao.upsert(stamped)
- *     stamped
- * }
- */
 

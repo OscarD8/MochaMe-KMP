@@ -1,14 +1,11 @@
 package com.mochame.app.data.mapper
 
 import com.mochame.app.database.entity.DomainEntity
-import com.mochame.app.database.entity.MomentCoreEntity
 import com.mochame.app.database.entity.MomentEntity
 import com.mochame.app.database.entity.SpaceEntity
 import com.mochame.app.database.entity.TopicEntity
 import com.mochame.app.domain.model.telemetry.Domain
 import com.mochame.app.domain.model.telemetry.Moment
-import com.mochame.app.domain.model.telemetry.MomentCore
-import com.mochame.app.domain.model.telemetry.Mood
 import com.mochame.app.domain.model.telemetry.Space
 import com.mochame.app.domain.model.telemetry.Topic
 
@@ -19,12 +16,7 @@ fun MomentEntity.toDomain(): Moment {
         domainId = domainId,
         topicId = topicId,
         spaceId = spaceId,
-        core = MomentCore(
-            satisfactionScore = core.satisfactionScore,
-            mood = core.mood, // PAD mapping happens here
-            energyDelta = core.energyDelta,
-            intensityScale = core.intensityScale
-        ),
+        core = core,
         detail = detail,
         context = context,
         metadata = metadata
@@ -37,12 +29,7 @@ fun Moment.toEntity(): MomentEntity {
         domainId = domainId,
         topicId = topicId,
         spaceId = spaceId,
-        core = MomentCoreEntity(
-            satisfactionScore = core.satisfactionScore,
-            mood = core.mood, // Convert back to string for DB
-            energyDelta = core.energyDelta,
-            intensityScale = core.intensityScale
-        ),
+        core = core,
         detail = detail,
         context = context,
         metadata = metadata

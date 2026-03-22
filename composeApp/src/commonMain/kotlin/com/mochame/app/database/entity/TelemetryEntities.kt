@@ -6,6 +6,7 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.mochame.app.domain.model.telemetry.MomentClimate
+import com.mochame.app.domain.model.telemetry.MomentCore
 import com.mochame.app.domain.model.telemetry.MomentDetail
 import com.mochame.app.domain.model.telemetry.MomentMetadata
 import com.mochame.app.domain.model.telemetry.Mood
@@ -29,19 +30,11 @@ data class MomentEntity(
     val topicId: String?,
     val spaceId: String?,
 
-    @Embedded val core: MomentCoreEntity, // not a 1-1 map with domain
+    @Embedded val core: MomentCore, // not a 1-1 map with domain
     @Embedded val detail: MomentDetail,
     @Embedded val context: MomentClimate,
     @Embedded val metadata: MomentMetadata,
 )
-
-data class MomentCoreEntity(
-    val satisfactionScore: Int,
-    val mood: Mood, // String for SQLite storage
-    val energyDelta: Int,
-    val intensityScale: Int
-)
-
 
 @Entity(
     tableName = "domains",

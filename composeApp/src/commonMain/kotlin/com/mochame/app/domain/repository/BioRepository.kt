@@ -12,12 +12,13 @@ interface BioRepository {
      */
     fun observeContext(epochDay: Long): Flow<DailyContext?>
 
+
     /**
      * The Day Starter (Smart Constructor):
      * Handles UUID generation and biological anchoring internally.
      * Prevents the UI from accidentally creating "dirty" or duplicate entries.
      */
-    suspend fun initializeDay(sleepHours: Double, readinessScore: Int)
+    suspend fun initializeDay(sleepHours: Double, readinessScore: Int, isNapped: Boolean = false) : DailyContext
 
 //    /**
 //     * Historical 'Fuel' record for long-term efficiency analysis.

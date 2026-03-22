@@ -1,6 +1,5 @@
 package com.mochame.app.data.mapper
 
-import com.mochame.app.core.SyncStatus
 import com.mochame.app.database.entity.SyncMetadataEntity
 import com.mochame.app.domain.model.SyncMetadata
 
@@ -13,7 +12,7 @@ fun SyncMetadataEntity.toDomain(): SyncMetadata {
         module = moduleName,
         serverWatermark = serverWatermark,
         localMaxHlc = localMaxHlc,
-        activeSyncId = activeSyncId,
+        activeSyncId = syncId,
         status = syncStatus,
         lastServerSyncTime = lastServerSyncTime,
         lastLocalMutationTime = lastLocalMutationTime
@@ -28,7 +27,7 @@ fun SyncMetadata.toEntity(): SyncMetadataEntity {
         moduleName = module,
         serverWatermark = serverWatermark,
         localMaxHlc = localMaxHlc,
-        activeSyncId = activeSyncId,
+        syncId = activeSyncId,
         syncStatus = status,
         lastServerSyncTime = lastServerSyncTime,
         lastLocalMutationTime = lastLocalMutationTime
