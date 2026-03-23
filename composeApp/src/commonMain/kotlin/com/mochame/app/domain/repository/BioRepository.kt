@@ -21,7 +21,7 @@ interface BioRepository {
     suspend fun initializeDay(sleepHours: Double, readinessScore: Int, isNapped: Boolean = false) : DailyContext
 
 //    /**
-//     * Historical 'Fuel' record for long-term efficiency analysis.
+//     * Historical record for long-term efficiency analysis.
 //     */
 //    fun getHistory(): Flow<List<DailyContext>>
 

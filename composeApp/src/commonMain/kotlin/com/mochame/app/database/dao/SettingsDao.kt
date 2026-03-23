@@ -15,6 +15,9 @@ interface SettingsDao {
     @Query("SELECT * FROM global_settings WHERE id = 1 LIMIT 1")
     suspend fun getGlobalSettings(): GlobalSettingsEntity?
 
+    @Query("SELECT nodeId FROM global_settings WHERE id = 1 LIMIT 1")
+    suspend fun getDeviceId(): String?
+
     /**
      * Initialize or update the global settings.
      * Using REPLACE ensures that if we call this during a version bump,

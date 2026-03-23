@@ -7,12 +7,12 @@ import kotlin.time.Clock
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
 
-class DateTimeUtils {
+open class DateTimeUtils {
 
     /**
      * Returns the current system instant.
      */
-    fun now(): Instant = Clock.System.now()
+    open fun now(): Instant = Clock.System.now()
 
     /**
      * THE MOCHA DAY:

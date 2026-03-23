@@ -16,10 +16,12 @@ import com.mochame.app.domain.repository.sync.SyncJanitor
 import com.mochame.app.domain.repository.telemetry.TelemetryRepository
 import com.mochame.app.domain.system.IdentityManager
 import com.mochame.app.ui.ProofOfLifeViewModel
+import kotlinx.coroutines.CoroutineScope
 import org.koin.core.module.dsl.bind
 import org.koin.core.module.dsl.createdAtStart
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModelOf
+import org.koin.core.qualifier.named
 import org.koin.dsl.binds
 import org.koin.dsl.module
 
@@ -73,6 +75,21 @@ val appModule = module {
     /** --- SYNC LAYER --- */
     singleOf(::SyncJanitor) {
         createdAtStart()
+    }
+
+    single<SyncJanitor>(createdAtStart = true) {
+        val scope: CoroutineScope = get(named("AppScope"))
+
+        SyncJanitor(
+            database = get(),
+            metadataDao = get(),
+            ledgerDao = get(),
+            identityManager = get(),
+            dispatcherProvider = get(),
+            appScope = scope,
+            hlcFactory = get(),
+            logger = get()
+        )
     }
 
 //    single {

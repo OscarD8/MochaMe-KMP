@@ -13,7 +13,7 @@ interface SyncTombstoneDao {
     suspend fun upsertTombstone(tombstone: SyncTombstoneEntity)
 
     @Query("SELECT * FROM sync_tombstones WHERE deletedAt > :lastSeenHlc ORDER BY deletedAt ASC")
-    fun observeRecentDeletions(lastSeenHlc: HLC): Flow<List<SyncTombstoneEntity>>
+    fun observeRecentDeletions(lastSeenHlc: String): Flow<List<SyncTombstoneEntity>>
 
     @Query("SELECT * FROM sync_tombstones WHERE tableName = 'domains' ORDER BY deletedAt ASC")
     suspend fun getAllDomainDeletions(): List<SyncTombstoneEntity>

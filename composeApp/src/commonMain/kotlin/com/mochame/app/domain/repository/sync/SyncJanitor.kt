@@ -50,28 +50,33 @@ class SyncJanitor(
     fun startupChecks() {
         appScope.launch(dispatcherProvider.io) {
             try {
+                logger.i { "Janitor: Beginning startup sequence..." }
                 // 1. IMMEDIATE
                 performCleanBoot()
 
                 // 2. PLACEHOLDERS:
-                ensureMetaDataIsSeeded()
+                logger.d { "Janitor: Stage 2 - Checking Metadata..." }
+                ensureMetaDataIsSeeded().getOrThrow()
 
                 // 3. DATA:
                 val lastKnownHlc = metadataDao.getGlobalMaxHlc()
                 val nodeId = identityManager.getOrCreateNodeId()
 
                 // 4. HLC:
-                val result = hlcFactory.hydrate(lastKnownHlc.toString(), nodeId)
+                logger.d { "Janitor: Stage 3 - Hydrating HLC..." }
+                val result = hlcFactory.hydrate(lastKnownHlc, nodeId)
 
                 // 5. UI STATUS:
                 handleHydrationResult(result)
 
-                if(result is HydrationResult.Success || result is HydrationResult.NewInstall) {
+                if (result is HydrationResult.Success || result is HydrationResult.NewInstall) {
                     _isInitialized.complete(Unit)
-                    logger.i { "Janitor signaled BaseRepository ." }
+                    logger.i { "Janitor signaled BaseRepository. Hydration Successful." }
+                } else {
+                    throw IllegalStateException(result.toString())
                 }
             } catch (e: Exception) {
-                logger.e(e) { "Critical Startup Failure. BaseRepository will be blocked" }
+                logger.e(e) { "Critical Startup Failure. BaseRepository will be blocked." }
                 _systemStatus.value = SystemStatus.Error("Database Repair Failed")
                 _isInitialized.completeExceptionally(e)
             }
@@ -132,20 +137,31 @@ class SyncJanitor(
      * for the metadata tables, as apparently as this is a frequent operation,
      * update at the SQL level is optimal in the [BaseRepository.mutate] method.
      */
-    private suspend fun ensureMetaDataIsSeeded() {
-       // 1. Perform O(1) count check
-        val existingCount = metadataDao.getMetadataCount()
-        val expectedCount = MochaModule.entries.size
+    private suspend fun ensureMetaDataIsSeeded(): Result<Unit> {
+        return runCatching {
+            logger.d { "Checking metadata sync status..." }
 
-        // 2. Only trigger the O(N) mapping and insertion if there's a discrepancy
-        if (existingCount < expectedCount) {
-            val seeds = MochaModule.entries.map { module ->
-                SyncMetadataEntity(
-                    moduleName = module,
-                    syncStatus = SyncStatus.IDLE
-                )
+            val existingCount = metadataDao.getMetadataCount()
+            val expectedCount = MochaModule.entries.size
+
+            if (existingCount < expectedCount) {
+                logger.i { "Seeding required: $existingCount/$expectedCount entries found." }
+
+                val seeds = MochaModule.entries.map { module ->
+                    SyncMetadataEntity(
+                        moduleName = module,
+                        syncStatus = SyncStatus.IDLE
+                    )
+                }
+
+                metadataDao.seedDefaultMetadata(seeds)
+
+                logger.i { "Successfully seeded $expectedCount metadata entries." }
+            } else {
+                logger.d { "Metadata is up to date." }
             }
-            metadataDao.seedDefaultMetadata(seeds)
+        }.onFailure { e ->
+            logger.e(e) { "Metadata seeding failed. Sync system may be inactive." }
         }
     }
 }

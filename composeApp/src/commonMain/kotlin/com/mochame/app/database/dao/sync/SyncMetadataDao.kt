@@ -47,13 +47,13 @@ interface SyncMetadataDao {
     )
 
     @Query("SELECT localMaxHlc FROM sync_metadata WHERE moduleName = :moduleName")
-    suspend fun getModuleMaxHlc(moduleName: String) : HLC?
+    suspend fun getModuleMaxHlc(moduleName: String) : String?
 
     @Query("SELECT localMaxHlc FROM sync_metadata")
-    suspend fun getAllLocalMaxHlcs(): List<HLC>
+    suspend fun getAllLocalMaxHlcs(): List<String>
 
     @Query("SELECT MAX(localMaxHlc) FROM sync_metadata")
-    suspend fun getGlobalMaxHlc() : HLC?
+    suspend fun getGlobalMaxHlc() : String?
 
     /**
      * Records the heartbeat of a local write.

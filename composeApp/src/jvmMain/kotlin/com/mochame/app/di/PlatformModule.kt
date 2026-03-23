@@ -24,8 +24,6 @@ actual val platformModule = module {
 
     single(named("AppScope")) {
         val dispatchers = get<DispatcherProvider>()
-        // We use Main for the Scope's base, but the Janitor
-        // will switch to .io internally for the heavy lifting.
         CoroutineScope(SupervisorJob() + dispatchers.main)
     }
 }

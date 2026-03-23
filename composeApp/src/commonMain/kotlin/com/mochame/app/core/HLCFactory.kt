@@ -1,5 +1,6 @@
 package com.mochame.app.core
 
+import co.touchlab.kermit.Logger
 import kotlinx.coroutines.yield
 
 /**
@@ -42,18 +43,26 @@ data class HLC(
     companion object {
         /**
          * Safely parses a serialized HLC string.
-         * @throws IllegalArgumentException if the format is invalid.
+         * @throws HlcParseException if not valid.
          */
         fun parse(hlcString: String): HLC {
             val parts = hlcString.split(":")
-            if (parts.size != 3) throw IllegalArgumentException("Invalid HLC format: $hlcString")
 
-            val ts = parts[0].toLongOrNull() ?: throw IllegalArgumentException("Invalid timestamp")
-            val count = parts[1].toIntOrNull() ?: throw IllegalArgumentException("Invalid counter")
-            val nodeId = parts[2].takeIf { it.isNotBlank() } ?: throw IllegalArgumentException("Invalid nodeId")
+            if (parts.size != 3) throw HlcParseException(hlcString)
+
+            val ts = parts[0].toLongOrNull()
+                ?: throw HlcParseException(hlcString)
+
+            val count = parts[1].toIntOrNull()
+                ?: throw HlcParseException(hlcString)
+
+            val nodeId = parts[2].takeIf { it.isNotBlank() }
+                ?: throw IllegalArgumentException("Invalid nodeId")
 
             return HLC(ts, count, nodeId)
         }
+
+        val EMPTY = HLC(0, 0, "init")
     }
 }
 
@@ -61,7 +70,8 @@ data class HLC(
  * Implements Non-Blocking Busy-Wait and NodeID Re-stamping.
  */
 class HlcFactory(
-    private val dateTimeUtils: DateTimeUtils
+    private val dateTimeUtils: DateTimeUtils,
+    private val logger: Logger
 ) {
     @Volatile private var nodeId: String? = null
     @Volatile private var lastHlc: HLC? = null
@@ -85,8 +95,7 @@ class HlcFactory(
             return@synchronized HydrationResult.InvalidData(error)
         }.getOrNull()
 
-        // 3. Reconcile with NodeID Ownership
-        // We always adopt the current nodeId, even if using history timestamp.
+        // 3. Reconcile
         val initialHlc = when {
             history == null -> HLC(wallClock, 0, currentNodeId)
             history.ts >= wallClock -> history.copy(nodeId = currentNodeId)
@@ -109,11 +118,13 @@ class HlcFactory(
      * Replaces Exception-on-Overflow with a Busy-Wait yield.
      */
     suspend fun getNextHlc(): HLC {
+
         // We use a loop to handle the rare Case C: Counter Overflow
         while (true) {
             synchronized(this) {
-                val currentId = nodeId ?: throw IllegalStateException("Factory not hydrated")
-                val last = lastHlc ?: throw IllegalStateException("Missing lastHlc")
+
+                val currentId = nodeId!!
+                val last = lastHlc!!
                 val wallClock = dateTimeUtils.now().toEpochMilliseconds()
 
                 when {
@@ -134,7 +145,7 @@ class HlcFactory(
                 }
             }
             // If we hit Case C, we suspend and let the clock tick.
-            // This prevents a "Crash-Loop" during high-volume operations.
+            // This prevents a crash during high-volume operations.
             yield()
         }
     }

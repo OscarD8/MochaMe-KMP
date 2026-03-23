@@ -1,7 +1,6 @@
 package com.mochame.app.database.dao.sync
 
 import androidx.room.Dao
-import androidx.room.Delete
 import androidx.room.Query
 import androidx.room.Upsert
 import com.mochame.app.core.HLC
@@ -17,7 +16,7 @@ interface MutationLedgerDao {
      * Room uses the HLC TypeConverter to return the object directly.
      */
     @Query("SELECT MAX(hlc) FROM mutation_ledger")
-    suspend fun getGlobalMaxHlc(): HLC?
+    suspend fun getLedgerGlobalMaxHlc(): String?
 
     /**
      * Compaction Lookup: Finds an unsynced mutation for a specific record.
@@ -92,7 +91,7 @@ interface MutationLedgerDao {
     suspend fun upsert(entry: MutationEntryEntity)
 
     @Query("DELETE FROM mutation_ledger WHERE hlc = :hlc")
-    suspend fun deleteByHlc(hlc: HLC)
+    suspend fun deleteByHlc(hlc: String)
 
     @Query("SELECT COUNT(*) FROM mutation_ledger WHERE syncStatus = :status")
     fun observePendingCount(status: SyncStatus = SyncStatus.PENDING): Flow<Int>

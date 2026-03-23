@@ -3,13 +3,10 @@ package com.mochame.app.database
 import app.cash.turbine.test
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Logger
-import co.touchlab.kermit.Severity
-import co.touchlab.kermit.StaticConfig
 import co.touchlab.kermit.TestLogWriter
-import co.touchlab.kermit.platformLogWriter
 import com.mochame.app.database.dao.BioDao
 import com.mochame.app.database.entity.DailyContextEntity
-import com.mochame.app.domain.model.DailyContext
+import com.mochame.app.modules.CoreTestModules
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestDispatcher
@@ -20,11 +17,12 @@ import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import org.koin.core.module.Module
 import org.koin.core.parameter.parametersOf
-import org.koin.dsl.module
 import org.koin.test.KoinTest
 import org.koin.test.get
 import org.koin.test.inject
 import kotlin.coroutines.ContinuationInterceptor
+import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -32,13 +30,41 @@ import kotlin.test.assertNull
 
 
 abstract class BaseBioDaoTest : KoinTest {
-    abstract val platformTestModule: Module
+
+    // -----------------------------------------------------------
+    // MODULES
+    // -----------------------------------------------------------
+    abstract val platformTestModules: List<Module>
+    private val coreTestModules: List<Module> = listOf(
+        CoreTestModules.bioDaoModule,
+        CoreTestModules.hlcFactoryModule,
+        CoreTestModules.dateTimeUtilsModule
+    )
+
+    // -----------------------------------------------------------
+    // COMPONENTS
+    // -----------------------------------------------------------
     @OptIn(ExperimentalKermitApi::class)
-    protected val testLogWriter = TestLogWriter(Severity.Verbose)
+    protected val testLogWriter: TestLogWriter by inject()
     protected val logger: Logger by inject()
 
     private fun createHlc(ts: Long, count: Int = 0, node: String = "test-node"): String {
         return "$ts:$count:$node"
+    }
+
+    // -----------------------------------------------------------
+    // SETUP/TEARDOWN
+    // -----------------------------------------------------------
+    @OptIn(ExperimentalKermitApi::class)
+    @BeforeTest
+    fun start_koin_context() {
+        startKoin { modules(platformTestModules + coreTestModules) }
+        testLogWriter.reset()
+    }
+
+    @AfterTest
+    fun stop_koin_context() {
+        stopKoin()
     }
 
     /**
@@ -53,20 +79,7 @@ abstract class BaseBioDaoTest : KoinTest {
      */
     @OptIn(ExperimentalKermitApi::class)
     fun runTestWrapper(block: suspend TestScope.(BioDao) -> Unit) = runTest {
-        testLogWriter.reset()
-
         val testDispatcher = this.coroutineContext[ContinuationInterceptor] as TestDispatcher
-
-        val testLoggingModule = module {
-            single {
-                Logger(
-                    config = StaticConfig(logWriterList = listOf(testLogWriter, platformLogWriter())),
-                    tag = "Test"
-                )
-            }
-        }
-
-        startKoin { modules(platformTestModule, testLoggingModule) }
 
         val db: MochaDatabase = get { parametersOf(testDispatcher) }
         val dao = db.bioDao()
@@ -75,7 +88,6 @@ abstract class BaseBioDaoTest : KoinTest {
             this.block(dao)
         } finally {
             db.close()
-            stopKoin()
         }
     }
 
@@ -317,7 +329,6 @@ abstract class BaseBioDaoTest : KoinTest {
     @Test
     fun should_deterministicallyWin_basedOnNodeId_whenTimestampsMatch() = runTestWrapper { dao ->
         val id = "uuid-1"
-        val ts = 5000L
 
         // Node B arrives
         val nodeB = DailyContextEntity(
@@ -330,7 +341,7 @@ abstract class BaseBioDaoTest : KoinTest {
         )
         dao.resolveSync(nodeB)
 
-        // Node A arrives (Alphabetically 'NodeA' < 'NodeB')
+        // Node A arrives at the exact same time (Alphabetically 'NodeA' < 'NodeB')
         val nodeA = nodeB.copy(hlc = "5000:0:NodeA")
         dao.resolveSync(nodeA)
 

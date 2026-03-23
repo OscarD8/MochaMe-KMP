@@ -1,5 +1,6 @@
 package com.mochame.app.domain.model
 
+import com.mochame.app.core.HLC
 import com.mochame.app.domain.repository.sync.LocalFirstEntity
 
 /**
@@ -8,7 +9,7 @@ import com.mochame.app.domain.repository.sync.LocalFirstEntity
  */
 data class DailyContext(
     override val id: String,        // Deterministic: epochDay.toString()
-    override val hlc: String = "",
+    override val hlc: HLC = HLC.EMPTY,
     val epochDay: Long,
     val sleepHours: Double,
     val readinessScore: Int,
@@ -21,7 +22,7 @@ data class DailyContext(
      * The Contract Implementation:
      * Returns a NEW instance with the updated HLC pulse.
      */
-    override fun withHlc(hlc: String): DailyContext = copy(hlc = hlc)
+    override fun withHlc(hlc: HLC): DailyContext = copy(hlc = hlc)
 
     /**
      * UI Refinement:

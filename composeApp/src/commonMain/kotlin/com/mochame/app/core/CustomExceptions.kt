@@ -29,7 +29,12 @@ class AuthorInUseException(
 
 // SYNC
 
+// @Serializable?
 class SyncInitializationException(
     message: String,
     cause: Throwable? = null
 ) : Exception(message, cause)
+
+
+class HlcParseException(val rawString: String) :
+    RuntimeException("Failed to parse HLC string: '$rawString'. Data integrity at risk.")

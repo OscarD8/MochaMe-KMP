@@ -51,7 +51,7 @@ abstract class BaseRepository<T : LocalFirstEntity<T>>(
     protected suspend fun <R> commitWithIntent(
         candidateKey: String,
         op: MutationOp,
-        businessAction: suspend (newHlc: String) -> R
+        businessAction: suspend (newHlc: HLC) -> R
     ): R {
         // 1. Ensure the HLC and Janitor are ready
         ensureReady()
@@ -62,7 +62,7 @@ abstract class BaseRepository<T : LocalFirstEntity<T>>(
                 val hlc = hlcFactory.getNextHlc()
 
                 // 3. EXECUTE: Perform the actual database write
-                val result = businessAction(hlc.toString())
+                val result = businessAction(hlc)
 
                 // 4. GUARD: If a delete found nothing to delete, do not log an intent.
                 if (isGhostDelete(op, result)) return@withTransaction result
@@ -89,7 +89,7 @@ abstract class BaseRepository<T : LocalFirstEntity<T>>(
         val effectiveCreatedAt = resolvePruningTimestamp(pending, op, hlc.ts)
 
         // Compaction: Remove the old intent before writing the new one
-        pending?.let { ledgerDao.deleteByHlc(it.hlc) }
+        pending?.let { ledgerDao.deleteByHlc(it.hlc.toString()) }
 
         ledgerDao.upsert(
             MutationEntryEntity(
@@ -108,7 +108,9 @@ abstract class BaseRepository<T : LocalFirstEntity<T>>(
         currentOp: MutationOp,
         now: Long
     ): Long {
-        return if (pending != null && currentOp == MutationOp.DELETE && pending.operation == MutationOp.DELETE) {
+        return if (pending != null && currentOp == MutationOp.DELETE
+            && pending.operation == MutationOp.DELETE
+            ) {
             // Preservation: Don't reset the pruning clock for double-deletes
             pending.createdAt
         } else {
