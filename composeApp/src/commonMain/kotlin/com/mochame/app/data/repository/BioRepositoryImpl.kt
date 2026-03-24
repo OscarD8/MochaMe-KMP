@@ -6,7 +6,6 @@ import com.mochame.app.core.HLC
 import com.mochame.app.core.HlcFactory
 import com.mochame.app.core.HlcParseException
 import com.mochame.app.core.MochaModule
-import com.mochame.app.core.MutationOp
 import com.mochame.app.data.mapper.toDomain
 import com.mochame.app.data.mapper.toEntity
 import com.mochame.app.database.MochaDatabase
@@ -16,28 +15,30 @@ import com.mochame.app.database.dao.sync.SyncMetadataDao
 import com.mochame.app.database.entity.DailyContextEntity
 import com.mochame.app.domain.model.DailyContext
 import com.mochame.app.domain.repository.BioRepository
-import com.mochame.app.domain.repository.sync.BaseRepository
-import com.mochame.app.domain.repository.sync.SyncJanitor
+import com.mochame.app.domain.repository.sync.LocalFirstRepository
+import com.mochame.app.domain.system.BootState
+import com.mochame.app.domain.system.BootStatusProvider
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 
 class BioRepositoryImpl(
     private val dateTimeUtils: DateTimeUtils,
     private val bioDao: BioDao,
     logger: Logger,
+    bootStatusProvider: BootStatusProvider,
     metadataDao: SyncMetadataDao,
     database: MochaDatabase,
     hlcFactory: HlcFactory,
     ledgerDao: MutationLedgerDao,
-    janitor: SyncJanitor
-) : BaseRepository<DailyContext>(
+) : LocalFirstRepository<DailyContext>(
     hlcFactory = hlcFactory,
     database = database,
     ledgerDao = ledgerDao,
     metadataDao = metadataDao,
     moduleName = MochaModule.BIO,
-    janitor = janitor,
-    logger = logger
+    logger = logger,
+    provider = bootStatusProvider
 ), BioRepository {     // syncGateway still to come
 
     override suspend fun initializeDay(
@@ -48,35 +49,40 @@ class BioRepositoryImpl(
         val mochaDay = dateTimeUtils.getMochaDay()
         val id = mochaDay.toString()
 
-        return commitWithIntent(candidateKey = id, op = MutationOp.UPSERT) { newHlc ->
-            val existing = bioDao.getContextById(id)
+        return persistUpsert(
+            candidateKey = id,
+            mergeLogic = { newHlc ->
+                val existing = bioDao.getContextById(id)
 
-            val stamped = mergeAndStamp(
-                id,
-                mochaDay,
-                newHlc,
-                sleepHours,
-                readinessScore,
-                isNapped,
-                existing
-            )
-
-            bioDao.upsert(stamped.toEntity())
-            stamped
-        }
+                merge(
+                    id,
+                    mochaDay,
+                    newHlc,
+                    sleepHours,
+                    readinessScore,
+                    isNapped,
+                    existing
+                )
+            },
+            saveAction = { stampedEntity ->
+                 bioDao.upsert(stampedEntity.toEntity())
+            }
+        )
     }
 
     override suspend fun deleteContext(epochDay: Long): Int {
         val id = epochDay.toString()
 
-        return commitWithIntent(candidateKey = id, op = MutationOp.DELETE) { newHlc ->
-            // The DAO must return rows affected (1 or 0) for isGhostDelete
-            bioDao.markAsDeleted(
-                id = id,
-                newHlc = newHlc.toString(),
-                timestamp = newHlc.ts
-            )
-        }
+        return persistDelete(
+            candidateKey = id,
+            deleteAction = { newHlc ->
+                bioDao.markAsDeleted(
+                    id = id,
+                    newHlc = newHlc.toString(),
+                    timestamp = newHlc.ts
+                )
+            }
+        )
     }
 
     override fun observeContext(epochDay: Long): Flow<DailyContext?> {
@@ -111,10 +117,10 @@ class BioRepositoryImpl(
     }
 
     // --- HELPERS ---
-    private fun mergeAndStamp(
+    private fun merge(
         newId: String,
         currentDay: Long,
-        newHlc: HLC,
+        hlc: HLC,
         sleepHours: Double,
         readinessScore: Int,
         isNapped: Boolean,
@@ -124,20 +130,23 @@ class BioRepositoryImpl(
             existing?.toDomain()
         } catch (e: HlcParseException) {
             logger.e(e) { "Corruption in record ${existing?.id}. Overwriting." }
-            null
+            throw e
         }
 
         return (existingDomain?.copy(
             sleepHours = sleepHours,
+            hlc = hlc,
             readinessScore = readinessScore,
             isNapped = isNapped,
             isDeleted = false
         ) ?: DailyContext(
             id = newId,
             epochDay = currentDay,
+            hlc = hlc,
             sleepHours = sleepHours,
             readinessScore = readinessScore,
-            isNapped = isNapped
-        )).withHlc(newHlc).withPhysicalTime(newHlc.ts)
+            isNapped = isNapped,
+            isDeleted = false
+        ))
     }
 }

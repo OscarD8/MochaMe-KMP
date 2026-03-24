@@ -3,7 +3,6 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSetTree
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -17,14 +16,12 @@ plugins {
 
 
 // Keep specialized JUnit settings for the Host/JVM tasks
+// I couldn't run all platform tests at once otherwise...
 tasks.withType<Test>().configureEach {
     if (name.contains("jvm", ignoreCase = true)) {
         useJUnitPlatform()
     } else if (name.contains("Host", ignoreCase = true)) {
         useJUnit()
-    }
-    testLogging {
-        showStandardStreams = true
     }
 }
 
@@ -172,6 +169,7 @@ kotlin {
     sourceSets.all {
         languageSettings.optIn("kotlin.time.ExperimentalTime")
         languageSettings.optIn("kotlinx.datetime.ExperimentalKotlinxDateTimeApi")
+        languageSettings.optIn("co.touchlab.kermit.ExperimentalKermitApi")
     }
 }
 
@@ -231,9 +229,8 @@ lintTasks.configureEach {
 // =========================== TESTING FORMATTING ===========================
 val targetTaskNames = setOf("jvmTest", "connectedAndroidDeviceTest", "testAndroidHostTest")
 
+
 tasks.configureEach {
-    // 2. Check if the current task is in our list OR is a standard Test task
-    // We use the full class name for the Android task to avoid import issues
     val isExecutionTask = targetTaskNames.contains(name) ||
             this is Test ||
             this.javaClass.name.contains("DeviceProviderInstrumentTestTask")
@@ -244,45 +241,37 @@ tasks.configureEach {
             name.contains("preBuild", ignoreCase = true)
 
     if (isExecutionTask && !isNoise) {
-        // Force the rerun behavior
+        // Force the rerun behavior?
         outputs.upToDateWhen { false }
 
         doFirst {
             val banner = "─".repeat(70)
             println("\n$banner")
-            // I deemed this emoji mandatory
             println("🚀 RUNNING: ${path.uppercase()}")
             println(banner)
         }
 
-        // 2. The "Detailed Stats" Logic (Refactored)
-        // We only add the listener if the task is a standard 'Test' task
         if (this is Test) {
             testLogging {
-                testLogging {
-                    // 2. Hide the logs for successful tests
-                    showStandardStreams = true
-
-                    // 3. De-clutter the stack trace
-                    showExceptions = true
-                    showCauses = true
-                    showStackTraces = true
-                    exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.SHORT
-                }
+                showStandardStreams = false
+                showExceptions = false
+                showStackTraces = false
+                showCauses = false
+                events()
             }
 
+            // Summary per Platform
             addTestListener(object : TestListener {
                 override fun beforeSuite(suite: TestDescriptor) {}
                 override fun beforeTest(suite: TestDescriptor) {}
                 override fun afterTest(suite: TestDescriptor, result: TestResult) {}
+
                 override fun afterSuite(suite: TestDescriptor, result: TestResult) {
+                    // Only trigger for the root suite to avoid repeating the box for every class
                     if (suite.parent == null) {
                         val total = result.testCount
                         val passed = result.successfulTestCount
                         val failed = result.failedTestCount
-                        val skipped = result.skippedTestCount
-
-                        // Choose the vibe based on the outcome
                         val icon = if (failed > 0) "❌" else "✅"
                         val resultText =
                             if (failed > 0) "TEST SUITE FAILED" else "TEST SUITE PASSED"
@@ -295,21 +284,21 @@ tasks.configureEach {
         ╠══════════════════════════════════════════════════════════╣
         ║  📊  TOTAL: $total |  ✅  PASSED: $passed |  ❌  FAILED: $failed  
         ╚══════════════════════════════════════════════════════════╝
-    """.trimIndent()
+                """.trimIndent()
                         )
                     }
                 }
             })
-        }
 
-        doLast {
-            val border = "=".repeat(70)
-            println("\n$border")
-            println("FINISH  : ${name.uppercase()} ☕")
-            println("$border\n")
-            println()
-            println()
-            println()
+            doLast {
+                val border = "=".repeat(70)
+                println("\n$border")
+                println("FINISH  : ${name.uppercase()} ☕")
+                println("$border\n")
+                println()
+                println()
+                println()
+            }
         }
     }
 }

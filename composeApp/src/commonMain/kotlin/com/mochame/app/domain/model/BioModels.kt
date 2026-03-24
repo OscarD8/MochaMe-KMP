@@ -28,5 +28,5 @@ data class DailyContext(
      * UI Refinement:
      * Anchors the 'Human' timestamp to the 'Logical' HLC timestamp.
      */
-    fun withPhysicalTime(ts: Long): DailyContext = copy(lastModified = ts)
+    override fun withPhysicalTime(time: Long): DailyContext = copy(lastModified = time)
 }

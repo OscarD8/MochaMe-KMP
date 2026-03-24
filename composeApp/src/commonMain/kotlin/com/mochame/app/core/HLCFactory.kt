@@ -9,15 +9,13 @@ import kotlinx.coroutines.yield
 sealed class HydrationResult {
     /** Factory is ready; initialized with valid history from the database. */
     data class Success(val hlc: HLC) : HydrationResult()
-    /** Factory is ready; no prior history found (fresh install). Starts from system time. */
-    data class NewInstall(val hlc: HLC?) : HydrationResult()
     /** Database recovery failed; the stored HLC string is unparseable. */
     data class InvalidData(val error: Throwable) : HydrationResult()
     /** * System clock is invalid.
      * Either the phone is set before the app launch or into the future.
      * @param driftMs The difference in milliseconds between the system clock and the required time.
      */
-    data class ClockSkewDetected(val driftMs: Long) : HydrationResult()
+    data class ClockSkewDetected(val driftMs: Long, val error: Throwable) : HydrationResult()
 }
 
 
@@ -71,54 +69,73 @@ data class HLC(
  */
 class HlcFactory(
     private val dateTimeUtils: DateTimeUtils,
-    private val logger: Logger
+    logger: Logger
 ) {
-    @Volatile private var nodeId: String? = null
-    @Volatile private var lastHlc: HLC? = null
-    @Volatile private var isHydrated = false
+    private val hlcLog = logger.appendTag("HLC")
+
+    @Volatile
+    private var nodeId: String? = null
+    @Volatile
+    private var lastHlc: HLC? = null
+    @Volatile
+    private var isHydrated = false
 
     private val MIN_VALID_TIME = 1740787200000L // March 2026
     private val MAX_COUNTER = 65535             // 16-bit limit
 
-    fun hydrate(lastKnownHlc: String?, currentNodeId: String): HydrationResult = synchronized(this) {
-        if (isHydrated) return@synchronized HydrationResult.Success(lastHlc!!)
+    fun hydrate(lastKnownHlc: String?, currentNodeId: String): HydrationResult =
+        synchronized(this) {
+            if (isHydrated) return@synchronized HydrationResult.Success(lastHlc!!)
 
-        val wallClock = dateTimeUtils.now().toEpochMilliseconds()
+            val wallClock = dateTimeUtils.now().toEpochMilliseconds()
 
-        // 1. Guard against hardware clock resets
-        if (wallClock < MIN_VALID_TIME) {
-            return@synchronized HydrationResult.ClockSkewDetected(MIN_VALID_TIME - wallClock)
+            // 1. Guard against hardware clock resets
+            if (wallClock < MIN_VALID_TIME) {
+                val drift = MIN_VALID_TIME - wallClock
+                hlcLog.e { "Clock Skew: System time ($wallClock) is $drift ms behind floor ($MIN_VALID_TIME)" }
+                return@synchronized HydrationResult.ClockSkewDetected(
+                    drift,
+                    IllegalStateException("Clock skew under minimum constraint.")
+                )
+            }
+
+            // 2. Sanitize DB history
+            val history = lastKnownHlc?.let { hlcStr ->
+                runCatching { HLC.parse(hlcStr) }.getOrElse { error ->
+                    hlcLog.e { error.message!! }
+                    return@synchronized HydrationResult.InvalidData(error)
+                }
+            }
+
+            // 3. Reconcile
+            val initialHlc = when {
+                history == null -> {
+                    hlcLog.i { "Hydration: New Install detected. Starting at $wallClock" }
+                    HLC(wallClock, 0, currentNodeId)
+                }
+
+                history.ts >= wallClock -> {
+                    hlcLog.w { "Clock Catch-up: Local clock ($wallClock) is behind DB history (${history.ts}). Pinning to history." }
+                    history.copy(nodeId = currentNodeId)
+                }
+
+                else -> HLC(wallClock, 0, currentNodeId)
+            }
+
+            this.nodeId = currentNodeId
+            this.lastHlc = initialHlc
+            this.isHydrated = true
+
+            hlcLog.d { "HLC Initialized: $initialHlc" }
+            return@synchronized HydrationResult.Success(initialHlc)
         }
-
-        // 2. Load DB history
-        val history = parseHistory(lastKnownHlc).onFailure { error ->
-            return@synchronized HydrationResult.InvalidData(error)
-        }.getOrNull()
-
-        // 3. Reconcile
-        val initialHlc = when {
-            history == null -> HLC(wallClock, 0, currentNodeId)
-            history.ts >= wallClock -> history.copy(nodeId = currentNodeId)
-            else -> HLC(wallClock, 0, currentNodeId)
-        }
-
-        this.nodeId = currentNodeId
-        this.lastHlc = initialHlc
-        this.isHydrated = true
-
-        return@synchronized if (history == null) {
-            HydrationResult.NewInstall(initialHlc)
-        } else {
-            HydrationResult.Success(initialHlc)
-        }
-    }
 
     /**
      * Generates the next monotonic HLC.
      * Replaces Exception-on-Overflow with a Busy-Wait yield.
      */
     suspend fun getNextHlc(): HLC {
-
+        var yieldCount = 0
         // We use a loop to handle the rare Case C: Counter Overflow
         while (true) {
             synchronized(this) {
@@ -140,12 +157,16 @@ class HlcFactory(
 
                     // Case C: Counter Exhaustion (Safety Valve)
                     else -> {
+                        if (yieldCount == 0) {
+                            hlcLog.w { "Counter Exhausted: Stalling thread at $wallClock until clock ticks. Counter at $MAX_COUNTER." }
+                        }
                         // Logic falls through to the 'yield()' below the synchronized block
                     }
                 }
             }
             // If we hit Case C, we suspend and let the clock tick.
             // This prevents a crash during high-volume operations.
+            yieldCount++
             yield()
         }
     }
@@ -155,7 +176,4 @@ class HlcFactory(
         return newHlc
     }
 
-    private fun parseHistory(unverifiedHlc: String?): Result<HLC?> = runCatching {
-        unverifiedHlc?.takeIf { it.isNotBlank() }?.let { HLC.parse(it) }
-    }
 }

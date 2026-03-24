@@ -7,7 +7,7 @@ import co.touchlab.kermit.Logger
 import co.touchlab.kermit.Severity
 import co.touchlab.kermit.StaticConfig
 import co.touchlab.kermit.TestLogWriter
-import co.touchlab.kermit.platformLogWriter
+import com.mochame.app.core.CleanLogWriter
 import com.mochame.app.database.MochaDatabase
 import kotlinx.coroutines.test.TestDispatcher
 import org.koin.dsl.module
@@ -33,10 +33,10 @@ object JVMTestModules {
                 config = StaticConfig(
                     logWriterList = listOf(
                         get<TestLogWriter>(),
-                        platformLogWriter()
+                        CleanLogWriter()
                     )
                 ),
-                tag = "Mocha-JVM-Test"
+                tag = "JVM-Test"
             )
         }
     }

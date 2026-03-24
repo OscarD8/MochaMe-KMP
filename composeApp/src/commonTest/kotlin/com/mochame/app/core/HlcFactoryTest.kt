@@ -1,11 +1,7 @@
 package com.mochame.app.core
 
-import co.touchlab.kermit.ExperimentalKermitApi
-import co.touchlab.kermit.Logger
 import co.touchlab.kermit.Severity
-import co.touchlab.kermit.StaticConfig
 import co.touchlab.kermit.TestLogWriter
-import co.touchlab.kermit.platformLogWriter
 import com.mochame.app.modules.CoreTestModules
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
@@ -17,8 +13,6 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
-import org.koin.core.module.dsl.singleOf
-import org.koin.dsl.module
 import org.koin.test.KoinTest
 import org.koin.test.inject
 import kotlin.test.AfterTest
@@ -40,27 +34,23 @@ class HlcFactoryTest : KoinTest {
     )
     private val fakeClock: FakeDateTimeUtils by inject()
     private val factory: HlcFactory by inject()
-
-    @OptIn(ExperimentalKermitApi::class)
     private val testLogWriter: TestLogWriter by inject()
-    private val logger: Logger by inject()
 
     // --- TESTING SETUP/TEARDOWN ---
-    @OptIn(ExperimentalKermitApi::class)
     @BeforeTest
     fun setup() {
         startKoin { modules(testModules) }
-        testLogWriter.reset()
     }
 
     @AfterTest
     fun tearDown() {
+        testLogWriter.reset()
         stopKoin()
     }
 
     // --- HYDRATION TESTS ---
     @Test
-    fun should_return_success_with_restamped_node_id_when_valid_history_provided() {
+    fun should_return_success_with_restamped_node_id_when_valid_history_provided() = runTest{
         // Given
         val history = "1740787200000:5:device-a"
         val newNodeId = "device-b"
@@ -74,7 +64,7 @@ class HlcFactoryTest : KoinTest {
     }
 
     @Test
-    fun should_report_clock_skew_when_system_time_is_before_2026_floor() {
+    fun should_report_clock_skew_when_system_time_is_before_2026_floor() = runTest {
         // Given
         fakeClock.setTime(1000L) // Set back to 1970
 
@@ -86,7 +76,7 @@ class HlcFactoryTest : KoinTest {
     }
 
     @Test
-    fun should_return_invalid_data_when_hlc_string_is_unparseable() {
+    fun should_return_invalid_data_when_hlc_string_is_unparseable() = runTest {
         // Given
         val corruptHlc = "not-an-hlc"
 
@@ -225,7 +215,7 @@ class HlcFactoryTest : KoinTest {
 
 // --- HLC PARSING EXCEPTIONS ---
     @Test
-    fun should_throw_HlcParseException_when_string_has_incorrect_number_of_parts() {
+    fun should_throw_HlcParseException_when_string_has_incorrect_number_of_parts() = runTest {
         // Given
         val corruptInput = "1740787200000:0" // Missing NodeID
 
@@ -247,7 +237,7 @@ class HlcFactoryTest : KoinTest {
     }
 
     @Test
-    fun should_throw_HlcParseException_when_counter_is_not_a_valid_int() {
+    fun should_throw_HlcParseException_when_counter_is_not_a_valid_int() = runTest {
         // Given
         val corruptInput = "1740787200000:abc:device-a"
 
@@ -258,7 +248,7 @@ class HlcFactoryTest : KoinTest {
     }
 
     @Test
-    fun should_throw_IllegalArgumentException_when_node_id_is_blank() {
+    fun should_throw_IllegalArgumentException_when_node_id_is_blank() = runTest {
         // Given
         val corruptInput = "1740787200000:0: " // Blank NodeID
 
@@ -270,7 +260,7 @@ class HlcFactoryTest : KoinTest {
 
     // --- FACTORY HYDRATION FAILURE RESULTS ---
     @Test
-    fun should_return_ClockSkewDetected_when_wall_clock_is_before_2026_floor() {
+    fun should_return_ClockSkewDetected_when_wall_clock_is_before_2026_floor()  {
         // Given: System clock is set to 1970
         fakeClock.setTime(1000L)
         val march2026 = 1740787200000L
@@ -296,5 +286,34 @@ class HlcFactoryTest : KoinTest {
         assertTrue(result.error is HlcParseException)
     }
 
+    // --- FACTORY HYDRATION FAILURE RESULTS ---
+    @Test
 
+    fun should_log_warning_when_counter_exhaustion_triggers_yield() = runTest {
+        // When: The factory at the 16-bit limit
+        val maxCounterHlc = "${fakeClock.now().toEpochMilliseconds()}:65535:node-1"
+        factory.hydrate(maxCounterHlc, "node-1")
+
+        // Then: This will trigger the 'else' block (Case C)
+        launch { factory.getNextHlc() }
+        yield()
+        fakeClock.advanceTime(1)
+
+        // Verify the log recorded the "Stalling" event
+        val logs = testLogWriter.logs
+        val counterWarning = logs.find { it.message.contains("Counter Exhausted") }
+
+        assertNotNull(counterWarning, "Missing visibility into counter exhaustion!")
+        assertEquals(Severity.Warn, counterWarning.severity)
+    }
+
+    @Test
+    fun should_log_error_when_clock_skew_detected() = runTest {
+        fakeClock.setTime(1000L) // 1970
+
+        factory.hydrate(null, "node-1")
+
+        val skewError = testLogWriter.logs.find { it.severity == Severity.Error }
+        assertEquals(true, skewError?.message?.contains("Clock Skew"))
+    }
 }

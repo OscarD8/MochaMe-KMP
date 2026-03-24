@@ -11,7 +11,9 @@ import com.mochame.app.database.dao.sync.SyncMetadataDao
 import com.mochame.app.di.DispatcherProvider
 import com.mochame.app.di.TestDispatcherProvider
 import com.mochame.app.domain.repository.sync.SyncJanitor
+import com.mochame.app.domain.system.BootStatusProvider
 import com.mochame.app.modules.CoreTestModules
+import com.mochame.app.modules.JanitorTestEnvironment
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestDispatcher
@@ -38,15 +40,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
-data class JanitorTestEnvironment @OptIn(ExperimentalKermitApi::class)
-constructor(
-    val janitor: SyncJanitor,
-    val writer: TestLogWriter,
-    val metaDataDao: SyncMetadataDao,
-    val ledgerDao: MutationLedgerDao,
-    val db: MochaDatabase,
-    val hlcFactory: HlcFactory
-)
+
 
 abstract class BaseSyncJanitorTest : KoinTest{
 
@@ -66,17 +60,14 @@ abstract class BaseSyncJanitorTest : KoinTest{
     fun start_koin_context() {
         startKoin {
             modules(coreTestModules + platformTestModules)
-            allowOverride(true)
         }
     }
 
-    @OptIn(ExperimentalKermitApi::class)
     @AfterTest
     fun stop_koin_context() {
         stopKoin()
     }
 
-    @OptIn(ExperimentalKermitApi::class)
     fun runTestWrapper(block: suspend TestScope.(JanitorTestEnvironment) -> Unit) = runTest {
         val testDispatcher = this.coroutineContext[ContinuationInterceptor] as TestDispatcher
 
@@ -86,26 +77,12 @@ abstract class BaseSyncJanitorTest : KoinTest{
         })
 
         val db: MochaDatabase = get { parametersOf(testDispatcher) }
-
-        val janitor: SyncJanitor = get()
-        val writer: TestLogWriter = get()
-        val metaDataDao: SyncMetadataDao = get()
-        val ledgerDao: MutationLedgerDao = get()
-        val hlcFactory: HlcFactory = get()
-
-        val env = JanitorTestEnvironment(
-            janitor = janitor,
-            writer = writer,
-            metaDataDao = metaDataDao,
-            ledgerDao = ledgerDao,
-            db = db,
-            hlcFactory = hlcFactory
-        )
+        val env: JanitorTestEnvironment by inject()
 
         try {
             this.block(env)
         } finally {
-            writer.reset()
+            env.writer.reset()
             db.close()
         }
     }
@@ -120,11 +97,11 @@ abstract class BaseSyncJanitorTest : KoinTest{
         assertEquals(3, tools.metaDataDao.getMetadataCount())
     }
 
-    @OptIn(ExperimentalKermitApi::class)
+    @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun janitor_should_log_success_after_seeding() = runTestWrapper { tools ->
         tools.janitor.startupChecks()
-        tools.janitor.isInitialized.await()
+        advanceUntilIdle()
 
         // Assert the "Ear" heard the "Mouth" (says Gemini)
         val seedingMessage = tools.writer.logs.find { it.message.contains("Successfully seeded") }

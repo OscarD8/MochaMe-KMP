@@ -2,6 +2,7 @@ package com.mochame.app.domain.system
 
 import co.touchlab.kermit.Logger
 import com.benasher44.uuid.uuid4
+import com.mochame.app.core.appendTag
 import com.mochame.app.database.dao.SettingsDao
 import com.mochame.app.database.entity.GlobalSettingsEntity
 import com.mochame.app.di.DispatcherProvider
@@ -10,8 +11,10 @@ import kotlinx.coroutines.withContext
 class IdentityManager(
     private val settingsDao: SettingsDao,
     private val dispatcherProvider: DispatcherProvider,
-    private val logger: Logger
+    logger: Logger
 ) {
+    private val logger = logger.appendTag("Identity")
+
     /**
      * Ensures this device has a name before the Janitor starts the clock.
      */

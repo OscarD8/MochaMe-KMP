@@ -8,6 +8,7 @@ import co.touchlab.kermit.Severity
 import co.touchlab.kermit.StaticConfig
 import co.touchlab.kermit.TestLogWriter
 import co.touchlab.kermit.platformLogWriter
+import com.mochame.app.core.CleanLogWriter
 import com.mochame.app.database.MochaDatabase
 import kotlinx.coroutines.test.TestDispatcher
 import org.koin.dsl.module
@@ -34,9 +35,9 @@ object AndroidHostTestModules {
             Logger(
                 config = StaticConfig(logWriterList = listOf(
                     get<TestLogWriter>(),
-                    platformLogWriter())
+                    CleanLogWriter())
                 ),
-                tag = "Mocha-AndroidHost-Test"
+                tag = "AndroidHost-Test"
             )
         }
     }

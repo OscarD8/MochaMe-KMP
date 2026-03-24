@@ -14,6 +14,9 @@ import com.mochame.app.domain.repository.SignalRepository
 import com.mochame.app.domain.repository.sync.SyncGateway
 import com.mochame.app.domain.repository.sync.SyncJanitor
 import com.mochame.app.domain.repository.telemetry.TelemetryRepository
+import com.mochame.app.domain.system.BootStatusManager
+import com.mochame.app.domain.system.BootStatusProvider
+import com.mochame.app.domain.system.BootStatusUpdater
 import com.mochame.app.domain.system.IdentityManager
 import com.mochame.app.ui.ProofOfLifeViewModel
 import kotlinx.coroutines.CoroutineScope
@@ -32,6 +35,10 @@ val appModule = module {
     singleOf(::HlcFactory)
     singleOf(::IdentityManager)
 
+    singleOf(::BootStatusManager) {
+        bind<BootStatusUpdater>()
+        bind<BootStatusProvider>()
+    }
     /** --- CLOUD API (CURRENTLY MOCKED) --- */
 //    single<MochaCloudApi> { MockCloudApi() }
 
@@ -54,7 +61,7 @@ val appModule = module {
             database = get(),
             hlcFactory = get(),
             ledgerDao = get(),
-            janitor = get()
+            bootStatusProvider = get(),
         )
     }.binds(arrayOf(BioRepository::class, SyncGateway::class))
 
@@ -82,6 +89,7 @@ val appModule = module {
 
         SyncJanitor(
             database = get(),
+            bootUpdater = get(),
             metadataDao = get(),
             ledgerDao = get(),
             identityManager = get(),

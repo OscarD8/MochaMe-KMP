@@ -13,19 +13,19 @@ class TopicNotFoundException(val id: String) : Exception("Topic with ID $id not 
 
 // SPACES
 class SpaceInUseException(val spaceId: String, val momentCount: Int) :
-    Exception("Cannot delete space: $spaceId. $momentCount moments are still anchored here.")
+    Exception("Cannot recordDelete space: $spaceId. $momentCount moments are still anchored here.")
 class SpaceAlreadyExistsException(val name: String) :
     Exception("A space with the name '$name' already exists.")
 
 class SpaceNotFoundException(val id: String) : Exception("Space with ID $id was not found.")
 
 class BookInUseException(val id: String, val quoteCount: Int) :
-    Exception("Cannot delete Book[$id]. It is currently anchoring $quoteCount quotes.")
+    Exception("Cannot recordDelete Book[$id]. It is currently anchoring $quoteCount quotes.")
 
 class AuthorInUseException(
     val authorId: String,
     val bookCount: Int
-) : Exception("Cannot delete author $authorId: It still contains $bookCount books.")
+) : Exception("Cannot recordDelete author $authorId: It still contains $bookCount books.")
 
 // SYNC
 
@@ -36,5 +36,5 @@ class SyncInitializationException(
 ) : Exception(message, cause)
 
 
-class HlcParseException(val rawString: String) :
+class HlcParseException(rawString: String) :
     RuntimeException("Failed to parse HLC string: '$rawString'. Data integrity at risk.")

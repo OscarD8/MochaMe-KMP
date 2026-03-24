@@ -133,7 +133,7 @@ class SignalRepositoryImpl(
 
         if (quoteCount > 0) {
             // 2. The Protective Block:
-            // We do not delete. We throw an exception that the UI can catch
+            // We do not recordDelete. We throw an exception that the UI can catch
             // to show a "Warning: This book contains $quoteCount quotes" dialog.
             throw BookInUseException(bookId, quoteCount)
         }

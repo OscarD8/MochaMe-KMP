@@ -5,16 +5,32 @@ import co.touchlab.kermit.Logger
 import co.touchlab.kermit.Severity
 import co.touchlab.kermit.StaticConfig
 import co.touchlab.kermit.TestLogWriter
-import co.touchlab.kermit.platformLogWriter
+import com.mochame.app.core.CleanLogWriter
 import com.mochame.app.core.DateTimeUtils
 import com.mochame.app.core.FakeDateTimeUtils
 import com.mochame.app.core.HlcFactory
 import com.mochame.app.database.MochaDatabase
+import com.mochame.app.database.dao.sync.MutationLedgerDao
+import com.mochame.app.database.dao.sync.SyncMetadataDao
 import com.mochame.app.domain.repository.sync.SyncJanitor
+import com.mochame.app.domain.system.BootStatusManager
+import com.mochame.app.domain.system.BootStatusProvider
+import com.mochame.app.domain.system.BootStatusUpdater
 import com.mochame.app.domain.system.IdentityManager
+import org.koin.core.module.dsl.bind
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
+
+data class JanitorTestEnvironment(
+    val janitor: SyncJanitor,
+    val writer: TestLogWriter,
+    val statusProvider: BootStatusProvider,
+    val metaDataDao: SyncMetadataDao,
+    val ledgerDao: MutationLedgerDao,
+    val db: MochaDatabase,
+    val hlcFactory: HlcFactory
+)
 
 object CoreTestModules {
 
@@ -36,7 +52,10 @@ object CoreTestModules {
         single<Logger> {
             Logger(
                 config = StaticConfig(
-                    logWriterList = listOf(get<TestLogWriter>(), platformLogWriter())
+                    logWriterList = listOf(
+                        get<TestLogWriter>(),
+                        CleanLogWriter()
+                    )
                 ),
                 tag = "Core-Test"
             )
@@ -44,7 +63,7 @@ object CoreTestModules {
     }
 
     // -----------------------------------------------------------
-    // DAOS
+    // DAO
     // -----------------------------------------------------------
     val bioDaoModule = module {
         single { get<MochaDatabase>().bioDao() }
@@ -66,9 +85,19 @@ object CoreTestModules {
         singleOf(::IdentityManager)
     }
 
+    val bootStatusModule = module {
+        singleOf(::BootStatusManager) {
+            bind<BootStatusUpdater>()
+            bind<BootStatusProvider>()
+        }
+    }
+
     val janitorModule = module {
+        singleOf(::JanitorTestEnvironment)
+
         single<SyncJanitor> {
             SyncJanitor(
+                bootUpdater = get(),
                 database = get(),
                 metadataDao = get(),
                 ledgerDao = get(),
@@ -80,6 +109,7 @@ object CoreTestModules {
             )
         }
     }
+
 
 
     // -----------------------------------------------------------
@@ -101,7 +131,8 @@ object CoreTestModules {
             metadataDaoModule,
             ledgerDaoModule,
             settingDaoModule,
-            dateTimeUtilsModule
+            dateTimeUtilsModule,
+            bootStatusModule
         )
     }
 

@@ -42,12 +42,8 @@ abstract class BaseBioDaoTest : KoinTest {
     )
 
     // -----------------------------------------------------------
-    // COMPONENTS
+    // CONSTANTS
     // -----------------------------------------------------------
-    @OptIn(ExperimentalKermitApi::class)
-    protected val testLogWriter: TestLogWriter by inject()
-    protected val logger: Logger by inject()
-
     private fun createHlc(ts: Long, count: Int = 0, node: String = "test-node"): String {
         return "$ts:$count:$node"
     }
@@ -59,7 +55,6 @@ abstract class BaseBioDaoTest : KoinTest {
     @BeforeTest
     fun start_koin_context() {
         startKoin { modules(platformTestModules + coreTestModules) }
-        testLogWriter.reset()
     }
 
     @AfterTest
@@ -81,12 +76,14 @@ abstract class BaseBioDaoTest : KoinTest {
     fun runTestWrapper(block: suspend TestScope.(BioDao) -> Unit) = runTest {
         val testDispatcher = this.coroutineContext[ContinuationInterceptor] as TestDispatcher
 
+        val writer: TestLogWriter = get()
         val db: MochaDatabase = get { parametersOf(testDispatcher) }
         val dao = db.bioDao()
 
         try {
             this.block(dao)
         } finally {
+            writer.reset()
             db.close()
         }
     }
