@@ -1,12 +1,12 @@
 package com.mochame.app.data.repository.telemetry.bridge
 
-import com.mochame.app.data.mapper.toDomain
-import com.mochame.app.database.dao.TelemetryDao
-import com.mochame.app.domain.model.telemetry.Domain
-import com.mochame.app.domain.model.telemetry.Moment
-import com.mochame.app.domain.model.telemetry.Space
-import com.mochame.app.domain.model.telemetry.Topic
-import com.mochame.app.domain.repository.telemetry.AnalyticsRepository
+import com.mochame.app.data.mappers.toDomain
+import com.mochame.app.data.local.room.dao.TelemetryDao
+import com.mochame.app.domain.telemetry.Domain
+import com.mochame.app.domain.telemetry.Moment
+import com.mochame.app.domain.telemetry.Space
+import com.mochame.app.domain.telemetry.Topic
+import com.mochame.app.domain.telemetry.repositories.AnalyticsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map

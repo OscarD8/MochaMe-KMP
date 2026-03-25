@@ -2,6 +2,7 @@ package com.mochame.app.database
 
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import com.mochame.app.data.local.room.MochaDatabase
 import java.io.File
 
 fun getDatabaseBuilder(): RoomDatabase.Builder<MochaDatabase> {

@@ -1,15 +1,15 @@
 package com.mochame.app.data.repository.telemetry.bridge
 
 import com.benasher44.uuid.uuid4
-import com.mochame.app.core.DateTimeUtils
-import com.mochame.app.data.mapper.toEntity
-import com.mochame.app.database.dao.TelemetryDao
-import com.mochame.app.domain.model.telemetry.Moment
-import com.mochame.app.domain.model.telemetry.MomentClimate
-import com.mochame.app.domain.model.telemetry.MomentDetail
-import com.mochame.app.domain.model.telemetry.MomentDraft
-import com.mochame.app.domain.model.telemetry.MomentMetadata
-import com.mochame.app.domain.repository.telemetry.MomentRepository
+import com.mochame.app.infrastructure.utils.DateTimeUtils
+import com.mochame.app.data.mappers.toEntity
+import com.mochame.app.data.local.room.dao.TelemetryDao
+import com.mochame.app.domain.telemetry.Moment
+import com.mochame.app.domain.telemetry.MomentClimate
+import com.mochame.app.domain.telemetry.MomentDetail
+import com.mochame.app.domain.telemetry.MomentDraft
+import com.mochame.app.domain.telemetry.MomentMetadata
+import com.mochame.app.domain.telemetry.repositories.MomentRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -26,7 +26,7 @@ internal class MomentBridge(
     override suspend fun logMoment(draft: MomentDraft) = withContext(Dispatchers.IO) {
         val now = dateTimeUtils.now().toEpochMilliseconds()
 
-        val biologicalDay = dateTimeUtils.calculateBiologicalEpochDay(dateTimeUtils.now())
+        val biologicalDay = dateTimeUtils.calculateMochaEpochDay(dateTimeUtils.now())
         val validatedDomainId = resolveDomainId(draft)
         val enrichedDetail = enrichBiophilia(draft.spaceId, draft.detail)
 

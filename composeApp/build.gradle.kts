@@ -167,9 +167,6 @@ kotlin {
 
     }
     sourceSets.all {
-        languageSettings.optIn("kotlin.time.ExperimentalTime")
-        languageSettings.optIn("kotlinx.datetime.ExperimentalKotlinxDateTimeApi")
-        languageSettings.optIn("co.touchlab.kermit.ExperimentalKermitApi")
     }
 }
 

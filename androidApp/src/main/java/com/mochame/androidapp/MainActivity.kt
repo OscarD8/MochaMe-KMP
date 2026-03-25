@@ -20,7 +20,7 @@ class MainActivity : ComponentActivity() {
          * which is an internal Koin tool, to grab the 'Security Key' (this Activity).
          * Without this key, the organism cannot open the Room Database bank vault.
          */
-        initKoin {
+        initKoin("Android") {
             androidContext(this@MainActivity)
         }
 

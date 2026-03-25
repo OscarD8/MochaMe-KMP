@@ -7,8 +7,8 @@ import co.touchlab.kermit.Logger
 import co.touchlab.kermit.Severity
 import co.touchlab.kermit.StaticConfig
 import co.touchlab.kermit.TestLogWriter
-import com.mochame.app.core.CleanLogWriter
-import com.mochame.app.database.MochaDatabase
+import com.mochame.app.infrastructure.logging.CleanLogWriter
+import com.mochame.app.data.local.room.MochaDatabase
 import kotlinx.coroutines.test.TestDispatcher
 import org.koin.dsl.module
 
@@ -23,22 +23,4 @@ object JVMTestModules {
                 .build()
         }
     }
-
-    @OptIn(ExperimentalKermitApi::class)
-    val loggerModule = module {
-        single<Severity> { Severity.Verbose }
-        single<TestLogWriter> { TestLogWriter(Severity.Verbose) }
-        single<Logger> {
-            Logger(
-                config = StaticConfig(
-                    logWriterList = listOf(
-                        get<TestLogWriter>(),
-                        CleanLogWriter()
-                    )
-                ),
-                tag = "JVM-Test"
-            )
-        }
-    }
-
 }

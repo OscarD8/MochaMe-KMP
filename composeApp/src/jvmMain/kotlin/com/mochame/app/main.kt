@@ -14,7 +14,7 @@ fun main() = application {
      * because on the Linux planet, we don't need a special security key
      * to access the filesystem.
      */
-    initKoin()
+    initKoin("JVM")
 
     Window(
         onCloseRequest = ::exitApplication,

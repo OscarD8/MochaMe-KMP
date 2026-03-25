@@ -3,6 +3,7 @@ package com.mochame.app.database
 import android.content.Context
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import com.mochame.app.data.local.room.MochaDatabase
 
 /**
  * Android Implementation:
