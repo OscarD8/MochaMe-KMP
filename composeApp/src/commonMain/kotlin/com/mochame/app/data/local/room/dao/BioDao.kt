@@ -40,7 +40,7 @@ interface BioDao {
     @Query("""
         UPDATE daily_context 
         SET isDeleted = 1, hlc = :newHlc, lastModified = :timestamp 
-        WHERE id = :id
+        WHERE id = :id AND isDeleted = 0
     """)
     suspend fun markAsDeleted(id: String, newHlc: String, timestamp: Long): Int
 

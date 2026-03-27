@@ -48,6 +48,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         businessAction: suspend (newHlc: HLC) -> R
     ): R {
         ensureReady()
+
         return transactor.runImmediateTransaction {
             val hlc = hlcFactory.getNextHlc()
             val result = businessAction(hlc)
@@ -58,6 +59,44 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             updateModuleMetadata(hlc)
             result
         }
+    }
+
+    /**
+     * Centralizes the timeout and error handling for the Janitor's boot sequence.
+     */
+    private suspend fun ensureReady() {
+        val current = provider.bootState.value
+        if (current is BootState.CriticalFailure) {
+            throw SyncInitializationException("Database is corrupted: ${current.error}")
+        }
+
+        // The user action simply waits for the janitor to finish.
+        provider.bootState.first { it is BootState.Ready || it is BootState.CriticalFailure }.let { finalState ->
+            if (finalState is BootState.CriticalFailure) {
+                throw SyncInitializationException("System failed during boot: ${finalState.error}")
+            }
+        }
+    }
+
+    private suspend fun recordIntent(candidateKey: String, op: MutationOp, hlc: HLC) {
+        // Look for existing work that hasn't been synced yet
+        val pending = mutationLedger.getPending(candidateKey, moduleName.tag)
+
+        val effectiveCreatedAt = resolvePruningTimestamp(pending, op, hlc.ts)
+
+        // Compaction: Remove the old intent before writing the new one
+        pending?.let { mutationLedger.discardIntent(it.hlc.toString()) }
+
+        mutationLedger.recordIntent(
+            MutationEntryEntity(
+                hlc = hlc,
+                candidateKey = candidateKey,
+                entityType = moduleName.tag,
+                operation = op,
+                syncStatus = SyncStatus.PENDING,
+                createdAt = effectiveCreatedAt
+            )
+        )
     }
 
     /**
@@ -113,27 +152,6 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         return op == MutationOp.DELETE && (result as? Int) == 0
     }
 
-    private suspend fun recordIntent(candidateKey: String, op: MutationOp, hlc: HLC) {
-        // Look for existing work that hasn't been synced yet
-        val pending = mutationLedger.getPending(candidateKey, moduleName.tag)
-
-        val effectiveCreatedAt = resolvePruningTimestamp(pending, op, hlc.ts)
-
-        // Compaction: Remove the old intent before writing the new one
-        pending?.let { mutationLedger.deleteByHlc(it.hlc.toString()) }
-
-        mutationLedger.upsert(
-            MutationEntryEntity(
-                hlc = hlc,
-                candidateKey = candidateKey,
-                entityType = moduleName.tag,
-                operation = op,
-                syncStatus = SyncStatus.PENDING,
-                createdAt = effectiveCreatedAt
-            )
-        )
-    }
-
     private fun resolvePruningTimestamp(
         pending: MutationEntryEntity?,
         currentOp: MutationOp,
@@ -141,7 +159,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     ): Long {
         return if (pending != null && currentOp == MutationOp.DELETE
             && pending.operation == MutationOp.DELETE
-            ) {
+        ) {
             // Preservation: Don't reset the pruning clock for double-deletes
             pending.createdAt
         } else {
@@ -156,18 +174,5 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         )
     }
 
-    /**
-     * Centralizes the timeout and error handling for the Janitor's boot sequence.
-     */
-    private suspend fun ensureReady() {
-        try {
-            withTimeout(5000L) {
-                provider.bootState.first { it is BootState.Ready }
-            }
-        } catch (e: TimeoutCancellationException) {
-            logger.e { "Sync stalled. Unable to run dispatchIntent. $e." }
-            throw SyncInitializationException("An error occurred during system boot. $e.") as Throwable
-        }
-    }
 
 }

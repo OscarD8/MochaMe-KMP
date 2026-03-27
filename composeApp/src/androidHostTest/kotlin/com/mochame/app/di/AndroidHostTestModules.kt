@@ -2,6 +2,9 @@
 package com.mochame.app.di
 
 import androidx.room.Room
+import androidx.room.RoomDatabase
+import androidx.sqlite.SQLiteConnection
+import androidx.sqlite.execSQL
 import androidx.test.core.app.ApplicationProvider
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Logger
@@ -24,6 +27,11 @@ object AndroidHostTestModules {
                 context = ApplicationProvider.getApplicationContext(),
             )
                 .setQueryCoroutineContext(testDispatcher)
+                .addCallback(object : RoomDatabase.Callback() {
+                    override fun onOpen(connection: SQLiteConnection) {
+                        connection.execSQL("PRAGMA busy_timeout = 5000;")
+                    }
+                })
                 .build()
         }
     }

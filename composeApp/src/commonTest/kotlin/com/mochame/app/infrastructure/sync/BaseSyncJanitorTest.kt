@@ -85,7 +85,7 @@ abstract class BaseSyncJanitorTest : KoinTest {
 
         advanceUntilIdle()
 
-        assertEquals(3, tools.metaDataDao.getMetadataCount())
+        assertEquals(3, tools.metadataStore.getMetadataCount())
     }
 
     @Test

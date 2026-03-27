@@ -85,7 +85,7 @@ interface MutationLedgerDao {
     suspend fun pruneOldSynced(
         cutoff: Long,
         status: SyncStatus = SyncStatus.SUCCESS
-    )
+    ): Int
 
     @Upsert
     suspend fun upsert(entry: MutationEntryEntity)
@@ -101,6 +101,13 @@ interface MutationLedgerDao {
      * If any row in the entire ledger has a syncId, its stale and the result of a crash.
      * No sync should be active.
      */
-    @Query("UPDATE mutation_ledger SET syncId = NULL WHERE syncId IS NOT NULL")
-    suspend fun clearAllLocksForNonIdleModules()
+    @Query("""
+    UPDATE mutation_ledger 
+    SET syncId = NULL, syncStatus = :desiredStatus 
+    WHERE syncId IS NOT NULL
+    """)
+    suspend fun clearAllLocksAndResetStatus(
+        desiredStatus: SyncStatus = SyncStatus.PENDING
+    ): Int
+
 }

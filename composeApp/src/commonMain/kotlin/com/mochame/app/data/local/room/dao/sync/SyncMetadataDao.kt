@@ -103,4 +103,12 @@ interface SyncMetadataDao {
         desiredStatus: SyncStatus = SyncStatus.PENDING,
         ignoredStatus: SyncStatus = SyncStatus.IDLE
     ): Int
+
+    @Query("""
+        SELECT moduleName
+        FROM sync_metadata WHERE syncStatus = :ignoredStatus AND syncId = NULL 
+    """)
+    suspend fun getDirtyModuleNames(
+        ignoredStatus: SyncStatus = SyncStatus.IDLE
+    ): List<String>
 }

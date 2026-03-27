@@ -3,7 +3,7 @@ package com.mochame.app.di.modules
 import com.mochame.app.infrastructure.utils.DateTimeUtils
 import com.mochame.app.data.local.room.RoomMetadataStore
 import com.mochame.app.data.local.room.RoomMutationLedger
-import com.mochame.app.data.local.room.RoomTransactionProvider
+import com.mochame.app.data.local.room.RoomImmediateTransProvider
 import com.mochame.app.infrastructure.sync.HlcFactory
 import com.mochame.app.infrastructure.logging.LogTags
 import com.mochame.app.data.repository.bio.RoomBioRepository
@@ -13,12 +13,16 @@ import com.mochame.app.data.repository.telemetry.bridge.AnalyticsBridge
 import com.mochame.app.data.repository.telemetry.bridge.ContextBridge
 import com.mochame.app.data.repository.telemetry.bridge.MomentBridge
 import com.mochame.app.data.local.room.MochaDatabase
+import com.mochame.app.di.providers.DispatcherProvider
 import com.mochame.app.domain.bio.BioRepository
 import com.mochame.app.domain.signal.SignalRepository
 import com.mochame.app.domain.sync.MetadataStore
+import com.mochame.app.domain.sync.MetadataStoreMaintenance
 import com.mochame.app.domain.sync.MutationLedger
+import com.mochame.app.domain.sync.MutationLedgerMaintenance
 import com.mochame.app.domain.sync.TransactionProvider
 import com.mochame.app.domain.sync.SyncGateway
+import com.mochame.app.domain.sync.utils.PruneOldEntriesUseCase
 import com.mochame.app.domain.telemetry.repositories.TelemetryRepository
 import com.mochame.app.infrastructure.system.boot.BootStatusManager
 import com.mochame.app.infrastructure.system.boot.BootStatusProvider
@@ -27,11 +31,13 @@ import com.mochame.app.infrastructure.identity.IdentityManager
 import com.mochame.app.infrastructure.sync.SyncJanitor
 import com.mochame.app.ui.ProofOfLifeViewModel
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 import org.koin.core.module.dsl.bind
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.core.parameter.parametersOf
 import org.koin.core.qualifier.named
+import org.koin.dsl.bind
 import org.koin.dsl.binds
 import org.koin.dsl.module
 
@@ -61,8 +67,16 @@ object AppModules {
             uiModule,           // ViewModels
 
             /** 5. LIFECYCLE: Production-Only Automation */
-            productionStartupModule
+            productionStartupModule,
+            commonModule
         )
+    }
+
+    val commonModule = module {
+        single(named("AppScope")) {
+            val dispatchers = get<DispatcherProvider>()
+            CoroutineScope(SupervisorJob() + dispatchers.main)
+        }
     }
 
     /**
@@ -80,10 +94,18 @@ object AppModules {
 
     /** --- DATA LAYER --- */
     val syncPlumbingModule = module {
-        // These are the parts the repositories need to function
-        single<MutationLedger> { RoomMutationLedger(get()) }
-        single<TransactionProvider> { RoomTransactionProvider(get()) }
-        single<MetadataStore> { RoomMetadataStore(get()) }
+        singleOf(::RoomMutationLedger) {
+            bind<MutationLedger>()
+            bind<MutationLedgerMaintenance>()
+        }
+        singleOf(::RoomMetadataStore) {
+            bind<MetadataStore>()
+            bind<MetadataStoreMaintenance>()
+        }
+        singleOf(::RoomImmediateTransProvider) {
+            bind<TransactionProvider>()
+        }
+        singleOf(::PruneOldEntriesUseCase)
 
         // Infrastructure DAOs used by the components defined by the
         single { get<MochaDatabase>().syncMetadataDao() }
@@ -135,10 +157,11 @@ object AppModules {
                 identityManager = get(),
                 dispatcherProvider = get(),
                 hlcFactory = get(),
-                database = get(),
                 bootUpdater = get(),
-                metadataDao = get(),
-                ledgerDao = get()
+                transactor = get(),
+                metadataStore = get(),
+                ledgerStore = get(),
+                pruneUseCase = get(),
             )
         }
     }

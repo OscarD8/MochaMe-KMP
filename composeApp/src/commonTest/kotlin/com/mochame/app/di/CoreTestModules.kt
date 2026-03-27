@@ -1,6 +1,7 @@
 
 package com.mochame.app.di
 
+import androidx.room.Transactor
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Logger
 import co.touchlab.kermit.Severity
@@ -13,6 +14,10 @@ import com.mochame.app.infrastructure.sync.HlcFactory
 import com.mochame.app.data.local.room.MochaDatabase
 import com.mochame.app.data.local.room.dao.sync.MutationLedgerDao
 import com.mochame.app.data.local.room.dao.sync.SyncMetadataDao
+import com.mochame.app.domain.sync.MetadataStore
+import com.mochame.app.domain.sync.MetadataStoreMaintenance
+import com.mochame.app.domain.sync.MutationLedgerMaintenance
+import com.mochame.app.domain.sync.TransactionProvider
 import com.mochame.app.infrastructure.sync.SyncJanitor
 import com.mochame.app.infrastructure.system.boot.BootStatusManager
 import com.mochame.app.infrastructure.system.boot.BootStatusProvider
@@ -84,9 +89,9 @@ data class JanitorTestEnvironment(
     val janitor: SyncJanitor,
     val writer: TestLogWriter,
     val statusProvider: BootStatusProvider,
-    val metaDataDao: SyncMetadataDao,
-    val ledgerDao: MutationLedgerDao,
-    val db: MochaDatabase,
-    val hlcFactory: HlcFactory
+    val hlcFactory: HlcFactory,
+    val metadataStore: MetadataStoreMaintenance,
+    val ledgerMaintenance: MutationLedgerMaintenance,
+    val transactor: TransactionProvider
 )
 

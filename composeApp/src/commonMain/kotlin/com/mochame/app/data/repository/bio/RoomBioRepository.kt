@@ -117,7 +117,7 @@ class RoomBioRepository(
     private fun merge(
         newId: String,
         currentDay: Long,
-        hlc: HLC,
+        newHlc: HLC,
         sleepHours: Double,
         readinessScore: Int,
         isNapped: Boolean,
@@ -132,14 +132,14 @@ class RoomBioRepository(
 
         return (existingDomain?.copy(
             sleepHours = sleepHours,
-            hlc = hlc,
+            hlc = newHlc,
             readinessScore = readinessScore,
             isNapped = isNapped,
             isDeleted = false
         ) ?: DailyContext(
             id = newId,
             epochDay = currentDay,
-            hlc = hlc,
+            hlc = newHlc,
             sleepHours = sleepHours,
             readinessScore = readinessScore,
             isNapped = isNapped,

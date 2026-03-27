@@ -5,7 +5,9 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
 import androidx.room.TypeConverters
+import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
+import androidx.sqlite.execSQL
 import com.mochame.app.data.local.room.dao.BioDao
 import com.mochame.app.data.local.room.dao.SignalDao
 import com.mochame.app.data.local.room.dao.TelemetryDao
@@ -27,6 +29,7 @@ import com.mochame.app.data.local.room.entity.SyncMetadataEntity
 import com.mochame.app.data.local.room.entity.SyncTombstoneEntity
 import com.mochame.app.data.local.room.entity.TopicEntity
 import com.mochame.app.data.local.room.triggers.SYNC_TRIGGER_CALLBACK
+import com.mochame.app.di.providers.DispatcherProvider
 import kotlinx.coroutines.Dispatchers
 
 @ConstructedBy(MochaDatabaseConstructor::class)
@@ -82,14 +85,19 @@ expect object MochaDatabaseConstructor : RoomDatabaseConstructor<MochaDatabase> 
  * This will be called by the platform-specific drivers.
  */
 fun getRoomDatabase(
-    builder: RoomDatabase.Builder<MochaDatabase>
+    builder: RoomDatabase.Builder<MochaDatabase>,
+    dispatcherProvider: DispatcherProvider
 ): MochaDatabase {
     return builder
-        .setDriver(BundledSQLiteDriver()) // <--- THIS is the magic for 2026 parity
-        .setQueryCoroutineContext(Dispatchers.IO)
+        .setDriver(BundledSQLiteDriver()) // <--- the magic for 2026 parity
 //        .enableMultiInstanceInvalidation() Possible consideration for local first implementation
+        .setQueryCoroutineContext(dispatcherProvider.io)
         .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
         .fallbackToDestructiveMigration(dropAllTables = true)
-        .addCallback(SYNC_TRIGGER_CALLBACK)
+        .addCallback(object : RoomDatabase.Callback() {
+            override fun onOpen(connection: SQLiteConnection) {
+                connection.execSQL("PRAGMA busy_timeout = 5000;")
+            }
+        })
         .build()
 }
