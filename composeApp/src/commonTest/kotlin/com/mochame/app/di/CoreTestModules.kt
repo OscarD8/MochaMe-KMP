@@ -1,7 +1,6 @@
 
 package com.mochame.app.di
 
-import androidx.room.Transactor
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Logger
 import co.touchlab.kermit.Severity
@@ -11,30 +10,21 @@ import com.mochame.app.infrastructure.logging.CleanLogWriter
 import com.mochame.app.infrastructure.utils.DateTimeUtils
 import com.mochame.app.utils.FakeDateTimeUtils
 import com.mochame.app.infrastructure.sync.HlcFactory
-import com.mochame.app.data.local.room.MochaDatabase
-import com.mochame.app.data.local.room.dao.sync.MutationLedgerDao
-import com.mochame.app.data.local.room.dao.sync.SyncMetadataDao
-import com.mochame.app.domain.sync.MetadataStore
 import com.mochame.app.domain.sync.MetadataStoreMaintenance
 import com.mochame.app.domain.sync.MutationLedgerMaintenance
 import com.mochame.app.domain.sync.TransactionProvider
-import com.mochame.app.infrastructure.sync.SyncJanitor
-import com.mochame.app.infrastructure.system.boot.BootStatusManager
+import com.mochame.app.orchestration.sync.SyncJanitor
 import com.mochame.app.infrastructure.system.boot.BootStatusProvider
-import com.mochame.app.infrastructure.system.boot.BootStatusUpdater
-import com.mochame.app.infrastructure.identity.IdentityManager
-import kotlinx.coroutines.CoroutineScope
-import org.koin.core.module.dsl.bind
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
 
 object TestTag {
-    val CORE = "CoreTest"
-    val JVM = "JVMTest"
-    val ANDROIDEVICE = "AndroidDeviceTest"
-    val ANDROIDHOST = "AndroidHostTest"
+    const val CORE = "CoreTest"
+    const val JVM = "JVMTest"
+    const val ANDROID_DEVICE = "AndroidDeviceTest"
+    const val ANDROID_HOST = "AndroidHostTest"
 }
 
 object CoreTestModules {
@@ -94,4 +84,3 @@ data class JanitorTestEnvironment(
     val ledgerMaintenance: MutationLedgerMaintenance,
     val transactor: TransactionProvider
 )
-

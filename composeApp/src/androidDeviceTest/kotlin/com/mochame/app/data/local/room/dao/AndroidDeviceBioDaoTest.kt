@@ -14,6 +14,6 @@ import org.junit.runner.RunWith
 class AndroidDeviceBioDaoTest : BaseBioDaoTest() {
     override val platformTestModules = listOf(
         AndroidDeviceTestModules.databaseModule,
-        testLoggingModule(TestTag.ANDROIDEVICE)
+        testLoggingModule(TestTag.ANDROID_DEVICE)
     )
 }

@@ -5,7 +5,7 @@ import com.mochame.app.di.CoreTestModules
 import com.mochame.app.di.CoreTestModules.testLoggingModule
 import com.mochame.app.di.JVMTestModules
 import com.mochame.app.di.TestTag
-import com.mochame.app.infrastructure.sync.BaseSyncJanitorTest
+import com.mochame.app.orchestration.sync.BaseSyncJanitorTest
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import org.koin.core.module.Module
 

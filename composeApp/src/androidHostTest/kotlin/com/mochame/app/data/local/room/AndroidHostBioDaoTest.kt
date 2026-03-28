@@ -2,7 +2,6 @@ package com.mochame.app.data.local.room
 
 
 import co.touchlab.kermit.ExperimentalKermitApi
-import com.mochame.app.data.local.room.BaseBioDaoTest
 import com.mochame.app.di.AndroidHostTestModules
 import com.mochame.app.di.CoreTestModules.testLoggingModule
 import com.mochame.app.di.TestTag
@@ -15,7 +14,7 @@ import org.robolectric.RobolectricTestRunner
 class AndroidHostBioDaoTest : BaseBioDaoTest() {
     override val platformTestModules = listOf(
         AndroidHostTestModules.databaseModule,
-        testLoggingModule(TestTag.ANDROIDHOST)
+        testLoggingModule(TestTag.ANDROID_HOST)
     )
 
 }

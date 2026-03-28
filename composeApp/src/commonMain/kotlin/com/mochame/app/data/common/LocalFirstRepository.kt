@@ -17,6 +17,9 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeout
 import com.mochame.app.domain.exceptions.SyncInitializationException
+import com.mochame.app.domain.exceptions.VaultUnavailableException
+import com.mochame.app.domain.sqlite.ExecutionPolicy
+import kotlin.coroutines.cancellation.CancellationException
 
 
 /**
@@ -34,6 +37,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     private val mutationLedger: MutationLedger,
     private val metadataStore: MetadataStore,
     private val moduleName: MochaModule,
+    private val executor: ExecutionPolicy,
     protected val logger: Logger
 ) {
 
@@ -49,15 +53,27 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     ): R {
         ensureReady()
 
-        return transactor.runImmediateTransaction {
-            val hlc = hlcFactory.getNextHlc()
-            val result = businessAction(hlc)
+        return try {
+            executor.execute() {
+                transactor.runImmediateTransaction {
+                    val hlc = hlcFactory.getNextHlc()
+                    val result = businessAction(hlc)
 
-            if (isGhostDelete(op, result)) return@runImmediateTransaction result
+                    if (isGhostDelete(op, result)) return@runImmediateTransaction result
 
-            recordIntent(candidateKey, op, hlc)
-            updateModuleMetadata(hlc)
-            result
+                    recordIntent(candidateKey, op, hlc)
+                    updateModuleMetadata(hlc)
+                    result
+                }
+            }
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+
+            logger.e(e) { "Intent Dispatch Failed: $candidateKey. Mapping to Domain Exception." }
+            throw VaultUnavailableException(
+                message = "The data vault is currently busy or inaccessible. Please try again.",
+                cause = e
+            )
         }
     }
 
@@ -71,11 +87,12 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         }
 
         // The user action simply waits for the janitor to finish.
-        provider.bootState.first { it is BootState.Ready || it is BootState.CriticalFailure }.let { finalState ->
-            if (finalState is BootState.CriticalFailure) {
-                throw SyncInitializationException("System failed during boot: ${finalState.error}")
+        provider.bootState.first { it is BootState.Ready || it is BootState.CriticalFailure }
+            .let { finalState ->
+                if (finalState is BootState.CriticalFailure) {
+                    throw SyncInitializationException("System failed during boot: ${finalState.error}")
+                }
             }
-        }
     }
 
     private suspend fun recordIntent(candidateKey: String, op: MutationOp, hlc: HLC) {
@@ -173,6 +190,5 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             hlc = hlc
         )
     }
-
 
 }

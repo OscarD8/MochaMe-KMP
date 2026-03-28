@@ -35,8 +35,21 @@ class RoomMetadataStore(private val dao: SyncMetadataDao)
         return dao.getMetadataCount()
     }
 
-    override suspend fun seedDefaultMetadata(seeds: List<SyncMetadataEntity>) {
-        return dao.seedDefaultMetadata(seeds)
+    override suspend fun ensureSeeded(): Int {
+        val expected = MochaModule.entries
+        val existingCount = dao.getMetadataCount()
+
+        if (existingCount < expected.size) {
+            val entities = expected.map { module ->
+                SyncMetadataEntity(
+                    moduleName = module,
+                    syncStatus = SyncStatus.IDLE
+                )
+            }
+            val results = dao.seedDefaultMetadata(entities)
+            return results.count { it > 0 }
+        }
+        return 0
     }
 
     override suspend fun getGlobalMaxHlc(): String? {

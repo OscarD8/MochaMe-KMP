@@ -1,5 +1,6 @@
 package com.mochame.app.di.modules
 
+import com.mochame.app.data.common.SqliteResiliencePolicy
 import com.mochame.app.infrastructure.utils.DateTimeUtils
 import com.mochame.app.data.local.room.RoomMetadataStore
 import com.mochame.app.data.local.room.RoomMutationLedger
@@ -16,19 +17,20 @@ import com.mochame.app.data.local.room.MochaDatabase
 import com.mochame.app.di.providers.DispatcherProvider
 import com.mochame.app.domain.bio.BioRepository
 import com.mochame.app.domain.signal.SignalRepository
+import com.mochame.app.domain.sqlite.ExecutionPolicy
 import com.mochame.app.domain.sync.MetadataStore
 import com.mochame.app.domain.sync.MetadataStoreMaintenance
 import com.mochame.app.domain.sync.MutationLedger
 import com.mochame.app.domain.sync.MutationLedgerMaintenance
 import com.mochame.app.domain.sync.TransactionProvider
 import com.mochame.app.domain.sync.SyncGateway
-import com.mochame.app.domain.sync.utils.PruneOldEntriesUseCase
+import com.mochame.app.domain.sync.usecase.PruneOldEntriesUseCase
 import com.mochame.app.domain.telemetry.repositories.TelemetryRepository
 import com.mochame.app.infrastructure.system.boot.BootStatusManager
 import com.mochame.app.infrastructure.system.boot.BootStatusProvider
 import com.mochame.app.infrastructure.system.boot.BootStatusUpdater
 import com.mochame.app.infrastructure.identity.IdentityManager
-import com.mochame.app.infrastructure.sync.SyncJanitor
+import com.mochame.app.orchestration.sync.SyncJanitor
 import com.mochame.app.ui.ProofOfLifeViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
@@ -68,7 +70,8 @@ object AppModules {
 
             /** 5. LIFECYCLE: Production-Only Automation */
             productionStartupModule,
-            commonModule
+            commonModule,
+            policiesModule
         )
     }
 
@@ -77,6 +80,18 @@ object AppModules {
             val dispatchers = get<DispatcherProvider>()
             CoroutineScope(SupervisorJob() + dispatchers.main)
         }
+    }
+
+    val policiesModule = module {
+        singleOf(::SqliteResiliencePolicy) {
+            bind<ExecutionPolicy>()
+        }
+
+        single {
+            SqliteResiliencePolicy(
+                logger = get { parametersOf(LogTags.Layer.DATA, LogTags.Domain.EXECUTE) }
+            )
+        }.bind(ExecutionPolicy::class)
     }
 
     /**
@@ -105,7 +120,13 @@ object AppModules {
         singleOf(::RoomImmediateTransProvider) {
             bind<TransactionProvider>()
         }
-        singleOf(::PruneOldEntriesUseCase)
+        single {
+            PruneOldEntriesUseCase(
+                logger = get { parametersOf(LogTags.Domain.PRUNE, LogTags.Layer.DOMAIN) },
+                ledgerMaintenance = get(),
+                dateTimeUtils = get()
+            )
+        }
 
         // Infrastructure DAOs used by the components defined by the
         single { get<MochaDatabase>().syncMetadataDao() }
@@ -162,6 +183,7 @@ object AppModules {
                 metadataStore = get(),
                 ledgerStore = get(),
                 pruneUseCase = get(),
+                executor = get()
             )
         }
     }
@@ -188,7 +210,8 @@ object AppModules {
                 bootStatusProvider = get(),
                 metadataStore = get(),
                 transactor = get(),
-                mutationLedger = get()
+                mutationLedger = get(),
+                executor = get()
             )
         }.binds(arrayOf(BioRepository::class, SyncGateway::class))
     }
@@ -215,7 +238,8 @@ object AppModules {
             hlcModule,
             bootModule,
             syncPlumbingModule,
-            janitorModule
+            janitorModule,
+            policiesModule
         )
     }
 

@@ -78,13 +78,18 @@ interface MutationLedgerDao {
      * Pruning Task: Removes old tombstones and synced history.
      */
     @Query("""
-        DELETE FROM mutation_ledger 
-        WHERE syncStatus = :status 
-        AND createdAt < :cutoff
+    DELETE FROM mutation_ledger 
+        WHERE syncId IN (
+            SELECT syncId FROM mutation_ledger
+            WHERE syncStatus = :status 
+            AND createdAt < :cutoff
+            LIMIT :limit
+        )
     """)
     suspend fun pruneOldSynced(
         cutoff: Long,
-        status: SyncStatus = SyncStatus.SUCCESS
+        status: SyncStatus = SyncStatus.SUCCESS,
+        limit: Int
     ): Int
 
     @Upsert

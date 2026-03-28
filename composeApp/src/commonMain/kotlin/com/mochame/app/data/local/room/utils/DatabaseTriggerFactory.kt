@@ -1,4 +1,4 @@
-package com.mochame.app.data.local.room.triggers
+package com.mochame.app.data.local.room.utils
 
 import androidx.room.RoomDatabase
 import androidx.sqlite.SQLiteConnection

@@ -13,13 +13,16 @@ object LogTags {
         const val BIO = "Bio"
         const val SIGNAL = "Signal"
         const val TELEMETRY = "Telem"
+        const val PRUNE = "Prune"
+        const val EXECUTE = "Execute"
     }
 
     object Layer {
-        const val UI = "UI"
+        const val UI = "UI.."
         const val REPO = "Repo"
+        const val DOMAIN = "Domn"
         const val DATA = "Data"
-        const val INFRA = "Infra"
+        const val INFRA = "Infr"
         const val ORCH = "Orch"
         const val BOOT = "Boot"
     }

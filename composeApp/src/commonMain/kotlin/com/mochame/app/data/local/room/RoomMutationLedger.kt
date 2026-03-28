@@ -25,8 +25,8 @@ class RoomMutationLedger(private val dao: MutationLedgerDao)
         return dao.clearAllLocksAndResetStatus()
     }
 
-    override suspend fun pruneOldSynced(olderThan: Long): Int {
-        return dao.pruneOldSynced(olderThan)
+    override suspend fun pruneOldSynced(olderThan: Long, limit: Int): Int {
+        return dao.pruneOldSynced(cutoff = olderThan, limit = limit)
     }
 
 

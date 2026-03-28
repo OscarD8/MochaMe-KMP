@@ -23,18 +23,18 @@ class IdentityManager(
      */
     suspend fun getOrCreateNodeId(): String = withContext(dispatcherProvider.io) {
         runCatching {
-            logger.d { "IdentityManager: Resolving Node ID..." }
+            logger.d { "Resolving Node ID..." }
 
             val existingId = settingsDao.getDeviceId()
 
             if (existingId != null) {
-                logger.d { "IdentityManager: Existing Node ID recovered: $existingId." }
+                logger.d { "Existing Node ID recovered: $existingId." }
                 return@runCatching existingId
             }
 
-            // --- Milestone: New Identity Generation ---
+            // --- New Identity Generation ---
             val newId = uuid4().toString()
-            logger.i { "IdentityManager: No Node ID found. Generating new identity: $newId" }
+            logger.i { "No Node ID found. Generating new identity: $newId" }
 
             val initialSettings = GlobalSettingsEntity(
                 id = 1,
@@ -44,10 +44,10 @@ class IdentityManager(
 
             settingsDao.insert(initialSettings)
 
-            logger.i { "IdentityManager: New Node ID successfully persisted to settings." }
+            logger.i { "New Node ID successfully persisted to settings." }
             newId
         }.onFailure { e ->
-            logger.e(e) { "IdentityManager: failure during Node ID resolution." }
+            logger.e(e) { "Failure during Node ID resolution." }
         }.getOrThrow()
     }
 }

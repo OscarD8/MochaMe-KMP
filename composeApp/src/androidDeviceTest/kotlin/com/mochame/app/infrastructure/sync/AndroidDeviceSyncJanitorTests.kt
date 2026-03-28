@@ -3,10 +3,9 @@ package com.mochame.app.infrastructure.sync
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import co.touchlab.kermit.ExperimentalKermitApi
 import com.mochame.app.di.AndroidDeviceTestModules
-import com.mochame.app.di.CoreTestModules
 import com.mochame.app.di.CoreTestModules.testLoggingModule
 import com.mochame.app.di.TestTag
-import com.mochame.app.infrastructure.sync.BaseSyncJanitorTest
+import com.mochame.app.orchestration.sync.BaseSyncJanitorTest
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import org.junit.runner.RunWith
 import org.koin.core.module.Module
@@ -16,6 +15,6 @@ import org.koin.core.module.Module
 class AndroidDeviceSyncJanitorTests: BaseSyncJanitorTest() {
     override val platformTestModules: List<Module> = listOf(
         AndroidDeviceTestModules.databaseModule,
-        testLoggingModule(TestTag.ANDROIDEVICE)
+        testLoggingModule(TestTag.ANDROID_DEVICE)
     )
 }

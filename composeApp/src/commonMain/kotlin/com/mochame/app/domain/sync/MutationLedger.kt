@@ -10,5 +10,5 @@ interface MutationLedger {
 
 interface MutationLedgerMaintenance {
     suspend fun clearAllLocksAndResetToPending() : Int
-    suspend fun pruneOldSynced(olderThan: Long) : Int
+    suspend fun pruneOldSynced(olderThan: Long, limit: Int) : Int
 }

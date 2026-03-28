@@ -16,8 +16,11 @@ interface MetadataStoreMaintenance {
 
     suspend fun getMetadataCount(): Int
 
-    suspend fun seedDefaultMetadata(seeds: List<SyncMetadataEntity>)
-
+    /**
+     * Ensures all MochaModules have a corresponding metadata row.
+     * Infrastructure handles mapping and technical checks.
+     */
+    suspend fun ensureSeeded(): Int
     suspend fun getGlobalMaxHlc(): String?
 
 }

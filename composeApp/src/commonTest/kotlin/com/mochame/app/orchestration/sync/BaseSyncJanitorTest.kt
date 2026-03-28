@@ -1,4 +1,4 @@
-package com.mochame.app.infrastructure.sync
+package com.mochame.app.orchestration.sync
 
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Severity
@@ -8,6 +8,7 @@ import com.mochame.app.di.JanitorTestEnvironment
 import com.mochame.app.di.TestDispatcherProvider
 import com.mochame.app.di.modules.AppModules
 import com.mochame.app.di.providers.DispatcherProvider
+import com.mochame.app.domain.sync.utils.MochaModule
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestDispatcher
@@ -89,12 +90,14 @@ abstract class BaseSyncJanitorTest : KoinTest {
     }
 
     @Test
-    fun janitor_should_log_success_after_seeding() = runTestWrapper { tools ->
+    fun should_log_correct_seeding_count_when_new_install() = runTestWrapper { tools ->
+        val count = MochaModule.entries.size
+
         tools.janitor.startupChecks()
         advanceUntilIdle()
 
         // Assert the "Ear" heard the "Mouth" (says Gemini)
-        val seedingMessage = tools.writer.logs.find { it.message.contains("Successfully seeded") }
+        val seedingMessage = tools.writer.logs.find { it.message.contains("Seeded $count missing") }
         assertNotNull(seedingMessage, "The success log should have been recorded!")
         assertEquals(Severity.Info, seedingMessage.severity)
     }

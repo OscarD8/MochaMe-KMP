@@ -12,7 +12,7 @@ import com.mochame.app.data.local.room.entity.SyncMetadataEntity
 interface SyncMetadataDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun seedDefaultMetadata(metadata: List<SyncMetadataEntity>)
+    suspend fun seedDefaultMetadata(metadata: List<SyncMetadataEntity>) : List<Long>
 
     @Query("SELECT COUNT(*) FROM sync_metadata")
     suspend fun getMetadataCount(): Int

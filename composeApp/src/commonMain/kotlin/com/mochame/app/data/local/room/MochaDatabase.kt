@@ -28,9 +28,7 @@ import com.mochame.app.data.local.room.entity.SpaceEntity
 import com.mochame.app.data.local.room.entity.SyncMetadataEntity
 import com.mochame.app.data.local.room.entity.SyncTombstoneEntity
 import com.mochame.app.data.local.room.entity.TopicEntity
-import com.mochame.app.data.local.room.triggers.SYNC_TRIGGER_CALLBACK
 import com.mochame.app.di.providers.DispatcherProvider
-import kotlinx.coroutines.Dispatchers
 
 @ConstructedBy(MochaDatabaseConstructor::class)
 @Database(
@@ -96,7 +94,7 @@ fun getRoomDatabase(
         .fallbackToDestructiveMigration(dropAllTables = true)
         .addCallback(object : RoomDatabase.Callback() {
             override fun onOpen(connection: SQLiteConnection) {
-                connection.execSQL("PRAGMA busy_timeout = 5000;")
+                connection.execSQL("PRAGMA busy_timeout = 500;")
             }
         })
         .build()

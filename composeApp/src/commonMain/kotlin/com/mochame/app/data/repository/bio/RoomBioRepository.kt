@@ -9,6 +9,7 @@ import com.mochame.app.data.local.room.entity.DailyContextEntity
 import com.mochame.app.domain.bio.BioRepository
 import com.mochame.app.domain.bio.DailyContext
 import com.mochame.app.domain.exceptions.HlcParseException
+import com.mochame.app.domain.sqlite.ExecutionPolicy
 import com.mochame.app.domain.sync.MetadataStore
 import com.mochame.app.domain.sync.MutationLedger
 import com.mochame.app.domain.sync.TransactionProvider
@@ -29,6 +30,7 @@ class RoomBioRepository(
     metadataStore: MetadataStore,
     transactor: TransactionProvider,
     mutationLedger: MutationLedger,
+    executor: ExecutionPolicy
 ) : LocalFirstRepository<DailyContext>(
     hlcFactory = hlcFactory,
     moduleName = MochaModule.BIO,
@@ -36,7 +38,8 @@ class RoomBioRepository(
     provider = bootStatusProvider,
     mutationLedger = mutationLedger,
     transactor = transactor,
-    metadataStore = metadataStore
+    metadataStore = metadataStore,
+    executor = executor
 ), BioRepository {     // syncGateway still to come
 
     override suspend fun initializeDay(
