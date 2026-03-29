@@ -2,6 +2,9 @@ package com.mochame.app.data.common
 
 import co.touchlab.kermit.Logger
 import com.mochame.app.data.local.room.entity.MutationEntryEntity
+import com.mochame.app.data.local.toMochaException
+import com.mochame.app.domain.exceptions.MochaException
+import com.mochame.app.domain.sqlite.ExecutionPolicy
 import com.mochame.app.domain.sync.MetadataStore
 import com.mochame.app.domain.sync.MutationLedger
 import com.mochame.app.domain.sync.TransactionProvider
@@ -13,13 +16,7 @@ import com.mochame.app.infrastructure.sync.HLC
 import com.mochame.app.infrastructure.sync.HlcFactory
 import com.mochame.app.infrastructure.system.boot.BootState
 import com.mochame.app.infrastructure.system.boot.BootStatusProvider
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.withTimeout
-import com.mochame.app.domain.exceptions.SyncInitializationException
-import com.mochame.app.domain.exceptions.VaultUnavailableException
-import com.mochame.app.domain.sqlite.ExecutionPolicy
-import kotlin.coroutines.cancellation.CancellationException
 
 
 /**
@@ -67,13 +64,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                 }
             }
         } catch (e: Exception) {
-            if (e is CancellationException) throw e
-
-            logger.e(e) { "Intent Dispatch Failed: $candidateKey. Mapping to Domain Exception." }
-            throw VaultUnavailableException(
-                message = "The data vault is currently busy or inaccessible. Please try again.",
-                cause = e
-            )
+            throw e.toMochaException()
         }
     }
 
@@ -81,18 +72,12 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
      * Centralizes the timeout and error handling for the Janitor's boot sequence.
      */
     private suspend fun ensureReady() {
-        val current = provider.bootState.value
-        if (current is BootState.CriticalFailure) {
-            throw SyncInitializationException("Database is corrupted: ${current.error}")
-        }
+        val state = provider.bootState.first { it !is BootState.Initializing && it !is BootState.Idle }
 
-        // The user action simply waits for the janitor to finish.
-        provider.bootState.first { it is BootState.Ready || it is BootState.CriticalFailure }
-            .let { finalState ->
-                if (finalState is BootState.CriticalFailure) {
-                    throw SyncInitializationException("System failed during boot: ${finalState.error}")
-                }
-            }
+        if (state is BootState.CriticalFailure) {
+            // Maybe confirm that we definitely want to classify this as a sync error at this stage
+            throw state.throwable ?: MochaException.Persistent.SyncInitializationException(state.error)
+        }
     }
 
     private suspend fun recordIntent(candidateKey: String, op: MutationOp, hlc: HLC) {

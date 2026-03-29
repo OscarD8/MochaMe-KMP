@@ -1,8 +1,9 @@
 package com.mochame.app.orchestration.sync
 
 import co.touchlab.kermit.Logger
-import com.mochame.app.data.local.room.utils.runWithRetry
+import com.mochame.app.data.local.toMochaException
 import com.mochame.app.di.providers.DispatcherProvider
+import com.mochame.app.domain.exceptions.MochaException
 import com.mochame.app.domain.sqlite.ExecutionPolicy
 import com.mochame.app.domain.sync.MetadataStoreMaintenance
 import com.mochame.app.domain.sync.MutationLedgerMaintenance
@@ -11,7 +12,6 @@ import com.mochame.app.domain.sync.usecase.PruneOldEntriesUseCase
 import com.mochame.app.infrastructure.identity.IdentityManager
 import com.mochame.app.infrastructure.logging.appendTag
 import com.mochame.app.infrastructure.sync.HlcFactory
-import com.mochame.app.infrastructure.sync.HydrationResult
 import com.mochame.app.infrastructure.system.boot.BootState
 import com.mochame.app.infrastructure.system.boot.BootStatusUpdater
 import com.mochame.app.infrastructure.utils.withTimer
@@ -49,7 +49,7 @@ class SyncJanitor(
     fun startupChecks() {
         appScope.launch(dispatcherProvider.io) {
             try {
-                mutex.withTryLock {
+                val locked = mutex.withTryLock {
                     if (!isValidBootState()) return@launch
 
                     logger.i { "Initiating boot sequence..." }
@@ -57,19 +57,18 @@ class SyncJanitor(
 
                     metadataMaintenance()
 
-                    val hydrationResult = initHydration()
+                    initHydration()
 
-                    resolveJanitorFinalState(hydrationResult)
-                } ?: logger.w { "Locked out." }
+                    logger.i { "Hydration: success." }
+                }
+
+                if (locked == null) {
+                    handleBootFailure(MochaException.Transient.VaultBusy())
+                    logger.w { "Boot stalled: Locked out." }
+                }
 
             } catch (e: Exception) {
-                logger.e(e) { "Critical failure during startup. $e" }
-                bootUpdater.updateBootState(
-                    BootState.CriticalFailure(
-                        "Boot failed: ${e.message}",
-                        e
-                    )
-                )
+                handleBootFailure(e.toMochaException())
             }
         }
     }
@@ -83,13 +82,13 @@ class SyncJanitor(
         return false
     }
 
-    private suspend fun initHydration(): HydrationResult {
+    private suspend fun initHydration() = executor.execute {
         val lastHlc = metadataStore.getGlobalMaxHlc()
         val nodeId = identityManager.getOrCreateNodeId()
 
         logger.i { "Hydrating HLC Factory | Last Known HLC: ${lastHlc ?: "NONE"} | NodeID: $nodeId" }
 
-        return hlcFactory.hydrate(lastHlc, nodeId)
+        hlcFactory.hydrate(lastHlc, nodeId)
     }
 
     /**
@@ -114,7 +113,6 @@ class SyncJanitor(
                     logger.i { "Maintenance: Recovered dirty modules: ${recoveredModules.joinToString()}" }
                     metadataStore.bulkResetDirtyModules()
                 }
-
             }
         }
 
@@ -130,26 +128,21 @@ class SyncJanitor(
         pruneUseCase()
     }
 
-    private fun resolveJanitorFinalState(result: HydrationResult) {
-        when (result) {
-            is HydrationResult.Success -> {
-                logger.i { "Hydration: success." }
-                bootUpdater.updateBootState(BootState.Ready)
-            }
+    // ----- EXCEPTION HELPERS -----
+    private fun handleBootFailure(error: MochaException) {
+        val failureState = error.toBootState()
+        bootUpdater.updateBootState(failureState)
 
-            is HydrationResult.InvalidData -> {
-                logger.e { result.error.message!! }
-                bootUpdater.updateBootState(
-                    BootState.CriticalFailure(result.error.message!!)
-                )
-            }
-
-            is HydrationResult.ClockSkewDetected -> {
-                logger.e { result.error.message!! }
-                bootUpdater.updateBootState(
-                    BootState.CriticalFailure("Clock Skew", result.error)
-                )
-            }
+        if (failureState is BootState.CriticalFailure) {
+            logger.e(error) { "Critical boot failure: ${error.message}" }
+        } else {
+            logger.w(error) { "Transient boot failure: ${error.message}" }
         }
     }
+
+    private fun MochaException.toBootState(): BootState = when (this) {
+        is MochaException.Transient -> BootState.TransientFailure(this.message, this)
+        else -> BootState.CriticalFailure(this.message, this)
+    }
+
 }

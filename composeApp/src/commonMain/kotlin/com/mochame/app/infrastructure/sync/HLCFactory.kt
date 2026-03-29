@@ -1,25 +1,10 @@
 package com.mochame.app.infrastructure.sync
 
 import co.touchlab.kermit.Logger
-import com.mochame.app.domain.exceptions.HlcParseException
-import com.mochame.app.infrastructure.utils.DateTimeUtils
+import com.mochame.app.domain.exceptions.MochaException
 import com.mochame.app.infrastructure.logging.appendTag
+import com.mochame.app.infrastructure.utils.DateTimeUtils
 import kotlinx.coroutines.yield
-
-/**
- * Outcomes for the [HlcFactory] startup sequence.
- */
-sealed class HydrationResult {
-    /** Factory is ready; initialized with valid history from the database. */
-    data class Success(val hlc: HLC) : HydrationResult()
-    /** Database recovery failed; the stored HLC string is unparseable. */
-    data class InvalidData(val error: Throwable) : HydrationResult()
-    /** * System clock is invalid.
-     * Either the phone is set before the app launch or into the future.
-     * @param driftMs The difference in milliseconds between the system clock and the required time.
-     */
-    data class ClockSkewDetected(val driftMs: Long, val error: Throwable) : HydrationResult()
-}
 
 
 /**
@@ -49,16 +34,16 @@ data class HLC(
         fun parse(hlcString: String): HLC {
             val parts = hlcString.split(":")
 
-            if (parts.size != 3) throw HlcParseException(hlcString)
+            if (parts.size != 3) throw MochaException.Persistent.HlcParseException("Format mismatch: $hlcString")
 
             val ts = parts[0].toLongOrNull()
-                ?: throw HlcParseException(hlcString)
+                ?: throw MochaException.Persistent.HlcParseException("Invalid timestamp: ${parts[0]}")
 
             val count = parts[1].toIntOrNull()
-                ?: throw HlcParseException(hlcString)
+                ?: throw MochaException.Persistent.HlcParseException("Invalid counter: ${parts[1]}")
 
             val nodeId = parts[2].takeIf { it.isNotBlank() }
-                ?: throw IllegalArgumentException("Invalid nodeId")
+                ?: throw MochaException.Persistent.HlcParseException("NodeId is missing")
 
             return HLC(ts, count, nodeId)
         }
@@ -89,9 +74,9 @@ class HlcFactory(
     private val MIN_VALID_TIME = 1740787200000L // March 2026
     private val MAX_COUNTER = 65535             // 16-bit limit
 
-    fun hydrate(lastKnownHlc: String?, currentNodeId: String): HydrationResult =
+    fun hydrate(lastKnownHlc: String?, currentNodeId: String): HLC =
         synchronized(this) {
-            if (isHydrated) return@synchronized HydrationResult.Success(lastHlc!!)
+            if (isHydrated) return@synchronized lastHlc!!
 
             val wallClock = dateTimeUtils.now().toEpochMilliseconds()
 
@@ -99,19 +84,11 @@ class HlcFactory(
             if (wallClock < MIN_VALID_TIME) {
                 val drift = MIN_VALID_TIME - wallClock
                 hlcLog.e { "Clock Skew: System time ($wallClock) is $drift ms behind floor ($MIN_VALID_TIME)" }
-                return@synchronized HydrationResult.ClockSkewDetected(
-                    drift,
-                    IllegalStateException("Clock skew under minimum constraint.")
-                )
+                throw MochaException.Persistent.ClockSkew(drift)
             }
 
             // 2. Sanitize DB history
-            val history = lastKnownHlc?.let { hlcStr ->
-                runCatching { HLC.parse(hlcStr) }.getOrElse { error ->
-                    hlcLog.e { error.message!! }
-                    return@synchronized HydrationResult.InvalidData(error)
-                }
-            }
+            val history = lastKnownHlc?.let { HLC.parse(lastKnownHlc ) }
 
             // 3. Reconcile
             val initialHlc = when {
@@ -133,7 +110,7 @@ class HlcFactory(
             this.isHydrated = true
 
             hlcLog.d { "HLC Initialized: $initialHlc" }
-            return@synchronized HydrationResult.Success(initialHlc)
+            return initialHlc
         }
 
     /**

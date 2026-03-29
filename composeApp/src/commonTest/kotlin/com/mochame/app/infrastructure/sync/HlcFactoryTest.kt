@@ -6,7 +6,7 @@ import co.touchlab.kermit.TestLogWriter
 import com.mochame.app.di.CoreTestModules
 import com.mochame.app.di.TestTag
 import com.mochame.app.di.modules.AppModules
-import com.mochame.app.domain.exceptions.HlcParseException
+import com.mochame.app.domain.exceptions.MochaException
 import com.mochame.app.utils.FakeDateTimeUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
@@ -67,32 +67,8 @@ class HlcFactoryTest : KoinTest {
         val result = factory.hydrate(history, newNodeId)
 
         // Then
-        assertTrue(result is HydrationResult.Success)
-        assertEquals("1740787200000:5:device-b", result.hlc.toString())
-    }
-
-    @Test
-    fun should_report_clock_skew_when_system_time_is_before_2026_floor() = runTest {
-        // Given
-        fakeClock.setTime(1000L) // Set back to 1970
-
-        // When
-        val result = factory.hydrate(null, "node-1")
-
-        // Then
-        assertTrue(result is HydrationResult.ClockSkewDetected)
-    }
-
-    @Test
-    fun should_return_invalid_data_when_hlc_string_is_unparseable() = runTest {
-        // Given
-        val corruptHlc = "not-an-hlc"
-
-        // When
-        val result = factory.hydrate(corruptHlc, "node-1")
-
-        // Then
-        assertTrue(result is HydrationResult.InvalidData)
+        assertNotNull(result)
+        assertEquals("1740787200000:5:device-b", result.toString())
     }
 
     // --- MONOTONICITY & COUNTER TESTS ---
@@ -228,7 +204,7 @@ class HlcFactoryTest : KoinTest {
         val corruptInput = "1740787200000:0" // Missing NodeID
 
         // When / Then
-        assertFailsWith<HlcParseException> {
+        assertFailsWith<MochaException.Persistent.HlcParseException> {
             HLC.parse(corruptInput)
         }
     }
@@ -239,7 +215,7 @@ class HlcFactoryTest : KoinTest {
         val corruptInput = "not_a_long:0:device-a"
 
         // When / Then
-        assertFailsWith<HlcParseException> {
+        assertFailsWith<MochaException.Persistent.HlcParseException> {
             HLC.parse(corruptInput)
         }
     }
@@ -250,53 +226,49 @@ class HlcFactoryTest : KoinTest {
         val corruptInput = "1740787200000:abc:device-a"
 
         // When / Then
-        assertFailsWith<HlcParseException> {
+        assertFailsWith<MochaException.Persistent.HlcParseException> {
             HLC.parse(corruptInput)
         }
     }
 
     @Test
-    fun should_throw_IllegalArgumentException_when_node_id_is_blank() = runTest {
+    fun should_throw_parse_exception_when_node_id_is_blank() = runTest {
         // Given
         val corruptInput = "1740787200000:0: " // Blank NodeID
 
         // When / Then
-        assertFailsWith<IllegalArgumentException> {
+        assertFailsWith<MochaException.Persistent.HlcParseException> {
             HLC.parse(corruptInput)
         }
     }
 
     // --- FACTORY HYDRATION FAILURE RESULTS ---
     @Test
-    fun should_return_ClockSkewDetected_when_wall_clock_is_before_2026_floor() {
-        // Given: System clock is set to 1970
-        fakeClock.setTime(1000L)
-        val march2026 = 1740787200000L
+    fun should_return_invalid_data_when_hlc_string_is_unparseable() = runTest {
+        // Given
+        val corruptHlc = "not-an-hlc"
 
-        // When
-        val result = factory.hydrate(null, "node-1")
-
-        // Then
-        assertTrue(result is HydrationResult.ClockSkewDetected)
-        assertEquals(march2026 - 1000L, result.driftMs)
+        // When & Then
+        val exception = assertFailsWith<MochaException.Persistent.HlcParseException> {
+            factory.hydrate(corruptHlc, "node-1")
+        }
     }
 
     @Test
-    fun should_return_InvalidData_when_stored_history_cannot_be_parsed() {
-        // Given: The database contains a corrupted HLC string
-        val corruptHistory = "garbage-data"
+    fun should_report_clock_skew_when_system_time_is_before_2026_floor() = runTest {
+        // Given
+        fakeClock.setTime(1000L) // Set back to Jan 1st, 1970
 
-        // When
-        val result = factory.hydrate(corruptHistory, "node-1")
+        // When & Then
+        val exception = assertFailsWith<MochaException.Persistent.ClockSkew> {
+            factory.hydrate(null, "node-1")
+        }
 
-        // Then
-        assertTrue(result is HydrationResult.InvalidData)
-        assertTrue(result.error is HlcParseException)
+        assertTrue(exception.driftMs > 0, "Drift should be a positive value")
     }
 
     // --- FACTORY HYDRATION FAILURE RESULTS ---
     @Test
-
     fun should_log_warning_when_counter_exhaustion_triggers_yield() = runTest {
         // When: The factory at the 16-bit limit
         val maxCounterHlc = "${fakeClock.now().toEpochMilliseconds()}:65535:node-1"
@@ -319,7 +291,9 @@ class HlcFactoryTest : KoinTest {
     fun should_log_error_when_clock_skew_detected() = runTest {
         fakeClock.setTime(1000L) // 1970
 
-        factory.hydrate(null, "node-1")
+        assertFailsWith<MochaException.Persistent.ClockSkew> {
+            factory.hydrate(null, "node-1")
+        }
 
         val skewError = testLogWriter.logs.find { it.severity == Severity.Error }
         assertEquals(true, skewError?.message?.contains("Clock Skew"))

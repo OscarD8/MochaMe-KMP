@@ -6,6 +6,7 @@ import com.mochame.app.infrastructure.logging.appendTag
 import com.mochame.app.data.local.room.dao.SettingsDao
 import com.mochame.app.data.local.room.entity.GlobalSettingsEntity
 import com.mochame.app.di.providers.DispatcherProvider
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
 
 class IdentityManager(
@@ -22,14 +23,14 @@ class IdentityManager(
      * Ensures this device has a name before the Janitor starts the clock.
      */
     suspend fun getOrCreateNodeId(): String = withContext(dispatcherProvider.io) {
-        runCatching {
+        try {
             logger.d { "Resolving Node ID..." }
 
             val existingId = settingsDao.getDeviceId()
 
             if (existingId != null) {
                 logger.d { "Existing Node ID recovered: $existingId." }
-                return@runCatching existingId
+                return@withContext existingId
             }
 
             // --- New Identity Generation ---
@@ -46,8 +47,11 @@ class IdentityManager(
 
             logger.i { "New Node ID successfully persisted to settings." }
             newId
-        }.onFailure { e ->
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+
             logger.e(e) { "Failure during Node ID resolution." }
-        }.getOrThrow()
+            throw e
+        }
     }
 }

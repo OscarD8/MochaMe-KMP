@@ -9,7 +9,7 @@ import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
 import com.mochame.app.data.local.room.dao.BioDao
-import com.mochame.app.data.local.room.dao.SignalDao
+import com.mochame.app.data.local.room.dao.ResonanceDao
 import com.mochame.app.data.local.room.dao.TelemetryDao
 import com.mochame.app.data.local.room.converter.MochaConverters
 import com.mochame.app.data.local.room.dao.sync.MutationLedgerDao
@@ -63,7 +63,7 @@ abstract class MochaDatabase : RoomDatabase() {
 
     abstract fun bioDao(): BioDao
     abstract fun telemetryDao(): TelemetryDao
-    abstract fun signalDao(): SignalDao
+    abstract fun signalDao(): ResonanceDao
     abstract fun syncTombstoneDao(): SyncTombstoneDao
     abstract fun syncMetadataDao(): SyncMetadataDao
     abstract fun mutationLedgerDao(): MutationLedgerDao

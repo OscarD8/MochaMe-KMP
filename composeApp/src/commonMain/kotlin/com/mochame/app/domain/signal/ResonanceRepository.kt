@@ -3,7 +3,7 @@ package com.mochame.app.domain.signal
 import com.mochame.app.domain.telemetry.Mood
 import kotlinx.coroutines.flow.Flow
 
-interface SignalRepository {
+interface ResonanceRepository {
 
     suspend fun getNextSignal(): Quote?
 

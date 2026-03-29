@@ -3,7 +3,7 @@ package com.mochame.app.data.mappers
 
 import com.mochame.app.data.local.room.entity.DailyContextEntity
 import com.mochame.app.domain.bio.DailyContext
-import com.mochame.app.domain.exceptions.HlcParseException
+import com.mochame.app.domain.exceptions.MochaException
 import com.mochame.app.infrastructure.sync.HLC
 
 /**
@@ -22,7 +22,7 @@ fun DailyContextEntity.toDomain(): DailyContext {
             isDeleted = isDeleted,
             lastModified = lastModified
         )
-    } catch (e: HlcParseException) {
+    } catch (e: MochaException.Persistent.HlcParseException) {
         throw e
     }
 }

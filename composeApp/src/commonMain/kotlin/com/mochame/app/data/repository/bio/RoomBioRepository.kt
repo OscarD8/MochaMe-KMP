@@ -8,7 +8,7 @@ import com.mochame.app.data.local.room.dao.BioDao
 import com.mochame.app.data.local.room.entity.DailyContextEntity
 import com.mochame.app.domain.bio.BioRepository
 import com.mochame.app.domain.bio.DailyContext
-import com.mochame.app.domain.exceptions.HlcParseException
+import com.mochame.app.domain.exceptions.MochaException
 import com.mochame.app.domain.sqlite.ExecutionPolicy
 import com.mochame.app.domain.sync.MetadataStore
 import com.mochame.app.domain.sync.MutationLedger
@@ -128,7 +128,7 @@ class RoomBioRepository(
     ): DailyContext {
         val existingDomain = try { // NOTE have not implemented anywhere catching this
             existing?.toDomain()
-        } catch (e: HlcParseException) {
+        } catch (e: MochaException.Persistent.HlcParseException) {
             logger.e(e) { "Corruption in record ${existing?.id}. Overwriting." }
             throw e
         }

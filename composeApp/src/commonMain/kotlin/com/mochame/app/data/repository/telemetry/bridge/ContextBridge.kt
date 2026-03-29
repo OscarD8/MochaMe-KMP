@@ -4,15 +4,7 @@ import com.benasher44.uuid.uuid4
 import com.mochame.app.data.local.room.dao.TelemetryDao
 import com.mochame.app.data.mappers.toDomain
 import com.mochame.app.data.mappers.toEntity
-import com.mochame.app.domain.exceptions.DomainAlreadyExistsException
-import com.mochame.app.domain.exceptions.DomainInUseException
-import com.mochame.app.domain.exceptions.DomainNotFoundException
-import com.mochame.app.domain.exceptions.SpaceAlreadyExistsException
-import com.mochame.app.domain.exceptions.SpaceInUseException
-import com.mochame.app.domain.exceptions.SpaceNotFoundException
-import com.mochame.app.domain.exceptions.TopicAlreadyExistsException
-import com.mochame.app.domain.exceptions.TopicInUseException
-import com.mochame.app.domain.exceptions.TopicNotFoundException
+import com.mochame.app.domain.exceptions.MochaException
 import com.mochame.app.domain.telemetry.Domain
 import com.mochame.app.domain.telemetry.Space
 import com.mochame.app.domain.telemetry.Topic
@@ -54,7 +46,7 @@ internal class ContextBridge(
 
             if (existing != null) {
                 // 3. The Block: Explicit error reporting for the UI to handle
-                throw DomainAlreadyExistsException(cleanName)
+                throw MochaException.SemanticException.Domain.AlreadyExists(existing.name, existing.id)
             }
 
             // 4. The Creation: Mapping to the Domain molecule first
@@ -87,14 +79,14 @@ internal class ContextBridge(
             if (usageCount == 0) {
                 telemetryDao.deleteDomainById(domainId)
             } else {
-                throw DomainInUseException(usageCount)
+                throw MochaException.SemanticException.Domain.InUse(domainId, usageCount)
             }
         }
     }
 
     override suspend fun archiveDomain(domainId: String) = withContext(Dispatchers.IO) {
         val existing =
-            telemetryDao.getDomainById(domainId) ?: throw DomainNotFoundException(domainId)
+            telemetryDao.getDomainById(domainId) ?: throw MochaException.SemanticException.Domain.NotFound(domainId)
 
         val updated = existing.toDomain().copy(
             isActive = false,
@@ -120,7 +112,7 @@ internal class ContextBridge(
             val existing = telemetryDao.getTopicByNameInDomain(cleanName.lowercase(), domainId)
 
             if (existing != null) {
-                throw TopicAlreadyExistsException(cleanName, domainId)
+                throw MochaException.SemanticException.Topic.AlreadyExists(cleanName, domainId)
             }
 
             val newTopic = Topic(
@@ -149,13 +141,14 @@ internal class ContextBridge(
             if (usageCount == 0) {
                 telemetryDao.deleteTopicById(topicId)
             } else {
-                throw TopicInUseException(usageCount)
+                throw MochaException.SemanticException.Topic.InUse(topicId, usageCount)
             }
         }
     }
 
     override suspend fun archiveTopic(topicId: String) = withContext(Dispatchers.IO) {
-        val existing = telemetryDao.getTopicById(topicId) ?: throw TopicNotFoundException(topicId)
+        val existing = telemetryDao.getTopicById(topicId)
+            ?: throw MochaException.SemanticException.Topic.NotFound(topicId)
 
         val archived = existing.toDomain().copy(
             isActive = false,
@@ -183,7 +176,7 @@ internal class ContextBridge(
 
             if (existing != null) {
                 // 2. The Block: Report the collision
-                throw SpaceAlreadyExistsException(cleanName)
+                throw MochaException.SemanticException.Space.AlreadyExists(cleanName)
             }
 
             // 3. The Creation: Proceed only if the path is clear
@@ -216,7 +209,7 @@ internal class ContextBridge(
 
         if (usageCount > 0) {
             // 2. Raise the Shield
-            throw SpaceInUseException(id, usageCount)
+            throw MochaException.SemanticException.Space.InUse(id, usageCount)
         } else {
             // 3. Perform the excision
             telemetryDao.deleteSpaceById(id)
@@ -226,7 +219,7 @@ internal class ContextBridge(
     override suspend fun archiveSpace(id: String) = withContext(Dispatchers.IO) {
         // 1. The Fetch: Retrieve the entity from the DAO
         // Note: Ensure your SpaceNotFoundException is defined in your CustomExceptions.kt
-        val existing = telemetryDao.getSpaceById(id) ?: throw SpaceNotFoundException(id)
+        val existing = telemetryDao.getSpaceById(id) ?: throw MochaException.SemanticException.Space.NotFound(id)
 
         // 2. The Mutation: Convert to Domain molecule and flip the isActive bit
         // Using the .toDomain() extension function from TelemetryMappers.kt

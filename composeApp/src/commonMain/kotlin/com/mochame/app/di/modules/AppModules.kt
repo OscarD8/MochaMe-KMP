@@ -1,6 +1,6 @@
 package com.mochame.app.di.modules
 
-import com.mochame.app.data.common.SqliteResiliencePolicy
+import com.mochame.app.data.local.SQLiteExecutionPolicy
 import com.mochame.app.infrastructure.utils.DateTimeUtils
 import com.mochame.app.data.local.room.RoomMetadataStore
 import com.mochame.app.data.local.room.RoomMutationLedger
@@ -8,7 +8,7 @@ import com.mochame.app.data.local.room.RoomImmediateTransProvider
 import com.mochame.app.infrastructure.sync.HlcFactory
 import com.mochame.app.infrastructure.logging.LogTags
 import com.mochame.app.data.repository.bio.RoomBioRepository
-import com.mochame.app.data.repository.signal.RoomSignalRepository
+import com.mochame.app.data.repository.resonance.RoomResonanceRepository
 import com.mochame.app.data.repository.telemetry.RoomTelemetryRepository
 import com.mochame.app.data.repository.telemetry.bridge.AnalyticsBridge
 import com.mochame.app.data.repository.telemetry.bridge.ContextBridge
@@ -16,7 +16,7 @@ import com.mochame.app.data.repository.telemetry.bridge.MomentBridge
 import com.mochame.app.data.local.room.MochaDatabase
 import com.mochame.app.di.providers.DispatcherProvider
 import com.mochame.app.domain.bio.BioRepository
-import com.mochame.app.domain.signal.SignalRepository
+import com.mochame.app.domain.signal.ResonanceRepository
 import com.mochame.app.domain.sqlite.ExecutionPolicy
 import com.mochame.app.domain.sync.MetadataStore
 import com.mochame.app.domain.sync.MetadataStoreMaintenance
@@ -83,12 +83,9 @@ object AppModules {
     }
 
     val policiesModule = module {
-        singleOf(::SqliteResiliencePolicy) {
-            bind<ExecutionPolicy>()
-        }
 
         single {
-            SqliteResiliencePolicy(
+            SQLiteExecutionPolicy(
                 logger = get { parametersOf(LogTags.Layer.DATA, LogTags.Domain.EXECUTE) }
             )
         }.bind(ExecutionPolicy::class)
@@ -218,7 +215,7 @@ object AppModules {
 
     val signalDataModule = module {
         single { get<MochaDatabase>().signalDao() }
-        singleOf(::RoomSignalRepository) { bind<SignalRepository>() }
+        singleOf(::RoomResonanceRepository) { bind<ResonanceRepository>() }
     }
 
     val telemetryDataModule = module {

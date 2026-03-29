@@ -8,7 +8,7 @@ import com.mochame.app.domain.signal.Resonance
 import kotlinx.coroutines.flow.Flow
 
 @Dao
-interface SignalDao {
+interface ResonanceDao {
 
     // --- QUOTES (READS) ---
 
