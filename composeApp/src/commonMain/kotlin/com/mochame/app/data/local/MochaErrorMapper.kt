@@ -1,7 +1,7 @@
 package com.mochame.app.data.local
 
 import androidx.sqlite.SQLiteException
-import com.mochame.app.domain.exceptions.MochaException
+import com.mochame.app.domain.system.exceptions.MochaException
 import kotlin.coroutines.cancellation.CancellationException
 
 
@@ -22,7 +22,7 @@ fun Throwable.toMochaException(): MochaException {
         this is IllegalStateException ->
             MochaException.Persistent.VaultFatal("State Mismatch: $msg", this)
 
-        (this as Exception).isVaultLocked() ->
+        this.isVaultLocked() ->
             MochaException.Transient.VaultBusy(this)
 
         msg.contains("FULL") ->
@@ -33,8 +33,6 @@ fun Throwable.toMochaException(): MochaException {
 }
 
 fun Throwable.isVaultLocked(): Boolean {
-    if (this is MochaException.Transient) return true
-
     val msg = this.message?.uppercase() ?: ""
     return this is SQLiteException && (
             msg.contains("BUSY") ||

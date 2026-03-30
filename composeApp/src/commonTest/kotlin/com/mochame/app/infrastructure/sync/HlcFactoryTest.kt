@@ -6,8 +6,8 @@ import co.touchlab.kermit.TestLogWriter
 import com.mochame.app.di.CoreTestModules
 import com.mochame.app.di.TestTag
 import com.mochame.app.di.modules.AppModules
-import com.mochame.app.domain.exceptions.MochaException
-import com.mochame.app.utils.FakeDateTimeUtils
+import com.mochame.app.domain.system.exceptions.MochaException
+import com.mochame.app.infrastructure.fakeutils.FakeDateTimeUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.joinAll

@@ -1,12 +1,10 @@
-package com.mochame.app.domain.sync.usecase
+package com.mochame.app.domain.system.sync.usecase
 
 import co.touchlab.kermit.Logger
-import com.mochame.app.domain.sync.MutationLedgerMaintenance
-import com.mochame.app.infrastructure.logging.appendTag
+import com.mochame.app.domain.system.sync.MutationLedgerMaintenance
 import com.mochame.app.infrastructure.utils.DateTimeUtils
 import com.mochame.app.infrastructure.utils.withTimer
 import kotlinx.coroutines.yield
-import kotlin.math.log
 import kotlin.time.TimeSource
 
 class PruneOldEntriesUseCase(

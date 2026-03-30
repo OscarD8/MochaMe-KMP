@@ -2,8 +2,8 @@ package com.mochame.app.data.local.room
 
 import com.mochame.app.data.local.room.dao.sync.MutationLedgerDao
 import com.mochame.app.data.local.room.entity.MutationEntryEntity
-import com.mochame.app.domain.sync.MutationLedger
-import com.mochame.app.domain.sync.MutationLedgerMaintenance
+import com.mochame.app.domain.system.sync.MutationLedger
+import com.mochame.app.domain.system.sync.MutationLedgerMaintenance
 
 class RoomMutationLedger(private val dao: MutationLedgerDao)
     : MutationLedger, MutationLedgerMaintenance

@@ -3,9 +3,9 @@ package com.mochame.app.data.local.room.entity
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.mochame.app.domain.sync.utils.MochaModule
-import com.mochame.app.domain.sync.utils.MutationOp
-import com.mochame.app.domain.sync.utils.SyncStatus
+import com.mochame.app.domain.system.sync.utils.MochaModule
+import com.mochame.app.domain.system.sync.utils.MutationOp
+import com.mochame.app.domain.system.sync.utils.SyncStatus
 import com.mochame.app.infrastructure.sync.HLC
 
 @Entity(

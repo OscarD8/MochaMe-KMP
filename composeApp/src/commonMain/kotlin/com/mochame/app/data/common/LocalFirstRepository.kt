@@ -3,15 +3,15 @@ package com.mochame.app.data.common
 import co.touchlab.kermit.Logger
 import com.mochame.app.data.local.room.entity.MutationEntryEntity
 import com.mochame.app.data.local.toMochaException
-import com.mochame.app.domain.exceptions.MochaException
-import com.mochame.app.domain.sqlite.ExecutionPolicy
-import com.mochame.app.domain.sync.MetadataStore
-import com.mochame.app.domain.sync.MutationLedger
-import com.mochame.app.domain.sync.TransactionProvider
-import com.mochame.app.domain.sync.model.LocalFirstEntity
-import com.mochame.app.domain.sync.utils.MochaModule
-import com.mochame.app.domain.sync.utils.MutationOp
-import com.mochame.app.domain.sync.utils.SyncStatus
+import com.mochame.app.domain.system.exceptions.MochaException
+import com.mochame.app.domain.system.sqlite.ExecutionPolicy
+import com.mochame.app.domain.system.sync.MetadataStore
+import com.mochame.app.domain.system.sync.MutationLedger
+import com.mochame.app.domain.system.sync.TransactionProvider
+import com.mochame.app.domain.system.sync.model.LocalFirstEntity
+import com.mochame.app.domain.system.sync.utils.MochaModule
+import com.mochame.app.domain.system.sync.utils.MutationOp
+import com.mochame.app.domain.system.sync.utils.SyncStatus
 import com.mochame.app.infrastructure.sync.HLC
 import com.mochame.app.infrastructure.sync.HlcFactory
 import com.mochame.app.infrastructure.system.boot.BootState
@@ -72,11 +72,13 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
      * Centralizes the timeout and error handling for the Janitor's boot sequence.
      */
     private suspend fun ensureReady() {
-        val state = provider.bootState.first { it !is BootState.Initializing && it !is BootState.Idle }
+        val state =
+            provider.bootState.first { it !is BootState.Initializing && it !is BootState.Idle }
 
         if (state is BootState.CriticalFailure) {
             // Maybe confirm that we definitely want to classify this as a sync error at this stage
-            throw state.throwable ?: MochaException.Persistent.SyncInitializationException(state.error)
+            throw state.throwable
+                ?: MochaException.Persistent.SyncInitializationException(state.error)
         }
     }
 
@@ -112,19 +114,18 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         candidateKey: String,
         mergeLogic: suspend (newHlc: HLC) -> T,
         saveAction: suspend (T) -> Unit
-    ): T {
-        return dispatchIntent(candidateKey, MutationOp.UPSERT) { hlc ->
-            val merged = mergeLogic(hlc)
+    ): T = dispatchIntent(candidateKey, MutationOp.UPSERT) { hlc ->
+        val merged = mergeLogic(hlc)
 
-            // Policy Enforcement
-            val stamped = merged
-                .withHlc(hlc)
-                .withPhysicalTime(hlc.ts)
+        // Policy Enforcement
+        val stamped = merged
+            .withHlc(hlc)
+            .withPhysicalTime(hlc.ts)
 
-            saveAction(stamped)
-            stamped
-        }
+        saveAction(stamped)
+        stamped
     }
+
 
     /**
      * Recording soft deletion.
@@ -140,10 +141,8 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     protected suspend fun persistDelete(
         candidateKey: String,
         deleteAction: suspend (newHlc: HLC) -> Int
-    ): Int {
-        return dispatchIntent(candidateKey, MutationOp.DELETE) { hlc ->
-            deleteAction(hlc)
-        }
+    ): Int = dispatchIntent(candidateKey, MutationOp.DELETE) { hlc ->
+        deleteAction(hlc)
     }
 
     // -----------------------------------------------------------

@@ -4,7 +4,7 @@ import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Upsert
 import com.mochame.app.infrastructure.sync.HLC
-import com.mochame.app.domain.sync.utils.SyncStatus
+import com.mochame.app.domain.system.sync.utils.SyncStatus
 import com.mochame.app.data.local.room.entity.MutationEntryEntity
 import kotlinx.coroutines.flow.Flow
 

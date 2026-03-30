@@ -1,40 +1,44 @@
 package com.mochame.app.di.modules
 
-import com.mochame.app.data.local.SQLiteExecutionPolicy
-import com.mochame.app.infrastructure.utils.DateTimeUtils
+import com.mochame.app.data.local.GlobalExecutionPolicy
+import com.mochame.app.data.local.room.MochaDatabase
+import com.mochame.app.data.local.room.RoomImmediateTransProvider
 import com.mochame.app.data.local.room.RoomMetadataStore
 import com.mochame.app.data.local.room.RoomMutationLedger
-import com.mochame.app.data.local.room.RoomImmediateTransProvider
-import com.mochame.app.infrastructure.sync.HlcFactory
-import com.mochame.app.infrastructure.logging.LogTags
+import com.mochame.app.data.local.room.RoomSettingsStore
 import com.mochame.app.data.repository.bio.RoomBioRepository
 import com.mochame.app.data.repository.resonance.RoomResonanceRepository
 import com.mochame.app.data.repository.telemetry.RoomTelemetryRepository
 import com.mochame.app.data.repository.telemetry.bridge.AnalyticsBridge
 import com.mochame.app.data.repository.telemetry.bridge.ContextBridge
 import com.mochame.app.data.repository.telemetry.bridge.MomentBridge
-import com.mochame.app.data.local.room.MochaDatabase
 import com.mochame.app.di.providers.DispatcherProvider
 import com.mochame.app.domain.bio.BioRepository
 import com.mochame.app.domain.signal.ResonanceRepository
-import com.mochame.app.domain.sqlite.ExecutionPolicy
-import com.mochame.app.domain.sync.MetadataStore
-import com.mochame.app.domain.sync.MetadataStoreMaintenance
-import com.mochame.app.domain.sync.MutationLedger
-import com.mochame.app.domain.sync.MutationLedgerMaintenance
-import com.mochame.app.domain.sync.TransactionProvider
-import com.mochame.app.domain.sync.SyncGateway
-import com.mochame.app.domain.sync.usecase.PruneOldEntriesUseCase
+import com.mochame.app.domain.system.settings.SettingsStore
+import com.mochame.app.domain.system.sqlite.ExecutionPolicy
+import com.mochame.app.domain.system.sync.MetadataStore
+import com.mochame.app.domain.system.sync.MetadataStoreMaintenance
+import com.mochame.app.domain.system.sync.MutationLedger
+import com.mochame.app.domain.system.sync.MutationLedgerMaintenance
+import com.mochame.app.domain.system.sync.SyncGateway
+import com.mochame.app.domain.system.sync.TransactionProvider
+import com.mochame.app.domain.system.sync.usecase.PruneOldEntriesUseCase
 import com.mochame.app.domain.telemetry.repositories.TelemetryRepository
+import com.mochame.app.infrastructure.identity.IdentityManager
+import com.mochame.app.infrastructure.logging.LogTags
+import com.mochame.app.infrastructure.sync.HlcFactory
 import com.mochame.app.infrastructure.system.boot.BootStatusManager
 import com.mochame.app.infrastructure.system.boot.BootStatusProvider
 import com.mochame.app.infrastructure.system.boot.BootStatusUpdater
-import com.mochame.app.infrastructure.identity.IdentityManager
+import com.mochame.app.infrastructure.utils.DateTimeUtils
 import com.mochame.app.orchestration.sync.SyncJanitor
 import com.mochame.app.ui.ProofOfLifeViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.sync.Mutex
 import org.koin.core.module.dsl.bind
+import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.core.parameter.parametersOf
@@ -80,12 +84,13 @@ object AppModules {
             val dispatchers = get<DispatcherProvider>()
             CoroutineScope(SupervisorJob() + dispatchers.main)
         }
+        factoryOf(::Mutex)
     }
 
     val policiesModule = module {
 
         single {
-            SQLiteExecutionPolicy(
+            GlobalExecutionPolicy(
                 logger = get { parametersOf(LogTags.Layer.DATA, LogTags.Domain.EXECUTE) }
             )
         }.bind(ExecutionPolicy::class)
@@ -137,12 +142,17 @@ object AppModules {
     }
 
     val identityModule = module {
+        singleOf(::RoomSettingsStore) {
+            bind<SettingsStore>()
+        }
+
         single { get<MochaDatabase>().settingsDao() }
+
         single {
             IdentityManager(
-                settingsDao = get(),
+                settingsStore = get(),
+                dispatcherProvider = get(),
                 logger = get { parametersOf(LogTags.Domain.SYNC, LogTags.Layer.BOOT) },
-                dispatcherProvider = get()
             )
         }
     }
@@ -180,7 +190,8 @@ object AppModules {
                 metadataStore = get(),
                 ledgerStore = get(),
                 pruneUseCase = get(),
-                executor = get()
+                executor = get(),
+                mutex = get()
             )
         }
     }

@@ -1,4 +1,4 @@
-package com.mochame.app.domain.sync.utils
+package com.mochame.app.domain.system.sync.utils
 
 enum class SyncStatus(val id: Int) {
     /** * Metadata: Everything is in sync. No work to do.

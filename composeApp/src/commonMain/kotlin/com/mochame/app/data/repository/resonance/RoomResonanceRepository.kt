@@ -4,7 +4,7 @@ import com.mochame.app.data.mappers.toDomain
 import com.mochame.app.data.mappers.toEntity
 import com.mochame.app.data.local.room.dao.ResonanceDao
 import com.mochame.app.data.local.room.entity.QuoteEntity
-import com.mochame.app.domain.exceptions.MochaException
+import com.mochame.app.domain.system.exceptions.MochaException
 import com.mochame.app.domain.signal.Author
 import com.mochame.app.domain.signal.Book
 import com.mochame.app.domain.signal.Quote

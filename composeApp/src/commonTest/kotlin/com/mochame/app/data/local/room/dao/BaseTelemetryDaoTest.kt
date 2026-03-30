@@ -1,4 +1,4 @@
-package com.mochame.app.data.local.room
+package com.mochame.app.data.local.room.dao
 //
 //import app.cash.turbine.test
 //import com.mochame.app.database.dao.sync.SyncTombstoneDao

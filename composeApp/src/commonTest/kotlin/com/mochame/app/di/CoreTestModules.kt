@@ -6,15 +6,18 @@ import co.touchlab.kermit.Logger
 import co.touchlab.kermit.Severity
 import co.touchlab.kermit.StaticConfig
 import co.touchlab.kermit.TestLogWriter
+import com.mochame.app.data.local.room.FakeSettingsStore
+import com.mochame.app.domain.system.settings.SettingsStore
 import com.mochame.app.infrastructure.logging.CleanLogWriter
 import com.mochame.app.infrastructure.utils.DateTimeUtils
-import com.mochame.app.utils.FakeDateTimeUtils
+import com.mochame.app.infrastructure.fakeutils.FakeDateTimeUtils
 import com.mochame.app.infrastructure.sync.HlcFactory
-import com.mochame.app.domain.sync.MetadataStoreMaintenance
-import com.mochame.app.domain.sync.MutationLedgerMaintenance
-import com.mochame.app.domain.sync.TransactionProvider
+import com.mochame.app.domain.system.sync.MetadataStoreMaintenance
+import com.mochame.app.domain.system.sync.MutationLedgerMaintenance
+import com.mochame.app.domain.system.sync.TransactionProvider
 import com.mochame.app.orchestration.sync.SyncJanitor
 import com.mochame.app.infrastructure.system.boot.BootStatusProvider
+import kotlinx.coroutines.sync.Mutex
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
@@ -29,11 +32,16 @@ object TestTag {
 
 object CoreTestModules {
     // -----------------------------------------------------------
-    // UTILS
+    // FAKES
     // -----------------------------------------------------------
     val fakeDateTimeUtilsModule = module {
         single<FakeDateTimeUtils> { FakeDateTimeUtils() }
         single<DateTimeUtils> { get<FakeDateTimeUtils>() }
+    }
+
+    val fakeSettingsStore = module {
+        single<FakeSettingsStore> { FakeSettingsStore() }
+        single<SettingsStore> { get<FakeSettingsStore>() }
     }
 
     @OptIn(ExperimentalKermitApi::class)
@@ -64,6 +72,9 @@ object CoreTestModules {
             fakeDateTimeUtilsModule
         )
 
+        single<Mutex>(named("JanitorMutex")) {
+            Mutex()
+        }
         singleOf(::JanitorTestEnvironment)
     }
 

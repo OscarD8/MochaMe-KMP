@@ -2,8 +2,7 @@ package com.mochame.app.data.local
 
 import androidx.sqlite.SQLiteException
 import co.touchlab.kermit.Logger
-import com.mochame.app.domain.exceptions.MochaException
-import com.mochame.app.domain.sqlite.ExecutionPolicy
+import com.mochame.app.domain.system.sqlite.ExecutionPolicy
 import com.mochame.app.infrastructure.utils.withTimer
 import kotlinx.coroutines.delay
 import kotlin.coroutines.cancellation.CancellationException
@@ -14,7 +13,7 @@ import kotlin.time.TimeSource
 /**
  * Execution policy for the local database.
  */
-class SQLiteExecutionPolicy(
+class GlobalExecutionPolicy(
     private val logger: Logger
 ) : ExecutionPolicy {
 
@@ -41,8 +40,7 @@ class SQLiteExecutionPolicy(
 
                 if (e is SQLiteException && e.isVaultLocked()) {
                     if (attempt == 0) logger.w {
-                        "Database busy, initiating retry loop"
-                            .withTimer(mark)
+                        "Database busy, initiating retry loop".withTimer(mark)
                     }
 
                     val jitter = Random.nextLong(0, currentDelay / 2)
@@ -58,25 +56,12 @@ class SQLiteExecutionPolicy(
         return try {
             block()
         } catch (e: Exception) {
-            if (e is CancellationException) throw e
+            val mochaError = e.toMochaException()
 
-            logger.e(e) { "Exhausted $MAX_ATTEMPTS retries. Terminal failure.".withTimer(mark) }
-            throw mapToMochaException(e)
-        }
-    }
-
-    private fun mapToMochaException(e: Exception): MochaException {
-        if (e is MochaException) return e
-
-        val msg = e.message?.uppercase() ?: ""
-
-        return when {
-            msg.contains("FULL") -> MochaException.Persistent.DiskFull(e)
-            msg.contains("CORRUPT") -> MochaException.Persistent.CorruptionDetected("Vault Integrity")
-
-            e.isVaultLocked() -> MochaException.Transient.VaultBusy(e)
-
-            else -> MochaException.Persistent.VaultFatal("Storage Failure", e)
+            logger.e(e) { "Exhausted $MAX_ATTEMPTS retries".withTimer(mark) +
+                    " | ${mochaError.message}"
+            }
+            throw mochaError
         }
     }
 }

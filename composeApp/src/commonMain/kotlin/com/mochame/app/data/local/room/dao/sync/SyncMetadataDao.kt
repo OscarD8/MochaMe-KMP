@@ -5,7 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Upsert
-import com.mochame.app.domain.sync.utils.SyncStatus
+import com.mochame.app.domain.system.sync.utils.SyncStatus
 import com.mochame.app.data.local.room.entity.SyncMetadataEntity
 
 @Dao

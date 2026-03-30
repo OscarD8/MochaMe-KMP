@@ -1,4 +1,4 @@
-package com.mochame.app.domain.sync.utils
+package com.mochame.app.domain.system.sync.utils
 
 enum class MochaModule(val tag: String) {
     BIO("bio"),

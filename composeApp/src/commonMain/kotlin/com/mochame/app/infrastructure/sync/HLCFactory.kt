@@ -1,7 +1,7 @@
 package com.mochame.app.infrastructure.sync
 
 import co.touchlab.kermit.Logger
-import com.mochame.app.domain.exceptions.MochaException
+import com.mochame.app.domain.system.exceptions.MochaException
 import com.mochame.app.infrastructure.logging.appendTag
 import com.mochame.app.infrastructure.utils.DateTimeUtils
 import kotlinx.coroutines.yield

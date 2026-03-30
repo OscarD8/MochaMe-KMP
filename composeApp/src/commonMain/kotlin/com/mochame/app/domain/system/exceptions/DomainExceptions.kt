@@ -1,4 +1,4 @@
-package com.mochame.app.domain.exceptions
+package com.mochame.app.domain.system.exceptions
 
 import androidx.sqlite.SQLiteException
 import kotlin.coroutines.cancellation.CancellationException

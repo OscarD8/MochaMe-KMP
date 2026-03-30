@@ -3,12 +3,12 @@ package com.mochame.app.orchestration.sync
 import co.touchlab.kermit.Logger
 import com.mochame.app.data.local.toMochaException
 import com.mochame.app.di.providers.DispatcherProvider
-import com.mochame.app.domain.exceptions.MochaException
-import com.mochame.app.domain.sqlite.ExecutionPolicy
-import com.mochame.app.domain.sync.MetadataStoreMaintenance
-import com.mochame.app.domain.sync.MutationLedgerMaintenance
-import com.mochame.app.domain.sync.TransactionProvider
-import com.mochame.app.domain.sync.usecase.PruneOldEntriesUseCase
+import com.mochame.app.domain.system.exceptions.MochaException
+import com.mochame.app.domain.system.sqlite.ExecutionPolicy
+import com.mochame.app.domain.system.sync.MetadataStoreMaintenance
+import com.mochame.app.domain.system.sync.MutationLedgerMaintenance
+import com.mochame.app.domain.system.sync.TransactionProvider
+import com.mochame.app.domain.system.sync.usecase.PruneOldEntriesUseCase
 import com.mochame.app.infrastructure.identity.IdentityManager
 import com.mochame.app.infrastructure.logging.appendTag
 import com.mochame.app.infrastructure.sync.HlcFactory
@@ -34,6 +34,7 @@ class SyncJanitor(
     private val appScope: CoroutineScope,
     private val hlcFactory: HlcFactory,
     private val executor: ExecutionPolicy,
+    private val mutex: Mutex,
     logger: Logger
 ) {
     companion object {
@@ -41,7 +42,6 @@ class SyncJanitor(
     }
 
     private val logger = logger.appendTag(TAG)
-    private val mutex = Mutex()
 
     /**
      * The single entry point for app initialization.
@@ -64,7 +64,7 @@ class SyncJanitor(
 
                 if (locked == null) {
                     handleBootFailure(MochaException.Transient.VaultBusy())
-                    logger.w { "Boot stalled: Locked out." }
+                    logger.w { "Boot stalled: Janitor lock out." }
                 }
 
             } catch (e: Exception) {
@@ -97,7 +97,7 @@ class SyncJanitor(
     private suspend fun metadataMaintenance() = withContext(NonCancellable) {
         val mark = TimeSource.Monotonic.markNow()
 
-        executor.execute() {
+        executor.execute {
             transactor.runImmediateTransaction {
 
                 metadataStore.ensureSeeded().takeIf { it > 0 }?.let {

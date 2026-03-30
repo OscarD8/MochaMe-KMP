@@ -1,4 +1,4 @@
-package com.mochame.app.domain.sync.model
+package com.mochame.app.domain.system.sync.model
 
 import com.mochame.app.infrastructure.sync.HLC
 

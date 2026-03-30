@@ -1,4 +1,4 @@
-package com.mochame.app.domain.sync
+package com.mochame.app.domain.system.sync
 
 // domain/sync
 interface SyncGateway<T> {

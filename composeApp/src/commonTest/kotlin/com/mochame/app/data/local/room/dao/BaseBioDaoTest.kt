@@ -1,9 +1,9 @@
-package com.mochame.app.data.local.room
+package com.mochame.app.data.local.room.dao
 
 import app.cash.turbine.test
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.TestLogWriter
-import com.mochame.app.data.local.room.dao.BioDao
+import com.mochame.app.data.local.room.MochaDatabase
 import com.mochame.app.data.local.room.entity.DailyContextEntity
 import com.mochame.app.di.CoreTestModules
 import com.mochame.app.di.modules.AppModules

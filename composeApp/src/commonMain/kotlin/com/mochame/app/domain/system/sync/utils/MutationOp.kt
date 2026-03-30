@@ -1,4 +1,4 @@
-package com.mochame.app.domain.sync.utils
+package com.mochame.app.domain.system.sync.utils
 
 enum class MutationOp(val id: Int) {
     UPSERT(0),

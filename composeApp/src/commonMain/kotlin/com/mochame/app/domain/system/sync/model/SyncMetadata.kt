@@ -1,7 +1,7 @@
-package com.mochame.app.domain.sync.model
+package com.mochame.app.domain.system.sync.model
 
-import com.mochame.app.domain.sync.utils.MochaModule
-import com.mochame.app.domain.sync.utils.SyncStatus
+import com.mochame.app.domain.system.sync.utils.MochaModule
+import com.mochame.app.domain.system.sync.utils.SyncStatus
 
 data class SyncMetadata(
     val module: MochaModule,

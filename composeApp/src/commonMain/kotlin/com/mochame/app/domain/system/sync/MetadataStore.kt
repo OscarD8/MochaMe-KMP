@@ -1,7 +1,6 @@
-package com.mochame.app.domain.sync
+package com.mochame.app.domain.system.sync
 
-import com.mochame.app.data.local.room.entity.SyncMetadataEntity
-import com.mochame.app.domain.sync.utils.MochaModule
+import com.mochame.app.domain.system.sync.utils.MochaModule
 import com.mochame.app.infrastructure.sync.HLC
 
 interface MetadataStore {

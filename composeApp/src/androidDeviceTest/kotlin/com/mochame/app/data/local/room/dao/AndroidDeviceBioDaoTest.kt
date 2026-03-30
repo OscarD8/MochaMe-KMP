@@ -2,7 +2,6 @@ package com.mochame.app.data.local.room.dao
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import co.touchlab.kermit.ExperimentalKermitApi
-import com.mochame.app.data.local.room.BaseBioDaoTest
 import com.mochame.app.di.AndroidDeviceTestModules
 import com.mochame.app.di.CoreTestModules.testLoggingModule
 import com.mochame.app.di.TestTag

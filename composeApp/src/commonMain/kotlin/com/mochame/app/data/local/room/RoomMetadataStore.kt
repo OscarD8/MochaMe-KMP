@@ -2,10 +2,10 @@ package com.mochame.app.data.local.room
 
 import com.mochame.app.data.local.room.dao.sync.SyncMetadataDao
 import com.mochame.app.data.local.room.entity.SyncMetadataEntity
-import com.mochame.app.domain.sync.utils.SyncStatus
-import com.mochame.app.domain.sync.MetadataStore
-import com.mochame.app.domain.sync.MetadataStoreMaintenance
-import com.mochame.app.domain.sync.utils.MochaModule
+import com.mochame.app.domain.system.sync.utils.SyncStatus
+import com.mochame.app.domain.system.sync.MetadataStore
+import com.mochame.app.domain.system.sync.MetadataStoreMaintenance
+import com.mochame.app.domain.system.sync.utils.MochaModule
 import com.mochame.app.infrastructure.sync.HLC
 
 class RoomMetadataStore(private val dao: SyncMetadataDao)
