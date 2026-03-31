@@ -8,11 +8,14 @@ import com.mochame.app.di.modules.AppModules
 import com.mochame.app.domain.exceptions.MochaException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
@@ -297,26 +300,44 @@ class HlcFactoryTest : KoinTest {
         )
     }
 
+    @Test
+    fun testSingleStep() = runTest {
+        var count = 0
+        val job = launch {
+            while(isActive) {
+                count++
+                yield() // The "infinite" pinger
+            }
+        }
+
+        // Instead of runCurrent(), which hangs...
+        yield()
+        // Now count is 1. The test yielded, the loop ran once, then it yielded back to the test.
+        assertEquals(1, count)
+
+        yield()
+        // Now count is 2.
+        assertEquals(2, count)
+
+        job.cancel()
+    }
+
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun should_yield_and_retry_when_counter_is_exhausted() = runTestWrapper { scope ->
-        // Arrange: Hit the counter limit
+        // Arrange: Hit the counter limit at a certain time
         val initialTime = 1740787200000L
         fakeClock.setTime(initialTime)
-        factory.hydrate(null, "node-1")
-
-        repeat(MAX_COUNTER) {
-            factory.getNextHlc()
-        }
-        // Now the internal state is 1740787200000:65535. One more call = Exhaustion.
+        val currentCount = 65535
+        val initialHlc = "$initialTime:$currentCount:node-1"
+        factory.hydrate(initialHlc, "node-1")
 
         // Act: Launch a coroutine to make the 65,536th call
         var capturedHlc: HLC? = null
-        val stallingJob = scope.launch(Dispatchers.IO) {
+        val stallingJob = scope.launch {
             capturedHlc = factory.getNextHlc()
         }
         // -- Give it a moment to hit the 'synchronized' block and then the 'yield()'
-        scope.runCurrent()
 
         // Assert: The job should be suspended (Case C)
         assertNull(capturedHlc, "Factory should have yielded, but it returned an HLC!")
@@ -331,7 +352,9 @@ class HlcFactoryTest : KoinTest {
         val exhaustionLog = writer.logs.any { it.message.contains("Counter Exhausted") }
         assertTrue(exhaustionLog, "Should have logged a warning about exhaustion")
         val yieldLog = writer.logs.any { it.message.contains("Yield") }
+        val yieldCount = writer.logs.count { it.message.contains("Yield") }
         assertTrue(yieldLog, "Should have logged a yield.")
+        assertEquals(1, yieldCount, "Should have yielded once.")
 
 
         assertNotNull(capturedHlc)

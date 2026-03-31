@@ -195,7 +195,7 @@ class HlcFactory(
                 val finalCounter = if (finalTs == history.ts) history.count else 0
 
                 val newHlc = HLC(finalTs, finalCounter, currentNodeId)
-                hlcLog.i { "Successfully reconciled new HLC: [$newHlc] from [$history]." }
+                hlcLog.i { "Successfully reconciled new HLC: [$newHlc] with incoming [$history]." }
                 newHlc
             }
         }
