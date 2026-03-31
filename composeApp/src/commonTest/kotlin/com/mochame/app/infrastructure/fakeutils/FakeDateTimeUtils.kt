@@ -9,5 +9,5 @@ class FakeDateTimeUtils(initialMillis: Long = 1740787200000L) : DateTimeUtils() 
     fun advanceTime(ms: Long) { currentTime += ms }
     fun setTime(ms: Long) { currentTime = ms }
 
-    override fun now(): Instant = Instant.Companion.fromEpochMilliseconds(currentTime)
+    override fun now(): Instant = Instant.fromEpochMilliseconds(currentTime)
 }

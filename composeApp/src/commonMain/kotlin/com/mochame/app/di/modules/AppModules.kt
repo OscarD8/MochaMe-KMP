@@ -84,7 +84,6 @@ object AppModules {
             val dispatchers = get<DispatcherProvider>()
             CoroutineScope(SupervisorJob() + dispatchers.main)
         }
-        factoryOf(::Mutex)
     }
 
     val policiesModule = module {
@@ -174,6 +173,8 @@ object AppModules {
     }
 
     val janitorModule = module {
+        single(named("JanitorMutex")) { Mutex() }
+
         single<SyncJanitor> {
             val scope: CoroutineScope = get(named("AppScope"))
 
@@ -191,7 +192,7 @@ object AppModules {
                 ledgerStore = get(),
                 pruneUseCase = get(),
                 executor = get(),
-                mutex = get()
+                mutex = get(named("JanitorMutex"))
             )
         }
     }

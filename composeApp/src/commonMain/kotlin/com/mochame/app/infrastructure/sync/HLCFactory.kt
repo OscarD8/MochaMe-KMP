@@ -1,7 +1,7 @@
 package com.mochame.app.infrastructure.sync
 
 import co.touchlab.kermit.Logger
-import com.mochame.app.domain.system.exceptions.MochaException
+import com.mochame.app.domain.exceptions.MochaException
 import com.mochame.app.infrastructure.logging.appendTag
 import com.mochame.app.infrastructure.utils.DateTimeUtils
 import kotlinx.coroutines.yield
@@ -20,11 +20,18 @@ data class HLC(
     val ts: Long,      // Physical wall-clock time
     val count: Int,     // Logical counter for same-ms events
     val nodeId: String,  // Unique device ID (prevents collisions)
-) {
+) : Comparable<HLC> {
     /**
      * Converts the HLC to its sortable string representation.
      */
     override fun toString(): String = "$ts:$count:$nodeId"
+
+    override fun compareTo(other: HLC): Int {
+        return compareBy<HLC> { it.ts }
+            .thenBy { it.count }
+            .thenBy { it.nodeId }
+            .compare(this, other)
+    }
 
     companion object {
         /**
@@ -48,6 +55,9 @@ data class HLC(
             return HLC(ts, count, nodeId)
         }
 
+        /**
+         * Necessary as a DailyContext state comes down from the UI layer.
+         */
         val EMPTY = HLC(0, 0, "init")
     }
 }
@@ -62,55 +72,42 @@ class HlcFactory(
     companion object {
         private const val TAG = "HLC"
     }
+
     private val hlcLog = logger.appendTag(TAG)
 
     @Volatile
     private var nodeId: String? = null
+
     @Volatile
     private var lastHlc: HLC? = null
+
     @Volatile
     private var isHydrated = false
 
-    private val MIN_VALID_TIME = 1740787200000L // March 2026
+    private val APP_RELEASE_MS = 1740787200000L // March 2026
+    private val ONE_DAY_MS = 86_400_000L
     private val MAX_COUNTER = 65535             // 16-bit limit
+
 
     fun hydrate(lastKnownHlc: String?, currentNodeId: String): HLC =
         synchronized(this) {
-            if (isHydrated) return@synchronized lastHlc!!
+            if (isHydrated) {
+                hlcLog.w { "An attempt was made to rehydrate the HLC from $lastHlc to $lastKnownHlc." }
+                return@synchronized lastHlc!!
+            }
 
             val wallClock = dateTimeUtils.now().toEpochMilliseconds()
 
-            // 1. Guard against hardware clock resets
-            if (wallClock < MIN_VALID_TIME) {
-                val drift = MIN_VALID_TIME - wallClock
-                hlcLog.e { "Clock Skew: System time ($wallClock) is $drift ms behind floor ($MIN_VALID_TIME)" }
-                throw MochaException.Persistent.ClockSkew(drift)
-            }
+            val history = lastKnownHlc?.let { HLC.parse(lastKnownHlc) }
 
-            // 2. Sanitize DB history
-            val history = lastKnownHlc?.let { HLC.parse(lastKnownHlc ) }
-
-            // 3. Reconcile
-            val initialHlc = when {
-                history == null -> {
-                    hlcLog.i { "Hydration: New Install detected. Starting at $wallClock" }
-                    HLC(wallClock, 0, currentNodeId)
-                }
-
-                history.ts >= wallClock -> {
-                    hlcLog.w { "Clock Catch-up: Local clock ($wallClock) is behind DB history (${history.ts}). Pinning to history." }
-                    history.copy(nodeId = currentNodeId)
-                }
-
-                else -> HLC(wallClock, 0, currentNodeId)
-            }
+            val hydrationHlc = reconcileHlc(wallClock, history, currentNodeId)
 
             this.nodeId = currentNodeId
-            this.lastHlc = initialHlc
+            this.lastHlc = hydrationHlc
             this.isHydrated = true
 
-            hlcLog.d { "HLC Initialized: $initialHlc" }
-            return initialHlc
+            hlcLog.d { "HLC Initialized: $hydrationHlc" }
+            return hydrationHlc
         }
 
     /**
@@ -130,27 +127,77 @@ class HlcFactory(
                 when {
                     // Case A: Normal forward progress
                     wallClock > last.ts -> {
+                        hlcLog.v { "Standard run. [$wallClock > ${last.ts}]."}
                         return updateAndReturn(HLC(wallClock, 0, currentId))
                     }
 
                     // Case B: Same millisecond, increment counter
                     wallClock <= last.ts && last.count < MAX_COUNTER -> {
+                        hlcLog.d { "$wallClock <= ${last.ts}. Counter increase [${last.count+1}]."}
                         return updateAndReturn(HLC(last.ts, last.count + 1, currentId))
                     }
 
-                    // Case C: Counter Exhaustion (Safety Valve)
+                    // Case C: Counter Exhaustion
                     else -> {
                         if (yieldCount == 0) {
                             hlcLog.w { "Counter Exhausted: Stalling thread at $wallClock until clock ticks. Counter at $MAX_COUNTER." }
                         }
-                        // Logic falls through to the 'yield()' below the synchronized block
                     }
                 }
             }
             // If we hit Case C, we suspend and let the clock tick.
-            // This prevents a crash during high-volume operations.
             yieldCount++
+            hlcLog.d { "Yield count at $yieldCount" }
             yield()
+        }
+    }
+
+    // --- HELPERS ---
+
+    private fun reconcileHlc(
+        wallClock: Long,
+        history: HLC?,
+        currentNodeId: String
+    ): HLC {
+        return when {
+            // Case 1: Hard Floor (e.g. System clock is set to 1970)
+            wallClock < APP_RELEASE_MS -> {
+                val drift = APP_RELEASE_MS - wallClock
+                hlcLog.e { "Clock Skew: System time ($wallClock) is $drift ms behind floor ($APP_RELEASE_MS)" }
+                throw MochaException.Persistent.ClockSkew(drift/ONE_DAY_MS)
+            }
+
+            // Case 2: New Install
+            history == null -> {
+                hlcLog.i { "Hydration: New Install detected. Starting at $wallClock" }
+                HLC(wallClock, 0, currentNodeId)
+            }
+
+            // Case 3: Poisoned History creating future drift (DB is > 24h in the future)
+            history.ts - wallClock > ONE_DAY_MS -> {
+                val drift = history.ts - wallClock
+                hlcLog.e { "Clock Skew: Incoming HLC [${history.ts}] has future drift " +
+                        "against local device clock [${wallClock}] (+ ${drift / ONE_DAY_MS}days)."
+                }
+                throw MochaException.Persistent.ClockSkew(drift/ONE_DAY_MS)
+            }
+
+            // Case 4: Take the latest known time
+            else -> {
+                if (wallClock - history.ts > (ONE_DAY_MS * 365)) {
+                    hlcLog.w {
+                        "Future Jump: Local Device [$wallClock] " +
+                                "is ${(wallClock - history.ts) / ONE_DAY_MS} days ahead of history [${history.ts}]."
+                    }
+                }
+
+                val finalTs = maxOf(wallClock, history.ts)
+                val finalCounter = if (finalTs == history.ts) history.count else 0
+
+                val newHlc = HLC(finalTs, finalCounter, currentNodeId)
+                hlcLog.i { "Successfully reconciled new HLC: [$newHlc] from [$history]." }
+                newHlc
+            }
         }
     }
 

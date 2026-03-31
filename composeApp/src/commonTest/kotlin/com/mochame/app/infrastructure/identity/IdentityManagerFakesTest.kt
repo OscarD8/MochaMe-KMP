@@ -2,27 +2,18 @@ package com.mochame.app.infrastructure.identity
 
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.TestLogWriter
-import com.mochame.app.data.local.room.FakeSettingsStore
 import com.mochame.app.di.CoreTestModules
-import com.mochame.app.di.TestDispatcherProvider
 import com.mochame.app.di.TestTag
 import com.mochame.app.di.modules.AppModules
-import com.mochame.app.di.providers.DispatcherProvider
 import com.mochame.app.utils.establishTestScope
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
-import org.koin.core.context.loadKoinModules
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
-import org.koin.core.qualifier.named
-import org.koin.dsl.module
 import org.koin.test.KoinTest
 import org.koin.test.inject
-import kotlin.coroutines.ContinuationInterceptor
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -36,7 +27,7 @@ class IdentityManagerFakesTest : KoinTest {
     // -----------------------------------------------------------
     private val testModules = listOf(
         AppModules.identityModule,
-        CoreTestModules.fakeSettingsStore,
+        CoreTestModules.fakeLatentSettingsStore,
         CoreTestModules.testLoggingModule(TestTag.CORE),
     )
 
@@ -80,7 +71,7 @@ class IdentityManagerFakesTest : KoinTest {
     // CONCURRENCY
     // -----------------------------------------------------------
 
-    // This test is only valid if you add yields to the fake.
+    // This test is only valid if  yields are added to the fake.
     @Test
     fun should_provoke_race_condition_returning_multiple_node_ids() =
         runTestWrapper { manager, writer ->

@@ -1,7 +1,4 @@
-package com.mochame.app.domain.system.exceptions
-
-import androidx.sqlite.SQLiteException
-import kotlin.coroutines.cancellation.CancellationException
+package com.mochame.app.domain.exceptions
 
 /**
  * The single source of truth for all application failures.
@@ -38,9 +35,9 @@ sealed class MochaException(
         class CorruptionDetected(message: String) : Persistent(message)
 
         class ClockSkew(
-            val driftMs: Long,
+            val driftDisplay: Long,
             cause: Throwable? = null
-        ) : Persistent("System clock is out of sync by ${driftMs}ms", cause)
+        ) : Persistent("System clock is out of sync by $driftDisplay days", cause)
 
         class SyncInitializationException(
             message: String,

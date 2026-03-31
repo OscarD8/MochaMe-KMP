@@ -8,7 +8,7 @@ import com.mochame.app.data.local.room.dao.BioDao
 import com.mochame.app.data.local.room.entity.DailyContextEntity
 import com.mochame.app.domain.bio.BioRepository
 import com.mochame.app.domain.bio.DailyContext
-import com.mochame.app.domain.system.exceptions.MochaException
+import com.mochame.app.domain.exceptions.MochaException
 import com.mochame.app.domain.system.sqlite.ExecutionPolicy
 import com.mochame.app.domain.system.sync.MetadataStore
 import com.mochame.app.domain.system.sync.MutationLedger

@@ -3,13 +3,17 @@ package com.mochame.app.infrastructure.logging
 import co.touchlab.kermit.LogWriter
 import co.touchlab.kermit.Severity
 
-class CleanLogWriter : LogWriter() {
+class CleanLogWriter(
+    private val minSeverity: Severity = Severity.Verbose
+) : LogWriter() {
     override fun log(
         severity: Severity,
         message: String,
         tag: String,
         throwable: Throwable?
     ) {
+        if (severity.ordinal < minSeverity.ordinal) return
+
         val now = System.currentTimeMillis()
         val timeStr = formatTime(now)
 

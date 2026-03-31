@@ -4,7 +4,7 @@ import com.benasher44.uuid.uuid4
 import com.mochame.app.data.local.room.dao.TelemetryDao
 import com.mochame.app.data.mappers.toDomain
 import com.mochame.app.data.mappers.toEntity
-import com.mochame.app.domain.system.exceptions.MochaException
+import com.mochame.app.domain.exceptions.MochaException
 import com.mochame.app.domain.telemetry.Domain
 import com.mochame.app.domain.telemetry.Space
 import com.mochame.app.domain.telemetry.Topic

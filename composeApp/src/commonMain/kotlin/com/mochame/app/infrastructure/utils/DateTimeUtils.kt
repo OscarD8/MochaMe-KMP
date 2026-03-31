@@ -31,7 +31,7 @@ open class DateTimeUtils {
      * the moment belongs to.
      */
     fun calculateMochaEpochDay(instant: Instant): Long {
-        val timeZone = TimeZone.Companion.currentSystemDefault()
+        val timeZone = TimeZone.currentSystemDefault()
         // Using the more idiomatic .minus(duration) from Kotlin 1.9+
         val biologicalInstant = instant.minus(4.hours)
         return biologicalInstant.toLocalDateTime(timeZone).date.toEpochDays()

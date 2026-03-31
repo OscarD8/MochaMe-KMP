@@ -1,7 +1,7 @@
 package com.mochame.app.data.local
 
 import androidx.sqlite.SQLiteException
-import com.mochame.app.domain.system.exceptions.MochaException
+import com.mochame.app.domain.exceptions.MochaException
 import kotlin.coroutines.cancellation.CancellationException
 
 

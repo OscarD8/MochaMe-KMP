@@ -3,7 +3,7 @@ package com.mochame.app.orchestration.sync
 import co.touchlab.kermit.Logger
 import com.mochame.app.data.local.toMochaException
 import com.mochame.app.di.providers.DispatcherProvider
-import com.mochame.app.domain.system.exceptions.MochaException
+import com.mochame.app.domain.exceptions.MochaException
 import com.mochame.app.domain.system.sqlite.ExecutionPolicy
 import com.mochame.app.domain.system.sync.MetadataStoreMaintenance
 import com.mochame.app.domain.system.sync.MutationLedgerMaintenance
@@ -15,11 +15,11 @@ import com.mochame.app.infrastructure.sync.HlcFactory
 import com.mochame.app.infrastructure.system.boot.BootState
 import com.mochame.app.infrastructure.system.boot.BootStatusUpdater
 import com.mochame.app.infrastructure.utils.withTimer
-import com.mochame.app.infrastructure.utils.withTryLock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlin.time.TimeSource
 
@@ -49,7 +49,7 @@ class SyncJanitor(
     fun startupChecks() {
         appScope.launch(dispatcherProvider.io) {
             try {
-                val locked = mutex.withTryLock {
+                mutex.withLock {
                     if (!isValidBootState()) return@launch
 
                     logger.i { "Initiating boot sequence..." }
@@ -59,12 +59,7 @@ class SyncJanitor(
 
                     initHydration()
 
-                    logger.i { "Hydration: success." }
-                }
-
-                if (locked == null) {
-                    handleBootFailure(MochaException.Transient.VaultBusy())
-                    logger.w { "Boot stalled: Janitor lock out." }
+                    logger.i { "Hydration: HLCFactory is hydrated." }
                 }
 
             } catch (e: Exception) {
@@ -86,7 +81,7 @@ class SyncJanitor(
         val lastHlc = metadataStore.getGlobalMaxHlc()
         val nodeId = identityManager.getOrCreateNodeId()
 
-        logger.i { "Hydrating HLC Factory | Last Known HLC: ${lastHlc ?: "NONE"} | NodeID: $nodeId" }
+        logger.i { "Hydrating HLC Factory | Last Known Local HLC: ${lastHlc ?: "NONE"} | NodeID: $nodeId" }
 
         hlcFactory.hydrate(lastHlc, nodeId)
     }
