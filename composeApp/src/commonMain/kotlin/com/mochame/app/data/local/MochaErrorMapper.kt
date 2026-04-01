@@ -2,11 +2,19 @@ package com.mochame.app.data.local
 
 import androidx.sqlite.SQLiteException
 import com.mochame.app.domain.exceptions.MochaException
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlin.coroutines.cancellation.CancellationException
 
 
 fun Throwable.toMochaException(): MochaException {
     if (this is Error) throw this
+
+    if (this is TimeoutCancellationException) {
+        return MochaException.Transient.Contention(
+            message = message ?: "Operation timed out. Possible lockout.",
+            cause = this
+        )
+    }
 
     if (this is CancellationException) throw this
 
@@ -36,8 +44,8 @@ fun Throwable.isVaultLocked(): Boolean {
     val msg = this.message?.uppercase() ?: ""
     return this is SQLiteException && (
             msg.contains("BUSY") ||
-            msg.contains("LOCKED") ||
-            msg.contains("CODE 5") || // SQLITE_BUSY
-            msg.contains("CODE 6")    // SQLITE_LOCKED
-    )
+                    msg.contains("LOCKED") ||
+                    msg.contains("CODE 5") || // SQLITE_BUSY
+                    msg.contains("CODE 6")    // SQLITE_LOCKED
+            )
 }

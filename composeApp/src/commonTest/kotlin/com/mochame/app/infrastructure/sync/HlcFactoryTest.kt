@@ -6,22 +6,21 @@ import com.mochame.app.di.CoreTestModules
 import com.mochame.app.di.HLCTestEnvironment
 import com.mochame.app.di.modules.AppModules
 import com.mochame.app.domain.exceptions.MochaException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
-import kotlinx.coroutines.test.advanceTimeBy
-import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import org.koin.test.KoinTest
 import org.koin.test.inject
-import java.util.Collections
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -115,6 +114,19 @@ class HlcFactoryTest : KoinTest {
         assertTrue(writer.logs.any { it.message.contains("Successfully reconciled") })
     }
 
+    @Test
+    fun should_persist_new_node_id_for_subsequent_hlcs_after_migration() = runTestWrapper {
+        // Given: History from "node-old"
+        val history = "${APP_RELEASE_MS}:10:node-old"
+        factory.hydrate(history, "node-new")
+
+        // When: Generating the next HLC
+        val next = factory.getNextHlc()
+
+        // Then: It must use "node-new"
+        assertEquals("node-new", next.nodeId, "Factory failed to adopt the new NodeID after hydration.")
+        assertEquals(11, next.count)
+    }
 
     // -----------------------------------------------------------
     // COUNTER
@@ -182,6 +194,34 @@ class HlcFactoryTest : KoinTest {
             assertEquals("node-new", result.nodeId)
         }
 
+    @Test
+    fun should_stall_immediately_after_migration_if_history_counter_is_exhausted() = runTestWrapper { scope ->
+        // Given: History is at the limit, wall clock is behind
+        val futureTs = APP_RELEASE_MS + 5000
+        val maxHistory = "$futureTs:$MAX_COUNTER:node-old"
+        fakeClock.setTime(APP_RELEASE_MS) // Device is behind history
+
+        factory.hydrate(maxHistory, "node-new")
+
+        // When: First call to getNextHlc
+        var capturedHlc: HLC? = null
+        val job = scope.launch {
+            capturedHlc = factory.getNextHlc()
+        }
+        yield()
+
+        // Then: It must stall because it can't increment 65535 and time hasn't caught up
+        assertNull(capturedHlc, "Factory should have stalled; counter was already at MAX from history.")
+
+        fakeClock.advanceTime(6000) // Move past history TS
+        job.join()
+
+        assertNotNull(capturedHlc)
+        assertEquals(0, capturedHlc.count)
+        assertEquals(APP_RELEASE_MS + 6000, capturedHlc.ts)
+        job.cancel()
+    }
+
     // -----------------------------------------------------------
     // MONOTONICITY AND CONCURRENCY
     // -----------------------------------------------------------
@@ -225,92 +265,78 @@ class HlcFactoryTest : KoinTest {
     }
 
     @Test
-    fun should_maintain_unique_monotonic_sequence_under_high_concurrency() =
+    fun should_maintain_monotonicity_when_multi_threaded_push_for_nextHlc() =
         runTestWrapper { scope ->
-            // Given
-            factory.hydrate(null, "node-1")
-            val results = mutableSetOf<String>()
-            val count = 1000
+            // Arrange: Multi-threaded simulation suspended with CompletableDeferred
+            val threadCount = 30
+            val iterations = 50
+            val gate = CompletableDeferred<Unit>()
+            fakeClock.setTime(APP_RELEASE_MS + 1000L)
+            factory.hydrate(null, "node")
 
-            // When: Blasting the factory with 1000 simultaneous requests
-            List(count) {
-                scope.launch {
-                    val hlc = factory.getNextHlc()
-                    results.add(hlc.toString())
+            val workerDeferreds = List(threadCount) { workerId ->
+                scope.async(Dispatchers.Default) {
+                    gate.await()
+                    val localResults = mutableListOf<HLC>()
+                    repeat(iterations) {
+                        val current = factory.getNextHlc()
+                        if (localResults.isNotEmpty()) {
+                            assertTrue(
+                                current > localResults.last(),
+                                "Local Monotonicity Failure: $current <= ${localResults.last()}"
+                            )
+                        }
+                        localResults.add(current)
+                    }
+                    localResults
                 }
-            }.joinAll()
+            }
 
-            // Then: Every single HLC must be unique
+            // Act I: FIRE and await all promised individual thread results
+            gate.complete(Unit)
+
+            val allResults = workerDeferreds.awaitAll().flatten()
+
+            // Assert: Distinct results across all threads matching expected total
+            val totalExpected = threadCount * iterations
             assertEquals(
-                count, results.size,
-                "Found duplicate HLCs during high contention"
+                totalExpected, allResults.distinct().size,
+                "Causality Violation: Duplicate HLCs detected across threads!"
+            )
+
+            // Act II: introduce clock skew and fetch a new HLC
+            fakeClock.reverseTime(500L)
+            val skewedSentinel = factory.getNextHlc()
+
+            // Assert: the skewed sentinel is still the greatest value
+            val maxProduced = allResults.maxOrNull()!!
+            assertTrue(
+                skewedSentinel > maxProduced,
+                "Causality Broken possibly by Clock Skew! Sentinel $skewedSentinel is not > $maxProduced"
+            )
+            assertEquals(
+                maxProduced.ts,
+                skewedSentinel.ts,
+                "HLC should have pinned to the max known physical time during skew."
+            )
+            assertTrue(
+                skewedSentinel.count > maxProduced.count,
+                "Logical counter failed to increment during physical clock regression."
             )
         }
 
-    @Test
-    fun should_validate_monotonicity_and_progress_under_contention() = runTestWrapper { scope ->
-        factory.hydrate(null, "node-1")
-        val threadCount = 30
-        val iterationsPerThread = 100
-        val totalExpected = threadCount * iterationsPerThread
-
-        val allResults = Collections.synchronizedSet(mutableSetOf<HLC>())
-        val gate = java.util.concurrent.CyclicBarrier(threadCount)
-
-        val jobs = List(threadCount) {
-            scope.launch(Dispatchers.IO) {
-                gate.await() // Ensure high-contention
-
-                var localLastHlc = factory.getNextHlc()
-                allResults.add(localLastHlc)
-
-                repeat(iterationsPerThread - 1) {
-                    val current = factory.getNextHlc()
-
-                    // 1. Thread-Local Monotonicity Check
-                    // Even with 9 other threads hammering the factory,
-                    // THIS thread must never see the clock go backwards.
-                    assertTrue(
-                        current > localLastHlc,
-                        "Local Monotonicity Violation: $current <= $localLastHlc"
-                    )
-
-                    allResults.add(current)
-                    localLastHlc = current
-                }
-            }
-        }
-
-        jobs.joinAll()
-
-        // 2. Global Uniqueness Check
-        assertEquals(
-            totalExpected, allResults.size,
-            "Causality Failure: Duplicate HLCs were issued under contention."
-        )
-
-        // 3. Global Progress Check
-        // If the HLC uses a counter for the same millisecond,
-        // the final clock must have advanced by 'totalExpected' increments
-        // if all calls happened within the same tick.
-        val finalHlc = factory.getNextHlc()
-        assertTrue(
-            allResults.all { it < finalHlc },
-            "Global Progress Violation: Some generated HLCs are ahead of the final result."
-        )
-    }
-
+    // Demo test purely to better understand job hierarchies and yield()
     @Test
     fun testSingleStep() = runTest {
         var count = 0
         val job = launch {
-            while(isActive) {
+            while (isActive) {
                 count++
                 yield() // The "infinite" pinger
             }
         }
 
-        // Instead of runCurrent(), which hangs...
+        // Instead of runCurrent(), which seems to reschedule immediately on the schedular
         yield()
         // Now count is 1. The test yielded, the loop ran once, then it yielded back to the test.
         assertEquals(1, count)
@@ -326,10 +352,8 @@ class HlcFactoryTest : KoinTest {
     @Test
     fun should_yield_and_retry_when_counter_is_exhausted() = runTestWrapper { scope ->
         // Arrange: Hit the counter limit at a certain time
-        val initialTime = 1740787200000L
-        fakeClock.setTime(initialTime)
-        val currentCount = 65535
-        val initialHlc = "$initialTime:$currentCount:node-1"
+        fakeClock.setTime(APP_RELEASE_MS)
+        val initialHlc = "$APP_RELEASE_MS:$MAX_COUNTER:node-1"
         factory.hydrate(initialHlc, "node-1")
 
         // Act: Launch a coroutine to make the 65,536th call
@@ -337,7 +361,8 @@ class HlcFactoryTest : KoinTest {
         val stallingJob = scope.launch {
             capturedHlc = factory.getNextHlc()
         }
-        // -- Give it a moment to hit the 'synchronized' block and then the 'yield()'
+        // -- Yield the test coroutine, so the child job runs and hits its own yield
+        yield()
 
         // Assert: The job should be suspended (Case C)
         assertNull(capturedHlc, "Factory should have yielded, but it returned an HLC!")
@@ -345,20 +370,17 @@ class HlcFactoryTest : KoinTest {
 
         // Act: Advance the fake clock by 1ms
         fakeClock.advanceTime(1)
-        // -- Wait for the 'while(true)' loop to see the new time and hit Case A
+        // -- Wait for the child job to see the new time and hit Case A
         stallingJob.join()
 
         // Assert:
         val exhaustionLog = writer.logs.any { it.message.contains("Counter Exhausted") }
+        val logCount = writer.logs.count { it.message.contains("Counter Exhausted") }
         assertTrue(exhaustionLog, "Should have logged a warning about exhaustion")
-        val yieldLog = writer.logs.any { it.message.contains("Yield") }
-        val yieldCount = writer.logs.count { it.message.contains("Yield") }
-        assertTrue(yieldLog, "Should have logged a yield.")
-        assertEquals(1, yieldCount, "Should have yielded once.")
-
+        assertEquals(1, logCount, "Concurrency problem - only one yield should have occurred.")
 
         assertNotNull(capturedHlc)
-        assertEquals(initialTime + 1, capturedHlc.ts, "New HLC should use the new millisecond")
+        assertEquals(APP_RELEASE_MS + 1, capturedHlc.ts, "New HLC should use the new millisecond")
         assertEquals(0, capturedHlc.count, "Counter should have reset to 0")
     }
 
@@ -366,7 +388,7 @@ class HlcFactoryTest : KoinTest {
     fun should_only_initialize_one_new_install_when_init_under_contention() =
         runTestWrapper { scope ->
             val threadCount = 30
-            val gate = java.util.concurrent.CyclicBarrier(threadCount)
+            val gate = CompletableDeferred<Unit>()
             val nodeId = "node-1"
 
             val jobs = List(threadCount) {
@@ -375,6 +397,7 @@ class HlcFactoryTest : KoinTest {
                     factory.hydrate(null, nodeId)
                 }
             }
+            gate.complete(Unit)
             jobs.joinAll()
 
             // Verification

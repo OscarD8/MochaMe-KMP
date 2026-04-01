@@ -1,6 +1,6 @@
 package com.mochame.app.di.modules
 
-import com.mochame.app.data.local.GlobalExecutionPolicy
+import com.mochame.app.data.local.SqliteResiliencePolicy
 import com.mochame.app.data.local.room.MochaDatabase
 import com.mochame.app.data.local.room.RoomImmediateTransProvider
 import com.mochame.app.data.local.room.RoomMetadataStore
@@ -38,7 +38,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.sync.Mutex
 import org.koin.core.module.dsl.bind
-import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.core.parameter.parametersOf
@@ -89,7 +88,7 @@ object AppModules {
     val policiesModule = module {
 
         single {
-            GlobalExecutionPolicy(
+            SqliteResiliencePolicy(
                 logger = get { parametersOf(LogTags.Layer.DATA, LogTags.Domain.EXECUTE) }
             )
         }.bind(ExecutionPolicy::class)
@@ -141,6 +140,9 @@ object AppModules {
     }
 
     val identityModule = module {
+        includes(
+            policiesModule
+        )
         singleOf(::RoomSettingsStore) {
             bind<SettingsStore>()
         }
@@ -191,7 +193,6 @@ object AppModules {
                 metadataStore = get(),
                 ledgerStore = get(),
                 pruneUseCase = get(),
-                executor = get(),
                 mutex = get(named("JanitorMutex"))
             )
         }

@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import com.mochame.app.data.local.room.entity.GlobalSettingsEntity
 
 @Dao
@@ -17,6 +18,18 @@ interface SettingsDao {
 
     @Query("SELECT nodeId FROM global_settings WHERE id = 1 LIMIT 1")
     suspend fun getDeviceId(): String?
+
+    /**
+     * Atomic transaction for establishing a new node identity, or
+     * updating an existing settings config to a new identity.
+     */
+    @Transaction
+    suspend fun updateNodeId(newId: String) {
+        val existing = getGlobalSettings()
+        val updated = existing?.copy(nodeId = newId)
+            ?: GlobalSettingsEntity(id = 1, lastAppVersion = 1, nodeId = newId)
+        insert(updated)
+    }
 
     /**
      * Initialize or update the global settings.

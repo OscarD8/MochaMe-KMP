@@ -13,7 +13,7 @@ import kotlin.time.TimeSource
 /**
  * Execution policy for the local database.
  */
-class GlobalExecutionPolicy(
+class SqliteResiliencePolicy(
     private val logger: Logger
 ) : ExecutionPolicy {
 
@@ -30,8 +30,9 @@ class GlobalExecutionPolicy(
             try {
                 return block().also {
                     if (attempt > 0) {
-                        logger.i { "Recovered after ${attempt + 1} attempts"
-                            .withTimer(mark)
+                        logger.i {
+                            "Recovered after ${attempt + 1} attempts"
+                                .withTimer(mark)
                         }
                     }
                 }
@@ -58,8 +59,9 @@ class GlobalExecutionPolicy(
         } catch (e: Exception) {
             val mochaError = e.toMochaException()
 
-            logger.e(e) { "Exhausted $MAX_ATTEMPTS retries".withTimer(mark) +
-                    " | ${mochaError.message}"
+            logger.e(e) {
+                "Exhausted $MAX_ATTEMPTS retries".withTimer(mark) +
+                        " | ${mochaError.message}"
             }
             throw mochaError
         }

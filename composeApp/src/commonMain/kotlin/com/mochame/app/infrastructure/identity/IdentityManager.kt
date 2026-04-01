@@ -25,29 +25,23 @@ class IdentityManager(
      * Ensures this device has a name before the Janitor starts the clock.
      */
     suspend fun getOrCreateNodeId(): String = withContext(dispatcherProvider.io) {
-        try {
-            mutex.withLock {
-                logger.d { "Resolving Node ID..." }
+        mutex.withLock {
+            logger.d { "Resolving Node ID..." }
 
-                val existingId = settingsStore.getDeviceId()
-                if (existingId != null) {
-                    logger.d { "Existing Node ID recovered: $existingId." }
-                    return@withLock existingId
-                }
-
-                // --- New Identity Generation ---
-                val newId = uuid4().toString()
-                logger.i { "No Node ID found. Generating new identity: $newId" }
-
-                settingsStore.saveNodeId(newId)
-
-                logger.i { "New Node ID successfully persisted to settings." }
-                newId
+            val existingId = settingsStore.getDeviceId()
+            if (existingId != null) {
+                logger.d { "Existing Node ID recovered: $existingId." }
+                return@withLock existingId
             }
-        } catch (e: Exception) {
-            val mochaError = e.toMochaException()
-            logger.e(e) { "Failure during Node ID resolution. $mochaError" }
-            throw mochaError
+
+            // --- New Identity Generation ---
+            val newId = uuid4().toString()
+            logger.i { "No Node ID found. Generating new identity: $newId" }
+
+            settingsStore.saveNodeId(newId)
+
+            logger.i { "New Node ID successfully persisted to settings." }
+            newId
         }
     }
 }

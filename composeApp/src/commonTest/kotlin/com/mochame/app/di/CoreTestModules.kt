@@ -8,18 +8,27 @@ import co.touchlab.kermit.StaticConfig
 import co.touchlab.kermit.TestLogWriter
 import com.mochame.app.data.local.room.FakeLatentSettingsStore
 import com.mochame.app.data.local.room.MochaDatabase
+import com.mochame.app.data.local.room.RoomSettingsStore
+import com.mochame.app.data.local.room.dao.SettingsDao
 import com.mochame.app.data.local.room.dao.sync.SyncMetadataDao
+import com.mochame.app.di.providers.DispatcherProvider
 import com.mochame.app.domain.system.settings.SettingsStore
-import com.mochame.app.infrastructure.logging.CleanLogWriter
-import com.mochame.app.infrastructure.utils.DateTimeUtils
-import com.mochame.app.infrastructure.fakeutils.FakeDateTimeUtils
-import com.mochame.app.infrastructure.sync.HlcFactory
+import com.mochame.app.domain.system.sqlite.ExecutionPolicy
 import com.mochame.app.domain.system.sync.MetadataStoreMaintenance
 import com.mochame.app.domain.system.sync.MutationLedgerMaintenance
 import com.mochame.app.domain.system.sync.TransactionProvider
-import com.mochame.app.orchestration.sync.SyncJanitor
+import com.mochame.app.domain.system.sync.usecase.PruneOldEntriesUseCase
+import com.mochame.app.infrastructure.fakeutils.FakeDateTimeUtils
+import com.mochame.app.infrastructure.identity.IdentityManager
+import com.mochame.app.infrastructure.logging.CleanLogWriter
+import com.mochame.app.infrastructure.sync.HlcFactory
 import com.mochame.app.infrastructure.system.boot.BootStatusProvider
+import com.mochame.app.infrastructure.system.boot.BootStatusUpdater
+import com.mochame.app.infrastructure.utils.DateTimeUtils
+import com.mochame.app.orchestration.sync.SyncJanitor
+import kotlinx.coroutines.sync.Mutex
 import org.koin.core.module.dsl.singleOf
+import org.koin.core.parameter.parametersOf
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
@@ -76,7 +85,26 @@ object CoreTestModules {
             fakeDateTimeUtilsModule
         )
 
-        singleOf(::JanitorTestEnvironment)
+        single {
+            JanitorTestEnvironment(
+                janitor = get(),
+                writer = get(),
+                bootUpdater = get(),
+                hlcFactory = get(),
+                metadataStore = get(),
+                ledgerMaintenance = get(),
+                transactor = get(),
+                metadataDao = get(),
+                manager = get(),
+                settingsDao = get(),
+                settingsStore = get(),
+                executor = get(),
+                logger = get { parametersOf("Sync", "Janitor") },
+                dispatcherProvider = get(),
+                pruneUseCase = get(),
+                mutex = get<Mutex>(named("JanitorMutex"))
+            )
+        }
     }
 
     @OptIn(ExperimentalKermitApi::class)
@@ -88,6 +116,10 @@ object CoreTestModules {
         singleOf(::HLCTestEnvironment)
     }
 
+    @OptIn(ExperimentalKermitApi::class)
+    val identityTestEnvironment = module {
+        singleOf(::IdentityTestEnvironment)
+    }
 }
 
 // -----------------------------------------------------------
@@ -98,12 +130,20 @@ object CoreTestModules {
 data class JanitorTestEnvironment(
     val janitor: SyncJanitor,
     val writer: TestLogWriter,
-    val bootUpdater: BootStatusProvider,
+    val bootUpdater: BootStatusUpdater,
     val hlcFactory: HlcFactory,
     val metadataStore: MetadataStoreMaintenance,
     val ledgerMaintenance: MutationLedgerMaintenance,
     val transactor: TransactionProvider,
-    val metadataDao: SyncMetadataDao
+    val metadataDao: SyncMetadataDao,
+    val manager: IdentityManager,
+    val settingsDao: SettingsDao,
+    val settingsStore: SettingsStore,
+    val executor: ExecutionPolicy,
+    val logger: Logger,
+    val dispatcherProvider: DispatcherProvider,
+    val pruneUseCase: PruneOldEntriesUseCase,
+    val mutex: Mutex
 )
 
 @ExperimentalKermitApi
@@ -111,4 +151,15 @@ data class HLCTestEnvironment(
     val factory: HlcFactory,
     val writer: TestLogWriter,
     val fakeClock: FakeDateTimeUtils
+)
+
+@ExperimentalKermitApi
+data class IdentityTestEnvironment(
+    val manager: IdentityManager,
+    val settingsStore: SettingsStore,
+    val roomSettingsStore: RoomSettingsStore,
+    val settingsDao: SettingsDao,
+    val db: MochaDatabase,
+    val executor: ExecutionPolicy,
+    val writer: TestLogWriter
 )

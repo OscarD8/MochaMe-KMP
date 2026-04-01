@@ -4,6 +4,8 @@ import co.touchlab.kermit.Logger
 import com.mochame.app.domain.exceptions.MochaException
 import com.mochame.app.infrastructure.logging.appendTag
 import com.mochame.app.infrastructure.utils.DateTimeUtils
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.yield
 
 
@@ -75,39 +77,35 @@ class HlcFactory(
 
     private val hlcLog = logger.appendTag(TAG)
 
-    @Volatile
-    private var nodeId: String? = null
+    private data class FactoryState(
+        val lastHlc: HLC,
+        val nodeId: String,
+        val isHydrated: Boolean = true
+    )
 
-    @Volatile
-    private var lastHlc: HLC? = null
-
-    @Volatile
-    private var isHydrated = false
+    private val stateMutex = Mutex()
+    private var state: FactoryState? = null
 
     private val APP_RELEASE_MS = 1740787200000L // March 2026
     private val ONE_DAY_MS = 86_400_000L
     private val MAX_COUNTER = 65535             // 16-bit limit
 
 
-    fun hydrate(lastKnownHlc: String?, currentNodeId: String): HLC =
-        synchronized(this) {
-            if (isHydrated) {
-                hlcLog.w { "An attempt was made to rehydrate the HLC from $lastHlc to $lastKnownHlc." }
-                return@synchronized lastHlc!!
+    suspend fun hydrate(lastKnownHlc: String?, currentNodeId: String): HLC =
+        stateMutex.withLock {
+            state?.let {
+                hlcLog.w { "An attempt was made to rehydrate the HLC from ${it.lastHlc} to $lastKnownHlc." }
+                return@withLock it.lastHlc
             }
 
             val wallClock = dateTimeUtils.now().toEpochMilliseconds()
-
             val history = lastKnownHlc?.let { HLC.parse(lastKnownHlc) }
-
             val hydrationHlc = reconcileHlc(wallClock, history, currentNodeId)
 
-            this.nodeId = currentNodeId
-            this.lastHlc = hydrationHlc
-            this.isHydrated = true
+            state = FactoryState(hydrationHlc, currentNodeId)
 
             hlcLog.d { "HLC Initialized: $hydrationHlc" }
-            return hydrationHlc
+            hydrationHlc
         }
 
     /**
@@ -118,36 +116,33 @@ class HlcFactory(
         var yieldCount = 0
         // We use a loop to handle the rare Case C: Counter Overflow
         while (true) {
-            synchronized(this) {
+            val result = stateMutex.withLock {
+                val currentState = state ?: throw MochaException.Policy.CausalityViolation(
+                    "Unable to provide a timestamp. Potential boot issue."
+                ).also { hlcLog.e { it.message } }
 
-                val currentId = nodeId!!
-                val last = lastHlc!!
                 val wallClock = dateTimeUtils.now().toEpochMilliseconds()
+                val last = currentState.lastHlc
 
-                when {
-                    // Case A: Normal forward progress
-                    wallClock > last.ts -> {
-                        hlcLog.v { "Standard run. [$wallClock > ${last.ts}]."}
-                        return updateAndReturn(HLC(wallClock, 0, currentId))
-                    }
+                val nextHlc = when {
+                    wallClock > last.ts -> HLC(wallClock, 0, currentState.nodeId)
+                    last.count < MAX_COUNTER -> HLC(last.ts, last.count + 1, currentState.nodeId)
+                    else -> null // Case C: Exhaustion
+                }
 
-                    // Case B: Same millisecond, increment counter
-                    wallClock <= last.ts && last.count < MAX_COUNTER -> {
-                        hlcLog.d { "$wallClock <= ${last.ts}. Counter increase [${last.count+1}]."}
-                        return updateAndReturn(HLC(last.ts, last.count + 1, currentId))
-                    }
-
-                    // Case C: Counter Exhaustion
-                    else -> {
-                        if (yieldCount == 0) {
-                            hlcLog.w { "Counter Exhausted: Stalling thread at $wallClock until clock ticks. Counter at $MAX_COUNTER." }
-                        }
-                    }
+                // State update and specific logging
+                nextHlc?.also {
+                    state = currentState.copy(lastHlc = it)
+                    hlcLog.v { "HLC tick: $it" }
                 }
             }
-            // If we hit Case C, we suspend and let the clock tick.
-            yieldCount++
-            hlcLog.d { "Yield count at $yieldCount" }
+
+            if (result != null) return result
+
+            // Handle Case C: Throttle logging during the stall
+            if (yieldCount++ == 0) {
+                hlcLog.w { "Counter Exhausted at ${dateTimeUtils.now()}. Stalling until clock ticks." }
+            }
             yield()
         }
     }
@@ -164,7 +159,7 @@ class HlcFactory(
             wallClock < APP_RELEASE_MS -> {
                 val drift = APP_RELEASE_MS - wallClock
                 hlcLog.e { "Clock Skew: System time ($wallClock) is $drift ms behind floor ($APP_RELEASE_MS)" }
-                throw MochaException.Persistent.ClockSkew(drift/ONE_DAY_MS)
+                throw MochaException.Persistent.ClockSkew(drift / ONE_DAY_MS)
             }
 
             // Case 2: New Install
@@ -176,10 +171,12 @@ class HlcFactory(
             // Case 3: Poisoned History creating future drift (DB is > 24h in the future)
             history.ts - wallClock > ONE_DAY_MS -> {
                 val drift = history.ts - wallClock
-                hlcLog.e { "Clock Skew: Incoming HLC [${history.ts}] has future drift " +
-                        "against local device clock [${wallClock}] (+ ${drift / ONE_DAY_MS}days)."
+                throw MochaException.Persistent.ClockSkew(drift / ONE_DAY_MS).also {
+                    hlcLog.e {
+                        "Clock Skew: Incoming HLC [${history.ts}] has future drift " +
+                                "against local device clock [${wallClock}] (+ ${drift / ONE_DAY_MS}days)."
+                    }
                 }
-                throw MochaException.Persistent.ClockSkew(drift/ONE_DAY_MS)
             }
 
             // Case 4: Take the latest known time
@@ -199,11 +196,6 @@ class HlcFactory(
                 newHlc
             }
         }
-    }
-
-    private fun updateAndReturn(newHlc: HLC): HLC {
-        this.lastHlc = newHlc
-        return newHlc
     }
 
 }

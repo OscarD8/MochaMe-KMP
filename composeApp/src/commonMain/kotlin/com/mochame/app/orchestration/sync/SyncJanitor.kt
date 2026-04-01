@@ -17,10 +17,12 @@ import com.mochame.app.infrastructure.system.boot.BootStatusUpdater
 import com.mochame.app.infrastructure.utils.withTimer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlin.time.TimeSource
 
 class SyncJanitor(
@@ -33,7 +35,6 @@ class SyncJanitor(
     private val dispatcherProvider: DispatcherProvider,
     private val appScope: CoroutineScope,
     private val hlcFactory: HlcFactory,
-    private val executor: ExecutionPolicy,
     private val mutex: Mutex,
     logger: Logger
 ) {
@@ -77,7 +78,7 @@ class SyncJanitor(
         return false
     }
 
-    private suspend fun initHydration() = executor.execute {
+    private suspend fun initHydration() = withTimeout(5000L) {
         val lastHlc = metadataStore.getGlobalMaxHlc()
         val nodeId = identityManager.getOrCreateNodeId()
 
@@ -92,22 +93,19 @@ class SyncJanitor(
     private suspend fun metadataMaintenance() = withContext(NonCancellable) {
         val mark = TimeSource.Monotonic.markNow()
 
-        executor.execute {
-            transactor.runImmediateTransaction {
+        transactor.runImmediateTransaction {
+            metadataStore.ensureSeeded().takeIf { it > 0 }?.let {
+                logger.i { "Maintenance: Seeded $it missing metadata entries." }
+            }
 
-                metadataStore.ensureSeeded().takeIf { it > 0 }?.let {
-                    logger.i { "Maintenance: Seeded $it missing metadata entries." }
-                }
+            ledgerStore.clearAllLocksAndResetToPending().takeIf { it > 0 }?.let {
+                logger.w { "Maintenance: Cleared $it stale mutation locks." }
+            }
 
-                ledgerStore.clearAllLocksAndResetToPending().takeIf { it > 0 }?.let {
-                    logger.w { "Maintenance: Cleared $it stale mutation locks." }
-                }
-
-                val recoveredModules = metadataStore.getDirtyModuleNames()
-                if (recoveredModules.isNotEmpty()) {
-                    logger.i { "Maintenance: Recovered dirty modules: ${recoveredModules.joinToString()}" }
-                    metadataStore.bulkResetDirtyModules()
-                }
+            val recoveredModules = metadataStore.getDirtyModuleNames()
+            if (recoveredModules.isNotEmpty()) {
+                logger.i { "Maintenance: Recovered dirty modules: ${recoveredModules.joinToString()}" }
+                metadataStore.bulkResetDirtyModules()
             }
         }
 

@@ -20,6 +20,9 @@ sealed class MochaException(
 
         class NetworkTimeout(cause: Throwable? = null) :
             Transient("The sync server took too long to respond.", cause)
+
+        class Contention(message: String, cause: Throwable? = null) :
+                Transient(message, cause)
     }
 
     /**
