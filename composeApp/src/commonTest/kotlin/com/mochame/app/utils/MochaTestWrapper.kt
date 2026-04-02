@@ -17,14 +17,14 @@ import kotlin.coroutines.ContinuationInterceptor
  * link the coroutine world to the Koin world.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-fun TestScope.establishTestScope(): TestDispatcher {
+fun TestScope.utilizeTestScope(): TestDispatcher {
     val testDispatcher = this.coroutineContext[ContinuationInterceptor.Key] as TestDispatcher
 
     loadKoinModules(module {
         // Now anyone calling get<TestDispatcher>() gets THIS specific one
         single<TestDispatcher> { testDispatcher }
         factory<DispatcherProvider> { TestDispatcherProvider(get()) }
-        factory<CoroutineScope>(named("AppScope")) { this@establishTestScope }
+        factory<CoroutineScope>(named("AppScope")) { this@utilizeTestScope }
     })
 
     return testDispatcher

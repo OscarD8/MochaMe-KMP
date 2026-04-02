@@ -50,20 +50,30 @@ class SyncJanitor(
     fun startupChecks() {
         appScope.launch(dispatcherProvider.io) {
             try {
-                mutex.withLock {
-                    if (!isValidBootState()) return@launch
+                withTimeout(15_000L) {
+                    mutex.withLock {
+                        bootUpdater.bootState.takeIf { !isValidBootState() }?.run {
+                            logger.d { "Janitor: Skipping startup. Current state ($this) is not valid for boot." }
+                            return@withLock
+                        }
 
-                    logger.i { "Initiating boot sequence..." }
-                    bootUpdater.updateBootState(BootState.Initializing)
+                        logger.i { "Initiating boot sequence..." }
+                        bootUpdater.updateBootState(BootState.Initializing)
 
-                    metadataMaintenance()
+                        metadataMaintenance()
 
-                    initHydration()
+                        initHydration()
 
-                    logger.i { "Hydration: HLCFactory is hydrated." }
+                        logger.i { "Hydration: HLCFactory is hydrated." }
+                    }
                 }
-
-            } catch (e: Exception) {
+            }
+            catch (e: TimeoutCancellationException) {
+                handleBootFailure(
+                    MochaException.Persistent.BootTimeout("Boot sequence timed out...")
+                )
+            }
+            catch (e: Exception) {
                 handleBootFailure(e.toMochaException())
             }
         }

@@ -12,7 +12,7 @@ import com.mochame.app.domain.system.sync.utils.MutationOp
 import com.mochame.app.domain.system.sync.utils.SyncStatus
 import com.mochame.app.infrastructure.sync.HLC
 import com.mochame.app.infrastructure.sync.HLCTools
-import com.mochame.app.utils.establishTestScope
+import com.mochame.app.utils.utilizeTestScope
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.koin.core.context.startKoin
@@ -74,7 +74,7 @@ abstract class BaseSyncPersistenceTest : KoinTest {
     }
 
     fun runTestWrapper(block: suspend SyncPersistenceTestEnv.(TestScope) -> Unit) = runTest {
-        val testDispatcher = this.establishTestScope()
+        val testDispatcher = this.utilizeTestScope()
 
         val db: MochaDatabase = get { parametersOf(testDispatcher) }
         val env: SyncPersistenceTestEnv by inject()

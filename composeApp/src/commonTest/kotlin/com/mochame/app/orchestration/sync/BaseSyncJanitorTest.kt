@@ -16,7 +16,7 @@ import com.mochame.app.domain.system.sync.utils.MochaModule
 import com.mochame.app.domain.system.sync.utils.SyncStatus
 import com.mochame.app.infrastructure.identity.IdentityManager
 import com.mochame.app.infrastructure.system.boot.BootState
-import com.mochame.app.utils.establishTestScope
+import com.mochame.app.utils.utilizeTestScope
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -69,7 +69,7 @@ abstract class BaseSyncJanitorTest : KoinTest {
     }
 
     fun runTestWrapper(block: suspend JanitorTestEnvironment.(TestScope) -> Unit) = runTest {
-        val testDispatcher = this.establishTestScope()
+        val testDispatcher = this.utilizeTestScope()
 
         val db: MochaDatabase = get { parametersOf(testDispatcher) }
         val env: JanitorTestEnvironment by inject()
@@ -91,7 +91,7 @@ abstract class BaseSyncJanitorTest : KoinTest {
 
         scope.advanceUntilIdle()
 
-        assertEquals(3, metadataStore.getMetadataCount())
+        assertEquals(MochaModule.entries.size, metadataStore.getMetadataCount())
     }
 
     // -----------------------------------------------------------
@@ -217,7 +217,7 @@ abstract class BaseSyncJanitorTest : KoinTest {
 
         // Assert: Verify the Janitor caught the timeout and failed the boot.
         val finalState = bootUpdater.bootState.value
-        assertTrue(finalState is BootState.TransientFailure, "Janitor should have failed on timeout!")
+        assertTrue(finalState is BootState.CriticalFailure, "Janitor should have failed on timeout! Got $finalState..")
 
         janitorJob.cancel()
         hijacker.cancel()

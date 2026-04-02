@@ -299,7 +299,6 @@ class HlcFactoryTest : KoinTest {
 
             // Act I: FIRE and await all promised individual thread results
             gate.complete(Unit)
-
             val allResults = workerDeferreds.awaitAll().flatten()
 
             // Assert: Distinct results across all threads matching expected total

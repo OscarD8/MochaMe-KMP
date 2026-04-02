@@ -37,6 +37,8 @@ sealed class MochaException(
 
         class CorruptionDetected(message: String) : Persistent(message)
 
+        class BootTimeout(message: String) : Persistent(message)
+
         class ClockSkew(
             val driftDisplay: Long,
             cause: Throwable? = null

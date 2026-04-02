@@ -10,7 +10,7 @@ import com.mochame.app.data.local.room.entity.GlobalSettingsEntity
 import com.mochame.app.di.CoreTestModules
 import com.mochame.app.di.IdentityTestEnvironment
 import com.mochame.app.di.modules.AppModules
-import com.mochame.app.utils.establishTestScope
+import com.mochame.app.utils.utilizeTestScope
 import dev.mokkery.answering.calls
 import dev.mokkery.answering.sequentially
 import dev.mokkery.answering.throws
@@ -71,7 +71,7 @@ abstract class BaseIdentityAndSettingsTest : KoinTest {
     fun runTestWrapper(
         block: suspend IdentityTestEnvironment.(TestScope) -> Unit
     ) = runTest {
-        val testDispatcher = this.establishTestScope()
+        val testDispatcher = this.utilizeTestScope()
 
         val db: MochaDatabase = get { parametersOf(testDispatcher) }
         val env: IdentityTestEnvironment by inject()
