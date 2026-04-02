@@ -13,13 +13,13 @@ import kotlinx.coroutines.withContext
 class IdentityManager(
     private val settingsStore: SettingsStore,
     private val dispatcherProvider: DispatcherProvider,
+    private val mutex: Mutex,
     logger: Logger
 ) {
     companion object {
         private const val TAG = "Identity"
     }
     private val logger = logger.appendTag(TAG)
-    private val mutex = Mutex()
 
     /**
      * Ensures this device has a name before the Janitor starts the clock.

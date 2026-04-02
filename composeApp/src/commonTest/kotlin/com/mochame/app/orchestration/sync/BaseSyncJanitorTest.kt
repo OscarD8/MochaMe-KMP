@@ -139,10 +139,10 @@ abstract class BaseSyncJanitorTest : KoinTest {
     }
 
     @Test
-    fun should_set_transient_failure_when_vault_is_busy() = runTestWrapper {
+    fun should_set_transient_failure_when_vault_is_busy() = runTestWrapper { scope ->
         // Arrange
         // We manually lock the Janitor's internal mutex to simulate contention.
-        mutex.lock()
+        janitorMutex.lock()
 
         // Act
         janitor.startupChecks()
@@ -150,12 +150,19 @@ abstract class BaseSyncJanitorTest : KoinTest {
         // Assert
         bootUpdater.bootState.test {
             assertEquals(BootState.Idle, awaitItem())
-
-            // We verify that NO further items arrive within a reasonable "Real World" time
             expectNoEvents()
+
+            scope.advanceTimeBy(5001L)
+            expectNoEvents() // -- should not have hit internal timeout
+
+            scope.advanceTimeBy(15_001L)
+            val failureState = awaitItem()
+
+            assertTrue(failureState is BootState.CriticalFailure)
+            assertTrue(failureState.throwable is MochaException.Persistent.BootTimeout)
         }
 
-        mutex.unlock()
+        janitorMutex.unlock()
     }
 
     // -----------------------------------------------------------
@@ -163,53 +170,13 @@ abstract class BaseSyncJanitorTest : KoinTest {
     // -----------------------------------------------------------
     @Test
     fun should_report_critical_failure_when_boot_hydration_times_out() = runTestWrapper { scope ->
-        // Arrange: the IdentityManager to retrieve its Mutex indefinitely
-        val stallGate = CompletableDeferred<String>()
-
-        // Manually mock to replace DAO call with suspension whilst the manager holds the lock
-        val manualMockDao = object : SettingsDao {
-            override suspend fun getGlobalSettings(): GlobalSettingsEntity {
-                return GlobalSettingsEntity(1, "mock", 1)
-            }
-            override suspend fun getDeviceId(): String {
-                return stallGate.await()
-            }
-            override suspend fun insert(settings: GlobalSettingsEntity) {}
-            override suspend fun updateAppVersion(version: Int) {}
-            override suspend fun hasIdentity(): Boolean = true
-            override suspend fun updateNodeId(newId: String) {}
-        }
-        val mockStore = RoomSettingsStore(
-            manualMockDao,
-            executor
-        )
-        val managerWithStall = IdentityManager(
-            mockStore,
-            dispatcherProvider,
-            logger
-        )
-        val wangledJanitor = SyncJanitor(
-            bootUpdater = bootUpdater,
-            transactor = transactor,
-            metadataStore = metadataStore,
-            ledgerStore = ledgerMaintenance,
-            pruneUseCase = pruneUseCase,
-            identityManager = managerWithStall,
-            dispatcherProvider = dispatcherProvider,
-            appScope = scope,
-            hlcFactory = hlcFactory,
-            mutex = mutex,
-            logger = logger
-        )
+        // Arrange: lock IdentityManager node determination
+        identityMutex.lock()
 
         // Act: hijack the lock and then launch the janitor
-        val hijacker = scope.launch {
-            managerWithStall.getOrCreateNodeId()
-        }
-        val janitorJob = scope.launch {
-            wangledJanitor.startupChecks()
-        }
-        scope.runCurrent() // -- hijacker suspends from await, janitor begins
+        janitor.startupChecks()
+
+        scope.runCurrent() // -- janitor stalls on hydration, locked from fetching deviceId
         assertEquals(BootState.Initializing, bootUpdater.bootState.value)
 
         // -- Fast-forward virtual time past the 5-second timeout
@@ -218,9 +185,7 @@ abstract class BaseSyncJanitorTest : KoinTest {
         // Assert: Verify the Janitor caught the timeout and failed the boot.
         val finalState = bootUpdater.bootState.value
         assertTrue(finalState is BootState.CriticalFailure, "Janitor should have failed on timeout! Got $finalState..")
-
-        janitorJob.cancel()
-        hijacker.cancel()
+        assertTrue(finalState.throwable is MochaException.Persistent.BootTimeout)
     }
 
     // -----------------------------------------------------------

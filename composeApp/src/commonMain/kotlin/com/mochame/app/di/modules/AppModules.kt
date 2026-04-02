@@ -143,6 +143,8 @@ object AppModules {
         includes(
             policiesModule
         )
+        single(named("IdentityMutex")) { Mutex() }
+
         singleOf(::RoomSettingsStore) {
             bind<SettingsStore>()
         }
@@ -154,6 +156,7 @@ object AppModules {
                 settingsStore = get(),
                 dispatcherProvider = get(),
                 logger = get { parametersOf(LogTags.Domain.SYNC, LogTags.Layer.BOOT) },
+                mutex = get(named("IdentityMutex"))
             )
         }
     }

@@ -98,13 +98,8 @@ object CoreTestModules {
                 transactor = get(),
                 metadataDao = get(),
                 manager = get(),
-                settingsDao = get(),
-                settingsStore = get(),
-                executor = get(),
-                logger = get { parametersOf("Sync", "Janitor") },
-                dispatcherProvider = get(),
-                pruneUseCase = get(),
-                mutex = get<Mutex>(named("JanitorMutex"))
+                janitorMutex = get<Mutex>(named("JanitorMutex")),
+                identityMutex = get<Mutex>(named("IdentityMutex"))
             )
         }
     }
@@ -144,13 +139,8 @@ data class JanitorTestEnvironment(
     val transactor: TransactionProvider,
     val metadataDao: SyncMetadataDao,
     val manager: IdentityManager,
-    val settingsDao: SettingsDao,
-    val settingsStore: SettingsStore,
-    val executor: ExecutionPolicy,
-    val logger: Logger,
-    val dispatcherProvider: DispatcherProvider,
-    val pruneUseCase: PruneOldEntriesUseCase,
-    val mutex: Mutex
+    val janitorMutex: Mutex,
+    val identityMutex: Mutex
 )
 
 @ExperimentalKermitApi

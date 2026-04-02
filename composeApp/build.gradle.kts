@@ -15,6 +15,12 @@ plugins {
     alias(libs.plugins.mokkery)
 }
 
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+    compilerOptions {
+        // Suppress the Beta warning for expect/actual classes
+        freeCompilerArgs.add("-Xexpect-actual-classes")
+    }
+}
 
 // Keep specialized JUnit settings for the Host/JVM tasks
 // I couldn't run all platform tests at once otherwise...
