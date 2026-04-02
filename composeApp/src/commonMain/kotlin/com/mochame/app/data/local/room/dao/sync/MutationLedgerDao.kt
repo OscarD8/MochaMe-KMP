@@ -5,7 +5,8 @@ import androidx.room.Query
 import androidx.room.Upsert
 import com.mochame.app.infrastructure.sync.HLC
 import com.mochame.app.domain.system.sync.utils.SyncStatus
-import com.mochame.app.data.local.room.entity.MutationEntryEntity
+import com.mochame.app.data.local.room.entity.MutationLedgerEntity
+import com.mochame.app.domain.system.sync.utils.MochaModule
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -25,15 +26,26 @@ interface MutationLedgerDao {
         """
         SELECT * FROM mutation_ledger 
         WHERE candidateKey = :candidateKey 
-        AND entityType = :entityType 
+        AND entityType = :module 
         AND syncStatus = :status 
         LIMIT 1
-    """)
-    suspend fun getPendingMutation(
+    """
+    )
+    suspend fun getPendingByKey(
         candidateKey: String,
-        entityType: String,
+        module: MochaModule,
         status: SyncStatus = SyncStatus.PENDING
-    ): MutationEntryEntity?
+    ): MutationLedgerEntity?
+
+    @Query("""
+        SELECT * FROM mutation_ledger
+        WHERE entityType = :module
+        AND syncStatus = :status
+    """)
+    suspend fun getPendingByModule(
+        module: MochaModule,
+        status: SyncStatus = SyncStatus.PENDING
+    ): List<MutationLedgerEntity>
 
     // Step 1: Claim the batch with a unique ID
     @Query("""
@@ -42,14 +54,14 @@ interface MutationLedgerDao {
     WHERE hlc IN (
         SELECT hlc FROM mutation_ledger
         WHERE syncId IS NULL 
-        AND entityType = :type 
+        AND entityType = :entityType 
         AND syncStatus = :pendingStatus
         LIMIT :limit
     )
     """)
     suspend fun claimBatch(
         sessionId: String,
-        type: String,
+        entityType: MochaModule,
         limit: Int,
         pendingStatus: SyncStatus = SyncStatus.PENDING,
         syncingStatus: SyncStatus = SyncStatus.SYNCING
@@ -59,7 +71,7 @@ interface MutationLedgerDao {
      * Batch Collector: Grabs changes to ship to the Cloud Vault.
      */
     @Query("SELECT * FROM mutation_ledger WHERE syncId = :sessionId")
-    suspend fun getClaimedBatch(sessionId: String): List<MutationEntryEntity>
+    suspend fun getClaimedBatch(sessionId: String): List<MutationLedgerEntity>
 
     /**
      * Final ACK: Marks a batch of mutations as successfully synced.
@@ -93,7 +105,7 @@ interface MutationLedgerDao {
     ): Int
 
     @Upsert
-    suspend fun upsert(entry: MutationEntryEntity)
+    suspend fun upsert(entry: MutationLedgerEntity)
 
     @Query("DELETE FROM mutation_ledger WHERE hlc = :hlc")
     suspend fun deleteByHlc(hlc: String)

@@ -7,6 +7,7 @@ import com.mochame.app.domain.system.sync.utils.MochaModule
 import com.mochame.app.domain.system.sync.utils.MutationOp
 import com.mochame.app.domain.system.sync.utils.SyncStatus
 import com.mochame.app.infrastructure.sync.HLC
+import kotlin.time.Clock
 
 @Entity(
     tableName = "sync_tombstones",
@@ -26,7 +27,7 @@ data class SyncTombstoneEntity(
 @Entity(tableName = "sync_metadata")
 data class SyncMetadataEntity(
     @PrimaryKey
-    val moduleName: MochaModule,                        // e.g., "BIO"
+    val module: MochaModule,                        // e.g., "BIO"
     val serverWatermark: String? = null,              // The "Bookmark" from the Vault
     val localMaxHlc: String? = null,                 // The highest HLC this module has ever seen
     val syncId: String? = null,                     // The lock for the current session
@@ -55,15 +56,15 @@ data class SyncMetadataEntity(
         Index(value = ["syncId"])
     ]
 )
-data class MutationEntryEntity(
+data class MutationLedgerEntity(
     @PrimaryKey
-    val hlc: HLC,
+    val hlc: String,
     val candidateKey: String,
-    val entityType: String,
+    val entityType: MochaModule,
     val operation: MutationOp,
     val syncStatus: SyncStatus,
     val syncId: String? = null,
     val hasConflict: Boolean = false,
     val retryCount: Int = 0,
-    val createdAt: Long
+    val createdAt: Long = Clock.System.now().toEpochMilliseconds()
 )

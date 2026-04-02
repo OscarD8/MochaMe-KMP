@@ -48,7 +48,7 @@ abstract class BaseIdentityAndSettingsTest : KoinTest {
 
     private val testModules = listOf(
         AppModules.identityModule,
-        CoreTestModules.identityTestEnvironment,
+        CoreTestModules.identityTestEnvironmentModule,
         CoreTestModules.testLoggingModule(minSeverity = Severity.Verbose),
     )
 

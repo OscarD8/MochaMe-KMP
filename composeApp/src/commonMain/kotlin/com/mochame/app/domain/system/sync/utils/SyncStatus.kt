@@ -8,21 +8,21 @@ enum class SyncStatus(val id: Int) {
     /** * Ledger: Record is waiting in the outbox.
      * Metadata: Module is doing nothing.
      */
-    PENDING(0),
+    PENDING(1),
 
     /** * Ledger: Record is currently being uploaded.
      * Metadata: Network session is active (Master Lock held).
      */
-    SYNCING(1),
+    SYNCING(2),
 
     /** * Ledger: Record has been ACKed by the server.
      * Metadata: The last session was a success.
      */
-    SUCCESS(2),
+    SUCCESS(3),
 
     /** * Metadata Only: The last session crashed or returned an error.
      */
-    FAILED(3);
+    FAILED(4);
 
     companion object {
         fun fromId(id: Int) = entries.find { it.id == id } ?: PENDING

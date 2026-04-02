@@ -9,7 +9,7 @@ import com.mochame.app.domain.system.sync.model.SyncMetadata
  */
 fun SyncMetadataEntity.toDomain(): SyncMetadata {
     return SyncMetadata(
-        module = moduleName,
+        module = module,
         serverWatermark = serverWatermark,
         localMaxHlc = localMaxHlc,
         activeSyncId = syncId,
@@ -24,7 +24,7 @@ fun SyncMetadataEntity.toDomain(): SyncMetadata {
  */
 fun SyncMetadata.toEntity(): SyncMetadataEntity {
     return SyncMetadataEntity(
-        moduleName = module,
+        module = module,
         serverWatermark = serverWatermark,
         localMaxHlc = localMaxHlc,
         syncId = activeSyncId,

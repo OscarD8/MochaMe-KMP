@@ -8,8 +8,11 @@ import co.touchlab.kermit.StaticConfig
 import co.touchlab.kermit.TestLogWriter
 import com.mochame.app.data.local.room.FakeLatentSettingsStore
 import com.mochame.app.data.local.room.MochaDatabase
+import com.mochame.app.data.local.room.RoomMetadataStore
+import com.mochame.app.data.local.room.RoomMutationLedger
 import com.mochame.app.data.local.room.RoomSettingsStore
 import com.mochame.app.data.local.room.dao.SettingsDao
+import com.mochame.app.data.local.room.dao.sync.MutationLedgerDao
 import com.mochame.app.data.local.room.dao.sync.SyncMetadataDao
 import com.mochame.app.di.providers.DispatcherProvider
 import com.mochame.app.domain.system.settings.SettingsStore
@@ -22,7 +25,6 @@ import com.mochame.app.infrastructure.fakeutils.FakeDateTimeUtils
 import com.mochame.app.infrastructure.identity.IdentityManager
 import com.mochame.app.infrastructure.logging.CleanLogWriter
 import com.mochame.app.infrastructure.sync.HlcFactory
-import com.mochame.app.infrastructure.system.boot.BootStatusProvider
 import com.mochame.app.infrastructure.system.boot.BootStatusUpdater
 import com.mochame.app.infrastructure.utils.DateTimeUtils
 import com.mochame.app.orchestration.sync.SyncJanitor
@@ -117,8 +119,13 @@ object CoreTestModules {
     }
 
     @OptIn(ExperimentalKermitApi::class)
-    val identityTestEnvironment = module {
+    val identityTestEnvironmentModule = module {
         singleOf(::IdentityTestEnvironment)
+    }
+
+    @OptIn(ExperimentalKermitApi::class)
+    val syncPersistenceTestModule = module {
+        singleOf(::SyncPersistenceTestEnv)
     }
 }
 
@@ -162,4 +169,15 @@ data class IdentityTestEnvironment(
     val db: MochaDatabase,
     val executor: ExecutionPolicy,
     val writer: TestLogWriter
+)
+
+@ExperimentalKermitApi
+data class SyncPersistenceTestEnv(
+    val executor: ExecutionPolicy,
+    val ledgerDao: MutationLedgerDao,
+    val metadataDao: SyncMetadataDao,
+    val writer: TestLogWriter,
+    val db: MochaDatabase,
+    val ledgerStore: RoomMutationLedger,
+    val metadataStore: RoomMetadataStore
 )

@@ -1,4 +1,4 @@
-package com.mochame.app.data.local.room
+package com.mochame.app.data.local.room.dao
 
 //@RunWith(RobolectricTestRunner::class)
 //class AndroidHostTelemetryDaoTest : BaseTelemetryDaoTest() {

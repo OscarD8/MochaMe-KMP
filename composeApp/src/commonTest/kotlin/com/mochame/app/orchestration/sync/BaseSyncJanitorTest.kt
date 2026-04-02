@@ -12,41 +12,30 @@ import com.mochame.app.di.CoreTestModules
 import com.mochame.app.di.JanitorTestEnvironment
 import com.mochame.app.di.modules.AppModules
 import com.mochame.app.domain.exceptions.MochaException
-import com.mochame.app.domain.system.settings.SettingsStore
 import com.mochame.app.domain.system.sync.utils.MochaModule
 import com.mochame.app.domain.system.sync.utils.SyncStatus
 import com.mochame.app.infrastructure.identity.IdentityManager
 import com.mochame.app.infrastructure.system.boot.BootState
 import com.mochame.app.utils.establishTestScope
-import dev.mokkery.answering.calls
-import dev.mokkery.answering.returns
-import dev.mokkery.everySuspend
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.yield
 import org.koin.core.context.startKoin
 import org.koin.core.context.stopKoin
 import org.koin.core.module.Module
 import org.koin.core.parameter.parametersOf
-import org.koin.core.qualifier.named
 import org.koin.test.KoinTest
 import org.koin.test.get
 import org.koin.test.inject
-import kotlin.math.log
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFails
-import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -116,7 +105,7 @@ abstract class BaseSyncJanitorTest : KoinTest {
 
         metadataDao.upsertMetadata(
             SyncMetadataEntity(
-                moduleName = MochaModule.BIO,
+                module = MochaModule.BIO,
                 localMaxHlc = futureHlc,
                 syncStatus = SyncStatus.IDLE,
                 lastServerSyncTime = 1000L,

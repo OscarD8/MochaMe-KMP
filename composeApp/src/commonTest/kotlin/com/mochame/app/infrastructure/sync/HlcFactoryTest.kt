@@ -6,6 +6,7 @@ import com.mochame.app.di.CoreTestModules
 import com.mochame.app.di.HLCTestEnvironment
 import com.mochame.app.di.modules.AppModules
 import com.mochame.app.domain.exceptions.MochaException
+import com.mochame.app.infrastructure.sync.HLCTools.ONE_DAY_MS
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -31,6 +32,12 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
+internal object HLCTools {
+    internal const val TEST_APP_RELEASE_MS = 1740787200000L // March 2026
+    internal const val ONE_DAY_MS = 86_400_000L
+    internal const val MAX_COUNTER = 65535             // 16-bit limit
+}
+
 @ExperimentalKermitApi
 class HlcFactoryTest : KoinTest {
 
@@ -41,9 +48,7 @@ class HlcFactoryTest : KoinTest {
         CoreTestModules.testLoggingModule(minSeverity = Severity.Verbose)
     )
 
-    private val APP_RELEASE_MS = 1740787200000L // March 2026
-    private val ONE_DAY_MS = 86_400_000L
-    private val MAX_COUNTER = 65535             // 16-bit limit
+    
 
     // --- TESTING SETUP/TEARDOWN ---
     @BeforeTest
@@ -74,13 +79,13 @@ class HlcFactoryTest : KoinTest {
     @Test
     fun should_initialize_valid_hlc_when_new_install() = runTestWrapper {
         // Given: wallClock is March 2026
-        fakeClock.setTime(APP_RELEASE_MS)
+        fakeClock.setTime(HLCTools.TEST_APP_RELEASE_MS)
 
         // When: First hydration with no history
         val result = factory.hydrate(null, "node-1")
 
         // Then: TS is exactly wallClock, count is 0
-        assertEquals(APP_RELEASE_MS, result.ts)
+        assertEquals(HLCTools.TEST_APP_RELEASE_MS, result.ts)
         assertEquals(0, result.count)
     }
 
@@ -102,7 +107,7 @@ class HlcFactoryTest : KoinTest {
     @Test
     fun should_log_warning_but_succeed_when_future_jump_detected() = runTestWrapper {
         // Given: Wall clock is 2 years ahead of history
-        val historyTs = APP_RELEASE_MS
+        val historyTs = HLCTools.TEST_APP_RELEASE_MS
         val wallClock = historyTs + (ONE_DAY_MS * 730) // 2 years
         fakeClock.setTime(wallClock)
 
@@ -117,7 +122,7 @@ class HlcFactoryTest : KoinTest {
     @Test
     fun should_persist_new_node_id_for_subsequent_hlcs_after_migration() = runTestWrapper {
         // Given: History from "node-old"
-        val history = "${APP_RELEASE_MS}:10:node-old"
+        val history = "${HLCTools.TEST_APP_RELEASE_MS}:10:node-old"
         factory.hydrate(history, "node-new")
 
         // When: Generating the next HLC
@@ -164,8 +169,8 @@ class HlcFactoryTest : KoinTest {
     @Test
     fun should_reset_counter_to_zero_during_migration_if_wall_clock_is_ahead() = runTestWrapper {
         // Given: History is older than current wall clock
-        val olderHistory = "${APP_RELEASE_MS - 1000}:50:node-old"
-        val wallClock = APP_RELEASE_MS + 1000
+        val olderHistory = "${HLCTools.TEST_APP_RELEASE_MS - 1000}:50:node-old"
+        val wallClock = HLCTools.TEST_APP_RELEASE_MS + 1000
         fakeClock.setTime(wallClock)
 
         // When
@@ -181,9 +186,9 @@ class HlcFactoryTest : KoinTest {
     fun should_preserve_history_counter_during_migration_if_wall_clock_is_behind() =
         runTestWrapper {
             // Given: History is newer than current wall clock (but within 24h)
-            val newerHistoryTs = APP_RELEASE_MS + 5000
+            val newerHistoryTs = HLCTools.TEST_APP_RELEASE_MS + 5000
             val newerHistory = "$newerHistoryTs:99:node-old"
-            fakeClock.setTime(APP_RELEASE_MS) // Wall clock is behind
+            fakeClock.setTime(HLCTools.TEST_APP_RELEASE_MS) // Wall clock is behind
 
             // When
             val result = factory.hydrate(newerHistory, "node-new")
@@ -197,9 +202,9 @@ class HlcFactoryTest : KoinTest {
     @Test
     fun should_stall_immediately_after_migration_if_history_counter_is_exhausted() = runTestWrapper { scope ->
         // Given: History is at the limit, wall clock is behind
-        val futureTs = APP_RELEASE_MS + 5000
-        val maxHistory = "$futureTs:$MAX_COUNTER:node-old"
-        fakeClock.setTime(APP_RELEASE_MS) // Device is behind history
+        val futureTs = HLCTools.TEST_APP_RELEASE_MS + 5000
+        val maxHistory = "$futureTs:${HLCTools.MAX_COUNTER}:node-old"
+        fakeClock.setTime(HLCTools.TEST_APP_RELEASE_MS) // Device is behind history
 
         factory.hydrate(maxHistory, "node-new")
 
@@ -218,7 +223,7 @@ class HlcFactoryTest : KoinTest {
 
         assertNotNull(capturedHlc)
         assertEquals(0, capturedHlc.count)
-        assertEquals(APP_RELEASE_MS + 6000, capturedHlc.ts)
+        assertEquals(HLCTools.TEST_APP_RELEASE_MS + 6000, capturedHlc.ts)
         job.cancel()
     }
 
@@ -271,7 +276,7 @@ class HlcFactoryTest : KoinTest {
             val threadCount = 30
             val iterations = 50
             val gate = CompletableDeferred<Unit>()
-            fakeClock.setTime(APP_RELEASE_MS + 1000L)
+            fakeClock.setTime(HLCTools.TEST_APP_RELEASE_MS + 1000L)
             factory.hydrate(null, "node")
 
             val workerDeferreds = List(threadCount) { workerId ->
@@ -352,8 +357,8 @@ class HlcFactoryTest : KoinTest {
     @Test
     fun should_yield_and_retry_when_counter_is_exhausted() = runTestWrapper { scope ->
         // Arrange: Hit the counter limit at a certain time
-        fakeClock.setTime(APP_RELEASE_MS)
-        val initialHlc = "$APP_RELEASE_MS:$MAX_COUNTER:node-1"
+        fakeClock.setTime(HLCTools.TEST_APP_RELEASE_MS)
+        val initialHlc = "${HLCTools.TEST_APP_RELEASE_MS}:${HLCTools.MAX_COUNTER}:node-1"
         factory.hydrate(initialHlc, "node-1")
 
         // Act: Launch a coroutine to make the 65,536th call
@@ -380,7 +385,7 @@ class HlcFactoryTest : KoinTest {
         assertEquals(1, logCount, "Concurrency problem - only one yield should have occurred.")
 
         assertNotNull(capturedHlc)
-        assertEquals(APP_RELEASE_MS + 1, capturedHlc.ts, "New HLC should use the new millisecond")
+        assertEquals(HLCTools.TEST_APP_RELEASE_MS + 1, capturedHlc.ts, "New HLC should use the new millisecond")
         assertEquals(0, capturedHlc.count, "Counter should have reset to 0")
     }
 

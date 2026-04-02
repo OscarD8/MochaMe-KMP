@@ -1,8 +1,7 @@
-package com.mochame.app.data.local.room
+package com.mochame.app.data.local.room.dao
 
 
 import co.touchlab.kermit.ExperimentalKermitApi
-import com.mochame.app.data.local.room.dao.BaseBioDaoTest
 import com.mochame.app.di.AndroidHostTestModules
 import com.mochame.app.di.CoreTestModules.testLoggingModule
 import com.mochame.app.di.TestTag

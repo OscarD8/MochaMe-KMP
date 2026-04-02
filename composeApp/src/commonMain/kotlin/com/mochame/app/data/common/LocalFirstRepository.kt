@@ -1,7 +1,7 @@
 package com.mochame.app.data.common
 
 import co.touchlab.kermit.Logger
-import com.mochame.app.data.local.room.entity.MutationEntryEntity
+import com.mochame.app.data.local.room.entity.MutationLedgerEntity
 import com.mochame.app.data.local.toMochaException
 import com.mochame.app.domain.exceptions.MochaException
 import com.mochame.app.domain.system.sqlite.ExecutionPolicy
@@ -84,18 +84,18 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
 
     private suspend fun recordIntent(candidateKey: String, op: MutationOp, hlc: HLC) {
         // Look for existing work that hasn't been synced yet
-        val pending = mutationLedger.getPending(candidateKey, moduleName.tag)
+        val pending = mutationLedger.getPendingByKey(candidateKey, moduleName)
 
         val effectiveCreatedAt = resolvePruningTimestamp(pending, op, hlc.ts)
 
         // Compaction: Remove the old intent before writing the new one
-        pending?.let { mutationLedger.discardIntent(it.hlc.toString()) }
+        pending?.let { mutationLedger.discardIntent(it.hlc) }
 
         mutationLedger.recordIntent(
-            MutationEntryEntity(
-                hlc = hlc,
+            MutationLedgerEntity(
+                hlc = hlc.toString(),
                 candidateKey = candidateKey,
-                entityType = moduleName.tag,
+                entityType = moduleName,
                 operation = op,
                 syncStatus = SyncStatus.PENDING,
                 createdAt = effectiveCreatedAt
@@ -154,7 +154,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     }
 
     private fun resolvePruningTimestamp(
-        pending: MutationEntryEntity?,
+        pending: MutationLedgerEntity?,
         currentOp: MutationOp,
         now: Long
     ): Long {
@@ -169,8 +169,8 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     }
 
     private suspend fun updateModuleMetadata(hlc: HLC) {
-        metadataStore.recordMetadata(
-            moduleName = moduleName,
+        metadataStore.recordPendingMetadata(
+            module = moduleName,
             hlc = hlc
         )
     }

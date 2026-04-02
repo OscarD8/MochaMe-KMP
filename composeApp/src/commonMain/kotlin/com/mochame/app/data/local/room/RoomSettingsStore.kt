@@ -13,5 +13,6 @@ class RoomSettingsStore(
         dao.updateNodeId(newId)
     }
 
-    override suspend fun getDeviceId(): String? = dao.getDeviceId()
+    override suspend fun getDeviceId(): String? =
+        executor.execute { dao.getDeviceId() }
 }
