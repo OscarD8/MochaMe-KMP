@@ -6,37 +6,36 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlin.coroutines.cancellation.CancellationException
 
 
-fun Throwable.toMochaException(): MochaException {
+fun Throwable.toMochaException(message: String? = null): MochaException {
     if (this is Error) throw this
+
+    if (this is MochaException) return this
 
     if (this is TimeoutCancellationException) {
         return MochaException.Transient.Contention(
-            message = message ?: "Operation timed out. Possible lockout.",
+            message = message,
             cause = this
         )
     }
 
     if (this is CancellationException) throw this
 
-    // 3. Prevent Double-Wrapping:
-    if (this is MochaException) return this
-
-    val msg = this.message?.uppercase() ?: "UNEXPECTED SYSTEM FAILURE"
-
     return when {
+        // TRANSIENT
+        this.isVaultLocked() ->
+            MochaException.Transient.VaultBusy(message, this)
+
+        // PERSISTENT
         this is IllegalArgumentException ->
-            MochaException.Persistent.VaultFatal("Logic Error: $msg", this)
+            MochaException.Persistent.VaultFatal(message, this)
 
         this is IllegalStateException ->
-            MochaException.Persistent.VaultFatal("State Mismatch: $msg", this)
+            MochaException.Persistent.VaultFatal(message, this)
 
-        this.isVaultLocked() ->
-            MochaException.Transient.VaultBusy(this)
+        this.message?.uppercase()?.contains("DISK FULL") == true ->
+            MochaException.Persistent.DiskFull(message, this)
 
-        msg.contains("FULL") ->
-            MochaException.Persistent.DiskFull(this)
-
-        else -> MochaException.Persistent.VaultFatal(this.message ?: "Vault Failure", this)
+        else -> MochaException.Persistent.Uncategorized(message, this)
     }
 }
 

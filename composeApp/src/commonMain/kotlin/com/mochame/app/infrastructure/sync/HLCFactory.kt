@@ -38,7 +38,7 @@ data class HLC(
     companion object {
         /**
          * Safely parses a serialized HLC string.
-         * @throws com.mochame.app.utils.HlcParseException if not valid.
+         * @throws MochaException.Persistent.HlcParseException if not valid.
          */
         fun parse(hlcString: String): HLC {
             val parts = hlcString.split(":")

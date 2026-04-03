@@ -131,7 +131,6 @@ object AppModules {
         // Infrastructure DAOs used by the components defined by the
         single { get<MochaDatabase>().syncMetadataDao() }
         single { get<MochaDatabase>().mutationLedgerDao() }
-        single { get<MochaDatabase>().syncTombstoneDao() }
     }
 
     /** --- INFRASTRUCTURE LAYER --- */
@@ -184,7 +183,7 @@ object AppModules {
             val scope: CoroutineScope = get(named("AppScope"))
 
             SyncJanitor(
-                logger = get { parametersOf(LogTags.Domain.SYNC, LogTags.Layer.INFRA) },
+                logger = get { parametersOf(LogTags.Domain.SYNC, LogTags.Layer.ORCH) },
                 appScope = scope,
 
                 // Regular dependencies

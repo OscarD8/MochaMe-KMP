@@ -78,7 +78,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         if (state is BootState.CriticalFailure) {
             // Maybe confirm that we definitely want to classify this as a sync error at this stage
             throw state.throwable
-                ?: MochaException.Persistent.SyncInitializationException(state.error)
+                ?: MochaException.Persistent.BootInitializationError(state.error)
         }
     }
 

@@ -67,10 +67,10 @@ class SyncJanitor(
                     }
                 }
             } catch (e: TimeoutCancellationException) {
-                handleBootFailure(
-                    MochaException.Persistent.BootTimeout("Boot sequence timed out...")
-                )
+                handleBootFailure(MochaException.Persistent.BootLockout(cause = e))
+
             } catch (e: Exception) {
+                if (e is MochaException.Transient.BootTimeout) return@launch
                 handleBootFailure(e.toMochaException())
             }
         }
@@ -86,12 +86,20 @@ class SyncJanitor(
     }
 
     private suspend fun initHydration() = withTimeout(5000L) {
-        val lastHlc = metadataStore.getGlobalMaxHlc()
-        val nodeId = identityManager.getOrCreateNodeId()
+        try {
+            val lastHlc = metadataStore.getGlobalMaxHlc()
+            val nodeId = identityManager.getOrCreateNodeId()
 
-        logger.i { "Hydrating HLC Factory | Last Known Local HLC: ${lastHlc ?: "NONE"} | NodeID: $nodeId" }
+            logger.i { "Hydrating HLC Factory | Last Known Local HLC: ${lastHlc ?: "NONE"} | NodeID: $nodeId" }
 
-        hlcFactory.hydrate(lastHlc, nodeId)
+            hlcFactory.hydrate(lastHlc, nodeId)
+        } catch (e: TimeoutCancellationException) {
+            handleBootFailure(
+                MochaException.Transient.BootTimeout(
+                    "Hydration timed out.", e
+                )
+            ).also { throw it }
+        }
     }
 
     /**
@@ -129,7 +137,7 @@ class SyncJanitor(
     }
 
     // ----- EXCEPTION HELPERS -----
-    private fun handleBootFailure(error: MochaException) {
+    private fun handleBootFailure(error: MochaException): MochaException {
         val failureState = error.toBootState()
         bootUpdater.updateBootState(failureState)
 
@@ -138,6 +146,8 @@ class SyncJanitor(
         } else {
             logger.w(error) { "Transient boot failure: ${error.message}" }
         }
+
+        return error
     }
 
     private fun MochaException.toBootState(): BootState = when (this) {

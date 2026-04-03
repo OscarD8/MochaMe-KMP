@@ -62,19 +62,20 @@ abstract class BaseSyncJanitorTest : KoinTest {
         stopKoin()
     }
 
-    fun runTestWrapper(block: suspend JanitorTestEnvironment.(TestScope) -> Unit) = runTest {
-        val testDispatcher = this.utilizeTestScope()
+    fun runTestWrapper(block: suspend JanitorTestEnvironment.(TestScope) -> Unit) =
+        runTest {
+            val testDispatcher = this.utilizeTestScope()
 
-        val db: MochaDatabase = get { parametersOf(testDispatcher) }
-        val env: JanitorTestEnvironment by inject()
+            val db: MochaDatabase = get { parametersOf(testDispatcher) }
+            val env: JanitorTestEnvironment by inject()
 
-        try {
-            env.block(this)
-        } finally {
-            env.writer.reset()
-            db.close()
+            try {
+                env.block(this)
+            } finally {
+                env.writer.reset()
+                db.close()
+            }
         }
-    }
 
     // -----------------------------------------------------------
     // SUCCESS PATH
@@ -92,95 +93,102 @@ abstract class BaseSyncJanitorTest : KoinTest {
     // FAILURE PATH
     // -----------------------------------------------------------
     @Test
-    fun should_enter_critical_failure_when_last_hlc_is_from_the_future() = runTestWrapper {
-        // Arrange
-        // Seed a "Future" HLC (2040-01-01...)
-        val futureHlc = "2209032000000:0:node-1"
+    fun should_enter_critical_failure_when_last_hlc_is_from_the_future() =
+        runTestWrapper {
+            // Arrange
+            // Seed a "Future" HLC (2040-01-01...)
+            val futureHlc = "2209032000000:0:node-1"
 
-        metadataDao.upsertMetadata(
-            SyncMetadataEntity(
-                module = MochaModule.BIO,
-                localMaxHlc = futureHlc,
-                syncStatus = SyncStatus.IDLE,
-                lastServerSyncTime = 1000L,
-                lastLocalMutationTime = 1000L
+            metadataDao.upsertMetadata(
+                SyncMetadataEntity(
+                    module = MochaModule.BIO,
+                    localMaxHlc = futureHlc,
+                    syncStatus = SyncStatus.IDLE,
+                    lastServerSyncTime = 1000L,
+                    lastLocalMutationTime = 1000L
+                )
             )
-        )
 
-        // Act
-        janitor.startupChecks()
+            // Act
+            janitor.startupChecks()
 
-        // Assert
-        bootUpdater.bootState.test {
-            // Skip Idle
-            assertEquals(BootState.Idle, awaitItem())
+            // Assert
+            bootUpdater.bootState.test {
+                // Skip Idle
+                assertEquals(BootState.Idle, awaitItem())
 
-            // Skip Initializing
-            assertTrue(awaitItem() is BootState.Initializing)
+                // Skip Initializing
+                assertTrue(awaitItem() is BootState.Initializing)
 
-            // Capture the Critical Failure
-            val finalState = awaitItem()
-            assertTrue(finalState is BootState.CriticalFailure)
+                // Capture the Critical Failure
+                val finalState = awaitItem()
+                assertTrue(finalState is BootState.CriticalFailure)
 
-            assertTrue(finalState.throwable is MochaException.Persistent.ClockSkew)
+                assertTrue(finalState.throwable is MochaException.Persistent.ClockSkew)
 
-            // Verify the logs
-            val log = writer.logs.find { it.message.contains("Clock Skew") }
-            assertNotNull(log, "The clock skew log should have been recorded!")
+                // Verify the logs
+                val log = writer.logs.find { it.message.contains("Clock Skew") }
+                assertNotNull(log, "The clock skew log should have been recorded!")
 
-            cancelAndIgnoreRemainingEvents()
+                cancelAndIgnoreRemainingEvents()
+            }
         }
-    }
-
-    @Test
-    fun should_set_transient_failure_when_vault_is_busy() = runTestWrapper { scope ->
-        // Arrange
-        // We manually lock the Janitor's internal mutex to simulate contention.
-        janitorMutex.lock()
-
-        // Act
-        janitor.startupChecks()
-
-        // Assert
-        bootUpdater.bootState.test {
-            assertEquals(BootState.Idle, awaitItem())
-            expectNoEvents()
-
-            scope.advanceTimeBy(5001L)
-            expectNoEvents() // -- should not have hit internal timeout
-
-            scope.advanceTimeBy(15_001L)
-            val failureState = awaitItem()
-
-            assertTrue(failureState is BootState.CriticalFailure)
-            assertTrue(failureState.throwable is MochaException.Persistent.BootTimeout)
-        }
-
-        janitorMutex.unlock()
-    }
 
     // -----------------------------------------------------------
     // CONCURRENCY
     // -----------------------------------------------------------
+
     @Test
-    fun should_report_critical_failure_when_boot_hydration_times_out() = runTestWrapper { scope ->
-        // Arrange: lock IdentityManager node determination
-        identityMutex.lock()
+    fun should_set_critical_failure_when_janitors_own_lock_is_busy() =
+        runTestWrapper { scope ->
+            // Arrange
+            // We manually lock the Janitor's internal mutex to simulate contention.
+            janitorMutex.lock()
 
-        // Act: hijack the lock and then launch the janitor
-        janitor.startupChecks()
+            // Act
+            janitor.startupChecks()
 
-        scope.runCurrent() // -- janitor stalls on hydration, locked from fetching deviceId
-        assertEquals(BootState.Initializing, bootUpdater.bootState.value)
+            // Assert
+            bootUpdater.bootState.test {
+                assertEquals(BootState.Idle, awaitItem())
+                expectNoEvents()
 
-        // -- Fast-forward virtual time past the 5-second timeout
-        scope.advanceTimeBy(5001)
+                scope.advanceTimeBy(5001L)
+                expectNoEvents() // -- should not have hit internal timeout
 
-        // Assert: Verify the Janitor caught the timeout and failed the boot.
-        val finalState = bootUpdater.bootState.value
-        assertTrue(finalState is BootState.CriticalFailure, "Janitor should have failed on timeout! Got $finalState..")
-        assertTrue(finalState.throwable is MochaException.Persistent.BootTimeout)
-    }
+                scope.advanceTimeBy(15_001L)
+                val failureState = awaitItem()
+
+                assertTrue(failureState is BootState.CriticalFailure)
+                assertTrue(failureState.throwable is MochaException.Persistent.BootLockout)
+            }
+
+            janitorMutex.unlock()
+        }
+
+    @Test
+    fun should_report_transient_failure_when_boot_hydration_times_out() =
+        runTestWrapper { scope ->
+            // Arrange: lock IdentityManager node determination
+            identityMutex.lock()
+
+            // Act: hijack the lock and then launch the janitor
+            janitor.startupChecks()
+
+            scope.runCurrent() // -- janitor stalls on hydration, locked from fetching deviceId
+            assertEquals(BootState.Initializing, bootUpdater.bootState.value)
+
+            // -- Fast-forward virtual time past the 5-second timeout
+            scope.advanceTimeBy(5001)
+
+            // Assert: Verify the Janitor caught the timeout and failed the boot.
+            val finalState = bootUpdater.bootState.value
+            assertTrue(
+                finalState is BootState.TransientFailure,
+                "Janitor should have failed on timeout! Got $finalState.."
+            )
+            assertTrue(finalState.throwable is MochaException.Transient.BootTimeout)
+        }
 
     // -----------------------------------------------------------
     // STRESS
@@ -198,7 +206,8 @@ abstract class BaseSyncJanitorTest : KoinTest {
         scope.advanceUntilIdle()
 
         // Assert the "Ear" heard the "Mouth" (says Gemini)
-        val seedingMessage = writer.logs.find { it.message.contains("Seeded $count missing") }
+        val seedingMessage =
+            writer.logs.find { it.message.contains("Seeded $count missing") }
         assertNotNull(seedingMessage, "The success log should have been recorded!")
         assertEquals(Severity.Info, seedingMessage.severity)
     }

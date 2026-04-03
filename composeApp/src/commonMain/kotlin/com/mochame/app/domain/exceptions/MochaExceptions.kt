@@ -15,14 +15,17 @@ sealed class MochaException(
      */
     sealed class Transient(message: String, cause: Throwable? = null) :
         MochaException(message, cause) {
-        class VaultBusy(cause: Throwable? = null) :
-            Transient("The data vault is temporarily locked.", cause)
+        class VaultBusy(message: String? = null, cause: Throwable? = null) :
+            Transient(message ?: "The data vault is temporarily locked.", cause)
 
-        class NetworkTimeout(cause: Throwable? = null) :
-            Transient("The sync server took too long to respond.", cause)
+        class NetworkTimeout(message: String? = null, cause: Throwable? = null) :
+            Transient(message ?: "The sync server took too long to respond.", cause)
 
-        class Contention(message: String, cause: Throwable? = null) :
-                Transient(message, cause)
+        class Contention(message: String? = null, cause: Throwable? = null) :
+            Transient(message ?: "Operation timed out. Possible lockout.", cause)
+
+        class BootTimeout(message: String? = null, cause: Throwable? = null) :
+            Transient(message ?: "Boot system timeout.", cause)
     }
 
     /**
@@ -31,26 +34,30 @@ sealed class MochaException(
      */
     sealed class Persistent(message: String, cause: Throwable? = null) :
         MochaException(message, cause) {
-        class VaultFatal(message: String, cause: Throwable? = null) : Persistent(message, cause)
-        class DiskFull(cause: Throwable) :
-            Persistent("Cannot write to disk; storage is full.", cause)
+        class VaultFatal(message: String? = null, cause: Throwable? = null) :
+            Persistent(message ?: "The database appears permanently locked.", cause)
 
-        class CorruptionDetected(message: String) : Persistent(message)
+        class DiskFull(message: String? = null, cause: Throwable) :
+            Persistent(message ?: "Cannot write to disk; storage is full.", cause)
 
-        class BootTimeout(message: String) : Persistent(message)
+        class CorruptionDetected(message: String? = null, cause: Throwable? = null) :
+            Persistent(message ?: "Data corruption detected.", cause)
 
-        class ClockSkew(
-            val driftDisplay: Long,
-            cause: Throwable? = null
-        ) : Persistent("System clock is out of sync by $driftDisplay days", cause)
+        class BootLockout(message: String? = null, cause: Throwable? = null) :
+            Persistent(message ?: "Boot lockout.", cause)
 
-        class SyncInitializationException(
-            message: String,
-            cause: Throwable? = null
-        ) : Exception(message, cause)
+        class ClockSkew(val driftDisplay: Long, cause: Throwable? = null) :
+            Persistent("System clock is out of sync by $driftDisplay days", cause)
+
+        class BootInitializationError(message: String?, cause: Throwable? = null) :
+            Exception(message ?: "Failed to initialize system.", cause)
 
         class HlcParseException(rawString: String) :
-            RuntimeException("Failed to parse HLC string: '$rawString'. Data integrity at risk.")
+            Persistent("Failed to parse HLC string: '$rawString'. Data integrity at risk.")
+
+        class Uncategorized(message: String? = null, cause: Throwable? = null) :
+            Persistent(message ?: "Unexpected failure.", cause)
+
     }
 
     /**
@@ -68,15 +75,15 @@ sealed class MochaException(
      * or domain constraints. Unlike System errors, these are "Expected"
      * outcomes of user actions or sync conflicts.
      */
-    sealed class SemanticException(
-        message: String,
-        cause: Throwable? = null
-    ) : MochaException(message, cause) {
+    sealed class SemanticException(message: String, cause: Throwable? = null) :
+        MochaException(message, cause) {
 
         // SPACES
         sealed class Space(message: String) : SemanticException(message) {
             data class NotFound(val id: String) : Space("Space $id was not found.")
-            data class AlreadyExists(val name: String) : Space("Space '$name' already exists.")
+            data class AlreadyExists(val name: String) :
+                Space("Space '$name' already exists.")
+
             data class InUse(val id: String, val count: Int) : Space(
                 "Cannot delete space $id: $count moments are still anchored here."
             )

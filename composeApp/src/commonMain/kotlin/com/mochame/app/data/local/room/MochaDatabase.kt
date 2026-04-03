@@ -15,7 +15,6 @@ import com.mochame.app.data.local.room.converter.MochaConverters
 import com.mochame.app.data.local.room.dao.sync.MutationLedgerDao
 import com.mochame.app.data.local.room.dao.SettingsDao
 import com.mochame.app.data.local.room.dao.sync.SyncMetadataDao
-import com.mochame.app.data.local.room.dao.sync.SyncTombstoneDao
 import com.mochame.app.data.local.room.entity.AuthorEntity
 import com.mochame.app.data.local.room.entity.BookEntity
 import com.mochame.app.data.local.room.entity.DailyContextEntity
@@ -64,7 +63,6 @@ abstract class MochaDatabase : RoomDatabase() {
     abstract fun bioDao(): BioDao
     abstract fun telemetryDao(): TelemetryDao
     abstract fun signalDao(): ResonanceDao
-    abstract fun syncTombstoneDao(): SyncTombstoneDao
     abstract fun syncMetadataDao(): SyncMetadataDao
     abstract fun mutationLedgerDao(): MutationLedgerDao
     abstract fun settingsDao(): SettingsDao
