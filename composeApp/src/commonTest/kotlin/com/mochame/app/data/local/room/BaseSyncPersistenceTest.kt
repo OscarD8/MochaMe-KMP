@@ -48,6 +48,7 @@ abstract class BaseSyncPersistenceTest : KoinTest {
         1,
         "node1"
     )
+
     private val pendingMutation = SyncIntentEntity(
         hlc = hlc.toString(),
         syncId = "STALE_ID",
@@ -55,6 +56,10 @@ abstract class BaseSyncPersistenceTest : KoinTest {
         candidateKey = "1",
         module = MochaModule.BIO,
         operation = MutationOp.DELETE,
+        payload = TODO(),
+        hasConflict = TODO(),
+        retryCount = TODO(),
+        createdAt = TODO(),
     )
 
     // -----------------------------------------------------------

@@ -142,7 +142,6 @@ abstract class BaseSyncJanitorTest : KoinTest {
     fun should_set_critical_failure_when_janitors_own_lock_is_busy() =
         runTestWrapper { scope ->
             // Arrange
-            // We manually lock the Janitor's internal mutex to simulate contention.
             janitorMutex.lock()
 
             // Act

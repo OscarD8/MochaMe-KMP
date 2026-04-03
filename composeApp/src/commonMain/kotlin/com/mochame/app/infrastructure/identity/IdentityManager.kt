@@ -2,7 +2,6 @@ package com.mochame.app.infrastructure.identity
 
 import co.touchlab.kermit.Logger
 import com.benasher44.uuid.uuid4
-import com.mochame.app.data.local.toMochaException
 import com.mochame.app.di.providers.DispatcherProvider
 import com.mochame.app.domain.system.settings.SettingsStore
 import com.mochame.app.infrastructure.logging.appendTag

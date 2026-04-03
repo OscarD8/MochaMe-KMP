@@ -2,7 +2,7 @@ package com.mochame.app.data.common
 
 import co.touchlab.kermit.Logger
 import com.mochame.app.data.local.room.entity.SyncIntentEntity
-import com.mochame.app.data.local.toMochaException
+import com.mochame.app.infrastructure.utils.toMochaException
 import com.mochame.app.domain.exceptions.MochaException
 import com.mochame.app.domain.system.sqlite.ExecutionPolicy
 import com.mochame.app.domain.system.sync.MetadataStore

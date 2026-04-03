@@ -1,4 +1,4 @@
-package com.mochame.app.data.local
+package com.mochame.app.infrastructure.utils
 
 import androidx.sqlite.SQLiteException
 import com.mochame.app.domain.exceptions.MochaException

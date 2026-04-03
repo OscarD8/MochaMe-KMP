@@ -8,12 +8,12 @@ import androidx.room.TypeConverters
 import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
+import com.mochame.app.data.local.room.converter.MochaConverters
 import com.mochame.app.data.local.room.dao.BioDao
 import com.mochame.app.data.local.room.dao.ResonanceDao
-import com.mochame.app.data.local.room.dao.TelemetryDao
-import com.mochame.app.data.local.room.converter.MochaConverters
-import com.mochame.app.data.local.room.dao.sync.MutationLedgerDao
 import com.mochame.app.data.local.room.dao.SettingsDao
+import com.mochame.app.data.local.room.dao.TelemetryDao
+import com.mochame.app.data.local.room.dao.sync.MutationLedgerDao
 import com.mochame.app.data.local.room.dao.sync.SyncMetadataDao
 import com.mochame.app.data.local.room.entity.AuthorEntity
 import com.mochame.app.data.local.room.entity.BookEntity
@@ -21,11 +21,10 @@ import com.mochame.app.data.local.room.entity.DailyContextEntity
 import com.mochame.app.data.local.room.entity.DomainEntity
 import com.mochame.app.data.local.room.entity.GlobalSettingsEntity
 import com.mochame.app.data.local.room.entity.MomentEntity
-import com.mochame.app.data.local.room.entity.SyncIntentEntity
 import com.mochame.app.data.local.room.entity.QuoteEntity
 import com.mochame.app.data.local.room.entity.SpaceEntity
+import com.mochame.app.data.local.room.entity.SyncIntentEntity
 import com.mochame.app.data.local.room.entity.SyncMetadataEntity
-import com.mochame.app.data.local.room.entity.SyncTombstoneEntity
 import com.mochame.app.data.local.room.entity.TopicEntity
 import com.mochame.app.di.providers.DispatcherProvider
 
@@ -47,7 +46,6 @@ import com.mochame.app.di.providers.DispatcherProvider
         QuoteEntity::class,
 
         // SYNC HANDLING
-        SyncTombstoneEntity::class,
         SyncMetadataEntity::class,
         SyncIntentEntity::class,
 

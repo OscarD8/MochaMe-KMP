@@ -1,7 +1,7 @@
 package com.mochame.app.orchestration.sync
 
 import co.touchlab.kermit.Logger
-import com.mochame.app.data.local.toMochaException
+import com.mochame.app.infrastructure.utils.toMochaException
 import com.mochame.app.di.providers.DispatcherProvider
 import com.mochame.app.domain.exceptions.MochaException
 import com.mochame.app.domain.system.sync.MetadataStoreMaintenance
@@ -95,9 +95,7 @@ class SyncJanitor(
             hlcFactory.hydrate(lastHlc, nodeId)
         } catch (e: TimeoutCancellationException) {
             handleBootFailure(
-                MochaException.Transient.BootTimeout(
-                    "Hydration timed out.", e
-                )
+                MochaException.Transient.BootTimeout("Hydration timed out.", e)
             ).also { throw it }
         }
     }
