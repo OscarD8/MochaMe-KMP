@@ -1,7 +1,7 @@
 package com.mochame.app.data.common
 
 import co.touchlab.kermit.Logger
-import com.mochame.app.data.local.room.entity.MutationLedgerEntity
+import com.mochame.app.data.local.room.entity.SyncIntentEntity
 import com.mochame.app.data.local.toMochaException
 import com.mochame.app.domain.exceptions.MochaException
 import com.mochame.app.domain.system.sqlite.ExecutionPolicy
@@ -92,13 +92,17 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         pending?.let { mutationLedger.discardIntent(it.hlc) }
 
         mutationLedger.recordIntent(
-            MutationLedgerEntity(
+            SyncIntentEntity(
                 hlc = hlc.toString(),
                 candidateKey = candidateKey,
-                entityType = moduleName,
+                module = moduleName,
                 operation = op,
                 syncStatus = SyncStatus.PENDING,
-                createdAt = effectiveCreatedAt
+                createdAt = effectiveCreatedAt,
+                syncId = TODO(),
+                payload = TODO(),
+                hasConflict = TODO(),
+                retryCount = TODO()
             )
         )
     }
@@ -154,7 +158,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     }
 
     private fun resolvePruningTimestamp(
-        pending: MutationLedgerEntity?,
+        pending: SyncIntentEntity?,
         currentOp: MutationOp,
         now: Long
     ): Long {

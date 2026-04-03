@@ -2,7 +2,7 @@ package com.mochame.app.data.local.room
 
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Severity
-import com.mochame.app.data.local.room.entity.MutationLedgerEntity
+import com.mochame.app.data.local.room.entity.SyncIntentEntity
 import com.mochame.app.di.CoreTestModules
 import com.mochame.app.di.SyncPersistenceTestEnv
 import com.mochame.app.di.modules.AppModules
@@ -48,12 +48,12 @@ abstract class BaseSyncPersistenceTest : KoinTest {
         1,
         "node1"
     )
-    private val pendingMutation = MutationLedgerEntity(
+    private val pendingMutation = SyncIntentEntity(
         hlc = hlc.toString(),
         syncId = "STALE_ID",
         syncStatus = SyncStatus.PENDING,
         candidateKey = "1",
-        entityType = MochaModule.BIO,
+        module = MochaModule.BIO,
         operation = MutationOp.DELETE,
     )
 
@@ -73,19 +73,20 @@ abstract class BaseSyncPersistenceTest : KoinTest {
         stopKoin()
     }
 
-    fun runTestWrapper(block: suspend SyncPersistenceTestEnv.(TestScope) -> Unit) = runTest {
-        val testDispatcher = this.utilizeTestScope()
+    fun runTestWrapper(block: suspend SyncPersistenceTestEnv.(TestScope) -> Unit) =
+        runTest {
+            val testDispatcher = this.utilizeTestScope()
 
-        val db: MochaDatabase = get { parametersOf(testDispatcher) }
-        val env: SyncPersistenceTestEnv by inject()
+            val db: MochaDatabase = get { parametersOf(testDispatcher) }
+            val env: SyncPersistenceTestEnv by inject()
 
-        try {
-            env.block(this)
-        } finally {
-            env.writer.reset()
-            db.close()
+            try {
+                env.block(this)
+            } finally {
+                env.writer.reset()
+                db.close()
+            }
         }
-    }
 
     // -----------------------------------------------------------
     // SUCCESS PATH
@@ -127,7 +128,6 @@ abstract class BaseSyncPersistenceTest : KoinTest {
             "The ledger fetched a candidate key that doesn't represent the original mutation."
         )
     }
-
 
 
     // -----------------------------------------------------------
@@ -179,7 +179,11 @@ abstract class BaseSyncPersistenceTest : KoinTest {
     fun should_seed_exactly_once_when_called_multiple_times() = runTestWrapper {
         // --- Arrange ---
         val initialCount = metadataStore.getMetadataCount()
-        assertEquals(0, initialCount, "Database must be empty before starting the seed test.")
+        assertEquals(
+            0,
+            initialCount,
+            "Database must be empty before starting the seed test."
+        )
 
         val expectedModuleCount = MochaModule.entries.size
 

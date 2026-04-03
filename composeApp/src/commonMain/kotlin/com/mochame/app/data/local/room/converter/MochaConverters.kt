@@ -1,6 +1,7 @@
 package com.mochame.app.data.local.room.converter
 
 import androidx.room.TypeConverter
+import com.mochame.app.domain.exceptions.MochaException
 import com.mochame.app.domain.signal.Resonance
 import com.mochame.app.domain.system.sync.utils.MochaModule
 import com.mochame.app.domain.system.sync.utils.MutationOp

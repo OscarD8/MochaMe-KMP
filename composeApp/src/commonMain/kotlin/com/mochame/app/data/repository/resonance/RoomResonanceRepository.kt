@@ -32,24 +32,26 @@ class RoomResonanceRepository(
         incrementViewAndMap(resonanceDao.getNextSignalCandidate())
     }
 
-    override suspend fun getSignalByEmotion(resonance: Resonance): Quote? = signalMutex.withLock {
-        incrementViewAndMap(resonanceDao.getQuoteByResonanceCandidate(resonance))
-    }
+    override suspend fun getSignalByEmotion(resonance: Resonance): Quote? =
+        signalMutex.withLock {
+            incrementViewAndMap(resonanceDao.getQuoteByResonanceCandidate(resonance))
+        }
 
     /**
      * Find resonant quote based on mood. Increment viewCount.
      */
-    override suspend fun getResonantQuote(currentMood: Mood): Quote? = signalMutex.withLock {
-        val target = currentMood.targetResonance
+    override suspend fun getResonantQuote(currentMood: Mood): Quote? =
+        signalMutex.withLock {
+            val target = currentMood.targetResonance
 
-        // Fetch the least-viewed quote in the target resonance
-        val quote = resonanceDao.getQuoteByResonanceCandidate(target)
+            // Fetch the least-viewed quote in the target resonance
+            val quote = resonanceDao.getQuoteByResonanceCandidate(target)
 
-        // Atomic increment to push it to the back of the loop
-        quote?.let { incrementViewAndMap(quote) }
+            // Atomic increment to push it to the back of the loop
+            quote?.let { incrementViewAndMap(quote) }
 
-        return quote as Quote?
-    }
+            return quote?.toDomain()
+        }
 
     /**
      * A private helper that handles the transition from a raw entity to a
@@ -145,7 +147,10 @@ class RoomResonanceRepository(
         // Audit check to prevent RESTRICT crash
         val booksByAuthor = resonanceDao.getBooksByAuthorSync(authorId)
         if (booksByAuthor.isNotEmpty()) {
-            throw MochaException.SemanticException.Author.InUse(authorId, booksByAuthor.size)
+            throw MochaException.SemanticException.Author.InUse(
+                authorId,
+                booksByAuthor.size
+            )
         }
         resonanceDao.deleteAuthorById(authorId)
     }

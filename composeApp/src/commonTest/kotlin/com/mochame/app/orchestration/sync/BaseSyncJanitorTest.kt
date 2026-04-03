@@ -4,9 +4,6 @@ import app.cash.turbine.test
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Severity
 import com.mochame.app.data.local.room.MochaDatabase
-import com.mochame.app.data.local.room.RoomSettingsStore
-import com.mochame.app.data.local.room.dao.SettingsDao
-import com.mochame.app.data.local.room.entity.GlobalSettingsEntity
 import com.mochame.app.data.local.room.entity.SyncMetadataEntity
 import com.mochame.app.di.CoreTestModules
 import com.mochame.app.di.JanitorTestEnvironment
@@ -14,12 +11,9 @@ import com.mochame.app.di.modules.AppModules
 import com.mochame.app.domain.exceptions.MochaException
 import com.mochame.app.domain.system.sync.utils.MochaModule
 import com.mochame.app.domain.system.sync.utils.SyncStatus
-import com.mochame.app.infrastructure.identity.IdentityManager
 import com.mochame.app.infrastructure.system.boot.BootState
 import com.mochame.app.utils.utilizeTestScope
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle

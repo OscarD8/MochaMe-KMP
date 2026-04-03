@@ -22,7 +22,7 @@ import com.mochame.app.data.local.room.entity.DailyContextEntity
 import com.mochame.app.data.local.room.entity.DomainEntity
 import com.mochame.app.data.local.room.entity.GlobalSettingsEntity
 import com.mochame.app.data.local.room.entity.MomentEntity
-import com.mochame.app.data.local.room.entity.MutationLedgerEntity
+import com.mochame.app.data.local.room.entity.SyncIntentEntity
 import com.mochame.app.data.local.room.entity.QuoteEntity
 import com.mochame.app.data.local.room.entity.SpaceEntity
 import com.mochame.app.data.local.room.entity.SyncMetadataEntity
@@ -50,7 +50,7 @@ import com.mochame.app.di.providers.DispatcherProvider
         // SYNC HANDLING
         SyncTombstoneEntity::class,
         SyncMetadataEntity::class,
-        MutationLedgerEntity::class,
+        SyncIntentEntity::class,
 
         GlobalSettingsEntity::class
     ],

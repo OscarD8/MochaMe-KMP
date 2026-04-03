@@ -1,14 +1,15 @@
-package com.mochame.app.data.local
+package com.mochame.app.infrastructure.system
 
 import androidx.sqlite.SQLiteException
 import co.touchlab.kermit.Logger
+import com.mochame.app.data.local.isVaultLocked
+import com.mochame.app.data.local.toMochaException
 import com.mochame.app.domain.system.sqlite.ExecutionPolicy
 import com.mochame.app.infrastructure.utils.withTimer
 import kotlinx.coroutines.delay
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.random.Random
 import kotlin.time.TimeSource
-
 
 /**
  * Execution policy for the local database.

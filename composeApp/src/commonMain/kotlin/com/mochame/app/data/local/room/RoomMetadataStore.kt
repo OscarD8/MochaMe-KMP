@@ -74,8 +74,8 @@ class RoomMetadataStore(
 
         if (affected == 0) {
             throw MochaException.Transient.Contention(
-                "Contention on $module: Expected $from but found another state. " +
-                        "Action aborted to prevent lost updates."
+                "Contention on $module: Expected $from " +
+                        "but found another state. Action aborted to prevent lost updates."
             )
         }
     }
@@ -94,7 +94,8 @@ class RoomMetadataStore(
 
         if (affected == 0) {
             throw MochaException.Transient.Contention(
-                "Failed to finalize sync for $module. The sync lock was lost or preempted."
+                "Failed to finalize sync for $module. " +
+                        "The sync lock was lost or preempted."
             )
         }
     }

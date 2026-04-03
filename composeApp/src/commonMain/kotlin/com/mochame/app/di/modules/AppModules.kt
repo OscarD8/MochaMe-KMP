@@ -1,6 +1,6 @@
 package com.mochame.app.di.modules
 
-import com.mochame.app.data.local.SqliteResiliencePolicy
+import com.mochame.app.infrastructure.system.SqliteResiliencePolicy
 import com.mochame.app.data.local.room.MochaDatabase
 import com.mochame.app.data.local.room.RoomImmediateTransProvider
 import com.mochame.app.data.local.room.RoomMetadataStore

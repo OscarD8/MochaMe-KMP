@@ -5,7 +5,7 @@ import androidx.room.Query
 import androidx.room.Upsert
 import com.mochame.app.infrastructure.sync.HLC
 import com.mochame.app.domain.system.sync.utils.SyncStatus
-import com.mochame.app.data.local.room.entity.MutationLedgerEntity
+import com.mochame.app.data.local.room.entity.SyncIntentEntity
 import com.mochame.app.domain.system.sync.utils.MochaModule
 import kotlinx.coroutines.flow.Flow
 
@@ -26,7 +26,7 @@ interface MutationLedgerDao {
         """
         SELECT * FROM mutation_ledger 
         WHERE candidateKey = :candidateKey 
-        AND entityType = :module 
+        AND module = :module 
         AND syncStatus = :status 
         LIMIT 1
     """
@@ -35,30 +35,34 @@ interface MutationLedgerDao {
         candidateKey: String,
         module: MochaModule,
         status: SyncStatus = SyncStatus.PENDING
-    ): MutationLedgerEntity?
+    ): SyncIntentEntity?
 
-    @Query("""
+    @Query(
+        """
         SELECT * FROM mutation_ledger
-        WHERE entityType = :module
+        WHERE module = :module
         AND syncStatus = :status
-    """)
+    """
+    )
     suspend fun getPendingByModule(
         module: MochaModule,
         status: SyncStatus = SyncStatus.PENDING
-    ): List<MutationLedgerEntity>
+    ): List<SyncIntentEntity>
 
     // Step 1: Claim the batch with a unique ID
-    @Query("""
-    UPDATE mutation_ledger 
-    SET syncId = :sessionId, syncStatus = :syncingStatus
-    WHERE hlc IN (
-        SELECT hlc FROM mutation_ledger
-        WHERE syncId IS NULL 
-        AND entityType = :entityType 
-        AND syncStatus = :pendingStatus
-        LIMIT :limit
+    @Query(
+        """
+        UPDATE mutation_ledger 
+        SET syncId = :sessionId, syncStatus = :syncingStatus
+        WHERE hlc IN (
+            SELECT hlc FROM mutation_ledger
+            WHERE syncId IS NULL 
+            AND module = :entityType 
+            AND syncStatus = :pendingStatus
+            LIMIT :limit
+        )
+    """
     )
-    """)
     suspend fun claimBatch(
         sessionId: String,
         entityType: MochaModule,
@@ -71,16 +75,18 @@ interface MutationLedgerDao {
      * Batch Collector: Grabs changes to ship to the Cloud Vault.
      */
     @Query("SELECT * FROM mutation_ledger WHERE syncId = :sessionId")
-    suspend fun getClaimedBatch(sessionId: String): List<MutationLedgerEntity>
+    suspend fun getClaimedBatch(sessionId: String): List<SyncIntentEntity>
 
     /**
      * Final ACK: Marks a batch of mutations as successfully synced.
      */
-    @Query("""
+    @Query(
+        """
         UPDATE mutation_ledger 
         SET syncStatus = :status, syncId = NULL 
         WHERE hlc IN (:hlcs)
-    """)
+    """
+    )
     suspend fun markAsSynced(
         hlcs: List<HLC>,
         status: SyncStatus = SyncStatus.SUCCESS
@@ -89,7 +95,8 @@ interface MutationLedgerDao {
     /**
      * Pruning Task: Removes old tombstones and synced history.
      */
-    @Query("""
+    @Query(
+        """
     DELETE FROM mutation_ledger 
         WHERE syncId IN (
             SELECT syncId FROM mutation_ledger
@@ -97,7 +104,8 @@ interface MutationLedgerDao {
             AND createdAt < :cutoff
             LIMIT :limit
         )
-    """)
+    """
+    )
     suspend fun pruneOldSynced(
         cutoff: Long,
         status: SyncStatus = SyncStatus.SUCCESS,
@@ -105,7 +113,7 @@ interface MutationLedgerDao {
     ): Int
 
     @Upsert
-    suspend fun upsert(entry: MutationLedgerEntity)
+    suspend fun upsert(entry: SyncIntentEntity)
 
     @Query("DELETE FROM mutation_ledger WHERE hlc = :hlc")
     suspend fun deleteByHlc(hlc: String)
@@ -118,11 +126,13 @@ interface MutationLedgerDao {
      * If any row in the entire ledger has a syncId, its stale and the result of a crash.
      * No sync should be active.
      */
-    @Query("""
-    UPDATE mutation_ledger 
-    SET syncId = NULL, syncStatus = :desiredStatus 
-    WHERE syncId IS NOT NULL
-    """)
+    @Query(
+        """
+        UPDATE mutation_ledger 
+        SET syncId = NULL, syncStatus = :desiredStatus 
+        WHERE syncId IS NOT NULL
+    """
+    )
     suspend fun clearAllLocksAndResetStatus(
         desiredStatus: SyncStatus = SyncStatus.PENDING
     ): Int

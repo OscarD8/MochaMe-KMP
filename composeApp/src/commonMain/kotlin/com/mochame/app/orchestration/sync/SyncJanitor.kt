@@ -4,7 +4,6 @@ import co.touchlab.kermit.Logger
 import com.mochame.app.data.local.toMochaException
 import com.mochame.app.di.providers.DispatcherProvider
 import com.mochame.app.domain.exceptions.MochaException
-import com.mochame.app.domain.system.sqlite.ExecutionPolicy
 import com.mochame.app.domain.system.sync.MetadataStoreMaintenance
 import com.mochame.app.domain.system.sync.MutationLedgerMaintenance
 import com.mochame.app.domain.system.sync.TransactionProvider
@@ -67,13 +66,11 @@ class SyncJanitor(
                         logger.i { "Hydration: HLCFactory is hydrated." }
                     }
                 }
-            }
-            catch (e: TimeoutCancellationException) {
+            } catch (e: TimeoutCancellationException) {
                 handleBootFailure(
                     MochaException.Persistent.BootTimeout("Boot sequence timed out...")
                 )
-            }
-            catch (e: Exception) {
+            } catch (e: Exception) {
                 handleBootFailure(e.toMochaException())
             }
         }
