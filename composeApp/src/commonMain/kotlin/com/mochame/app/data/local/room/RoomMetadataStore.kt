@@ -1,24 +1,23 @@
 package com.mochame.app.data.local.room
 
 import com.mochame.app.data.local.room.dao.sync.SyncMetadataDao
+import com.mochame.app.data.local.room.entity.SyncMetadataEntity
 import com.mochame.app.domain.exceptions.MochaException
-import com.mochame.app.domain.system.sqlite.ExecutionPolicy
-import com.mochame.app.domain.system.sync.utils.SyncStatus
-import com.mochame.app.domain.system.sync.MetadataStore
-import com.mochame.app.domain.system.sync.MetadataStoreMaintenance
-import com.mochame.app.domain.system.sync.utils.MochaModule
+import com.mochame.app.domain.sync.utils.SyncStatus
+import com.mochame.app.domain.sync.MetadataStore
+import com.mochame.app.domain.sync.MetadataStoreMaintenance
+import com.mochame.app.domain.sync.utils.MochaModule
 import com.mochame.app.infrastructure.sync.HLC
 import kotlin.time.Clock
 
 class RoomMetadataStore(
-    private val dao: SyncMetadataDao,
-    private val executor: ExecutionPolicy
+    private val dao: SyncMetadataDao
 ) : MetadataStore, MetadataStoreMaintenance {
 
     override suspend fun recordPendingMetadata(
         module: MochaModule,
         hlc: HLC
-    ) = executor.execute {
+    )  {
         dao.recordLocalMutation(
             module = module,
             hlc = hlc.toString(),
@@ -32,7 +31,7 @@ class RoomMetadataStore(
         watermark: String?,
         timestamp: Long,
         status: SyncStatus
-    ) = executor.execute {
+    )  {
         dao.stampMetadata(
             module,
             watermark,
@@ -65,7 +64,7 @@ class RoomMetadataStore(
         module: MochaModule,
         from: SyncStatus,
         to: SyncStatus
-    ) = executor.execute {
+    )  {
         val affected = dao.transitionState(
             module = module,
             fromStatus = from,
@@ -84,7 +83,7 @@ class RoomMetadataStore(
         module: MochaModule,
         syncId: String,
         newWatermark: String
-    ) = executor.execute {
+    ) {
         val affected = dao.finalizeSyncSuccess(
             module = module,
             currentSyncId = syncId,
@@ -100,28 +99,28 @@ class RoomMetadataStore(
         }
     }
 
-    override suspend fun bulkResetDirtyModules() = executor.execute {
-        dao.bulkResetDirtyModules()
+    override suspend fun bulkResetDirtyModules(): Int {
+        return dao.bulkResetDirtyModules()
     }
 
-    override suspend fun getDirtyModuleNames() = executor.execute {
-        dao.getDirtyModuleNames()
+    override suspend fun getDirtyModuleNames(): List<String> {
+        return dao.getDirtyModuleNames()
     }
 
-    override suspend fun getMetadataCount() = executor.execute {
-        dao.getMetadataCount()
+    override suspend fun getMetadataCount(): Int {
+        return dao.getMetadataCount()
     }
 
-    suspend fun getModuleMetadata(module: MochaModule) = executor.execute {
-        dao.getMetadataForModule(module)
+    suspend fun getModuleMetadata(module: MochaModule): SyncMetadataEntity?  {
+        return dao.getMetadataForModule(module)
     }
 
-    override suspend fun ensureSeeded() = executor.execute {
-        dao.ensureSeeded(MochaModule.entries.toList())
+    override suspend fun ensureSeeded(): Int {
+        return dao.ensureSeeded(MochaModule.entries.toList())
     }
 
-    override suspend fun getGlobalMaxHlc() = executor.execute {
-        dao.getGlobalMaxHlc()
+    override suspend fun getGlobalMaxHlc(): String? {
+        return dao.getGlobalMaxHlc()
     }
 
 }

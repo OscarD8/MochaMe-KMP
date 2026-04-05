@@ -5,15 +5,15 @@ import com.mochame.app.data.local.room.entity.SyncIntentEntity
 import com.mochame.app.infrastructure.utils.toMochaException
 import com.mochame.app.domain.exceptions.MochaException
 import com.mochame.app.domain.system.sqlite.ExecutionPolicy
-import com.mochame.app.domain.system.sync.BlobStore
-import com.mochame.app.domain.system.sync.MetadataStore
-import com.mochame.app.domain.system.sync.MutationLedger
-import com.mochame.app.domain.system.sync.PayloadEncoder
-import com.mochame.app.domain.system.sync.TransactionProvider
-import com.mochame.app.domain.system.sync.LocalFirstEntity
-import com.mochame.app.domain.system.sync.utils.MochaModule
-import com.mochame.app.domain.system.sync.utils.MutationOp
-import com.mochame.app.domain.system.sync.utils.SyncStatus
+import com.mochame.app.domain.sync.BlobStore
+import com.mochame.app.domain.sync.MetadataStore
+import com.mochame.app.domain.sync.MutationLedger
+import com.mochame.app.domain.sync.PayloadEncoder
+import com.mochame.app.domain.sync.TransactionProvider
+import com.mochame.app.domain.sync.LocalFirstEntity
+import com.mochame.app.domain.sync.utils.MochaModule
+import com.mochame.app.domain.sync.utils.MutationOp
+import com.mochame.app.domain.sync.utils.SyncStatus
 import com.mochame.app.infrastructure.sync.HLC
 import com.mochame.app.infrastructure.sync.HlcFactory
 import com.mochame.app.infrastructure.system.boot.BootState
@@ -57,19 +57,21 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     ): R {
         ensureReady()
 
-        return executor.execute {
+        return executor.execute("[${moduleName}_$op]") {
             // Phase 1: Context hydration
             val hlc = hlcFactory.getNextHlc()
             val oldState = fetchOldState()
             validateHlcIntegrity(candidateKey, oldState)
 
             // Phase 2: Transformation / Validation / Encoding
-            val newState = computeAndStamp(oldState, hlc)
-            val finalState = validateMutationOrAbort(op, newState, candidateKey)
-                ?: return@execute 0 as R // Ghost Delete (deletions set to return Int)
+            val computedState = computeAndStamp(oldState, hlc)
+            val newState = validateMutationOrAbort(op, computedState, candidateKey)
+                ?: return@execute 0 as R // Ghost Delete (currently silent to the UI)
 
-            val payload = encoder.encode(finalState, oldState)
-            val summary = encoder.summarize(finalState)
+            val payload = encoder.encode(newState, oldState)
+                ?: return@execute newState as R // No changes detected, return the old state
+
+            val summary = encoder.summarize(newState, oldState)
 
             // Phase 3: Staging & Persistence
             return@execute handleStagingAndCommit(
@@ -78,7 +80,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                 hlc = hlc,
                 payload = payload,
                 summary = summary,
-                persistAction = { persist(finalState) }
+                persistAction = { persist(newState) }
             )
         }
     }

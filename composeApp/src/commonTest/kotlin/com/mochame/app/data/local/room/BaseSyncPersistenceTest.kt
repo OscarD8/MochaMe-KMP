@@ -7,9 +7,9 @@ import com.mochame.app.di.CoreTestModules
 import com.mochame.app.di.SyncPersistenceTestEnv
 import com.mochame.app.di.modules.AppModules
 import com.mochame.app.domain.exceptions.MochaException
-import com.mochame.app.domain.system.sync.utils.MochaModule
-import com.mochame.app.domain.system.sync.utils.MutationOp
-import com.mochame.app.domain.system.sync.utils.SyncStatus
+import com.mochame.app.domain.sync.utils.MochaModule
+import com.mochame.app.domain.sync.utils.MutationOp
+import com.mochame.app.domain.sync.utils.SyncStatus
 import com.mochame.app.infrastructure.sync.HLC
 import com.mochame.app.infrastructure.sync.HLCTools
 import com.mochame.app.utils.utilizeTestScope

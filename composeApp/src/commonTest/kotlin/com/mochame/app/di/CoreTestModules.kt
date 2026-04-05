@@ -14,13 +14,11 @@ import com.mochame.app.data.local.room.RoomSettingsStore
 import com.mochame.app.data.local.room.dao.SettingsDao
 import com.mochame.app.data.local.room.dao.sync.MutationLedgerDao
 import com.mochame.app.data.local.room.dao.sync.SyncMetadataDao
-import com.mochame.app.di.providers.DispatcherProvider
 import com.mochame.app.domain.system.settings.SettingsStore
 import com.mochame.app.domain.system.sqlite.ExecutionPolicy
-import com.mochame.app.domain.system.sync.MetadataStoreMaintenance
-import com.mochame.app.domain.system.sync.MutationLedgerMaintenance
-import com.mochame.app.domain.system.sync.TransactionProvider
-import com.mochame.app.domain.system.sync.usecase.PruneOldEntriesUseCase
+import com.mochame.app.domain.sync.MetadataStoreMaintenance
+import com.mochame.app.domain.sync.MutationLedgerMaintenance
+import com.mochame.app.domain.sync.TransactionProvider
 import com.mochame.app.infrastructure.fakeutils.FakeDateTimeUtils
 import com.mochame.app.infrastructure.identity.IdentityManager
 import com.mochame.app.infrastructure.logging.CleanLogWriter
@@ -30,7 +28,6 @@ import com.mochame.app.infrastructure.utils.DateTimeUtils
 import com.mochame.app.orchestration.sync.SyncJanitor
 import kotlinx.coroutines.sync.Mutex
 import org.koin.core.module.dsl.singleOf
-import org.koin.core.parameter.parametersOf
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
 

@@ -2,34 +2,32 @@ package com.mochame.app.data.local.room
 
 import com.mochame.app.data.local.room.dao.sync.MutationLedgerDao
 import com.mochame.app.data.local.room.entity.SyncIntentEntity
-import com.mochame.app.domain.system.sqlite.ExecutionPolicy
-import com.mochame.app.domain.system.sync.MutationLedger
-import com.mochame.app.domain.system.sync.MutationLedgerMaintenance
-import com.mochame.app.domain.system.sync.MetadataStoreMaintenance
-import com.mochame.app.domain.system.sync.utils.MochaModule
+import com.mochame.app.domain.sync.MetadataStoreMaintenance
+import com.mochame.app.domain.sync.MutationLedger
+import com.mochame.app.domain.sync.MutationLedgerMaintenance
+import com.mochame.app.domain.sync.utils.MochaModule
 
 class RoomMutationLedger(
-    private val dao: MutationLedgerDao,
-    private val executor: ExecutionPolicy
+    private val dao: MutationLedgerDao
 ) : MutationLedger, MutationLedgerMaintenance {
 
     override suspend fun getPendingByKey(
         candidateKey: String,
         entityType: MochaModule
-    ): SyncIntentEntity? = executor.execute {
-        dao.getPendingByKey(candidateKey, entityType)
+    ): SyncIntentEntity? {
+        return dao.getPendingByKey(candidateKey, entityType)
     }
 
-    override suspend fun getPendingByModule(module: MochaModule): List<SyncIntentEntity?> =
-        executor.execute {
-            dao.getPendingByModule(module)
-        }
+    override suspend fun getPendingByModule(module: MochaModule): List<SyncIntentEntity?> {
+        return dao.getPendingByModule(module)
+    }
 
-    override suspend fun recordIntent(entry: SyncIntentEntity) =
-        executor.execute { dao.upsert(entry) }
+    override suspend fun recordIntent(entry: SyncIntentEntity) {
+        return dao.upsert(entry)
+    }
 
-    override suspend fun discardIntent(hlc: String) = executor.execute {
-        dao.deleteByHlc(hlc)
+    override suspend fun discardIntent(hlc: String) {
+        return dao.deleteByHlc(hlc)
     }
 
     /**
@@ -40,11 +38,12 @@ class RoomMutationLedger(
      * Should be used in conjunction with [MetadataStoreMaintenance.bulkResetDirtyModules].
      *
      */
-    override suspend fun clearAllLocksAndResetToPending(): Int = executor.execute {
-        dao.clearAllLocksAndResetStatus()
+    override suspend fun clearAllLocksAndResetToPending(): Int {
+        return dao.clearAllLocksAndResetStatus()
     }
 
-    override suspend fun pruneOldSynced(olderThan: Long, limit: Int): Int =
-        executor.execute { dao.pruneOldSynced(cutoff = olderThan, limit = limit) }
+    override suspend fun pruneOldSynced(olderThan: Long, limit: Int): Int {
+        return dao.pruneOldSynced(cutoff = olderThan, limit = limit)
+    }
 
 }

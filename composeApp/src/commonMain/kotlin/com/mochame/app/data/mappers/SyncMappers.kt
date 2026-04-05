@@ -1,7 +1,7 @@
 package com.mochame.app.data.mappers
 
 import com.mochame.app.data.local.room.entity.SyncMetadataEntity
-import com.mochame.app.domain.system.sync.model.SyncMetadata
+import com.mochame.app.domain.sync.model.SyncMetadata
 
 
 /**

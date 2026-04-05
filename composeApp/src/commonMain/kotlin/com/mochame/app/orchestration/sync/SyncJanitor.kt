@@ -4,10 +4,11 @@ import com.mochame.app.infrastructure.utils.toMochaException
 import co.touchlab.kermit.Logger
 import com.mochame.app.di.providers.DispatcherProvider
 import com.mochame.app.domain.exceptions.MochaException
-import com.mochame.app.domain.system.sync.MetadataStoreMaintenance
-import com.mochame.app.domain.system.sync.MutationLedgerMaintenance
-import com.mochame.app.domain.system.sync.TransactionProvider
-import com.mochame.app.domain.system.sync.usecase.PruneOldEntriesUseCase
+import com.mochame.app.domain.system.sqlite.ExecutionPolicy
+import com.mochame.app.domain.sync.MetadataStoreMaintenance
+import com.mochame.app.domain.sync.MutationLedgerMaintenance
+import com.mochame.app.domain.sync.TransactionProvider
+import com.mochame.app.domain.sync.usecase.PruneOldEntriesUseCase
 import com.mochame.app.infrastructure.identity.IdentityManager
 import com.mochame.app.infrastructure.logging.appendTag
 import com.mochame.app.infrastructure.sync.HlcFactory
@@ -35,6 +36,7 @@ class SyncJanitor(
     private val appScope: CoroutineScope,
     private val hlcFactory: HlcFactory,
     private val mutex: Mutex,
+    private val executor: ExecutionPolicy,
     logger: Logger
 ) {
     companion object {
@@ -50,20 +52,22 @@ class SyncJanitor(
         appScope.launch(dispatcherProvider.io) {
             try {
                 withTimeout(15_000L) {
-                    mutex.withLock {
-                        bootUpdater.bootState.takeIf { !isValidBootState() }?.run {
-                            logger.d { "Janitor: Skipping startup. Current state ($this) is not valid for boot." }
-                            return@withLock
+                    executor.execute("[Startup Checks]") {
+                        mutex.withLock {
+                            bootUpdater.bootState.takeIf { !isValidBootState() }?.run {
+                                logger.d { "Janitor: Skipping startup. Current state ($this) is not valid for boot." }
+                                return@withLock
+                            }
+
+                            logger.i { "Initiating boot sequence..." }
+                            bootUpdater.updateBootState(BootState.Initializing)
+
+                            metadataMaintenance()
+
+                            initHydration()
+
+                            logger.i { "Hydration: HLCFactory is hydrated." }
                         }
-
-                        logger.i { "Initiating boot sequence..." }
-                        bootUpdater.updateBootState(BootState.Initializing)
-
-                        metadataMaintenance()
-
-                        initHydration()
-
-                        logger.i { "Hydration: HLCFactory is hydrated." }
                     }
                 }
             } catch (e: TimeoutCancellationException) {

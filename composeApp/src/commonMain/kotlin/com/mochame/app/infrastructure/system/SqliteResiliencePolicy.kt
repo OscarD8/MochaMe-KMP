@@ -23,7 +23,7 @@ class SqliteResiliencePolicy(
         private const val INITIAL_DELAY = 10L
     }
 
-    override suspend fun <R> execute(block: suspend () -> R): R {
+    override suspend fun <R> execute(operationTag: String, block: suspend () -> R): R {
         val mark = TimeSource.Monotonic.markNow()
         var currentDelay = INITIAL_DELAY
 
@@ -58,13 +58,13 @@ class SqliteResiliencePolicy(
         return try {
             block()
         } catch (e: Exception) {
-            val mochaError = e.toMochaException()
+            val finalError = e.toMochaException()
 
             logger.e(e) {
-                "Exhausted $MAX_ATTEMPTS retries".withTimer(mark) +
-                        " | ${mochaError.message}"
+                "$operationTag. Exhausted $MAX_ATTEMPTS retries".withTimer(mark) +
+                        " | ${finalError.message}"
             }
-            throw mochaError
+            throw finalError
         }
     }
 }

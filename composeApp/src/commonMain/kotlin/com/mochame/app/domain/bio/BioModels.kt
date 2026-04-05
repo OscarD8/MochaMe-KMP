@@ -1,7 +1,7 @@
 package com.mochame.app.domain.bio
 
 import com.mochame.app.infrastructure.sync.HLC
-import com.mochame.app.domain.system.sync.LocalFirstEntity
+import com.mochame.app.domain.sync.LocalFirstEntity
 
 /**
  * Represents the biological capacity and readiness for a single day.
