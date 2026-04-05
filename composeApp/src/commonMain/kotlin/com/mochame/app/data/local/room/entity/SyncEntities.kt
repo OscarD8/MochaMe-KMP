@@ -42,7 +42,9 @@ data class SyncIntentEntity(
     val operation: MutationOp,
     val syncStatus: SyncStatus,
     val syncId: String? = null,
-    val payload: ByteArray,
+    val payload: ByteArray?,
+    val diagnosticSummary: String?,
+    val blobId: String?,
     val hasConflict: Boolean = false,
     val retryCount: Int = 0,
     val createdAt: Long = Clock.System.now().toEpochMilliseconds()

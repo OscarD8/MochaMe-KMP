@@ -7,6 +7,7 @@ import com.mochame.app.infrastructure.utils.DateTimeUtils
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.yield
+import kotlinx.serialization.Serializable
 
 
 /**
@@ -18,15 +19,23 @@ import kotlinx.coroutines.yield
  * @property count Logical counter used to distinguish events occurring in the same millisecond.
  * @property nodeId Unique identifier for the originating device to prevent collisions.
  */
+@Serializable
 data class HLC(
     val ts: Long,      // Physical wall-clock time
     val count: Int,     // Logical counter for same-ms events
     val nodeId: String,  // Unique device ID (prevents collisions)
 ) : Comparable<HLC> {
+
     /**
      * Converts the HLC to its sortable string representation.
+     * TS: 15 digits
+     * Count: 5 digits (maps to MAX_COUNTER 65535)
      */
-    override fun toString(): String = "$ts:$count:$nodeId"
+    override fun toString(): String {
+        val paddedTs = ts.toString().padStart(15, '0')
+        val paddedCount = count.toString().padStart(5, '0')
+        return "$paddedTs:$paddedCount:$nodeId"
+    }
 
     override fun compareTo(other: HLC): Int {
         return compareBy<HLC> { it.ts }
@@ -144,6 +153,25 @@ class HlcFactory(
                 hlcLog.w { "Counter Exhausted at ${dateTimeUtils.now()}. Stalling until clock ticks." }
             }
             yield()
+        }
+    }
+
+    /**
+     * Returns true if the HLC string is syntactically valid and
+     * falls within the causal bounds.
+     * This is for an extra safety check at encoding for
+     * data that may have got around the boot safety procedure, and
+     * is sitting in local storage as corrupted data.
+     *
+     * As each model is mapped, hlc parsing exceptions occur externally.
+     */
+    fun isValid(hlc: HLC): Boolean {
+        val wallClock = dateTimeUtils.now().toEpochMilliseconds()
+
+        return when {
+            hlc.ts < APP_RELEASE_MS -> false              // Floor violation
+            hlc.ts - wallClock > ONE_DAY_MS -> false      // Future drift violation
+            else -> true
         }
     }
 

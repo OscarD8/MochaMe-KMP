@@ -10,14 +10,18 @@ import com.mochame.app.domain.bio.BioRepository
 import com.mochame.app.domain.bio.DailyContext
 import com.mochame.app.domain.exceptions.MochaException
 import com.mochame.app.domain.system.sqlite.ExecutionPolicy
+import com.mochame.app.domain.system.sync.BlobStore
 import com.mochame.app.domain.system.sync.MetadataStore
 import com.mochame.app.domain.system.sync.MutationLedger
+import com.mochame.app.domain.system.sync.PayloadEncoder
 import com.mochame.app.domain.system.sync.TransactionProvider
 import com.mochame.app.domain.system.sync.utils.MochaModule
+import com.mochame.app.domain.system.sync.utils.MutationOp
 import com.mochame.app.infrastructure.sync.HLC
 import com.mochame.app.infrastructure.sync.HlcFactory
 import com.mochame.app.infrastructure.system.boot.BootStatusProvider
 import com.mochame.app.infrastructure.utils.DateTimeUtils
+import com.mochame.app.infrastructure.utils.toMochaException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -30,7 +34,9 @@ class RoomBioRepository(
     metadataStore: MetadataStore,
     transactor: TransactionProvider,
     mutationLedger: MutationLedger,
-    executor: ExecutionPolicy
+    executor: ExecutionPolicy,
+    encoder: PayloadEncoder<DailyContext>,
+    blobStore: BlobStore
 ) : LocalFirstRepository<DailyContext>(
     hlcFactory = hlcFactory,
     moduleName = MochaModule.BIO,
@@ -39,7 +45,9 @@ class RoomBioRepository(
     mutationLedger = mutationLedger,
     transactor = transactor,
     metadataStore = metadataStore,
-    executor = executor
+    executor = executor,
+    blobStore = blobStore,
+    encoder = encoder
 ), BioRepository {     // syncGateway still to come
 
     override suspend fun initializeDay(
@@ -50,11 +58,11 @@ class RoomBioRepository(
         val mochaDay = dateTimeUtils.getMochaDay()
         val id = mochaDay.toString()
 
-        return persistUpsert(
+        return dispatchIntent(
             candidateKey = id,
-            mergeLogic = { newHlc ->
-                val existing = bioDao.getContextById(id)
-
+            op = MutationOp.UPSERT,
+            fetchOldState = { bioDao.getContextById(id)?.toDomain() },
+            computeAndStamp = { old, newHlc ->
                 merge(
                     id,
                     mochaDay,
@@ -62,11 +70,13 @@ class RoomBioRepository(
                     sleepHours,
                     readinessScore,
                     isNapped,
-                    existing
+                    newHlc.ts,
+                    old
                 )
             },
-            saveAction = { stampedEntity ->
-                 bioDao.upsert(stampedEntity.toEntity())
+            persist = { stamped ->
+                bioDao.upsert(stamped.toEntity())
+                return@dispatchIntent stamped
             }
         )
     }
@@ -74,13 +84,22 @@ class RoomBioRepository(
     override suspend fun deleteContext(epochDay: Long): Int {
         val id = epochDay.toString()
 
-        return persistDelete(
+        return dispatchIntent(
             candidateKey = id,
-            deleteAction = { newHlc ->
+            op = MutationOp.DELETE,
+            fetchOldState = {
+                bioDao.getContextById(id)
+                    ?.takeIf { !it.isDeleted }
+                    ?.toDomain()
+            },
+            computeAndStamp = { old, newHlc ->
+                old?.copy(isDeleted = true, hlc = newHlc, lastModified = newHlc.ts)
+            },
+            persist = { tombstone ->
                 bioDao.markAsDeleted(
-                    id = id,
-                    newHlc = newHlc.toString(),
-                    timestamp = newHlc.ts
+                    tombstone.id,
+                    tombstone.hlc.toString(),
+                    tombstone.hlc.ts
                 )
             }
         )
@@ -124,20 +143,15 @@ class RoomBioRepository(
         sleepHours: Double,
         readinessScore: Int,
         isNapped: Boolean,
-        existing: DailyContextEntity?
+        modificationTime: Long,
+        existing: DailyContext?
     ): DailyContext {
-        val existingDomain = try { // NOTE have not implemented anywhere catching this
-            existing?.toDomain()
-        } catch (e: MochaException.Persistent.HlcParseException) {
-            logger.e(e) { "Corruption in record ${existing?.id}. Overwriting." }
-            throw e
-        }
-
-        return (existingDomain?.copy(
+        return (existing?.copy(
             sleepHours = sleepHours,
             hlc = newHlc,
             readinessScore = readinessScore,
             isNapped = isNapped,
+            lastModified = modificationTime,
             isDeleted = false
         ) ?: DailyContext(
             id = newId,
@@ -146,7 +160,8 @@ class RoomBioRepository(
             sleepHours = sleepHours,
             readinessScore = readinessScore,
             isNapped = isNapped,
-            isDeleted = false
+            isDeleted = false,
+            lastModified = modificationTime
         ))
     }
 }

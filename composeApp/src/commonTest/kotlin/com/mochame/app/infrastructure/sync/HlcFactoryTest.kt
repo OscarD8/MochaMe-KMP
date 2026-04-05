@@ -93,7 +93,7 @@ class HlcFactoryTest : KoinTest {
     fun should_return_success_with_restamped_node_id_when_valid_history_provided() =
         runTestWrapper {
             // Given
-            val history = "1740787200000:5:device-a"
+            val history = "${HLCTools.TEST_APP_RELEASE_MS}:00005:device-a"
             val newNodeId = "device-b"
 
             // When
@@ -101,7 +101,7 @@ class HlcFactoryTest : KoinTest {
 
             // Then
             assertNotNull(result)
-            assertEquals("1740787200000:5:device-b", result.toString())
+            assertEquals("00${HLCTools.TEST_APP_RELEASE_MS}:00005:device-b", result.toString())
         }
 
     @Test

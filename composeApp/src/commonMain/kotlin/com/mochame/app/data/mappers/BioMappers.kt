@@ -10,22 +10,16 @@ import com.mochame.app.infrastructure.sync.HLC
  * Entity -> Domain
  * Used when reading from the database or receiving remote changes via SyncGateway.
  */
-fun DailyContextEntity.toDomain(): DailyContext {
-    return try {
-        DailyContext (
-            id = id,
-            hlc = HLC.parse(hlc),
-            epochDay = epochDay,
-            sleepHours = sleepHours,
-            readinessScore = readinessScore,
-            isNapped = isNapped,
-            isDeleted = isDeleted,
-            lastModified = lastModified
-        )
-    } catch (e: MochaException.Persistent.HlcParseException) {
-        throw e
-    }
-}
+fun DailyContextEntity.toDomain() = DailyContext(
+    id = id,
+    hlc = HLC.parse(hlc),
+    epochDay = epochDay,
+    sleepHours = sleepHours,
+    readinessScore = readinessScore,
+    isNapped = isNapped,
+    isDeleted = isDeleted,
+    lastModified = lastModified
+)
 
 /**
  * Domain -> Entity

@@ -87,6 +87,7 @@ Inspired by NASA's launch of Artemis II (and that I kept having to refactor) :)
 | **CCL** | Concurrency  | Coroutines, Mutexes, and HLC Causality.       |
 | **DPL** | Persistence  | Room KMP, SQLite Atomicity, and Migrations.   |
 | **STL** | Safety       | Exception Mapping, Boot State, and Forensics. |
+| **GSL** | Local First  | Causality, server operations, and conflicts.  |
 
 #### Example prompt:
 

@@ -1,17 +1,26 @@
 package com.mochame.app.domain.system.sync
 
+import com.mochame.app.domain.system.sync.LocalFirstEntity
+
 /**
  * Contract for transforming domain changes into binary bitstreams.
  */
-interface PayloadEncoder<T> {
+interface PayloadEncoder<T : LocalFirstEntity<T>> {
     /**
-     * Generates a binary delta (Partial Diff) between two states.
-     * Implementation should use kotlinx-serialization-protobuf.
+     * Delta Generation: Compares the absolute latest state against
+     * the new intent. If [old] is null, it encodes a full record.
      */
-    fun encodeDiff(old: T?, new: T): ByteArray
+    fun encode(new: T, old: T?): ByteArray
 
     /**
-     * Generates the binary representation for a deletion intent.
+     * Diagnostic Transparency: Generates a non-sensitive string
+     * for the unencrypted 'diagnosticSummary' field.
      */
-    fun encodeDelete(): ByteArray
+    fun summarize(new: T): String
+
+    /**
+     * Terminal Failure Signal: Returns a specific error if
+     * version mismatch or corruption is detected.
+     */
+    fun validate(data: ByteArray): Boolean
 }
