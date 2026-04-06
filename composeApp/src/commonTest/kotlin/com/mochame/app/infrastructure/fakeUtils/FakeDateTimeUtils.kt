@@ -1,4 +1,4 @@
-package com.mochame.app.infrastructure.fakeutils
+package com.mochame.app.infrastructure.fakeUtils
 
 import com.mochame.app.infrastructure.utils.DateTimeUtils
 import kotlin.time.Instant

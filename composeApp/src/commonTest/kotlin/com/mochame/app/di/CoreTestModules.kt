@@ -19,7 +19,7 @@ import com.mochame.app.domain.system.sqlite.ExecutionPolicy
 import com.mochame.app.domain.sync.stores.MetadataStoreMaintenance
 import com.mochame.app.domain.sync.stores.MutationLedgerMaintenance
 import com.mochame.app.domain.sync.TransactionProvider
-import com.mochame.app.infrastructure.fakeutils.FakeDateTimeUtils
+import com.mochame.app.infrastructure.fakeUtils.FakeDateTimeUtils
 import com.mochame.app.infrastructure.identity.IdentityManager
 import com.mochame.app.infrastructure.logging.CleanLogWriter
 import com.mochame.app.infrastructure.sync.HlcFactory
