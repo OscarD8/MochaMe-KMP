@@ -6,7 +6,7 @@ import co.touchlab.kermit.Severity
 import com.mochame.app.data.local.room.MochaDatabase
 import com.mochame.app.data.local.room.RoomSettingsStore
 import com.mochame.app.data.local.room.dao.SettingsDao
-import com.mochame.app.data.local.room.entity.GlobalSettingsEntity
+import com.mochame.app.data.local.room.entities.GlobalSettingsEntity
 import com.mochame.app.di.CoreTestModules
 import com.mochame.app.di.IdentityTestEnvironment
 import com.mochame.app.di.modules.AppModules

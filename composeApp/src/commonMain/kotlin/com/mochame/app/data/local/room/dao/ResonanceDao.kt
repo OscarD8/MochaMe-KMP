@@ -1,10 +1,10 @@
 package com.mochame.app.data.local.room.dao
 
 import androidx.room.*
-import com.mochame.app.data.local.room.entity.AuthorEntity
-import com.mochame.app.data.local.room.entity.BookEntity
-import com.mochame.app.data.local.room.entity.QuoteEntity
-import com.mochame.app.domain.signal.Resonance
+import com.mochame.app.data.local.room.entities.AuthorEntity
+import com.mochame.app.data.local.room.entities.BookEntity
+import com.mochame.app.data.local.room.entities.QuoteEntity
+import com.mochame.app.domain.feature.resonance.Resonance
 import kotlinx.coroutines.flow.Flow
 
 @Dao

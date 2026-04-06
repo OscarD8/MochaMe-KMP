@@ -4,7 +4,7 @@ import app.cash.turbine.test
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Severity
 import com.mochame.app.data.local.room.MochaDatabase
-import com.mochame.app.data.local.room.entity.SyncMetadataEntity
+import com.mochame.app.data.local.room.entities.SyncMetadataEntity
 import com.mochame.app.di.CoreTestModules
 import com.mochame.app.di.JanitorTestEnvironment
 import com.mochame.app.di.modules.AppModules

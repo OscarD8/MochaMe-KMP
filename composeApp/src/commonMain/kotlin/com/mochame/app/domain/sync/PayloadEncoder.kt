@@ -21,7 +21,7 @@ interface PayloadEncoder<T : LocalFirstEntity<T>> {
      * Forensic-Time Summary.
      * Generates a manifest from raw bits when domain objects are unavailable.
      */
-    fun summarize(data: ByteArray): String
+    fun reconstructSummary(data: ByteArray): String
 
     /**
      * Terminal Failure Signal: Returns a specific error if

@@ -1,7 +1,7 @@
 package com.mochame.app.domain.sync.usecase
 
 import co.touchlab.kermit.Logger
-import com.mochame.app.domain.sync.MutationLedgerMaintenance
+import com.mochame.app.domain.sync.stores.MutationLedgerMaintenance
 import com.mochame.app.infrastructure.utils.DateTimeUtils
 import com.mochame.app.infrastructure.utils.withTimer
 import kotlinx.coroutines.yield

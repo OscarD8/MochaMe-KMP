@@ -2,11 +2,13 @@ package com.mochame.app.data.local.room.dao
 
 import androidx.room.Dao
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Upsert
-import com.mochame.app.data.local.room.entity.DomainEntity
-import com.mochame.app.data.local.room.entity.MomentEntity
-import com.mochame.app.data.local.room.entity.SpaceEntity
-import com.mochame.app.data.local.room.entity.TopicEntity
+import com.mochame.app.data.local.room.entities.DomainEntity
+import com.mochame.app.data.local.room.entities.MomentEntity
+import com.mochame.app.data.local.room.entities.MomentWithAttachments
+import com.mochame.app.data.local.room.entities.SpaceEntity
+import com.mochame.app.data.local.room.entities.TopicEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -34,6 +36,14 @@ interface TelemetryDao {
         ORDER BY m.timestamp DESC
     """)
     fun observeMomentsForDay(epochDay: Long): Flow<List<MomentEntity>>
+
+    @Transaction
+    @Query("SELECT * FROM moments WHERE id = :id")
+    fun getMomentWithAttachments(id: String): Flow<MomentWithAttachments?>
+
+    @Transaction
+    @Query("SELECT * FROM moments")
+    fun getAllMomentsWithAttachments(): Flow<List<MomentWithAttachments>>
 
     @Query("DELETE FROM moments WHERE id = :id")
     suspend fun deleteMomentById(id: String)

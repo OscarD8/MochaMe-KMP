@@ -1,11 +1,11 @@
 package com.mochame.app.data.mappers
 
-import com.mochame.app.data.local.room.entity.AuthorEntity
-import com.mochame.app.data.local.room.entity.BookEntity
-import com.mochame.app.data.local.room.entity.QuoteEntity
-import com.mochame.app.domain.signal.Author
-import com.mochame.app.domain.signal.Book
-import com.mochame.app.domain.signal.Quote
+import com.mochame.app.data.local.room.entities.AuthorEntity
+import com.mochame.app.data.local.room.entities.BookEntity
+import com.mochame.app.data.local.room.entities.QuoteEntity
+import com.mochame.app.domain.feature.resonance.Author
+import com.mochame.app.domain.feature.resonance.Book
+import com.mochame.app.domain.feature.resonance.Quote
 
 // --- AUTHOR MAPPERS ---
 

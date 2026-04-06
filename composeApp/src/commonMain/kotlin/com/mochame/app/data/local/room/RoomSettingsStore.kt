@@ -1,7 +1,6 @@
 package com.mochame.app.data.local.room
 
 import com.mochame.app.data.local.room.dao.SettingsDao
-import com.mochame.app.data.local.room.entity.GlobalSettingsEntity
 import com.mochame.app.domain.system.settings.SettingsStore
 import com.mochame.app.domain.system.sqlite.ExecutionPolicy
 

@@ -1,11 +1,11 @@
 package com.mochame.app.data.local.room.converter
 
 import androidx.room.TypeConverter
-import com.mochame.app.domain.signal.Resonance
+import com.mochame.app.domain.feature.resonance.Resonance
 import com.mochame.app.domain.sync.utils.MochaModule
 import com.mochame.app.domain.sync.utils.MutationOp
 import com.mochame.app.domain.sync.utils.SyncStatus
-import com.mochame.app.domain.telemetry.Mood
+import com.mochame.app.domain.feature.telemetry.Mood
 import com.mochame.app.infrastructure.sync.HLC
 import kotlin.time.Instant
 

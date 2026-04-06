@@ -15,17 +15,17 @@ import com.mochame.app.data.local.room.dao.SettingsDao
 import com.mochame.app.data.local.room.dao.TelemetryDao
 import com.mochame.app.data.local.room.dao.sync.MutationLedgerDao
 import com.mochame.app.data.local.room.dao.sync.SyncMetadataDao
-import com.mochame.app.data.local.room.entity.AuthorEntity
-import com.mochame.app.data.local.room.entity.BookEntity
-import com.mochame.app.data.local.room.entity.DailyContextEntity
-import com.mochame.app.data.local.room.entity.DomainEntity
-import com.mochame.app.data.local.room.entity.GlobalSettingsEntity
-import com.mochame.app.data.local.room.entity.MomentEntity
-import com.mochame.app.data.local.room.entity.QuoteEntity
-import com.mochame.app.data.local.room.entity.SpaceEntity
-import com.mochame.app.data.local.room.entity.SyncIntentEntity
-import com.mochame.app.data.local.room.entity.SyncMetadataEntity
-import com.mochame.app.data.local.room.entity.TopicEntity
+import com.mochame.app.data.local.room.entities.AuthorEntity
+import com.mochame.app.data.local.room.entities.BookEntity
+import com.mochame.app.data.local.room.entities.DailyContextEntity
+import com.mochame.app.data.local.room.entities.DomainEntity
+import com.mochame.app.data.local.room.entities.GlobalSettingsEntity
+import com.mochame.app.data.local.room.entities.MomentEntity
+import com.mochame.app.data.local.room.entities.QuoteEntity
+import com.mochame.app.data.local.room.entities.SpaceEntity
+import com.mochame.app.data.local.room.entities.SyncIntentEntity
+import com.mochame.app.data.local.room.entities.SyncMetadataEntity
+import com.mochame.app.data.local.room.entities.TopicEntity
 import com.mochame.app.di.providers.DispatcherProvider
 
 @ConstructedBy(MochaDatabaseConstructor::class)

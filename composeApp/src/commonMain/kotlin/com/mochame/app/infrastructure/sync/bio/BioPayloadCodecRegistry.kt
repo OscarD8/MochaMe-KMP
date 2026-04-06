@@ -1,6 +1,6 @@
 package com.mochame.app.infrastructure.sync.bio
 
-import com.mochame.app.domain.bio.DailyContext
+import com.mochame.app.domain.feature.bio.DailyContext
 import com.mochame.app.domain.exceptions.MochaException
 import com.mochame.app.domain.sync.PayloadEncoder
 import com.mochame.app.domain.sync.model.EntityMetadata
@@ -44,10 +44,10 @@ class BioPayloadCodecRegistry(
     /**
      * Forensic Overload: Summarize from Raw Bits.
      */
-    override fun summarize(data: ByteArray): String {
+    override fun reconstructSummary(data: ByteArray): String {
         if (data.isEmpty()) return "OP:INVALID"
         return when (data[0]) {
-            0x01.toByte() -> v1.summarize(data)
+            0x01.toByte() -> v1.reconstructSummary(data)
             // 0x02.toByte() -> v2.summarize(data) // FUTURE
             else -> "OP:UNKNOWN_VERSION_${data[0]}"
         }

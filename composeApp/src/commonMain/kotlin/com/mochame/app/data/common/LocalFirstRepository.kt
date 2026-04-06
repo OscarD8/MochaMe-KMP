@@ -1,13 +1,13 @@
 package com.mochame.app.data.common
 
 import co.touchlab.kermit.Logger
-import com.mochame.app.data.local.room.entity.SyncIntentEntity
+import com.mochame.app.data.local.room.entities.SyncIntentEntity
 import com.mochame.app.infrastructure.utils.toMochaException
 import com.mochame.app.domain.exceptions.MochaException
 import com.mochame.app.domain.system.sqlite.ExecutionPolicy
-import com.mochame.app.domain.sync.BlobStore
-import com.mochame.app.domain.sync.MetadataStore
-import com.mochame.app.domain.sync.MutationLedger
+import com.mochame.app.domain.sync.stores.BlobStore
+import com.mochame.app.domain.sync.stores.MetadataStore
+import com.mochame.app.domain.sync.stores.MutationLedger
 import com.mochame.app.domain.sync.PayloadEncoder
 import com.mochame.app.domain.sync.TransactionProvider
 import com.mochame.app.domain.sync.LocalFirstEntity
@@ -70,7 +70,6 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
 
             val payload = encoder.encode(newState, oldState)
                 ?: return@execute newState as R // No changes detected, return the old state
-
             val summary = encoder.summarize(newState, oldState)
 
             // Phase 3: Staging & Persistence
@@ -184,7 +183,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                 syncStatus = SyncStatus.PENDING,
                 createdAt = effectiveCreatedAt,
                 payload = inlinePayload,
-                blobId = blobId,
+                overflowBlobId = blobId,
                 diagnosticSummary = diagnosticSummary
             )
         )

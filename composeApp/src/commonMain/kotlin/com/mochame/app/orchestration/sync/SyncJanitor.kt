@@ -5,8 +5,8 @@ import co.touchlab.kermit.Logger
 import com.mochame.app.di.providers.DispatcherProvider
 import com.mochame.app.domain.exceptions.MochaException
 import com.mochame.app.domain.system.sqlite.ExecutionPolicy
-import com.mochame.app.domain.sync.MetadataStoreMaintenance
-import com.mochame.app.domain.sync.MutationLedgerMaintenance
+import com.mochame.app.domain.sync.stores.MetadataStoreMaintenance
+import com.mochame.app.domain.sync.stores.MutationLedgerMaintenance
 import com.mochame.app.domain.sync.TransactionProvider
 import com.mochame.app.domain.sync.usecase.PruneOldEntriesUseCase
 import com.mochame.app.infrastructure.identity.IdentityManager

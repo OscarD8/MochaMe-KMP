@@ -5,7 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
-import com.mochame.app.data.local.room.entity.GlobalSettingsEntity
+import com.mochame.app.data.local.room.entities.GlobalSettingsEntity
 
 @Dao
 interface SettingsDao {

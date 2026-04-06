@@ -1,16 +1,19 @@
 package com.mochame.app.data.mappers
 
-import com.mochame.app.data.local.room.entity.DomainEntity
-import com.mochame.app.data.local.room.entity.MomentEntity
-import com.mochame.app.data.local.room.entity.SpaceEntity
-import com.mochame.app.data.local.room.entity.TopicEntity
-import com.mochame.app.domain.telemetry.Domain
-import com.mochame.app.domain.telemetry.Moment
-import com.mochame.app.domain.telemetry.Space
-import com.mochame.app.domain.telemetry.Topic
+import com.mochame.app.data.local.room.entities.DomainEntity
+import com.mochame.app.data.local.room.entities.MomentAttachmentEntity
+import com.mochame.app.data.local.room.entities.MomentEntity
+import com.mochame.app.data.local.room.entities.MomentWithAttachments
+import com.mochame.app.data.local.room.entities.SpaceEntity
+import com.mochame.app.data.local.room.entities.TopicEntity
+import com.mochame.app.domain.feature.telemetry.Domain
+import com.mochame.app.domain.feature.telemetry.Moment
+import com.mochame.app.domain.feature.telemetry.MomentAttachment
+import com.mochame.app.domain.feature.telemetry.Space
+import com.mochame.app.domain.feature.telemetry.Topic
 
 // --- MOMENT MAPPERS ---
-fun MomentEntity.toDomain(): Moment {
+fun MomentEntity.toDomain(attachments: List<MomentAttachment>): Moment {
     return Moment(
         id = id,
         domainId = domainId,
@@ -19,7 +22,8 @@ fun MomentEntity.toDomain(): Moment {
         core = core,
         detail = detail,
         context = context,
-        metadata = metadata
+        metadata = metadata,
+        attachments = attachments
     )
 }
 
@@ -33,6 +37,22 @@ fun Moment.toEntity(): MomentEntity {
         detail = detail,
         context = context,
         metadata = metadata
+    )
+}
+
+fun MomentWithAttachments.toDomain(): Moment {
+    val domainAttachments = attachments.map { it.toDomain() }
+    return moment.toDomain(domainAttachments)
+}
+
+fun MomentAttachmentEntity.toDomain(): MomentAttachment {
+    return MomentAttachment(
+        id = id,
+        contentBlobId = contentBlobId,
+        mimeType = mimeType,
+        fileName = fileName,
+        fileSize = fileSize,
+        localUri = localUri
     )
 }
 

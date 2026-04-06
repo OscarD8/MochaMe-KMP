@@ -1,8 +1,9 @@
 package com.mochame.app.infrastructure.sync.bio
 
-import com.mochame.app.domain.bio.DailyContext
-import com.mochame.app.domain.sync.BasePayloadEncoder
+import com.mochame.app.domain.feature.bio.DailyContext
+import com.mochame.app.infrastructure.sync.BasePayloadEncoder
 import com.mochame.app.domain.sync.model.EntityMetadata
+import kotlinx.io.Buffer
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -42,7 +43,7 @@ class BioPayloadEncoderV1 : BasePayloadEncoder<DailyContext>(version = 0x01) {
                     if (new.readinessScore != old.readinessScore) new.readinessScore else null
                 val napped = if (new.isNapped != old.isNapped) new.isNapped else null
 
-                if (sleep == null && readiness == null && napped == null) return null // GSL Ghost-Abort
+                if (sleep == null && readiness == null && napped == null) return null
 
                 encodeDelta(
                     BioDeltaV1(
@@ -57,17 +58,40 @@ class BioPayloadEncoderV1 : BasePayloadEncoder<DailyContext>(version = 0x01) {
     }
 
     /**
-     * STL Mandated: Forensic Peek (The "Cold" Path).
+     * Peek (The "Cold" Path).
      * Extracts tags from raw bits without full value decoding.
      */
-    override fun summarize(data: ByteArray): String {
-        val tags = mutableListOf<Int>()
-        // Skip header byte at index 0
-        val protoBytes = data.drop(1).toByteArray()
+    override fun reconstructSummary(data: ByteArray): String {
+        if (!validate(data)) return "OP:INVALID_VERSION"
 
-        // Use ProtoBuf low-level stream to peek at tags
-        // This is a simplified representation of the tag-extraction logic
-        return "OP:UPSERT_V1 (Legacy Bits)"
+        // Use kotlinx-io for zero-copy scanning
+        val buffer = Buffer().apply { write(data) }
+        buffer.readByte() // Skip version header
+
+        var isTombstone = false
+
+        return try {
+            val tags = buildList {
+                while (!buffer.exhausted()) {
+                    val key = readVarint(buffer)
+                    val wireType = key and 0x07
+                    val tag = key shr 3
+
+                    if (tag == 5) isTombstone = true
+                    if (tag in 1..5) add(tag)
+
+                    skipValue(wireType, buffer) // Non-allocating skip
+                }
+            }
+
+            val opCode = if (isTombstone) "DELETE" else "UPSERT"
+            "OP:${opCode}_V1 ${
+                tags.distinct().sorted()
+                    .joinToString(prefix = "[", postfix = "]", separator = ",")
+            }"
+        } catch (e: Exception) {
+            "OP:CORRUPT_PACKET $e" // Persistent error escalation
+        }
     }
 
     /**
@@ -93,7 +117,10 @@ class BioPayloadEncoderV1 : BasePayloadEncoder<DailyContext>(version = 0x01) {
      * Reanimates a DailyContext from V1 Protobuf bits.
      */
     @OptIn(ExperimentalSerializationApi::class)
-    override fun internalDecode(payloadBits: ByteArray, metadata: EntityMetadata): DailyContext {
+    override fun internalDecode(
+        payloadBits: ByteArray,
+        metadata: EntityMetadata
+    ): DailyContext {
         // 1. Deserialize the Delta
         val delta = ProtoBuf.decodeFromByteArray(BioDeltaV1.serializer(), payloadBits)
 

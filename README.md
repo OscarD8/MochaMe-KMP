@@ -74,7 +74,7 @@ there.
 
 #### AI Usage Aim:
 
-4 different contexts assigned roles attempting to achieve domain specialization and cross verification. 
+Different contexts assigned roles attempting to achieve domain specialization and cross verification. 
 Each shift to developing a new component of the system requires a refresh to the context, and specific documentation + code files relevant to that component. 
 Initially a cross team brainstorm is performed, defining a specification, which is then used to develop code which is verified against the Go/No-Go check across domains. 
 This development system was designed to introduce me to new concepts, cope with AI hallucinations, and make a significant amount of the development cycle not about implementation but critical analysis.

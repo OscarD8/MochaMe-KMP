@@ -4,7 +4,7 @@ import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
-import com.mochame.app.data.local.room.entity.DailyContextEntity
+import com.mochame.app.data.local.room.entities.DailyContextEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao

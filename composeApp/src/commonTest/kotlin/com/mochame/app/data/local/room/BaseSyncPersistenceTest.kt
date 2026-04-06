@@ -2,7 +2,7 @@ package com.mochame.app.data.local.room
 
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Severity
-import com.mochame.app.data.local.room.entity.SyncIntentEntity
+import com.mochame.app.data.local.room.entities.SyncIntentEntity
 import com.mochame.app.di.CoreTestModules
 import com.mochame.app.di.SyncPersistenceTestEnv
 import com.mochame.app.di.modules.AppModules
