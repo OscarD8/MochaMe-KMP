@@ -2,25 +2,27 @@ package com.mochame.app.data.local.room.feature.bio
 
 import co.touchlab.kermit.Logger
 import com.mochame.app.data.common.LocalFirstRepository
+import com.mochame.app.data.local.room.dao.BioDao
 import com.mochame.app.data.mappers.toDomain
 import com.mochame.app.data.mappers.toEntity
-import com.mochame.app.data.local.room.dao.BioDao
 import com.mochame.app.domain.feature.bio.BioRepository
 import com.mochame.app.domain.feature.bio.DailyContext
-import com.mochame.app.domain.system.sqlite.ExecutionPolicy
-import com.mochame.app.domain.sync.stores.BlobStore
-import com.mochame.app.domain.sync.stores.MetadataStore
-import com.mochame.app.domain.sync.stores.MutationLedger
 import com.mochame.app.domain.sync.PayloadEncoder
 import com.mochame.app.domain.sync.TransactionProvider
+import com.mochame.app.domain.sync.stores.BlobStager
+import com.mochame.app.domain.sync.stores.MetadataStore
+import com.mochame.app.domain.sync.stores.MutationLedger
 import com.mochame.app.domain.sync.utils.MochaModule
 import com.mochame.app.domain.sync.utils.MutationOp
+import com.mochame.app.domain.system.sqlite.ExecutionPolicy
+import com.mochame.app.infrastructure.logging.appendTag
 import com.mochame.app.infrastructure.sync.HLC
 import com.mochame.app.infrastructure.sync.HlcFactory
 import com.mochame.app.infrastructure.system.boot.BootStatusProvider
 import com.mochame.app.infrastructure.utils.DateTimeUtils
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlin.math.log
 
 class RoomBioRepository(
     private val dateTimeUtils: DateTimeUtils,
@@ -33,11 +35,11 @@ class RoomBioRepository(
     mutationLedger: MutationLedger,
     executor: ExecutionPolicy,
     encoder: PayloadEncoder<DailyContext>,
-    blobStore: BlobStore
+    blobStore: BlobStager
 ) : LocalFirstRepository<DailyContext>(
     hlcFactory = hlcFactory,
     moduleName = MochaModule.BIO,
-    logger = logger,
+    logger = logger.withTag(TAG),
     provider = bootStatusProvider,
     mutationLedger = mutationLedger,
     transactor = transactor,
@@ -46,6 +48,10 @@ class RoomBioRepository(
     blobStore = blobStore,
     encoder = encoder
 ), BioRepository {     // syncGateway still to come
+
+    companion object {
+        const val TAG = "BioRepo"
+    }
 
     override suspend fun initializeDay(
         sleepHours: Double,

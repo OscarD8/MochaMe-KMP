@@ -1,9 +1,11 @@
 package com.mochame.app.infrastructure.sync.bio
 
+import co.touchlab.kermit.Logger
 import com.mochame.app.domain.feature.bio.DailyContext
 import com.mochame.app.domain.exceptions.MochaException
 import com.mochame.app.domain.sync.PayloadEncoder
 import com.mochame.app.domain.sync.model.EntityMetadata
+import com.mochame.app.infrastructure.logging.appendTag
 
 /**
  * The App Release Version Dispatcher.
@@ -12,7 +14,10 @@ import com.mochame.app.domain.sync.model.EntityMetadata
 class BioPayloadCodecRegistry(
     private val v1: BioPayloadEncoderV1,
     // private val v2: BioPayloadEncoderV2 // FUTURE: 2027 Protocol Shift
+    logger: Logger
 ) : PayloadEncoder<DailyContext> {
+
+    private val logger = logger.appendTag("BioCodec")
 
     override fun encode(new: DailyContext, old: DailyContext?): ByteArray? {
         //Always encode using the LATEST protocol available.
@@ -32,12 +37,20 @@ class BioPayloadCodecRegistry(
      * Decoding Routing: Peeks at the header and picks the right engine.
      */
     override fun decode(data: ByteArray, metadata: EntityMetadata): DailyContext {
-        if (data.isEmpty()) throw MochaException.Persistent.CorruptionDetected("Empty Payload")
-
+        if (data.isEmpty()) {
+            logger.e { "Codec Registry: Received empty payload for ${metadata.id}" }
+            throw MochaException.Persistent.CorruptionDetected("Empty Payload")
+        }
         return when (data[0]) {
             0x01.toByte() -> v1.decode(data, metadata)
             // 0x02.toByte() -> v2.decode(data) // Route to the 2027 engine
-            else -> throw MochaException.Persistent.UnknownProtocolVersion(data[0])
+            else -> {
+                logger.e {
+                    "Protocol Collision | ID: ${metadata.id} | " +
+                            "Node received version ${data[0]} but only supports V1."
+                }
+                throw MochaException.Persistent.UnknownProtocolVersion(data[0])
+            }
         }
     }
 

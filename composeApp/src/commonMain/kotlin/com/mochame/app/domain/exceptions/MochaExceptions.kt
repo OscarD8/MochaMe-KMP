@@ -60,6 +60,9 @@ sealed class MochaException(
 
         class UnknownProtocolVersion(version: Byte) :
             Persistent("Unknown protocol version: $version")
+
+        class FileNotFound(blobId: String) :
+            Persistent("File not found: $blobId")
     }
 
     /**

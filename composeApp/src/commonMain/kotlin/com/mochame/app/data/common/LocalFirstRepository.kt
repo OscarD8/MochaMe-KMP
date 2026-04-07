@@ -2,24 +2,28 @@ package com.mochame.app.data.common
 
 import co.touchlab.kermit.Logger
 import com.mochame.app.data.local.room.entities.SyncIntentEntity
-import com.mochame.app.infrastructure.utils.toMochaException
 import com.mochame.app.domain.exceptions.MochaException
-import com.mochame.app.domain.system.sqlite.ExecutionPolicy
-import com.mochame.app.domain.sync.stores.BlobStore
-import com.mochame.app.domain.sync.stores.MetadataStore
-import com.mochame.app.domain.sync.stores.MutationLedger
+import com.mochame.app.domain.sync.LocalFirstEntity
 import com.mochame.app.domain.sync.PayloadEncoder
 import com.mochame.app.domain.sync.TransactionProvider
-import com.mochame.app.domain.sync.LocalFirstEntity
+import com.mochame.app.domain.sync.stores.BlobStager
+import com.mochame.app.domain.sync.stores.MetadataStore
+import com.mochame.app.domain.sync.stores.MutationLedger
 import com.mochame.app.domain.sync.utils.MochaModule
 import com.mochame.app.domain.sync.utils.MutationOp
 import com.mochame.app.domain.sync.utils.SyncStatus
+import com.mochame.app.domain.system.sqlite.ExecutionPolicy
+import com.mochame.app.infrastructure.logging.appendTag
 import com.mochame.app.infrastructure.sync.HLC
 import com.mochame.app.infrastructure.sync.HlcFactory
 import com.mochame.app.infrastructure.system.boot.BootState
 import com.mochame.app.infrastructure.system.boot.BootStatusProvider
+import com.mochame.app.infrastructure.utils.toMochaException
+import com.mochame.app.infrastructure.utils.withTimer
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeout
+import kotlinx.io.Buffer
+import kotlin.time.TimeSource
 
 
 /**
@@ -38,7 +42,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     private val metadataStore: MetadataStore,
     private val moduleName: MochaModule,
     private val executor: ExecutionPolicy,
-    private val blobStore: BlobStore,
+    private val blobStore: BlobStager,
     private val encoder: PayloadEncoder<T>,
     protected val logger: Logger
 ) {
@@ -47,6 +51,8 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
      * HLC generation.
      * The only place where the HLC is generated and the ledger is written.
      * It is private so subclasses cannot bypass the specialized gates below.
+     *
+     * All Deletion OPs MUST return int
      */
     protected suspend fun <R> dispatchIntent(
         candidateKey: String,
@@ -66,7 +72,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             // Phase 2: Transformation / Validation / Encoding
             val computedState = computeAndStamp(oldState, hlc)
             val newState = validateMutationOrAbort(op, computedState, candidateKey)
-                ?: return@execute 0 as R // Ghost Delete (currently silent to the UI)
+                ?: return@execute 0 as R // All Deletion OPs MUST return int
 
             val payload = encoder.encode(newState, oldState)
                 ?: return@execute newState as R // No changes detected, return the old state
@@ -131,11 +137,24 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         persistAction: suspend () -> R
     ): R {
         var blobId: String? = null
+        val tMark = TimeSource.Monotonic.markNow()
+
         try {
+            // 1: Check if External IO needed (big blob)
             if (payload.size > 64_000) {
-                blobId = blobStore.stage(payload)
+                /*
+                    I think this temporarily spikes memory usage but allows
+                    stage to be ubiquitous and work in chunks. Should only be
+                    working with exceptional cases of metadata here.
+                 */
+                blobId = blobStore.stage(Buffer().apply { write(payload) })
+                logger.d {
+                    ("Intent Payload Staged | HLC: $hlc | BlobID: $blobId | Size: ${payload.size / 1024}KB.")
+                }
             }
 
+            // 2: Atomic DB Commit for sync intent & local persistence
+            val mark = TimeSource.Monotonic.markNow()
             val result = transactor.runImmediateTransaction {
                 val localResult = persistAction()
                 recordIntent(
@@ -149,12 +168,21 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                 updateModuleMetadata(hlc)
                 localResult
             }
+            logger.v { "Local DB Transaction Committed".withTimer(mark) }
 
+            // 3. Commit the blob (sync intent commit means it cannot be orphaned)
             blobId?.let { blobStore.commit(it) }
+
+            logger.i {
+                "Intent Dispatched | Op: $op | Key: $candidateKey.".withTimer(tMark)
+            }
             return result
         } catch (e: Exception) {
-            blobId?.let { blobStore.delete(it) }
-            throw e.toMochaException()
+            blobId?.let {
+                blobStore.abort(it)
+                logger.w { "Mutation Failed: Blob Aborted | HLC: $hlc | BlobID: $it | Reason: ${e.message}" }
+            }
+            throw e.toMochaException(candidateKey)
         }
     }
 
@@ -172,7 +200,10 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         val effectiveCreatedAt = resolvePruningTimestamp(pending, op, hlc.ts)
 
         // Compaction: Remove the old intent before writing the new one
-        pending?.let { mutationLedger.discardIntent(it.hlc) }
+        pending?.let {
+            logger.i { "Compacting Ledger | Replacing HLC [${it.hlc}] with [$hlc] for Key [$candidateKey]" }
+            mutationLedger.discardIntent(it.hlc)
+        }
 
         mutationLedger.recordIntent(
             SyncIntentEntity(
@@ -206,8 +237,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
 
     private suspend fun updateModuleMetadata(hlc: HLC) {
         metadataStore.recordPendingMetadata(
-            module = moduleName,
-            hlc = hlc
+            module = moduleName, hlc = hlc
         )
     }
 

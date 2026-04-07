@@ -3,6 +3,7 @@ package com.mochame.app.infrastructure.utils
 import androidx.sqlite.SQLiteException
 import com.mochame.app.domain.exceptions.MochaException
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.io.IOException
 import kotlin.coroutines.cancellation.CancellationException
 
 
@@ -12,10 +13,31 @@ fun Throwable.toMochaException(message: String? = null): MochaException {
     if (this is MochaException) return this
 
     if (this is TimeoutCancellationException) {
-        return MochaException.Transient.Contention(
-            message = message,
-            cause = this
-        )
+        return MochaException.Transient.Contention(message = message, cause = this)
+    }
+
+     if ( this is IOException) {
+        val msg = this.message ?: ""
+
+        when {
+            // Common markers for disk exhaustion across platforms
+            msg.contains("ENOSPC", ignoreCase = true) ||
+                    msg.contains("No space", ignoreCase = true) ->
+                MochaException.Persistent.DiskFull(
+                    "Storage exhausted during $message: $msg", this
+                )
+
+            // Permission or missing directory issues
+            msg.contains("Permission", ignoreCase = true) ||
+                    msg.contains("Access denied", ignoreCase = true) ->
+                MochaException.Persistent.VaultFatal(
+                    "Permission denied during $message: $msg", this
+                )
+
+            else -> MochaException.Persistent.VaultFatal(
+                "IO Error during $message: $msg", this
+            )
+        }
     }
 
     if (this is CancellationException) throw this

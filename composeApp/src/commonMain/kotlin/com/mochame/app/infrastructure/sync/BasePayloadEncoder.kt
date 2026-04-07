@@ -1,5 +1,6 @@
 package com.mochame.app.infrastructure.sync
 
+import co.touchlab.kermit.Logger
 import com.mochame.app.domain.exceptions.MochaException
 import com.mochame.app.domain.sync.LocalFirstEntity
 import com.mochame.app.domain.sync.PayloadEncoder
@@ -8,7 +9,8 @@ import kotlinx.io.Buffer
 import kotlinx.io.readByteArray
 
 abstract class BasePayloadEncoder<T : LocalFirstEntity<T>>(
-    protected val version: Byte
+    protected val version: Byte,
+    protected val logger: Logger
 ) : PayloadEncoder<T> {
 
     final override fun encode(new: T, old: T?): ByteArray? {
@@ -46,7 +48,6 @@ abstract class BasePayloadEncoder<T : LocalFirstEntity<T>>(
      */
     abstract fun internalDecode(payloadBits: ByteArray, metadata: EntityMetadata): T
 
-
     /**
      * Performs a non-allocating scan of the Protobuf bitstream.
      *
@@ -54,14 +55,19 @@ abstract class BasePayloadEncoder<T : LocalFirstEntity<T>>(
     protected fun readVarint(buffer: Buffer): Int {
         var value = 0
         var shift = 0
-        while (true) {
-            val byte = buffer.readByte().toInt()
-            value = value or ((byte and 0x7F) shl shift)
-            if ((byte and 0x80) == 0) break
-            shift += 7
-            if (shift >= 32) throw MochaException.Persistent.CorruptionDetected("Varint overflow")
+        try {
+            while (true) {
+                val byte = buffer.readByte().toInt()
+                value = value or ((byte and 0x7F) shl shift)
+                if ((byte and 0x80) == 0) break
+                shift += 7
+                if (shift >= 32) throw Exception("Varint overflow")
+            }
+            return value
+        } catch (e: Exception) {
+            logger.e(e) { "Binary Corruption: Failed to read Varint at shift $shift" }
+            throw MochaException.Persistent.CorruptionDetected("Varint overflow")
         }
-        return value
     }
 
     /**

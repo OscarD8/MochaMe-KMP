@@ -1,5 +1,6 @@
 package com.mochame.app.infrastructure.sync.bio
 
+import co.touchlab.kermit.Logger
 import com.mochame.app.domain.feature.bio.DailyContext
 import com.mochame.app.infrastructure.sync.BasePayloadEncoder
 import com.mochame.app.domain.sync.model.EntityMetadata
@@ -18,7 +19,9 @@ internal data class BioDeltaV1(
     @SerialName("5") val isDeleted: Boolean = false
 )
 
-class BioPayloadEncoderV1 : BasePayloadEncoder<DailyContext>(version = 0x01) {
+class BioPayloadEncoderV1(logger: Logger) : BasePayloadEncoder<DailyContext>(
+    version = 0x01, logger = logger.withTag("BioEncoder")
+) {
 
     /**
      * GSL Mandated: Ghost Update Detection.
@@ -62,35 +65,39 @@ class BioPayloadEncoderV1 : BasePayloadEncoder<DailyContext>(version = 0x01) {
      * Extracts tags from raw bits without full value decoding.
      */
     override fun reconstructSummary(data: ByteArray): String {
-        if (!validate(data)) return "OP:INVALID_VERSION"
+        // 1. Fail Fast: Version Check
+        if (!validate(data)) {
+            logger.w { "Summary Failed: Protocol Version Mismatch. Got ${data.getOrNull(0)}" }
+            return "OP:INVALID_VERSION"
+        }
 
-        // Use kotlinx-io for zero-copy scanning
-        val buffer = Buffer().apply { write(data) }
-        buffer.readByte() // Skip version header
-
-        var isTombstone = false
+        // 2. Resource Management: Use Pooled Buffer (LCC-ENC-05)
+        val buffer = auditBuffer.get().apply {
+            clear()
+            write(data)
+        }
 
         return try {
-            val tags = buildList {
-                while (!buffer.exhausted()) {
-                    val key = readVarint(buffer)
-                    val wireType = key and 0x07
-                    val tag = key shr 3
+            val peekSource = buffer.peek() // Non-destructive Zero-Copy Scan
+            peekSource.readByte() // Skip version header
 
+            var isTombstone = false
+            val tags = buildList {
+                while (!peekSource.exhausted()) {
+                    val key = readVarint(peekSource)
+                    val tag = key shr 3
                     if (tag == 5) isTombstone = true
                     if (tag in 1..5) add(tag)
-
-                    skipValue(wireType, buffer) // Non-allocating skip
+                    skipValue(key and 0x07, peekSource)
                 }
             }
 
             val opCode = if (isTombstone) "DELETE" else "UPSERT"
-            "OP:${opCode}_V1 ${
-                tags.distinct().sorted()
-                    .joinToString(prefix = "[", postfix = "]", separator = ",")
-            }"
+            // Refined: Standardized 2026 formatting
+            "OP:${opCode}_V1 [${tags.distinct().sorted().joinToString(",")}]"
         } catch (e: Exception) {
-            "OP:CORRUPT_PACKET $e" // Persistent error escalation
+            logger.e(e) { "Forensics: Packet reconstruction failed (${data.size} bytes)" }
+            "OP:CORRUPT_PACKET"
         }
     }
 
