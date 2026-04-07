@@ -80,7 +80,8 @@ class RoomBioRepository(
             persist = { stamped ->
                 bioDao.upsert(stamped.toEntity())
                 return@dispatchIntent stamped
-            }
+            },
+            onSkip = { it!! }
         )
     }
 
@@ -104,7 +105,8 @@ class RoomBioRepository(
                     tombstone.hlc.toString(),
                     tombstone.hlc.ts
                 )
-            }
+            },
+            onSkip = { 0 }
         )
     }
 

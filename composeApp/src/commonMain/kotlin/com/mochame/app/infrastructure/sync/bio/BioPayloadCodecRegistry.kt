@@ -6,6 +6,7 @@ import com.mochame.app.domain.exceptions.MochaException
 import com.mochame.app.domain.sync.PayloadEncoder
 import com.mochame.app.domain.sync.model.EntityMetadata
 import com.mochame.app.infrastructure.logging.appendTag
+import kotlinx.io.Buffer
 
 /**
  * The App Release Version Dispatcher.
@@ -19,7 +20,7 @@ class BioPayloadCodecRegistry(
 
     private val logger = logger.appendTag("BioCodec")
 
-    override fun encode(new: DailyContext, old: DailyContext?): ByteArray? {
+    override fun encode(new: DailyContext, old: DailyContext?): Buffer? {
         //Always encode using the LATEST protocol available.
         return v1.generateDelta(new, old)
     }

@@ -23,12 +23,16 @@ class BioPayloadEncoderV1(logger: Logger) : BasePayloadEncoder<DailyContext>(
     version = 0x01, logger = logger.withTag("BioEncoder")
 ) {
 
+    companion object {
+        // Shared buffer to avoid allocations during hot-path ledger sweeps
+        private val auditBuffer = ThreadLocal.withInitial { Buffer() } //TODO establish ios compatibility
+    }
+
     /**
-     * GSL Mandated: Ghost Update Detection.
-     * Returns null if no fields have changed, aborting the write.
+     * Returns null if no fields have changed, aborting write.
      */
     @OptIn(ExperimentalSerializationApi::class)
-    override fun generateDelta(new: DailyContext, old: DailyContext?): ByteArray? {
+    override fun generateDelta(new: DailyContext, old: DailyContext?): Buffer? {
         return when {
             new.isDeleted -> encodeDelta(BioDeltaV1(id = new.id, isDeleted = true))
             old == null -> encodeDelta(
@@ -71,7 +75,7 @@ class BioPayloadEncoderV1(logger: Logger) : BasePayloadEncoder<DailyContext>(
             return "OP:INVALID_VERSION"
         }
 
-        // 2. Resource Management: Use Pooled Buffer (LCC-ENC-05)
+        // 2. Resource Management: Use Pooled Buffer
         val buffer = auditBuffer.get().apply {
             clear()
             write(data)
@@ -93,7 +97,6 @@ class BioPayloadEncoderV1(logger: Logger) : BasePayloadEncoder<DailyContext>(
             }
 
             val opCode = if (isTombstone) "DELETE" else "UPSERT"
-            // Refined: Standardized 2026 formatting
             "OP:${opCode}_V1 [${tags.distinct().sorted().joinToString(",")}]"
         } catch (e: Exception) {
             logger.e(e) { "Forensics: Packet reconstruction failed (${data.size} bytes)" }
@@ -145,6 +148,8 @@ class BioPayloadEncoderV1(logger: Logger) : BasePayloadEncoder<DailyContext>(
     }
 
     @OptIn(ExperimentalSerializationApi::class)
-    private fun encodeDelta(delta: BioDeltaV1) =
-        ProtoBuf.encodeToByteArray(BioDeltaV1.serializer(), delta)
+    private fun encodeDelta(delta: BioDeltaV1): Buffer {
+        val bytes = ProtoBuf.encodeToByteArray(BioDeltaV1.serializer(), delta)
+        return Buffer().apply { write(bytes) }
+    }
 }

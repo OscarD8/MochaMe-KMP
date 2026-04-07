@@ -13,7 +13,6 @@ import com.mochame.app.domain.sync.utils.MochaModule
 import com.mochame.app.domain.sync.utils.MutationOp
 import com.mochame.app.domain.sync.utils.SyncStatus
 import com.mochame.app.domain.system.sqlite.ExecutionPolicy
-import com.mochame.app.infrastructure.logging.appendTag
 import com.mochame.app.infrastructure.sync.HLC
 import com.mochame.app.infrastructure.sync.HlcFactory
 import com.mochame.app.infrastructure.system.boot.BootState
@@ -23,6 +22,7 @@ import com.mochame.app.infrastructure.utils.withTimer
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeout
 import kotlinx.io.Buffer
+import kotlinx.io.readByteArray
 import kotlin.time.TimeSource
 
 
@@ -51,31 +51,48 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
      * HLC generation.
      * The only place where the HLC is generated and the ledger is written.
      * It is private so subclasses cannot bypass the specialized gates below.
-     *
-     * All Deletion OPs MUST return int
      */
     protected suspend fun <R> dispatchIntent(
         candidateKey: String,
         op: MutationOp,
         fetchOldState: suspend () -> T?,
         computeAndStamp: suspend (old: T?, newHlc: HLC) -> T?,
-        persist: suspend (stamped: T) -> R
+        persist: suspend (stamped: T) -> R,
+        onSkip: (old: T?) -> R
     ): R {
         ensureReady()
 
         return executor.execute("[${moduleName}_$op]") {
             // Phase 1: Context hydration
-            val hlc = hlcFactory.getNextHlc()
             val oldState = fetchOldState()
-            validateHlcIntegrity(candidateKey, oldState)
+
+            if (oldState != null && !hlcFactory.isValid(oldState.hlc)) {
+                throw MochaException.Persistent.CorruptionDetected("Invalid HLC for $candidateKey")
+            }
 
             // Phase 2: Transformation / Validation / Encoding
-            val computedState = computeAndStamp(oldState, hlc)
-            val newState = validateMutationOrAbort(op, computedState, candidateKey)
-                ?: return@execute 0 as R // All Deletion OPs MUST return int
+            val computedState = computeAndStamp(oldState, HLC.EMPTY)
 
-            val payload = encoder.encode(newState, oldState)
-                ?: return@execute newState as R // No changes detected, return the old state
+            val newState = validateMutationOrAbort(op, computedState, candidateKey)
+                ?: return@execute onSkip(oldState) // All Deletion OPs MUST return int
+
+            val hlc = hlcFactory.getNextHlc()
+            if (oldState != null && hlc <= oldState.hlc) {
+                // Placing this here for testing to confirm the HLC logic works in the repository context
+                logger.e {
+                    "Causality Violation | Key: $candidateKey | " +
+                            "New HLC [$hlc] is not greater than Old HLC [${oldState.hlc}]"
+                }
+
+                // If this log is ever triggered, HLCFactory is broken as you have pulled an
+                // old state with an HLC greater than the factory's output. Maybe add a tick option
+            }
+
+            val finalState = newState.withHlc(hlc = hlc)
+
+            val bufferPayload = encoder.encode(newState, oldState)
+                ?: return@execute onSkip(oldState) // No changes detected, return the old state
+
             val summary = encoder.summarize(newState, oldState)
 
             // Phase 3: Staging & Persistence
@@ -83,9 +100,9 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                 candidateKey = candidateKey,
                 op = op,
                 hlc = hlc,
-                payload = payload,
+                payloadBuffer = bufferPayload,
                 summary = summary,
-                persistAction = { persist(newState) }
+                persistAction = { persist(finalState) }
             )
         }
     }
@@ -102,12 +119,6 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                 throw state.throwable
                     ?: MochaException.Persistent.BootInitializationError(state.error)
             }
-        }
-    }
-
-    private fun validateHlcIntegrity(candidateKey: String, oldState: T?) {
-        if (oldState != null && !hlcFactory.isValid(oldState.hlc)) {
-            throw MochaException.Persistent.CorruptionDetected(candidateKey)
         }
     }
 
@@ -132,25 +143,20 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         candidateKey: String,
         op: MutationOp,
         hlc: HLC,
-        payload: ByteArray,
+        payloadBuffer: Buffer,
         summary: String,
         persistAction: suspend () -> R
     ): R {
-        var blobId: String? = null
         val tMark = TimeSource.Monotonic.markNow()
+        var blobId: String? = null
 
         try {
             // 1: Check if External IO needed (big blob)
-            if (payload.size > 64_000) {
-                /*
-                    I think this temporarily spikes memory usage but allows
-                    stage to be ubiquitous and work in chunks. Should only be
-                    working with exceptional cases of metadata here.
-                 */
-                blobId = blobStore.stage(Buffer().apply { write(payload) })
-                logger.d {
-                    ("Intent Payload Staged | HLC: $hlc | BlobID: $blobId | Size: ${payload.size / 1024}KB.")
-                }
+            val inlineBytes = if (payloadBuffer.size > 64_000) {
+                blobId = blobStore.stage(payloadBuffer)
+                null
+            } else {
+                payloadBuffer.readByteArray() // Consume buffer for DB
             }
 
             // 2: Atomic DB Commit for sync intent & local persistence
@@ -161,7 +167,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                     candidateKey,
                     op,
                     hlc,
-                    if (blobId == null) payload else null,
+                    inlineBytes,
                     blobId,
                     summary
                 )
@@ -190,7 +196,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         candidateKey: String,
         op: MutationOp,
         hlc: HLC,
-        inlinePayload: ByteArray?,
+        payload: ByteArray?,
         blobId: String?,
         diagnosticSummary: String
     ) {
@@ -213,7 +219,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                 operation = op,
                 syncStatus = SyncStatus.PENDING,
                 createdAt = effectiveCreatedAt,
-                payload = inlinePayload,
+                payload = payload,
                 overflowBlobId = blobId,
                 diagnosticSummary = diagnosticSummary
             )

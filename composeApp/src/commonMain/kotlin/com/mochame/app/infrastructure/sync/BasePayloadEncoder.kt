@@ -6,6 +6,7 @@ import com.mochame.app.domain.sync.LocalFirstEntity
 import com.mochame.app.domain.sync.PayloadEncoder
 import com.mochame.app.domain.sync.model.EntityMetadata
 import kotlinx.io.Buffer
+import kotlinx.io.Source
 import kotlinx.io.readByteArray
 
 abstract class BasePayloadEncoder<T : LocalFirstEntity<T>>(
@@ -13,17 +14,17 @@ abstract class BasePayloadEncoder<T : LocalFirstEntity<T>>(
     protected val logger: Logger
 ) : PayloadEncoder<T> {
 
-    final override fun encode(new: T, old: T?): ByteArray? {
-        val delta = generateDelta(new, old) ?: return null // no changes
+    final override fun encode(new: T, old: T?): Buffer? {
+        val deltaBuffer = generateDelta(new, old) ?: return null // no changes
 
         val buffer = Buffer()
         buffer.writeByte(version)
-        buffer.write(delta)
+        buffer.write(deltaBuffer, deltaBuffer.size)
 
-        return buffer.readByteArray()
+        return buffer
     }
 
-    abstract fun generateDelta(new: T, old: T?): ByteArray?
+    abstract fun generateDelta(new: T, old: T?): Buffer?
 
     /**
      * Validates and strips the header.
@@ -52,12 +53,12 @@ abstract class BasePayloadEncoder<T : LocalFirstEntity<T>>(
      * Performs a non-allocating scan of the Protobuf bitstream.
      *
      */
-    protected fun readVarint(buffer: Buffer): Int {
+    protected fun readVarint(source: Source): Int {
         var value = 0
         var shift = 0
         try {
             while (true) {
-                val byte = buffer.readByte().toInt()
+                val byte = source.readByte().toInt()
                 value = value or ((byte and 0x7F) shl shift)
                 if ((byte and 0x80) == 0) break
                 shift += 7
@@ -73,15 +74,15 @@ abstract class BasePayloadEncoder<T : LocalFirstEntity<T>>(
     /**
      * Skips payload content based on Wire Type without copying bytes.
      */
-    protected fun skipValue(wireType: Int, buffer: Buffer) {
+    protected fun skipValue(wireType: Int, source: Source) {
         when (wireType) {
-            0 -> readVarint(buffer) // Skip Varint (Int32, Int64, Bool, Enum)
-            1 -> buffer.skip(8)      // Skip 64-bit (Double, Fixed64)
+            0 -> readVarint(source) // Skip Varint (Int32, Int64, Bool, Enum)
+            1 -> source.skip(8)      // Skip 64-bit (Double, Fixed64)
             2 -> {                   // Skip Length-delimited (String, Bytes, Embedded Messages)
-                val length = readVarint(buffer).toLong()
-                buffer.skip(length)
+                val length = readVarint(source).toLong()
+                source.skip(length)
             }
-            5 -> buffer.skip(4)      // Skip 32-bit (Float, Fixed32)
+            5 -> source.skip(4)      // Skip 32-bit (Float, Fixed32)
             else -> throw MochaException.Persistent.CorruptionDetected("Unsupported Wire Type: $wireType")
         }
     }
