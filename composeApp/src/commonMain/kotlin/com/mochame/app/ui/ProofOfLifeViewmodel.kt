@@ -44,7 +44,7 @@ class ProofOfLifeViewModel(
         viewModelScope.launch {
             try {
                 // The Repository handles the Mutex and ID stability
-                bioRepo.initializeDay(
+                bioRepo.establishDay(
                     sleepHours = sleepHours,
                     readinessScore = readinessScore
                 )
@@ -76,7 +76,7 @@ class ProofOfLifeViewModel(
 
             // 2. Add/Update Bio Context for "Day 0"
             // This proves the 'Upsert' logic works in Room KMP
-            bioRepo.initializeDay(
+            bioRepo.establishDay(
                 sleepHours = 5.0,
                 readinessScore = 9,
                 isNapped = false

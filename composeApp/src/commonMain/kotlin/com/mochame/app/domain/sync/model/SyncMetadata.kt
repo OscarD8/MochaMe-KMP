@@ -1,6 +1,7 @@
 package com.mochame.app.domain.sync.model
 
 import com.mochame.app.domain.sync.utils.MochaModule
+import com.mochame.app.domain.sync.utils.MutationOp
 import com.mochame.app.domain.sync.utils.SyncStatus
 import com.mochame.app.infrastructure.sync.HLC
 
@@ -20,5 +21,6 @@ data class SyncMetadata(
 data class EntityMetadata(
     val id: String,
     val hlc: HLC,
-    val lastModified: Long,
+    val op: MutationOp,
+    val lastModified: Long
 )

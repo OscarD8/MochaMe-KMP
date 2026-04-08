@@ -11,7 +11,7 @@ interface PayloadEncoder<T : LocalFirstEntity<T>> {
      * Delta Generation: Compares the absolute latest state against
      * the new intent. If [old] is null, it encodes a full record.
      */
-    fun encode(new: T, old: T?): Buffer?
+    fun encode(new: T, old: T?): ByteArray?
 
     /**
      * Mutation-Time Summary: Used during dispatch for the unencrypted ledger.

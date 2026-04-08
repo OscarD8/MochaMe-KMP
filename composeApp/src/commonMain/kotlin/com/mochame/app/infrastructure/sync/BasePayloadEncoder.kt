@@ -5,26 +5,30 @@ import com.mochame.app.domain.exceptions.MochaException
 import com.mochame.app.domain.sync.LocalFirstEntity
 import com.mochame.app.domain.sync.PayloadEncoder
 import com.mochame.app.domain.sync.model.EntityMetadata
-import kotlinx.io.Buffer
+import com.mochame.app.infrastructure.utils.BufferProvider
 import kotlinx.io.Source
-import kotlinx.io.readByteArray
 
 abstract class BasePayloadEncoder<T : LocalFirstEntity<T>>(
     protected val version: Byte,
+    protected val bufferProvider: BufferProvider,
     protected val logger: Logger
 ) : PayloadEncoder<T> {
 
-    final override fun encode(new: T, old: T?): Buffer? {
-        val deltaBuffer = generateDelta(new, old) ?: return null // no changes
+    final override fun encode(new: T, old: T?): ByteArray? {
+        val bits = generateDelta(new, old) ?: return null
 
-        val buffer = Buffer()
-        buffer.writeByte(version)
-        buffer.write(deltaBuffer, deltaBuffer.size)
-
-        return buffer
+        // Simple 2-copy process (Header + Bits)
+        val result = ByteArray(bits.size + 1)
+        result[0] = version
+        bits.copyInto(result, destinationOffset = 1)
+        return result
     }
 
-    abstract fun generateDelta(new: T, old: T?): Buffer?
+    /**
+     * Children write directly into the provided sink.
+     * Returns true if any bytes were written.
+     */
+    abstract fun generateDelta(new: T, old: T?): ByteArray?
 
     /**
      * Validates and strips the header.
@@ -51,7 +55,6 @@ abstract class BasePayloadEncoder<T : LocalFirstEntity<T>>(
 
     /**
      * Performs a non-allocating scan of the Protobuf bitstream.
-     *
      */
     protected fun readVarint(source: Source): Int {
         var value = 0

@@ -5,7 +5,9 @@ import com.mochame.app.data.local.room.entities.SyncIntentEntity
 import com.mochame.app.domain.exceptions.MochaException
 import com.mochame.app.domain.sync.LocalFirstEntity
 import com.mochame.app.domain.sync.PayloadEncoder
+import com.mochame.app.domain.sync.SyncReceiver
 import com.mochame.app.domain.sync.TransactionProvider
+import com.mochame.app.domain.sync.model.EntityMetadata
 import com.mochame.app.domain.sync.stores.BlobStager
 import com.mochame.app.domain.sync.stores.MetadataStore
 import com.mochame.app.domain.sync.stores.MutationLedger
@@ -17,6 +19,7 @@ import com.mochame.app.infrastructure.sync.HLC
 import com.mochame.app.infrastructure.sync.HlcFactory
 import com.mochame.app.infrastructure.system.boot.BootState
 import com.mochame.app.infrastructure.system.boot.BootStatusProvider
+import com.mochame.app.infrastructure.utils.KeyedLocker
 import com.mochame.app.infrastructure.utils.toMochaException
 import com.mochame.app.infrastructure.utils.withTimer
 import kotlinx.coroutines.flow.first
@@ -40,110 +43,164 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     private val transactor: TransactionProvider,
     private val mutationLedger: MutationLedger,
     private val metadataStore: MetadataStore,
-    private val moduleName: MochaModule,
+    override val module: MochaModule,
     private val executor: ExecutionPolicy,
     private val blobStore: BlobStager,
     private val encoder: PayloadEncoder<T>,
+    private val locker: KeyedLocker,
     protected val logger: Logger
-) {
+) : SyncReceiver {
 
     /**
-     * HLC generation.
-     * The only place where the HLC is generated and the ledger is written.
-     * It is private so subclasses cannot bypass the specialized gates below.
+     * The anchor to wrap around all local persistence performed by any feature's repository, whether that
+     * be as a result of a local UI event or a sync event.
+     * * Ensures database lockouts are handled gracefully.
+     * * A specialized locker is used to ensure that any single candidate key operation can only occur synchronously
+     * in the case that a local operation is processing an intent at the same moment as a sync intent comes in.
+     * @param candidateKey the item (either fetched remotely, or from a local UI event) to be persisted locally.
+     * @param incomingHlc used when the SyncCoordinator is calling to process an intent. Forks how we process the intent.
+     * @param op the DML operation for the intent. Required for metadata, logging, and state verification.
+     * @param fetchOldState used to perform a backup causality check, and possible ghost delete.
+     * @param computeChange requires the feature to assert the state change they wish to make.
+     * @param persist after verifying and stamping the feature state change, the finalized state is persisted atomically alongside sync payloads/metadata.
+     * @param onSkip offers a type-safe way to return R.
      */
-    protected suspend fun <R> dispatchIntent(
+    protected suspend fun <R> processIntent(
         candidateKey: String,
+        incomingHlc: HLC? = null,
         op: MutationOp,
         fetchOldState: suspend () -> T?,
-        computeAndStamp: suspend (old: T?, newHlc: HLC) -> T?,
+        computeChange: suspend (old: T?) -> T?,
         persist: suspend (stamped: T) -> R,
         onSkip: (old: T?) -> R
     ): R {
         ensureReady()
+        val isRemote = incomingHlc != null
 
-        return executor.execute("[${moduleName}_$op]") {
-            // Phase 1: Context hydration
-            val oldState = fetchOldState()
+        return locker.withLock(candidateKey) {
+            executor.execute("[${module}_$op]") {
+                val oldState = fetchOldState()
 
-            if (oldState != null && !hlcFactory.isValid(oldState.hlc)) {
-                throw MochaException.Persistent.CorruptionDetected("Invalid HLC for $candidateKey")
-            }
-
-            // Phase 2: Transformation / Validation / Encoding
-            val computedState = computeAndStamp(oldState, HLC.EMPTY)
-
-            val newState = validateMutationOrAbort(op, computedState, candidateKey)
-                ?: return@execute onSkip(oldState) // All Deletion OPs MUST return int
-
-            val hlc = hlcFactory.getNextHlc()
-            if (oldState != null && hlc <= oldState.hlc) {
-                // Placing this here for testing to confirm the HLC logic works in the repository context
-                logger.e {
-                    "Causality Violation | Key: $candidateKey | " +
-                            "New HLC [$hlc] is not greater than Old HLC [${oldState.hlc}]"
+                // 1. Initial state verification & LWW Checks
+                if (oldState != null && !hlcFactory.isValid(oldState.hlc)) {
+                    throw MochaException.Persistent.CorruptionDetected("Invalid HLC [${oldState.hlc}] for $candidateKey")
                 }
 
-                // If this log is ever triggered, HLCFactory is broken as you have pulled an
-                // old state with an HLC greater than the factory's output. Maybe add a tick option
+                if (isRemote && oldState != null && incomingHlc <= oldState.hlc) {
+                    logger.d { "Local item [$candidateKey / ${oldState.hlc}] rejected incoming $op [$incomingHlc]." }
+                    return@execute onSkip(oldState)
+                }
+
+                // 2. Transformation & State Validation
+                val provisionalState = computeChange(oldState)
+                val validatedState =
+                    validateMutationOrAbort(op, provisionalState, candidateKey)
+                        ?: return@execute onSkip(oldState)
+
+                // 3. HLC Advancement
+                incomingHlc?.let { hlcFactory.witness(it) }
+                val hlc = incomingHlc ?: hlcFactory.getNextHlc()
+                val stampedState = validatedState.withHlc(hlc)
+
+                // 4. Fork depending on commit strategy (encoding/staging/ledgering)
+                return@execute if (isRemote) {
+                    handleRemoteCommit(
+                        candidateKey = candidateKey,
+                        hlc = hlc,
+                        persistAction = { persist(stampedState) }
+                    )
+                } else {
+                    val payload = encoder.encode(stampedState, oldState)
+                        ?: return@execute onSkip(oldState)
+                    val summary = encoder.summarize(stampedState, oldState)
+
+                    handleStagingAndCommit(
+                        candidateKey = candidateKey,
+                        op = op,
+                        hlc = hlc,
+                        payload = payload,
+                        summary = summary,
+                        persistAction = { persist(stampedState) }
+                    )
+                }
             }
-
-            val finalState = newState.withHlc(hlc = hlc)
-
-            val bufferPayload = encoder.encode(newState, oldState)
-                ?: return@execute onSkip(oldState) // No changes detected, return the old state
-
-            val summary = encoder.summarize(newState, oldState)
-
-            // Phase 3: Staging & Persistence
-            return@execute handleStagingAndCommit(
-                candidateKey = candidateKey,
-                op = op,
-                hlc = hlc,
-                payloadBuffer = bufferPayload,
-                summary = summary,
-                persistAction = { persist(finalState) }
-            )
         }
     }
 
+    override suspend fun processRemoteChange(
+        metadata: EntityMetadata,
+        payload: ByteArray
+    ) {
+        val incomingHlc = HLC.parse(metadata.hlc.toString())
+
+        // Use the repository's specific encoder to turn bytes into T
+        val remoteEntity = encoder.decode(payload, metadata)
+
+        // Funnel this into the unified processIntent engine
+        processIntent(
+            candidateKey = remoteEntity.id,
+            incomingHlc = incomingHlc,
+            op = metadata.op,
+            fetchOldState = { fetch(metadata.id) },
+            computeChange = { remoteEntity }, // The "change" is just the remote state
+            persist = { stamped -> save(stamped) },
+            onSkip = { old -> logger.v { "Confirmation: Sync skipped" } }
+        )
+    }
+
+    private suspend fun <R> handleRemoteCommit(
+        candidateKey: String,
+        hlc: HLC,
+        persistAction: suspend () -> R
+    ): R {
+        val mark = TimeSource.Monotonic.markNow()
+        val result = transactor.runImmediateTransaction {
+            // CLEANUP: If a newer remote change arrives, any pending local
+            // work for this key is now obsolete.
+            mutationLedger.getPendingByKey(candidateKey, module)?.let {
+                mutationLedger.discardIntent(it.hlc)
+            }
+
+            val localResult = persistAction()
+            updateModuleMetadata(hlc) //
+            localResult
+        }
+
+        logger.i { "Sync Applied | Key: $candidateKey | HLC: $hlc".withTimer(mark) }
+        return result
+    }
+
+    // --- Features only required to implement these methods ---
+    protected abstract suspend fun fetch(id: String): T?
+    protected abstract suspend fun save(entity: T)
+
+    // --- HELPERS ---
     /**
-     * Centralizes the timeout and error handling for the Janitor's boot sequence.
+     * Primarily concerned with deletion intents, identifying ghost deletes and
+     * a safety barrier against any other DML action that unexpectedly produces
+     * null. If this is the case, the process execution cannot continue.
      */
-    private suspend fun ensureReady() {
-        withTimeout(5_000L) {
-            val state =
-                provider.bootState.first { it !is BootState.Initializing && it !is BootState.Idle }
-
-            if (state is BootState.CriticalFailure) {
-                throw state.throwable
-                    ?: MochaException.Persistent.BootInitializationError(state.error)
-            }
-        }
-    }
-
     private fun validateMutationOrAbort(
         op: MutationOp,
-        newState: T?,
-        candidateKey: String
+        provisionalState: T?,
+        candidateKey: String,
     ): T? {
-        // 1. Detect Ghost Delete
-        if (op == MutationOp.DELETE && newState == null) {
+        if (op == MutationOp.DELETE && provisionalState == null) {
             logger.d { "Ghost Delete detected for $candidateKey. Aborting intent." }
             return null
         }
-
-        // 2. Validate Successful Computation
-        return newState ?: throw MochaException.Persistent.CorruptionDetected(
-            "Compute yielded null during an UPSERT for $candidateKey."
-        )
+        if (provisionalState == null) {
+            logger.d { "$candidateKey produced a null state for an intent out of a delete context?.. Cannot stamp." }
+            return null
+        }
+        return provisionalState
     }
 
     private suspend fun <R> handleStagingAndCommit(
         candidateKey: String,
         op: MutationOp,
         hlc: HLC,
-        payloadBuffer: Buffer,
+        payload: ByteArray,
         summary: String,
         persistAction: suspend () -> R
     ): R {
@@ -152,11 +209,9 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
 
         try {
             // 1: Check if External IO needed (big blob)
-            val inlineBytes = if (payloadBuffer.size > 64_000) {
-                blobId = blobStore.stage(payloadBuffer)
-                null
-            } else {
-                payloadBuffer.readByteArray() // Consume buffer for DB
+            if (payload.size > 64_000) {
+                blobId = blobStore.stage(Buffer().also { it.write(payload) })
+                logger.i { "Required staged payload: blobId $blobId [${payload.size / 1024}KB | Key: $candidateKey." }
             }
 
             // 2: Atomic DB Commit for sync intent & local persistence
@@ -167,7 +222,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                     candidateKey,
                     op,
                     hlc,
-                    inlineBytes,
+                    if (blobId == null) payload else null,
                     blobId,
                     summary
                 )
@@ -201,7 +256,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         diagnosticSummary: String
     ) {
         // Look for existing work that hasn't been synced yet
-        val pending = mutationLedger.getPendingByKey(candidateKey, moduleName)
+        val pending = mutationLedger.getPendingByKey(candidateKey, module)
 
         val effectiveCreatedAt = resolvePruningTimestamp(pending, op, hlc.ts)
 
@@ -215,7 +270,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             SyncIntentEntity(
                 hlc = hlc.toString(),
                 candidateKey = candidateKey,
-                module = moduleName,
+                module = module,
                 operation = op,
                 syncStatus = SyncStatus.PENDING,
                 createdAt = effectiveCreatedAt,
@@ -243,8 +298,23 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
 
     private suspend fun updateModuleMetadata(hlc: HLC) {
         metadataStore.recordPendingMetadata(
-            module = moduleName, hlc = hlc
+            module = module, hlc = hlc
         )
+    }
+
+    /**
+     * Centralizes the timeout and error handling for the Janitor's boot sequence.
+     */
+    private suspend fun ensureReady() {
+        withTimeout(5_000L) {
+            val state =
+                provider.bootState.first { it !is BootState.Initializing && it !is BootState.Idle }
+
+            if (state is BootState.CriticalFailure) {
+                throw state.throwable
+                    ?: MochaException.Persistent.BootInitializationError(state.error)
+            }
+        }
     }
 
 }

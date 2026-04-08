@@ -17,7 +17,7 @@ interface BioRepository {
      * Handles UUID generation and biological anchoring internally.
      * Prevents the UI from accidentally creating "dirty" or duplicate entries.
      */
-    suspend fun initializeDay(sleepHours: Double, readinessScore: Int, isNapped: Boolean = false) : DailyContext
+    suspend fun establishDay(sleepHours: Double, readinessScore: Int, isNapped: Boolean = false) : DailyContext
 
 //    /**
 //     * Historical record for long-term efficiency analysis.
@@ -33,9 +33,6 @@ interface BioRepository {
 
 //    suspend fun upsertContext(context: DailyContext)
 
-    suspend fun fetchForSync(entityIds: List<String>): List<DailyContext>
-
-    suspend fun storeRemoteChanges(changes: List<DailyContext>)
     suspend fun pruneOldTombstones(cutoff: Long)
     suspend fun getTombstoneCount(): Int
 }

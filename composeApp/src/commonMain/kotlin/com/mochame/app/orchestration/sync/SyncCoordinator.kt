@@ -28,3 +28,23 @@ package com.mochame.app.orchestration.sync
 //        }
 //    }
 //}
+
+/*
+class SyncCoordinator(
+    private val repositories: List<SyncReceiver>, // DI injects all repos here
+    private val hlcFactory: HlcFactory
+) {
+    private val repoMap = repositories.associateBy { it.module }
+
+    suspend fun handleDownstreamPayload(packet: SyncPacket) {
+        // 1. Witness the time so the local clock stays ahead of the server
+        hlcFactory.witness(HLC.parse(packet.metadata.hlc))
+
+        // 2. Find the right repo "magically"
+        val repo = repoMap[packet.module] ?: return
+
+        // 3. Hand off the raw bytes
+        repo.processRemoteChange(packet.metadata, packet.payload)
+    }
+}
+ */

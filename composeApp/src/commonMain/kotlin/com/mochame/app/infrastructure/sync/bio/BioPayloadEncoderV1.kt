@@ -4,7 +4,9 @@ import co.touchlab.kermit.Logger
 import com.mochame.app.domain.feature.bio.DailyContext
 import com.mochame.app.infrastructure.sync.BasePayloadEncoder
 import com.mochame.app.domain.sync.model.EntityMetadata
+import com.mochame.app.infrastructure.utils.BufferProvider
 import kotlinx.io.Buffer
+import kotlinx.io.Sink
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -19,22 +21,21 @@ internal data class BioDeltaV1(
     @SerialName("5") val isDeleted: Boolean = false
 )
 
-class BioPayloadEncoderV1(logger: Logger) : BasePayloadEncoder<DailyContext>(
-    version = 0x01, logger = logger.withTag("BioEncoder")
-) {
-
-    companion object {
-        // Shared buffer to avoid allocations during hot-path ledger sweeps
-        private val auditBuffer = ThreadLocal.withInitial { Buffer() } //TODO establish ios compatibility
-    }
+class BioPayloadEncoderV1(logger: Logger, bufferProvider: BufferProvider) :
+    BasePayloadEncoder<DailyContext>(
+        version = 0x01,
+        logger = logger.withTag("BioEncoder"),
+        bufferProvider = bufferProvider
+    ) {
 
     /**
      * Returns null if no fields have changed, aborting write.
      */
     @OptIn(ExperimentalSerializationApi::class)
-    override fun generateDelta(new: DailyContext, old: DailyContext?): Buffer? {
+    override fun generateDelta(new: DailyContext, old: DailyContext?): ByteArray? {
         return when {
             new.isDeleted -> encodeDelta(BioDeltaV1(id = new.id, isDeleted = true))
+
             old == null -> encodeDelta(
                 BioDeltaV1(
                     id = new.id,
@@ -65,18 +66,16 @@ class BioPayloadEncoderV1(logger: Logger) : BasePayloadEncoder<DailyContext>(
     }
 
     /**
-     * Peek (The "Cold" Path).
+     * Peek (Objects no longer in memory).
      * Extracts tags from raw bits without full value decoding.
      */
     override fun reconstructSummary(data: ByteArray): String {
-        // 1. Fail Fast: Version Check
         if (!validate(data)) {
             logger.w { "Summary Failed: Protocol Version Mismatch. Got ${data.getOrNull(0)}" }
             return "OP:INVALID_VERSION"
         }
 
-        // 2. Resource Management: Use Pooled Buffer
-        val buffer = auditBuffer.get().apply {
+        val buffer = bufferProvider.get().apply {
             clear()
             write(data)
         }
@@ -105,7 +104,7 @@ class BioPayloadEncoderV1(logger: Logger) : BasePayloadEncoder<DailyContext>(
     }
 
     /**
-     * Mutation-Time Summary (The "Hot" Path).
+     * Mutation-Time Summary (The actual objects are in memory).
      */
     override fun summarize(new: DailyContext, old: DailyContext?): String {
         if (new.isDeleted) return "OP:DELETE"
@@ -148,8 +147,7 @@ class BioPayloadEncoderV1(logger: Logger) : BasePayloadEncoder<DailyContext>(
     }
 
     @OptIn(ExperimentalSerializationApi::class)
-    private fun encodeDelta(delta: BioDeltaV1): Buffer {
-        val bytes = ProtoBuf.encodeToByteArray(BioDeltaV1.serializer(), delta)
-        return Buffer().apply { write(bytes) }
+    private fun encodeDelta(delta: BioDeltaV1): ByteArray {
+        return ProtoBuf.encodeToByteArray(BioDeltaV1.serializer(), delta)
     }
 }

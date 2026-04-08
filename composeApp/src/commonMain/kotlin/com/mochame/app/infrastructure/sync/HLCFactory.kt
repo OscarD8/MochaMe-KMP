@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import com.mochame.app.domain.exceptions.MochaException
 import com.mochame.app.infrastructure.logging.appendTag
 import com.mochame.app.infrastructure.utils.DateTimeUtils
+import com.mochame.app.data.local.room.entities.GlobalSettingsEntity
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.yield
@@ -96,8 +97,9 @@ class HlcFactory(
     private var state: FactoryState? = null
 
     private val APP_RELEASE_MS = 1740787200000L // March 2026
-    private val ONE_DAY_MS = 86_400_000L
+    private val MAX_DRIFT_MS = 60_000L
     private val MAX_COUNTER = 65535             // 16-bit limit
+    private val ONE_DAY_MS = 86_400_000L
 
 
     suspend fun hydrate(lastKnownHlc: String?, currentNodeId: String): HLC =
@@ -123,23 +125,25 @@ class HlcFactory(
      */
     suspend fun getNextHlc(): HLC {
         var yieldCount = 0
-        // We use a loop to handle the rare Case C: Counter Overflow
+
+        // Phase 1: Orchestration Loop
         while (true) {
             val result = stateMutex.withLock {
-                val currentState = state ?: throw MochaException.Policy.CausalityViolation(
-                    "Unable to provide a timestamp. Potential boot issue."
-                ).also { hlcLog.e { it.message } }
+                val currentState =
+                    state ?: throw MochaException.Policy.CausalityViolation(
+                        "Unable to provide a timestamp. Potential boot issue."
+                    ).also { hlcLog.e { it.message } }
 
                 val wallClock = dateTimeUtils.now().toEpochMilliseconds()
-                val last = currentState.lastHlc
 
-                val nextHlc = when {
-                    wallClock > last.ts -> HLC(wallClock, 0, currentState.nodeId)
-                    last.count < MAX_COUNTER -> HLC(last.ts, last.count + 1, currentState.nodeId)
-                    else -> null // Case C: Exhaustion
-                }
+                // Phase 2: Compute the next tick logically
+                val nextHlc = calculateNextTick(
+                    wallClock,
+                    currentState.lastHlc,
+                    currentState.nodeId
+                )
 
-                // State update and specific logging
+                // Phase 3: Local State Update
                 nextHlc?.also {
                     state = currentState.copy(lastHlc = it)
                     hlcLog.v { "HLC tick: $it" }
@@ -148,7 +152,7 @@ class HlcFactory(
 
             if (result != null) return result
 
-            // Handle Case C: Throttle logging during the stall
+            // Phase 4: Handle Exhaustion
             if (yieldCount++ == 0) {
                 hlcLog.w { "Counter Exhausted at ${dateTimeUtils.now()}. Stalling until clock ticks." }
             }
@@ -157,26 +161,65 @@ class HlcFactory(
     }
 
     /**
+     * Updates the factory state with an incoming HLC from a remote source.
+     * This ensures causality: any HLC generated after this call will be
+     * strictly greater than the witnessed HLC.
+     */
+    suspend fun witness(remoteHlc: HLC) = stateMutex.withLock {
+        val currentState = state ?: run {
+            hlcLog.w { "Attempt made to witness remote HLC against no internal state." }
+            return@withLock
+        }
+        val wallClock = dateTimeUtils.now().toEpochMilliseconds()
+
+        // Phase 1: Determine the base logical time across physical and remote sources
+        val (provisionalTs, provisionalCount) = computeCausalTime(
+            wallClock,
+            remoteHlc,
+            currentState.lastHlc
+        )
+
+        // Phase 2: Apply 16-bit overflow logic if necessary
+        val (finalTs, finalCount) = applyOverflow(provisionalTs, provisionalCount)
+
+        // Phase 3: Ensure the resulting jump is within safety boundaries
+        validateDrift(finalTs, wallClock)
+
+        state = currentState.copy(
+            lastHlc = HLC(finalTs, finalCount, currentState.nodeId)
+        )
+
+        hlcLog.v { "HLC witnessed remote: $remoteHlc -> New internal state: ${state?.lastHlc}" }
+    }
+
+    /**
      * Returns true if the HLC string is syntactically valid and
      * falls within the causal bounds.
-     * This is for an extra safety check at encoding for
-     * data that may have got around the boot safety procedure, and
+     * This can be used as an extra safety check for
+     * data that may have got around the hydration procedure, and
      * is sitting in local storage as corrupted data.
-     *
-     * As each model is mapped, hlc parsing exceptions occur externally.
      */
     fun isValid(hlc: HLC): Boolean {
         val wallClock = dateTimeUtils.now().toEpochMilliseconds()
 
         return when {
             hlc.ts < APP_RELEASE_MS -> false              // Floor violation
-            hlc.ts - wallClock > ONE_DAY_MS -> false      // Future drift violation
+            hlc.ts - wallClock > MAX_DRIFT_MS -> false      // Future drift violation
             else -> true
         }
     }
 
     // --- HELPERS ---
 
+    /**
+     * Reconciles a fetched HLC against the current device state, protecting against clock skew
+     * and logs any significant jump from the historic HLC to the current wall clock. The returned
+     * HLC can be used to hydrate the factory, ensuring all local operations use it as a baseline.
+     *
+     * @return Verified [HLC] that has acceptable/no clock skew. If the current clock matches the
+     * historic HLC, it takes the historic counter, and assigns the reconciled HLC the [GlobalSettingsEntity.id] of the current device.
+     * @throws [MochaException.Persistent.ClockSkew] Local device has drifted below the floor. Or history is more than one minute into the future of the local clock.
+     */
     private fun reconcileHlc(
         wallClock: Long,
         history: HLC?,
@@ -185,9 +228,9 @@ class HlcFactory(
         return when {
             // Case 1: Hard Floor (e.g. System clock is set to 1970)
             wallClock < APP_RELEASE_MS -> {
-                val drift = APP_RELEASE_MS - wallClock
-                hlcLog.e { "Clock Skew: System time ($wallClock) is $drift ms behind floor ($APP_RELEASE_MS)" }
-                throw MochaException.Persistent.ClockSkew(drift / ONE_DAY_MS)
+                val driftSec = (APP_RELEASE_MS - wallClock) / 1000
+                hlcLog.e { "Clock Skew: System time ($wallClock) is $driftSec seconds behind floor ($APP_RELEASE_MS)" }
+                throw MochaException.Persistent.ClockSkew(driftSec, "seconds")
             }
 
             // Case 2: New Install
@@ -196,33 +239,96 @@ class HlcFactory(
                 HLC(wallClock, 0, currentNodeId)
             }
 
-            // Case 3: Poisoned History creating future drift (DB is > 24h in the future)
-            history.ts - wallClock > ONE_DAY_MS -> {
-                val drift = history.ts - wallClock
-                throw MochaException.Persistent.ClockSkew(drift / ONE_DAY_MS).also {
-                    hlcLog.e {
-                        "Clock Skew: Incoming HLC [${history.ts}] has future drift " +
-                                "against local device clock [${wallClock}] (+ ${drift / ONE_DAY_MS}days)."
-                    }
-                }
+            // Case 3: Poisoned History creating future drift (DB is > 1 minute in the future)
+            history.ts - wallClock > MAX_DRIFT_MS -> {
+                val driftSec = (history.ts - wallClock) / 1000
+                hlcLog.e { "Clock Skew: History is $driftSec seconds in the future against [$wallClock]." }
+                throw MochaException.Persistent.ClockSkew(driftSec, "seconds")
             }
 
             // Case 4: Take the latest known time
             else -> {
                 if (wallClock - history.ts > (ONE_DAY_MS * 365)) {
-                    hlcLog.w {
-                        "Future Jump: Local Device [$wallClock] " +
-                                "is ${(wallClock - history.ts) / ONE_DAY_MS} days ahead of history [${history.ts}]."
-                    }
+                    hlcLog.w { "Future Jump: Device is ${(wallClock - history.ts) / ONE_DAY_MS} days ahead of history." }
                 }
 
                 val finalTs = maxOf(wallClock, history.ts)
                 val finalCounter = if (finalTs == history.ts) history.count else 0
 
-                val newHlc = HLC(finalTs, finalCounter, currentNodeId)
-                hlcLog.i { "Successfully reconciled new HLC: [$newHlc] with incoming [$history]." }
-                newHlc
+                HLC(finalTs, finalCounter, currentNodeId).also {
+                    hlcLog.i { "Successfully reconciled new HLC: [$it] with incoming [$history]." }
+                }
             }
+        }
+    }
+
+    /**
+     * For determining the next HLC state.
+     * Returns null if the 16-bit counter is exhausted for the current millisecond.
+     */
+    private fun calculateNextTick(wallClock: Long, last: HLC, nodeId: String): HLC? {
+        return when {
+            // Case A: Physical time has progressed
+            wallClock > last.ts -> HLC(wallClock, 0, nodeId)
+
+            // Case B: Same millisecond, space remains in the 16-bit counter
+            last.count < MAX_COUNTER -> HLC(last.ts, last.count + 1, nodeId)
+
+            // Case C: Counter exhaustion; requires a physical clock tick
+            else -> null
+        }
+    }
+
+    /**
+     * Computes the maximum logical time between local physical reality,
+     * local history, and remote truth.
+     */
+    private fun computeCausalTime(
+        wallClock: Long,
+        remote: HLC,
+        local: HLC
+    ): Pair<Long, Int> {
+        val newTs = maxOf(maxOf(wallClock, local.ts), remote.ts)
+
+        val newCount = when {
+            newTs == local.ts && newTs == remote.ts -> maxOf(
+                local.count,
+                remote.count
+            ) + 1
+
+            newTs == remote.ts -> remote.count + 1
+            newTs == local.ts -> local.count + 1
+            else -> 0 // Physical wall clock is strictly ahead
+        }
+
+        return newTs to newCount
+    }
+
+    /**
+     * Enforces the 16-bit counter limit. If the counter overflows,
+     * it increments the timestamp by 1ms.
+     */
+    private fun applyOverflow(ts: Long, count: Int): Pair<Long, Int> {
+        return if (count > MAX_COUNTER) {
+            (ts + 1) to 0
+        } else {
+            ts to count
+        }
+    }
+
+    /**
+     * Validates that the newly calculated logical time does not drift too
+     * far into the future compared to physical reality.
+     */
+    private fun validateDrift(finalTs: Long, wallClock: Long) {
+        val drift = finalTs - wallClock
+
+        if (drift > MAX_DRIFT_MS) {
+            throw MochaException.Persistent.ClockSkew(drift / 1000, "seconds")
+        }
+
+        if (drift > 0) {
+            hlcLog.w { "HLC Drift Detected: ${drift}ms. Advancing local HLC to match remote truth." }
         }
     }
 

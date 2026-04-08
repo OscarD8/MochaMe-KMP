@@ -20,9 +20,9 @@ class BioPayloadCodecRegistry(
 
     private val logger = logger.appendTag("BioCodec")
 
-    override fun encode(new: DailyContext, old: DailyContext?): Buffer? {
+    override fun encode(new: DailyContext, old: DailyContext?): ByteArray? {
         //Always encode using the LATEST protocol available.
-        return v1.generateDelta(new, old)
+        return v1.encode(new, old)
     }
 
     override fun validate(data: ByteArray): Boolean {

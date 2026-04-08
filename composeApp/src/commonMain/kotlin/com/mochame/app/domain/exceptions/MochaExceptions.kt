@@ -46,8 +46,8 @@ sealed class MochaException(
         class BootLockout(message: String? = null, cause: Throwable? = null) :
             Persistent(message ?: "Boot lockout.", cause)
 
-        class ClockSkew(val driftDisplay: Long, cause: Throwable? = null) :
-            Persistent("System clock is out of sync by $driftDisplay days", cause)
+        class ClockSkew(val driftDisplay: Long, val unit: String, cause: Throwable? = null) :
+            Persistent("System clock is out of sync by $driftDisplay $unit.", cause)
 
         class BootInitializationError(message: String?, cause: Throwable? = null) :
             Exception(message ?: "Failed to initialize system.", cause)
