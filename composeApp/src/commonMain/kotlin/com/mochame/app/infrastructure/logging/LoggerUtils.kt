@@ -3,6 +3,7 @@ package com.mochame.app.infrastructure.logging
 import co.touchlab.kermit.Logger
 import co.touchlab.kermit.LogWriter
 import co.touchlab.kermit.Severity
+import kotlin.time.TimeMark
 
 object LogTags {
     const val APP = "Mocha"
@@ -30,4 +31,10 @@ object LogTags {
 
 fun Logger.appendTag(subTag: String): Logger =
     this.withTag("${this.tag} : $subTag")
+
+/**
+ * Appends a monotonic duration to any log message.
+ */
+fun String.withTimer(mark: TimeMark): String =
+    "$this | Duration: ${mark.elapsedNow()}"
 

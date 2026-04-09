@@ -2,7 +2,7 @@ package com.mochame.app.infrastructure.utils
 
 import kotlinx.io.Buffer
 
-actual class BufferProvider {
+class AndroidBufferProvider: BufferProvider {
     private val threadLocal = ThreadLocal.withInitial { Buffer() }
-    actual fun get(): Buffer = threadLocal.get() ?: Buffer().also { threadLocal.set(it) }
+    override fun get(): Buffer = threadLocal.get() ?: Buffer().also { threadLocal.set(it) }
 }

@@ -5,6 +5,7 @@ import com.mochame.app.data.common.LocalFirstRepository
 import com.mochame.app.data.local.room.dao.BioDao
 import com.mochame.app.data.mappers.toDomain
 import com.mochame.app.data.mappers.toEntity
+import com.mochame.app.di.providers.DispatcherProvider
 import com.mochame.app.domain.feature.bio.BioRepository
 import com.mochame.app.domain.feature.bio.DailyContext
 import com.mochame.app.domain.sync.PayloadEncoder
@@ -18,13 +19,14 @@ import com.mochame.app.domain.system.sqlite.ExecutionPolicy
 import com.mochame.app.infrastructure.sync.HlcFactory
 import com.mochame.app.infrastructure.system.boot.BootStatusProvider
 import com.mochame.app.infrastructure.utils.DateTimeUtils
-import com.mochame.app.infrastructure.utils.KeyedLocker
+import com.mochame.app.infrastructure.system.KeyedLocker
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 class RoomBioRepository(
     private val dateTimeUtils: DateTimeUtils,
     private val bioDao: BioDao,
+    dispatcher: DispatcherProvider,
     logger: Logger,
     bootStatusProvider: BootStatusProvider,
     hlcFactory: HlcFactory,
@@ -46,7 +48,8 @@ class RoomBioRepository(
     executor = executor,
     blobStore = blobStore,
     locker = locker,
-    encoder = encoder
+    encoder = encoder,
+    dispatcher = dispatcher
 ), BioRepository {     // syncGateway still to come
 
     companion object {

@@ -1,4 +1,3 @@
-
 package com.mochame.app.di
 
 import co.touchlab.kermit.ExperimentalKermitApi
@@ -19,9 +18,12 @@ import com.mochame.app.domain.system.sqlite.ExecutionPolicy
 import com.mochame.app.domain.sync.stores.MetadataStoreMaintenance
 import com.mochame.app.domain.sync.stores.MutationLedgerMaintenance
 import com.mochame.app.domain.sync.TransactionProvider
+import com.mochame.app.domain.sync.stores.BlobReader
+import com.mochame.app.domain.sync.stores.BlobStager
 import com.mochame.app.infrastructure.fakeUtils.FakeDateTimeUtils
 import com.mochame.app.infrastructure.identity.IdentityManager
 import com.mochame.app.infrastructure.logging.CleanLogWriter
+import com.mochame.app.infrastructure.sync.FakeBlobStore
 import com.mochame.app.infrastructure.sync.HlcFactory
 import com.mochame.app.infrastructure.system.boot.BootStatusUpdater
 import com.mochame.app.infrastructure.utils.DateTimeUtils
@@ -29,6 +31,7 @@ import com.mochame.app.orchestration.sync.SyncJanitor
 import kotlinx.coroutines.sync.Mutex
 import org.koin.core.module.dsl.singleOf
 import org.koin.core.qualifier.named
+import org.koin.dsl.binds
 import org.koin.dsl.module
 
 
@@ -78,10 +81,20 @@ object CoreTestModules {
         }
     }
 
+    val fakeBlobStoreModule = module {
+        single<FakeBlobStore> { FakeBlobStore() }.binds(
+            arrayOf(
+                BlobReader::class,
+                BlobStager::class
+            )
+        )
+    }
+
     @OptIn(ExperimentalKermitApi::class)
     val janitorTestEnvironmentModule = module {
         includes(
-            fakeDateTimeUtilsModule
+            fakeDateTimeUtilsModule,
+            fakeBlobStoreModule
         )
 
         single {
@@ -119,6 +132,7 @@ object CoreTestModules {
     val syncPersistenceTestModule = module {
         singleOf(::SyncPersistenceTestEnv)
     }
+
 }
 
 // -----------------------------------------------------------
@@ -137,8 +151,9 @@ data class JanitorTestEnvironment(
     val metadataDao: SyncMetadataDao,
     val manager: IdentityManager,
     val janitorMutex: Mutex,
-    val identityMutex: Mutex
-)
+    val identityMutex: Mutex,
+
+    )
 
 @ExperimentalKermitApi
 data class HLCTestEnvironment(
@@ -154,7 +169,6 @@ data class IdentityTestEnvironment(
     val roomSettingsStore: RoomSettingsStore,
     val settingsDao: SettingsDao,
     val db: MochaDatabase,
-    val executor: ExecutionPolicy,
     val writer: TestLogWriter
 )
 

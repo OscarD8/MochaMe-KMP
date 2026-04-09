@@ -20,7 +20,7 @@ data class Moment(
     val detail: MomentDetail,
     val context: MomentClimate,
     val metadata: MomentMetadata,
-    val attachments: List<MomentAttachment>
+    val attachments: List<MomentAttachment> = emptyList()
 )
 
 data class MomentAttachment(

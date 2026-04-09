@@ -48,7 +48,6 @@ class HlcFactoryTest : KoinTest {
         CoreTestModules.testLoggingModule(minSeverity = Severity.Verbose)
     )
 
-    
 
     // --- TESTING SETUP/TEARDOWN ---
     @BeforeTest
@@ -63,15 +62,16 @@ class HlcFactoryTest : KoinTest {
         stopKoin()
     }
 
-    private fun runTestWrapper(block: suspend HLCTestEnvironment.(TestScope) -> Unit) = runTest {
-        val env: HLCTestEnvironment by inject()
+    private fun runTestWrapper(block: suspend HLCTestEnvironment.(TestScope) -> Unit) =
+        runTest {
+            val env: HLCTestEnvironment by inject()
 
-        try {
-            env.block(this)
-        } finally {
-            env.writer.reset()
+            try {
+                env.block(this)
+            } finally {
+                env.writer.reset()
+            }
         }
-    }
 
     // -----------------------------------------------------------
     // SUCCESS PATH
@@ -101,7 +101,10 @@ class HlcFactoryTest : KoinTest {
 
             // Then
             assertNotNull(result)
-            assertEquals("00${HLCTools.TEST_APP_RELEASE_MS}:00005:device-b", result.toString())
+            assertEquals(
+                "00${HLCTools.TEST_APP_RELEASE_MS}:00005:device-b",
+                result.toString()
+            )
         }
 
     @Test
@@ -120,36 +123,42 @@ class HlcFactoryTest : KoinTest {
     }
 
     @Test
-    fun should_persist_new_node_id_for_subsequent_hlcs_after_migration() = runTestWrapper {
-        // Given: History from "node-old"
-        val history = "${HLCTools.TEST_APP_RELEASE_MS}:10:node-old"
-        factory.hydrate(history, "node-new")
+    fun should_persist_new_node_id_for_subsequent_hlcs_after_migration() =
+        runTestWrapper {
+            // Given: History from "node-old"
+            val history = "${HLCTools.TEST_APP_RELEASE_MS}:10:node-old"
+            factory.hydrate(history, "node-new")
 
-        // When: Generating the next HLC
-        val next = factory.getNextHlc()
+            // When: Generating the next HLC
+            val next = factory.getNextHlc()
 
-        // Then: It must use "node-new"
-        assertEquals("node-new", next.nodeId, "Factory failed to adopt the new NodeID after hydration.")
-        assertEquals(11, next.count)
-    }
+            // Then: It must use "node-new"
+            assertEquals(
+                "node-new",
+                next.nodeId,
+                "Factory failed to adopt the new NodeID after hydration."
+            )
+            assertEquals(11, next.count)
+        }
 
     // -----------------------------------------------------------
     // COUNTER
     // -----------------------------------------------------------
     @Test
-    fun should_increment_logical_counter_when_wall_clock_has_not_advanced() = runTestWrapper {
-        // Given
-        factory.hydrate(null, "node-1")
+    fun should_increment_logical_counter_when_wall_clock_has_not_advanced() =
+        runTestWrapper {
+            // Given
+            factory.hydrate(null, "node-1")
 
-        // When
-        val first = factory.getNextHlc()
-        val second = factory.getNextHlc()
+            // When
+            val first = factory.getNextHlc()
+            val second = factory.getNextHlc()
 
-        // Then
-        assertEquals(1, first.count)
-        assertEquals(2, second.count)
-        assertEquals(first.ts, second.ts)
-    }
+            // Then
+            assertEquals(1, first.count)
+            assertEquals(2, second.count)
+            assertEquals(first.ts, second.ts)
+        }
 
     @Test
     fun should_reset_counter_to_zero_when_wall_clock_moves_forward() = runTestWrapper {
@@ -167,20 +176,21 @@ class HlcFactoryTest : KoinTest {
     }
 
     @Test
-    fun should_reset_counter_to_zero_during_migration_if_wall_clock_is_ahead() = runTestWrapper {
-        // Given: History is older than current wall clock
-        val olderHistory = "${HLCTools.TEST_APP_RELEASE_MS - 1000}:50:node-old"
-        val wallClock = HLCTools.TEST_APP_RELEASE_MS + 1000
-        fakeClock.setTime(wallClock)
+    fun should_reset_counter_to_zero_during_migration_if_wall_clock_is_ahead() =
+        runTestWrapper {
+            // Given: History is older than current wall clock
+            val olderHistory = "${HLCTools.TEST_APP_RELEASE_MS - 1000}:50:node-old"
+            val wallClock = HLCTools.TEST_APP_RELEASE_MS + 1000
+            fakeClock.setTime(wallClock)
 
-        // When
-        val result = factory.hydrate(olderHistory, "node-new")
+            // When
+            val result = factory.hydrate(olderHistory, "node-new")
 
-        // Then: TS pins to wall clock, counter resets
-        assertEquals(wallClock, result.ts)
-        assertEquals(0, result.count)
-        assertEquals("node-new", result.nodeId)
-    }
+            // Then: TS pins to wall clock, counter resets
+            assertEquals(wallClock, result.ts)
+            assertEquals(0, result.count)
+            assertEquals("node-new", result.nodeId)
+        }
 
     @Test
     fun should_preserve_history_counter_during_migration_if_wall_clock_is_behind() =
@@ -200,32 +210,36 @@ class HlcFactoryTest : KoinTest {
         }
 
     @Test
-    fun should_stall_immediately_after_migration_if_history_counter_is_exhausted() = runTestWrapper { scope ->
-        // Given: History is at the limit, wall clock is behind
-        val futureTs = HLCTools.TEST_APP_RELEASE_MS + 5000
-        val maxHistory = "$futureTs:${HLCTools.MAX_COUNTER}:node-old"
-        fakeClock.setTime(HLCTools.TEST_APP_RELEASE_MS) // Device is behind history
+    fun should_stall_immediately_after_migration_if_history_counter_is_exhausted() =
+        runTestWrapper { scope ->
+            // Given: History is at the limit, wall clock is behind
+            val futureTs = HLCTools.TEST_APP_RELEASE_MS + 5000
+            val maxHistory = "$futureTs:${HLCTools.MAX_COUNTER}:node-old"
+            fakeClock.setTime(HLCTools.TEST_APP_RELEASE_MS) // Device is behind history
 
-        factory.hydrate(maxHistory, "node-new")
+            factory.hydrate(maxHistory, "node-new")
 
-        // When: First call to getNextHlc
-        var capturedHlc: HLC? = null
-        val job = scope.launch {
-            capturedHlc = factory.getNextHlc()
+            // When: First call to getNextHlc
+            var capturedHlc: HLC? = null
+            val job = scope.launch {
+                capturedHlc = factory.getNextHlc()
+            }
+            yield()
+
+            // Then: It must stall because it can't increment 65535 and time hasn't caught up
+            assertNull(
+                capturedHlc,
+                "Factory should have stalled; counter was already at MAX from history."
+            )
+
+            fakeClock.advanceTime(6000) // Move past history TS
+            job.join()
+
+            assertNotNull(capturedHlc)
+            assertEquals(0, capturedHlc.count)
+            assertEquals(HLCTools.TEST_APP_RELEASE_MS + 6000, capturedHlc.ts)
+            job.cancel()
         }
-        yield()
-
-        // Then: It must stall because it can't increment 65535 and time hasn't caught up
-        assertNull(capturedHlc, "Factory should have stalled; counter was already at MAX from history.")
-
-        fakeClock.advanceTime(6000) // Move past history TS
-        job.join()
-
-        assertNotNull(capturedHlc)
-        assertEquals(0, capturedHlc.count)
-        assertEquals(HLCTools.TEST_APP_RELEASE_MS + 6000, capturedHlc.ts)
-        job.cancel()
-    }
 
     // -----------------------------------------------------------
     // MONOTONICITY AND CONCURRENCY
@@ -381,10 +395,18 @@ class HlcFactoryTest : KoinTest {
         val exhaustionLog = writer.logs.any { it.message.contains("Counter Exhausted") }
         val logCount = writer.logs.count { it.message.contains("Counter Exhausted") }
         assertTrue(exhaustionLog, "Should have logged a warning about exhaustion")
-        assertEquals(1, logCount, "Concurrency problem - only one yield should have occurred.")
+        assertEquals(
+            1,
+            logCount,
+            "Concurrency problem - only one yield should have occurred."
+        )
 
         assertNotNull(capturedHlc)
-        assertEquals(HLCTools.TEST_APP_RELEASE_MS + 1, capturedHlc.ts, "New HLC should use the new millisecond")
+        assertEquals(
+            HLCTools.TEST_APP_RELEASE_MS + 1,
+            capturedHlc.ts,
+            "New HLC should use the new millisecond"
+        )
         assertEquals(0, capturedHlc.count, "Counter should have reset to 0")
     }
 
@@ -447,15 +469,16 @@ class HlcFactoryTest : KoinTest {
     }
 
     @Test
-    fun should_throw_HlcParseException_when_counter_is_not_a_valid_int() = runTestWrapper {
-        // Given
-        val corruptInput = "1740787200000:abc:device-a"
+    fun should_throw_HlcParseException_when_counter_is_not_a_valid_int() =
+        runTestWrapper {
+            // Given
+            val corruptInput = "1740787200000:abc:device-a"
 
-        // When / Then
-        assertFailsWith<MochaException.Persistent.HlcParseException> {
-            HLC.parse(corruptInput)
+            // When / Then
+            assertFailsWith<MochaException.Persistent.HlcParseException> {
+                HLC.parse(corruptInput)
+            }
         }
-    }
 
     @Test
     fun should_throw_parse_exception_when_node_id_is_blank() = runTestWrapper {
@@ -472,50 +495,55 @@ class HlcFactoryTest : KoinTest {
     // HYDRATION FAILURE
     // -----------------------------------------------------------
     @Test
-    fun should_throw_ClockSkew_when_history_is_poisoned_with_future_date() = runTestWrapper {
-        // Given: System clock is March 2026, but history is Jan 2040
-        val futureTs = 2209032000000L
-        val poisonedHlc = "$futureTs:0:node-old"
+    fun should_throw_ClockSkew_when_history_is_poisoned_with_future_date() =
+        runTestWrapper {
+            // Given: System clock is March 2026, but history is Jan 2040
+            val futureTs = 2209032000000L
+            val poisonedHlc = "$futureTs:0:node-old"
 
-        // When / Then
-        assertFailsWith<MochaException.Persistent.ClockSkew> {
-            factory.hydrate(poisonedHlc, "node-new")
+            // When / Then
+            assertFailsWith<MochaException.Persistent.ClockSkew> {
+                factory.hydrate(poisonedHlc, "node-new")
+            }
+
+            assertTrue(writer.logs.any {
+                it.message.contains("future", ignoreCase = true)
+            })
         }
 
-        assertTrue(writer.logs.any { it.message.contains("future drift") })
-    }
-
     @Test
-    fun should_report_clock_skew_when_system_time_is_before_2026_floor() = runTestWrapper {
-        // Given
-        fakeClock.setTime(1000L) // Set back to Jan 1st, 1970
+    fun should_report_clock_skew_when_system_time_is_before_2026_floor() =
+        runTestWrapper {
+            // Given
+            fakeClock.setTime(1000L) // Set back to Jan 1st, 1970
 
-        // When & Then
-        val exception = assertFailsWith<MochaException.Persistent.ClockSkew> {
-            factory.hydrate(null, "node-1")
+            // When & Then
+            val exception = assertFailsWith<MochaException.Persistent.ClockSkew> {
+                factory.hydrate(null, "node-1")
+            }
+
+            assertTrue(exception.driftDisplay > 0, "Drift should be a positive value")
         }
 
-        assertTrue(exception.driftDisplay > 0, "Drift should be a positive value")
-    }
-
     @Test
-    fun should_log_warning_when_counter_exhaustion_triggers_yield() = runTestWrapper { scope ->
-        // When: The factory at the 16-bit limit
-        val maxCounterHlc = "${fakeClock.now().toEpochMilliseconds()}:65535:node-1"
-        factory.hydrate(maxCounterHlc, "node-1")
+    fun should_log_warning_when_counter_exhaustion_triggers_yield() =
+        runTestWrapper { scope ->
+            // When: The factory at the 16-bit limit
+            val maxCounterHlc = "${fakeClock.now().toEpochMilliseconds()}:65535:node-1"
+            factory.hydrate(maxCounterHlc, "node-1")
 
-        // Then: This will trigger the 'else' block (Case C)
-        scope.launch { factory.getNextHlc() }
-        yield()
-        fakeClock.advanceTime(1)
+            // Then: This will trigger the 'else' block (Case C)
+            scope.launch { factory.getNextHlc() }
+            yield()
+            fakeClock.advanceTime(1)
 
-        // Verify the log recorded the "Stalling" event
-        val logs = writer.logs
-        val counterWarning = logs.find { it.message.contains("Counter Exhausted") }
+            // Verify the log recorded the "Stalling" event
+            val logs = writer.logs
+            val counterWarning = logs.find { it.message.contains("Counter Exhausted") }
 
-        assertNotNull(counterWarning, "Missing visibility into counter exhaustion!")
-        assertEquals(Severity.Warn, counterWarning.severity)
-    }
+            assertNotNull(counterWarning, "Missing visibility into counter exhaustion!")
+            assertEquals(Severity.Warn, counterWarning.severity)
+        }
 
     // -----------------------------------------------------------
     // LOGGING TEST

@@ -2,21 +2,25 @@ package com.mochame.app.domain.sync.usecase
 
 import co.touchlab.kermit.Logger
 import com.mochame.app.domain.sync.stores.MutationLedgerMaintenance
+import com.mochame.app.infrastructure.logging.appendTag
+import com.mochame.app.infrastructure.logging.withTimer
 import com.mochame.app.infrastructure.utils.DateTimeUtils
-import com.mochame.app.infrastructure.utils.withTimer
 import kotlinx.coroutines.yield
 import kotlin.time.TimeSource
 
 class PruneOldEntriesUseCase(
     private val ledgerMaintenance: MutationLedgerMaintenance,
     private val dateTimeUtils: DateTimeUtils,
-    private val logger: Logger
+    logger: Logger
 ) {
     companion object {
         private const val DEFAULT_PRUNE_DAYS = 30
         private const val LIMIT = 100
         private const val LOG_INTERVAL = 50
+        private const val TAG = "LedgerPruner"
     }
+
+    private val logger = logger.appendTag(TAG)
 
     suspend operator fun invoke(): Int {
         val cutoff = dateTimeUtils.getMillisForDaysAgo(DEFAULT_PRUNE_DAYS)

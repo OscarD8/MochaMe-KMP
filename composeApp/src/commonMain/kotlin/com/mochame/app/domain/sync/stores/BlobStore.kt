@@ -18,6 +18,18 @@ interface BlobStager {
      * Cleanup for aborted transactions.
      */
     suspend fun abort(blobId: String)
+
+    /**
+     * Returns all finalized blobIds (hashes) currently sitting
+     * in the pending chamber.
+     */
+    suspend fun listPendingHashes(): List<String>
+
+    /**
+     * Deletes all "staging_*" files.
+     * Safe to call at boot because no active writes can exist yet.
+     */
+    suspend fun clearIncompleteStaging(): Int
 }
 
 interface BlobReader {
@@ -25,12 +37,4 @@ interface BlobReader {
     fun open(blobId: String): Source
 
     fun exists(blobId: String): Boolean
-}
-
-interface BlobAdmin {
-    /** Identify dangling blobs in /pending. */
-    suspend fun listPending(): List<String>
-
-    /** Purge orphaned or old files. */
-    suspend fun delete(blobId: String)
 }

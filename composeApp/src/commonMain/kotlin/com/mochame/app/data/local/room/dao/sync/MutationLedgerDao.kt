@@ -92,6 +92,9 @@ interface MutationLedgerDao {
         status: SyncStatus = SyncStatus.SUCCESS
     )
 
+    @Query("SELECT EXISTS(SELECT 1 FROM mutation_ledger WHERE overflowBlobId = :blobId)")
+    suspend fun existsByBlobId(blobId: String): Boolean
+
     /**
      * Pruning Task: Removes old tombstones and synced history.
      */

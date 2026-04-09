@@ -1,8 +1,10 @@
 package com.mochame.app.infrastructure.utils
 
+import kotlinx.io.Source
+
 
 interface Digest {
-    fun update(source: ByteArray)
+    fun update(source: Source)
     fun digest(): ByteArray
 }
 

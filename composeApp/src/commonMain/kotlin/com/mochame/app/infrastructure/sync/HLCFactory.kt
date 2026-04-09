@@ -242,7 +242,7 @@ class HlcFactory(
             // Case 3: Poisoned History creating future drift (DB is > 1 minute in the future)
             history.ts - wallClock > MAX_DRIFT_MS -> {
                 val driftSec = (history.ts - wallClock) / 1000
-                hlcLog.e { "Clock Skew: History is $driftSec seconds in the future against [$wallClock]." }
+                hlcLog.e { "Clock Skew: History is $driftSec seconds in the future against local [$wallClock]." }
                 throw MochaException.Persistent.ClockSkew(driftSec, "seconds")
             }
 

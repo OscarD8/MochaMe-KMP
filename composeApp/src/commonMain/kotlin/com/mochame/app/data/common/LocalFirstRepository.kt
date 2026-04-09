@@ -2,6 +2,7 @@ package com.mochame.app.data.common
 
 import co.touchlab.kermit.Logger
 import com.mochame.app.data.local.room.entities.SyncIntentEntity
+import com.mochame.app.di.providers.DispatcherProvider
 import com.mochame.app.domain.exceptions.MochaException
 import com.mochame.app.domain.sync.LocalFirstEntity
 import com.mochame.app.domain.sync.PayloadEncoder
@@ -15,17 +16,17 @@ import com.mochame.app.domain.sync.utils.MochaModule
 import com.mochame.app.domain.sync.utils.MutationOp
 import com.mochame.app.domain.sync.utils.SyncStatus
 import com.mochame.app.domain.system.sqlite.ExecutionPolicy
+import com.mochame.app.infrastructure.logging.withTimer
 import com.mochame.app.infrastructure.sync.HLC
 import com.mochame.app.infrastructure.sync.HlcFactory
+import com.mochame.app.infrastructure.system.KeyedLocker
 import com.mochame.app.infrastructure.system.boot.BootState
 import com.mochame.app.infrastructure.system.boot.BootStatusProvider
-import com.mochame.app.infrastructure.utils.KeyedLocker
 import com.mochame.app.infrastructure.utils.toMochaException
-import com.mochame.app.infrastructure.utils.withTimer
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.io.Buffer
-import kotlinx.io.readByteArray
 import kotlin.time.TimeSource
 
 
@@ -38,17 +39,18 @@ import kotlin.time.TimeSource
  * @param T The entity type, adhering to the [LocalFirstEntity] contract.
  */
 abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
-    private val hlcFactory: HlcFactory,
-    private val provider: BootStatusProvider,
-    private val transactor: TransactionProvider,
-    private val mutationLedger: MutationLedger,
-    private val metadataStore: MetadataStore,
+    protected val hlcFactory: HlcFactory,
+    protected val executor: ExecutionPolicy,
+    protected val encoder: PayloadEncoder<T>,
+    protected val locker: KeyedLocker,
+    protected val logger: Logger,
+    protected val dispatcher: DispatcherProvider,
+    protected val transactor: TransactionProvider,
+    protected val blobStore: BlobStager,
+    protected val mutationLedger: MutationLedger,
     override val module: MochaModule,
-    private val executor: ExecutionPolicy,
-    private val blobStore: BlobStager,
-    private val encoder: PayloadEncoder<T>,
-    private val locker: KeyedLocker,
-    protected val logger: Logger
+    private val provider: BootStatusProvider,
+    private val metadataStore: MetadataStore
 ) : SyncReceiver {
 
     /**
@@ -60,24 +62,24 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
      * @param candidateKey the item (either fetched remotely, or from a local UI event) to be persisted locally.
      * @param incomingHlc used when the SyncCoordinator is calling to process an intent. Forks how we process the intent.
      * @param op the DML operation for the intent. Required for metadata, logging, and state verification.
-     * @param fetchOldState used to perform a backup causality check, and possible ghost delete.
+     * @param fetchOldState used to perform a backup causality check, and possible ghost deleteBlobByHash.
      * @param computeChange requires the feature to assert the state change they wish to make.
      * @param persist after verifying and stamping the feature state change, the finalized state is persisted atomically alongside sync payloads/metadata.
      * @param onSkip offers a type-safe way to return R.
      */
-    protected suspend fun <R> processIntent(
+    protected suspend inline fun <R> processIntent(
         candidateKey: String,
         incomingHlc: HLC? = null,
         op: MutationOp,
-        fetchOldState: suspend () -> T?,
-        computeChange: suspend (old: T?) -> T?,
-        persist: suspend (stamped: T) -> R,
-        onSkip: (old: T?) -> R
-    ): R {
+        crossinline fetchOldState: suspend () -> T?,
+        crossinline computeChange: suspend (old: T?) -> T?,
+        crossinline persist: suspend (stamped: T) -> R,
+        crossinline onSkip: (old: T?) -> R
+    ): R = withContext(dispatcher.io) {
         ensureReady()
         val isRemote = incomingHlc != null
 
-        return locker.withLock(candidateKey) {
+        locker.withLock(candidateKey) {
             executor.execute("[${module}_$op]") {
                 val oldState = fetchOldState()
 
@@ -148,10 +150,10 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         )
     }
 
-    private suspend fun <R> handleRemoteCommit(
+    protected suspend inline fun <R> handleRemoteCommit(
         candidateKey: String,
         hlc: HLC,
-        persistAction: suspend () -> R
+        crossinline persistAction: suspend () -> R
     ): R {
         val mark = TimeSource.Monotonic.markNow()
         val result = transactor.runImmediateTransaction {
@@ -180,7 +182,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
      * a safety barrier against any other DML action that unexpectedly produces
      * null. If this is the case, the process execution cannot continue.
      */
-    private fun validateMutationOrAbort(
+    protected fun validateMutationOrAbort(
         op: MutationOp,
         provisionalState: T?,
         candidateKey: String,
@@ -190,25 +192,26 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             return null
         }
         if (provisionalState == null) {
-            logger.d { "$candidateKey produced a null state for an intent out of a delete context?.. Cannot stamp." }
+            logger.d { "$candidateKey produced a null state for an intent out of a deleteBlobByHash context?.. Cannot stamp." }
             return null
         }
         return provisionalState
     }
 
-    private suspend fun <R> handleStagingAndCommit(
+    protected suspend inline fun <R> handleStagingAndCommit(
         candidateKey: String,
         op: MutationOp,
         hlc: HLC,
         payload: ByteArray,
         summary: String,
-        persistAction: suspend () -> R
+        crossinline persistAction: suspend () -> R
     ): R {
         val tMark = TimeSource.Monotonic.markNow()
         var blobId: String? = null
+        var dbCommitted = false
 
         try {
-            // 1: Check if External IO needed (big blob)
+            // 1: Check if External IO needed (bigger blob)
             if (payload.size > 64_000) {
                 blobId = blobStore.stage(Buffer().also { it.write(payload) })
                 logger.i { "Required staged payload: blobId $blobId [${payload.size / 1024}KB | Key: $candidateKey." }
@@ -228,26 +231,37 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                 )
                 updateModuleMetadata(hlc)
                 localResult
+            }.also {
+                dbCommitted = true
+                logger.v { "Local DB Transaction Committed".withTimer(mark) }
             }
-            logger.v { "Local DB Transaction Committed".withTimer(mark) }
+
 
             // 3. Commit the blob (sync intent commit means it cannot be orphaned)
-            blobId?.let { blobStore.commit(it) }
-
-            logger.i {
-                "Intent Dispatched | Op: $op | Key: $candidateKey.".withTimer(tMark)
+            blobId?.also {
+                blobStore.commit(it)
+                logger.i {
+                    "Intent Dispatched | Op: $op | Key: $candidateKey.".withTimer(tMark)
+                }
             }
+
             return result
         } catch (e: Exception) {
-            blobId?.let {
-                blobStore.abort(it)
-                logger.w { "Mutation Failed: Blob Aborted | HLC: $hlc | BlobID: $it | Reason: ${e.message}" }
+            if (blobId != null) {
+                if (!dbCommitted) {
+                    blobStore.abort(blobId).also {
+                        logger.e { "Mutation Failed: Blob Aborted | HLC: $hlc | BlobID: $it | Reason: ${e.message}" }
+                    }
+                } else {
+                    logger.w(e) { "Post-Commit IO Failure: Blob $blobId stranded in /pending. Janitor will reconcile [${e.message}]." }
+                }
             }
+
             throw e.toMochaException(candidateKey)
         }
     }
 
-    private suspend fun recordIntent(
+    protected suspend fun recordIntent(
         candidateKey: String,
         op: MutationOp,
         hlc: HLC,
@@ -281,7 +295,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         )
     }
 
-    private fun resolvePruningTimestamp(
+    protected fun resolvePruningTimestamp(
         pending: SyncIntentEntity?,
         currentOp: MutationOp,
         now: Long
@@ -296,7 +310,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         }
     }
 
-    private suspend fun updateModuleMetadata(hlc: HLC) {
+    protected suspend fun updateModuleMetadata(hlc: HLC) {
         metadataStore.recordPendingMetadata(
             module = module, hlc = hlc
         )
@@ -305,7 +319,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     /**
      * Centralizes the timeout and error handling for the Janitor's boot sequence.
      */
-    private suspend fun ensureReady() {
+    protected suspend fun ensureReady() {
         withTimeout(5_000L) {
             val state =
                 provider.bootState.first { it !is BootState.Initializing && it !is BootState.Idle }

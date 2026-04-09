@@ -56,10 +56,10 @@ abstract class BaseSyncPersistenceTest : KoinTest {
         candidateKey = "1",
         module = MochaModule.BIO,
         operation = MutationOp.DELETE,
-        payload = TODO(),
-        hasConflict = TODO(),
-        retryCount = TODO(),
-        createdAt = TODO(),
+        payload = null,
+        createdAt = 1000L,
+        diagnosticSummary = "cheese",
+        overflowBlobId = null
     )
 
     // -----------------------------------------------------------

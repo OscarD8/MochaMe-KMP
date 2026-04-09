@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.mochame.app.data.local.room.MochaDatabase
+import com.mochame.app.di.providers.AppPaths
 import com.mochame.app.di.providers.DispatcherProvider
 
 /**
@@ -12,12 +13,12 @@ import com.mochame.app.di.providers.DispatcherProvider
  */
 fun getDatabaseBuilder(
     ctx: Context,
+    paths: AppPaths
 ): RoomDatabase.Builder<MochaDatabase> {
     val appContext = ctx.applicationContext
-    val dbFile = appContext.getDatabasePath("mocha_me.db")
 
     return Room.databaseBuilder<MochaDatabase>(
         context = appContext,
-        name = dbFile.absolutePath
+        name = paths.databasePath
     )
 }

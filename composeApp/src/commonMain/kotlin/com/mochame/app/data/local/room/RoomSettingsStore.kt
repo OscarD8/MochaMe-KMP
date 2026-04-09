@@ -6,12 +6,10 @@ import com.mochame.app.domain.system.sqlite.ExecutionPolicy
 
 class RoomSettingsStore(
     private val dao: SettingsDao,
-    private val executor: ExecutionPolicy
 ) : SettingsStore {
-    override suspend fun saveNodeId(newId: String) = executor.execute {
+    override suspend fun saveNodeId(newId: String)  {
         dao.updateNodeId(newId)
     }
 
-    override suspend fun getDeviceId(): String? =
-        executor.execute { dao.getDeviceId() }
+    override suspend fun getDeviceId(): String? =  dao.getDeviceId()
 }

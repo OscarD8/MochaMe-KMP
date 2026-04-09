@@ -30,6 +30,9 @@ class RoomMutationLedger(
         return dao.deleteByHlc(hlc)
     }
 
+    override suspend fun existsForBlob(blobId: String) =
+        dao.existsByBlobId(blobId)
+
     /**
      * Assumes use in a stale context. No sync should be active, as it will
      * reset all syncIds to null and the status to Pending.

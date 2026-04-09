@@ -13,7 +13,7 @@ import kotlinx.io.Buffer
  * a different buffer per reconstruction/encode, to each thread
  * reusing its own buffer, clearing and re-writing to it.
   */
-expect class BufferProvider() {
+interface BufferProvider {
     fun get(): Buffer
 }
 

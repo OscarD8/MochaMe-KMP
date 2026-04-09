@@ -20,6 +20,7 @@ import com.mochame.app.data.local.room.entities.BookEntity
 import com.mochame.app.data.local.room.entities.DailyContextEntity
 import com.mochame.app.data.local.room.entities.DomainEntity
 import com.mochame.app.data.local.room.entities.GlobalSettingsEntity
+import com.mochame.app.data.local.room.entities.MomentAttachmentEntity
 import com.mochame.app.data.local.room.entities.MomentEntity
 import com.mochame.app.data.local.room.entities.QuoteEntity
 import com.mochame.app.data.local.room.entities.SpaceEntity
@@ -36,6 +37,7 @@ import com.mochame.app.di.providers.DispatcherProvider
 
         // TELEMETRY MODULE
         MomentEntity::class,
+        MomentAttachmentEntity::class,
         DomainEntity::class,
         TopicEntity::class,
         SpaceEntity::class,

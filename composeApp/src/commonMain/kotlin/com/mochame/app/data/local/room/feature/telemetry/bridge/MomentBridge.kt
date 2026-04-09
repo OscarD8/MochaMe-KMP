@@ -38,7 +38,7 @@ internal class MomentBridge(
             core = draft.core,
             detail = enrichedDetail,
             context = MomentClimate(),
-            metadata = createMetadata(now, biologicalDay) // Standardized assembly
+            metadata = createMetadata(now, biologicalDay),
         )
 
         dao.upsertMoment(newMoment.toEntity())

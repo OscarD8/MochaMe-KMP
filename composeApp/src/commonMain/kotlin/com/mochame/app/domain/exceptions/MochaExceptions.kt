@@ -90,7 +90,7 @@ sealed class MochaException(
                 Space("Space '$name' already exists.")
 
             data class InUse(val id: String, val count: Int) : Space(
-                "Cannot delete space $id: $count moments are still anchored here."
+                "Cannot deleteBlobByHash space $id: $count moments are still anchored here."
             )
         }
 
@@ -101,7 +101,7 @@ sealed class MochaException(
         sealed class Author(message: String) : SemanticException(message) {
             data class NotFound(val id: String) : Author("Author $id not found.")
             data class InUse(val id: String, val bookCount: Int) : Author(
-                "Cannot delete author $id: It still contains $bookCount books."
+                "Cannot deleteBlobByHash author $id: It still contains $bookCount books."
             )
         }
 
@@ -110,7 +110,7 @@ sealed class MochaException(
             data class NotFound(val id: String) : Book("Book $id not found.")
 
             data class InUse(val id: String, val quoteCount: Int) : Book(
-                "Cannot delete book $id: It still has $quoteCount associated quotes."
+                "Cannot deleteBlobByHash book $id: It still has $quoteCount associated quotes."
             )
         }
 
@@ -119,7 +119,7 @@ sealed class MochaException(
         // DOMAINS
         sealed class Domain(message: String) : SemanticException(message) {
             data class InUse(val id: String, val momentCount: Int) : Book(
-                "Cannot delete Domain $id: It still has $momentCount associated quotes."
+                "Cannot deleteBlobByHash Domain $id: It still has $momentCount associated quotes."
             )
 
             data class AlreadyExists(val name: String, val domainId: String) :
@@ -137,7 +137,7 @@ sealed class MochaException(
             data class NotFound(val id: String) : Topic("Topic $id not found.")
 
             data class InUse(val id: String, val momentCount: Int) : Book(
-                "Cannot delete Topic $id: It still has $momentCount associated quotes."
+                "Cannot deleteBlobByHash Topic $id: It still has $momentCount associated quotes."
             )
         }
     }

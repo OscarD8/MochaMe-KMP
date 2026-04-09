@@ -1,4 +1,4 @@
-package com.mochame.app.infrastructure.utils
+package com.mochame.app.infrastructure.system
 
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock

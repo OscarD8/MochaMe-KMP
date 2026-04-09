@@ -13,7 +13,7 @@ import com.mochame.app.domain.feature.telemetry.Space
 import com.mochame.app.domain.feature.telemetry.Topic
 
 // --- MOMENT MAPPERS ---
-fun MomentEntity.toDomain(attachments: List<MomentAttachment>): Moment {
+fun MomentEntity.toDomain(attachments: List<MomentAttachment> = emptyList()): Moment {
     return Moment(
         id = id,
         domainId = domainId,

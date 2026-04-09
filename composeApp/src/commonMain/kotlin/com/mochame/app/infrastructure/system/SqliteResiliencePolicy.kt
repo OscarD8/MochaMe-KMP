@@ -5,7 +5,7 @@ import co.touchlab.kermit.Logger
 import com.mochame.app.infrastructure.utils.isVaultLocked
 import com.mochame.app.infrastructure.utils.toMochaException
 import com.mochame.app.domain.system.sqlite.ExecutionPolicy
-import com.mochame.app.infrastructure.utils.withTimer
+import com.mochame.app.infrastructure.logging.withTimer
 import kotlinx.coroutines.delay
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.random.Random

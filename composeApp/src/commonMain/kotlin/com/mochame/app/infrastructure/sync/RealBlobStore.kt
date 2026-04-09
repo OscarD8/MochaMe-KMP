@@ -3,22 +3,22 @@ package com.mochame.app.infrastructure.sync
 import co.touchlab.kermit.Logger
 import com.mochame.app.di.providers.DispatcherProvider
 import com.mochame.app.domain.exceptions.MochaException
-import com.mochame.app.domain.sync.stores.BlobAdmin
 import com.mochame.app.domain.sync.stores.BlobReader
 import com.mochame.app.domain.sync.stores.BlobStager
 import com.mochame.app.infrastructure.logging.appendTag
+import com.mochame.app.infrastructure.logging.withTimer
 import com.mochame.app.infrastructure.utils.DateTimeUtils
 import com.mochame.app.infrastructure.utils.Hasher
 import com.mochame.app.infrastructure.utils.digestHex
 import com.mochame.app.infrastructure.utils.toMochaException
-import com.mochame.app.infrastructure.utils.withTimer
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.io.Buffer
 import kotlinx.io.Source
 import kotlinx.io.buffered
+import kotlinx.io.files.FileSystem
 import kotlinx.io.files.Path
-import kotlinx.io.files.SystemFileSystem
-import kotlinx.io.readByteArray
 import kotlin.random.Random
 import kotlin.time.TimeSource
 
@@ -31,14 +31,17 @@ class RealBlobStore(
     private val committedDir: Path,
     private val hashProvider: Hasher,
     private val dispatcher: DispatcherProvider,
+    private val fileSystem: FileSystem,
+    private val initMutex: Mutex,
     logger: Logger
-) : BlobStager, BlobReader, BlobAdmin {
+) : BlobStager, BlobReader {
 
     companion object {
         const val TAG = "BlobStore"
     }
 
     private val logger = logger.appendTag(TAG)
+    private var chambersVerified = false
 
     // --- STAGING ---
 
@@ -61,12 +64,11 @@ class RealBlobStore(
 
         try {
             // Read the source, write to sink, through a buffer
-            SystemFileSystem.sink(tempPath).buffered().use { sink ->
+            fileSystem.sink(tempPath).buffered().use { sink ->
                 val buffer = Buffer()
                 while (source.readAtMostTo(buffer, 8192L) != -1L) {
                     val byteCount = buffer.size
-                    val bytes = buffer.peek().readByteArray()
-                    hasher.update(bytes)
+                    hasher.update(buffer.peek())
                     sink.write(buffer, byteCount)
                     totalBytes += byteCount
                 }
@@ -77,11 +79,11 @@ class RealBlobStore(
             val finalPendingPath = Path(pendingDir, blobId)
 
             // Deduplication Check
-            if (SystemFileSystem.exists(finalPendingPath)) {
+            if (fileSystem.exists(finalPendingPath)) {
                 logger.v { "Deduplication: Blob $blobId already staged. Deleting temp." }
-                SystemFileSystem.delete(tempPath)
+                fileSystem.delete(tempPath)
             } else {
-                SystemFileSystem.atomicMove(tempPath, finalPendingPath)
+                fileSystem.atomicMove(tempPath, finalPendingPath)
             }
 
             logger.i {
@@ -89,7 +91,7 @@ class RealBlobStore(
             }
             blobId
         } catch (e: Exception) {
-            if (SystemFileSystem.exists(tempPath)) SystemFileSystem.delete(tempPath)
+            if (fileSystem.exists(tempPath)) fileSystem.delete(tempPath)
 
             throw e.toMochaException("Blob Staging")
         }
@@ -99,91 +101,128 @@ class RealBlobStore(
         val pendingPath = Path(pendingDir, blobId)
         val committedPath = Path(committedDir, blobId)
 
-        if (SystemFileSystem.exists(pendingPath)) {
-            SystemFileSystem.atomicMove(pendingPath, committedPath)
-            logger.v { "Blob Committed | ID: $blobId" }
-        } else if (!SystemFileSystem.exists(committedPath)) {
-            logger.w { "Commit Failed: Blob $blobId not found in pending chamber." }
+        try {
+            if (fileSystem.exists(pendingPath)) {
+                fileSystem.atomicMove(pendingPath, committedPath)
+                logger.v { "Blob Committed | ID: $blobId" }
+            } else if (!fileSystem.exists(committedPath)) {
+                logger.w { "Commit Failed: Blob $blobId not found in pending chamber." }
+            }
+        } catch (e: Exception) {
+            if (!fileSystem.exists(committedPath)) throw e.toMochaException("Blob Commit")
+                .also {
+                    logger.w(e) { "Possible race condition encountered on a commit? ${e.message}" }
+                }
         }
+
     }
 
     override suspend fun abort(blobId: String) {
         val abortPath = Path(pendingDir, blobId)
 
-        if (SystemFileSystem.exists(abortPath)) {
-            SystemFileSystem.delete(abortPath)
+        if (fileSystem.exists(abortPath)) {
+            fileSystem.delete(abortPath)
             logger.d { "Blob Aborted | ID: $blobId" }
         }
     }
 
     // --- ADMIN ---
 
-    override suspend fun listPending(): List<String> = withContext(dispatcher.io) {
+    /**
+     * Returns a list necessary for the reconciliation protocol.
+     * These are success stages that failed to atomically transition from
+     * pending to committed directories, but are not orphaned. Therefore,
+     * a retry attempt is possible.
+     */
+    override suspend fun listPendingHashes(): List<String> = withContext(dispatcher.io) {
         ensureChambersExist()
 
         try {
-            // SystemFileSystem.list returns a list of Paths in the directory.
-            SystemFileSystem.list(pendingDir).map { it.name }.also { items ->
-                val orphans = items.count { it.startsWith("staging_") || it.length == 64 }
-                if (orphans > 0) {
-                    logger.w { "Detected $orphans orphaned staging files in pendingDir." }
-                }
-            }
+            fileSystem.list(pendingDir)
+                .map { it.name }
+                .filter { it.length == 64 && !it.startsWith("staging_") } //
         } catch (e: Exception) {
-            logger.e(e) { "Failed to audit pending chamber." }
-            throw e.toMochaException("Pending Chamber Audit")
+            logger.e(e) { "Infrastructure: Failed to scan pending chamber for hashes." }
+            emptyList()
         }
     }
 
-    override suspend fun delete(blobId: String) = withContext(dispatcher.io) {
-        val pendingPath = Path(pendingDir, blobId)
-        val committedPath = Path(committedDir, blobId)
+    /**
+     * Implementation for clearing aborted/crashed write attempts.
+     * Enforces a 1-hour restraint to prevent race conditions with active staging.
+     */
+    override suspend fun clearIncompleteStaging(): Int = withContext(dispatcher.io) {
+        ensureChambersExist()
+        var deletedCount = 0
+        val now = dateTimeUtils.now().toEpochMilliseconds()
+        val oneHourInMillis = 3_600_000L
 
-        // Write-authority to both chambers.
         try {
-            if (SystemFileSystem.exists(pendingPath)) {
-                SystemFileSystem.delete(pendingPath)
+            fileSystem.list(pendingDir).forEach { path ->
+                val name = path.name
+                if (!name.startsWith("staging_")) return@forEach
+                // Extraction: "staging_{timestamp}_{random}"
+                val parts = name.split("_")
+                val fileTimestamp = parts.getOrNull(1)?.toLongOrNull() ?: 0L
+                val age = now - fileTimestamp
+
+                if (age > oneHourInMillis) {
+                    fileSystem.delete(path)
+                    deletedCount++
+                    logger.v { "Purged stale staging file [${name}] (Age: ${age / 60000} mins)" }
+                }
             }
-            if (SystemFileSystem.exists(committedPath)) {
-                SystemFileSystem.delete(committedPath)
+
+            if (deletedCount > 0) {
+                logger.i { "Maintenance Complete: Purged $deletedCount orphaned staging files." }
             }
         } catch (e: Exception) {
-            logger.w { "Could not purge blob $blobId: ${e.message}" }
+            logger.e(e) { "Error during incomplete staging purge: ${e.message}" }
+            throw e.toMochaException("Clearing incomplete staging.")
         }
+
+        deletedCount
     }
 
     // --- READ ACCESS ---
 
     override fun exists(blobId: String): Boolean {
         val path = Path(committedDir, blobId)
-        // Direct check on the singleton SystemFileSystem
-        return SystemFileSystem.exists(path)
+        // Direct check on the singleton fileSystem
+        return fileSystem.exists(path)
     }
 
     override fun open(blobId: String): Source {
         val path = Path(committedDir, blobId)
 
-        if (!SystemFileSystem.exists(path)) {
+        if (!fileSystem.exists(path)) {
             throw MochaException.Persistent.FileNotFound(blobId)
         }
 
         // Returns a RawSource wrapped in a buffered Source.
-        return SystemFileSystem.source(path).buffered()
+        return fileSystem.source(path).buffered()
     }
 
     // --- Helpers ---
-    private fun ensureChambersExist() {
-        try {
-            if (!SystemFileSystem.exists(pendingDir)) {
-                SystemFileSystem.createDirectories(pendingDir)
-                logger.i { "Infrastructure: Initialized Pending Chamber at $pendingDir" }
+    private suspend fun ensureChambersExist() {
+        if (chambersVerified) return
+
+        initMutex.withLock {
+            if (chambersVerified) return@withLock
+
+            try {
+                if (!fileSystem.exists(pendingDir)) {
+                    fileSystem.createDirectories(pendingDir)
+                    logger.i { "Infrastructure: Initialized Pending Chamber at $pendingDir" }
+                }
+                if (!fileSystem.exists(committedDir)) {
+                    fileSystem.createDirectories(committedDir)
+                    logger.i { "Infrastructure: Initialized Committed Chamber at $committedDir" }
+                }
+                chambersVerified = true
+            } catch (e: Exception) {
+                throw e.toMochaException("Directory Initialization")
             }
-            if (!SystemFileSystem.exists(committedDir)) {
-                SystemFileSystem.createDirectories(committedDir)
-                logger.i { "Infrastructure: Initialized Committed Chamber at $committedDir" }
-            }
-        } catch (e: Exception) {
-            throw e.toMochaException("Directory Initialization")
         }
     }
 }
