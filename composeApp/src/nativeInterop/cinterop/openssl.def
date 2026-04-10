@@ -5,6 +5,5 @@ package = com.mochame.app.infrastructure.native.openssl
 # Use pkg-config to automatically find paths
 pkgConfig = openssl
 
-# Hardcoded fallback if pkgConfig fails
 compilerOpts.linux = -I/usr/include -I/usr/include/x86_64-linux-gnu
-linkerOpts.linux = -L/usr/lib/x86_64-linux-gnu -lcrypto
+linkerOpts.linux = -L/usr/lib/x86_64-linux-gnu -lcrypto -lpthread -ldl

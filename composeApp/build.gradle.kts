@@ -83,6 +83,10 @@ kotlin {
                 definitionFile.set(project.file("src/nativeInterop/cinterop/openssl.def"))
             }
         }
+        binaries.all {
+            linkerOpts("-lcrypto", "-lpthread", "-ldl")
+            linkerOpts("--allow-shlib-undefined")
+        }
     }
 
     sourceSets {
@@ -164,6 +168,9 @@ kotlin {
 
         val linuxX64Main by getting {
             dependsOn(commonMain)
+            dependencies {
+                implementation(libs.compose.runtime)
+            }
         }
 
         if (isMac) {
@@ -232,8 +239,6 @@ room {
 }
 
 dependencies {
-
-    add("kspCommonMainMetadata", libs.room.compiler)
 
     add("kspAndroid", libs.room.compiler)
     add("kspAndroidHostTest", libs.room.compiler)
