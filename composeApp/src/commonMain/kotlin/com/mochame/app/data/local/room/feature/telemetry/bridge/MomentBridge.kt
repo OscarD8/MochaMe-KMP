@@ -4,6 +4,7 @@ import com.benasher44.uuid.uuid4
 import com.mochame.app.infrastructure.utils.DateTimeUtils
 import com.mochame.app.data.mappers.toEntity
 import com.mochame.app.data.local.room.dao.TelemetryDao
+import com.mochame.app.di.providers.DispatcherProvider
 import com.mochame.app.domain.feature.telemetry.Moment
 import com.mochame.app.domain.feature.telemetry.MomentClimate
 import com.mochame.app.domain.feature.telemetry.MomentDetail
@@ -20,10 +21,11 @@ import kotlinx.coroutines.withContext
  */
 internal class MomentBridge(
     private val dao: TelemetryDao,
-    private val dateTimeUtils: DateTimeUtils
+    private val dateTimeUtils: DateTimeUtils,
+    private val dispatcher: DispatcherProvider
 ) : MomentRepository {
 
-    override suspend fun logMoment(draft: MomentDraft) = withContext(Dispatchers.IO) {
+    override suspend fun logMoment(draft: MomentDraft) = withContext(dispatcher.io) {
         val now = dateTimeUtils.now().toEpochMilliseconds()
 
         val biologicalDay = dateTimeUtils.calculateMochaEpochDay(dateTimeUtils.now())
@@ -44,7 +46,7 @@ internal class MomentBridge(
         dao.upsertMoment(newMoment.toEntity())
     }
 
-    override suspend fun saveMoment(moment: Moment) = withContext(Dispatchers.IO) {
+    override suspend fun saveMoment(moment: Moment) = withContext(dispatcher.io) {
         val updatedMetaData = moment.metadata.copy(
             lastModified = dateTimeUtils.now().toEpochMilliseconds()
         )
@@ -55,7 +57,7 @@ internal class MomentBridge(
         dao.upsertMoment(updatedMoment.toEntity())
     }
 
-    override suspend fun deleteMoment(momentId: String) = withContext(Dispatchers.IO) {
+    override suspend fun deleteMoment(momentId: String) = withContext(dispatcher.io) {
         dao.deleteMomentById(momentId)
     }
 

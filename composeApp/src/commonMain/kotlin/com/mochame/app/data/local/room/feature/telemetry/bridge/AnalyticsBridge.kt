@@ -2,6 +2,7 @@ package com.mochame.app.data.local.room.feature.telemetry.bridge
 
 import com.mochame.app.data.mappers.toDomain
 import com.mochame.app.data.local.room.dao.TelemetryDao
+import com.mochame.app.di.providers.DispatcherProvider
 import com.mochame.app.domain.feature.telemetry.Domain
 import com.mochame.app.domain.feature.telemetry.Moment
 import com.mochame.app.domain.feature.telemetry.Space
@@ -22,9 +23,11 @@ import kotlinx.coroutines.flow.map
  * background analysis by Gemini Nano.
  */
 internal class AnalyticsBridge(
-    private val dao: TelemetryDao
+    private val dao: TelemetryDao,
+    private val dispatcher: DispatcherProvider
 ) : AnalyticsRepository {
-
+    // NEED TO IMPLEMENT DISPATCHER
+    
     // --- DOMAINS ---
     override fun getActiveDomains(): Flow<List<Domain>> {
         return dao.observeActiveDomains().map { entities ->

@@ -1,5 +1,6 @@
 package com.mochame.app.di.modules
 
+import co.touchlab.kermit.Logger
 import com.mochame.app.data.local.room.MochaDatabase
 import com.mochame.app.data.local.room.RoomImmediateTransProvider
 import com.mochame.app.data.local.room.RoomSettingsStore
@@ -42,9 +43,8 @@ import com.mochame.app.infrastructure.system.boot.BootStatusProvider
 import com.mochame.app.infrastructure.system.boot.BootStatusUpdater
 import com.mochame.app.infrastructure.utils.DateTimeUtils
 import com.mochame.app.infrastructure.utils.Hasher
-import com.mochame.app.infrastructure.utils.sha256Hasher
+import com.mochame.app.infrastructure.utils.createPlatformDigest
 import com.mochame.app.orchestration.sync.SyncJanitor
-import com.mochame.app.ui.ProofOfLifeViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.sync.Mutex
@@ -52,7 +52,6 @@ import kotlinx.io.files.FileSystem
 import kotlinx.io.files.Path
 import org.koin.core.module.dsl.bind
 import org.koin.core.module.dsl.singleOf
-import org.koin.core.module.dsl.viewModelOf
 import org.koin.core.parameter.parametersOf
 import org.koin.core.qualifier.named
 import org.koin.dsl.bind
@@ -84,7 +83,6 @@ object AppModules {
             telemetryDataModule,// Telemetry, Analytics, Bridges
 
             /** 4. PRESENTATION: UI & Interaction */
-            uiModule,           // ViewModels
 
             /** 5. LIFECYCLE: Production-Only Automation */
             productionStartupModule,
@@ -115,11 +113,6 @@ object AppModules {
      */
     val productionStartupModule = module {
         single<SyncJanitor>(createdAtStart = true) { get() }
-    }
-
-    /** --- UI LAYER --- */
-    val uiModule = module {
-        viewModelOf(::ProofOfLifeViewModel)
     }
 
     /** --- DATA LAYER --- */
@@ -218,7 +211,13 @@ object AppModules {
     }
 
     val blobModule = module {
-        single<Hasher> { sha256Hasher() }
+        single<Hasher> {
+            val hasherLogger: Logger =
+                get { parametersOf(LogTags.Domain.SYNC, LogTags.Layer.INFRA) }
+
+            Hasher { createPlatformDigest("SHA-256", hasherLogger) }
+        }
+
         single(named("BlobMutex")) { Mutex() }
 
         single<RealBlobStore> {

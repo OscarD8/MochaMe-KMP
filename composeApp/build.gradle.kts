@@ -4,6 +4,7 @@ import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
+
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidKmpLibrary)
@@ -56,6 +57,7 @@ kotlin {
         }
     }
 
+
     val isMac = System.getProperty("os.name") == "Mac OS X"
 
     if (isMac) {
@@ -75,75 +77,117 @@ kotlin {
     }
 
     jvm()
+    linuxX64 {
+        compilations.getByName("main") {
+            val openssl by cinterops.creating {
+                definitionFile.set(project.file("src/nativeInterop/cinterop/openssl.def"))
+            }
+        }
+    }
 
     sourceSets {
-        // 1. SHARED BRAIN: Code here runs on Android AND Linux
+        // --- LAYER 1: PLATFORM AGNOSTIC COMPONENTS/LOGIC ---
+        val commonMain by getting
+        val commonTest by getting
+
         commonMain.dependencies {
-            // UI Framework
-            implementation(libs.compose.runtime)
-            implementation(libs.compose.foundation)
-            implementation(libs.compose.material3)
-            implementation(libs.compose.ui)
-            implementation(libs.compose.components.resources)
-            implementation(libs.compose.windowSizeClass)
-            implementation(libs.compose.adaptive.nav.suite)
-            implementation(libs.adaptive.navigation3)
-            implementation(libs.jetbrains.navigation3.ui)
-            implementation(libs.jetbrains.lifecycle.viewmodelNavigation3)
-            implementation(libs.material.icons.extended)
-            implementation(libs.compose.ui.tooling.preview)
+            // Core Identity & Data
             implementation(libs.uuid)
-            // Mocha Me Logic & Data
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.datetime)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.serialization.protobuf)
             implementation(libs.kotlinx.io.core)
+
+            // Local-First Persistence (Native Compatible)
             implementation(libs.room.runtime)
-            implementation(libs.sqlite.bundled) // Essential for Linux DB
-            // Core Koin
+            implementation(libs.sqlite.bundled)
+
+            // Core Infrastructure
             implementation(libs.koin.core)
-            // The DSL for 'viewModel { ... }'
-            implementation(libs.koin.compose.viewmodel)
-            // For 'koinViewModel()' inside @Composable
-            implementation(libs.koin.compose)
-            // Logging
             implementation(libs.kermit)
         }
 
-        // 2. ANDROID SPECIFICS: Only for the phone
-        androidMain.dependencies {
-            implementation(libs.androidx.activity.compose)
-            implementation(libs.androidx.lifecycle.viewmodelCompose)
-            implementation(libs.androidx.lifecycle.runtimeCompose)
-            implementation(libs.koin.android)
-            implementation(libs.work.runtime.ktx)
+        // --- LAYER 2: COMPOSE UI BRIDGE (Y:ANDROID/JVM DESKTOP | N:LINUX/IOS NATIVE) ---
+        val uiMain by creating {
+            dependsOn(commonMain)
+            dependencies {
+                // Compose Multiplatform Core
+                implementation(libs.compose.runtime)
+                implementation(libs.compose.foundation)
+                implementation(libs.compose.ui)
+                implementation(libs.compose.components.resources)
+
+                // Material 3 & Navigation Stack (2026 Alpha/Beta)
+                implementation(libs.compose.material3)
+                implementation(libs.compose.windowSizeClass)
+                implementation(libs.compose.adaptive.nav.suite)
+                implementation(libs.adaptive.navigation3)
+                implementation(libs.jetbrains.navigation3.ui)
+                implementation(libs.jetbrains.lifecycle.viewmodelNavigation3)
+                implementation(libs.material.icons.extended)
+
+                // Koin UI Integration
+                implementation(libs.koin.compose)
+                implementation(libs.koin.compose.viewmodel)
+
+                // Preview Tools
+                implementation(libs.compose.ui.tooling.preview)
+            }
         }
 
-        // 3. LINUX SPECIFICS: Only for the desktop
-        jvmMain.dependencies {
-            implementation(compose.desktop.currentOs)
-            implementation(libs.kotlinx.coroutinesSwing) // Prevents crashes on Linux UI
+        // --- LAYER 3: THE PLATFORM BRANCHES ---
+
+        val androidMain by getting {
+            dependsOn(uiMain)
+
+            dependencies {
+                // Platform-Specific Lifecycle & Context
+                implementation(libs.androidx.activity.compose)
+                implementation(libs.androidx.lifecycle.viewmodelCompose)
+                implementation(libs.androidx.lifecycle.runtimeCompose)
+
+                // Android-Only Infrastructure
+                implementation(libs.koin.android)
+                implementation(libs.work.runtime.ktx)
+            }
         }
 
-        jvmTest.dependencies {
-            // This is the specific string Kotlin uses to bridge to JUnit 5
-            implementation(kotlin("test-junit5"))
+        val jvmMain by getting {
+            dependsOn(uiMain)
+
+            dependencies {
+                implementation(compose.desktop.currentOs)
+                implementation(libs.kotlinx.coroutinesSwing)
+            }
         }
+
+        val linuxX64Main by getting {
+            dependsOn(commonMain)
+        }
+
+        if (isMac) {
+            val iosMain by creating {
+                dependsOn(uiMain)
+            }
+
+            val iosTest by getting {
+                dependsOn(commonTest)
+            }
+        }
+
+        // --- LAYER 4: TESTING ---
 
         commonTest.dependencies {
             implementation(kotlin("test"))
-            // Concurrency
             implementation(libs.kotlinx.coroutines.test)
-            // Highly recommended for testing StateFlows/Flows from your DAOs
             implementation(libs.turbine)
-            // Koin
             implementation(libs.koin.test)
-            implementation(libs.koin.core)
             implementation(libs.kermit.test)
         }
 
         val androidHostTest by getting {
+            dependsOn(commonTest)
             dependencies {
                 // The Core Framework (JUnit 4)
                 implementation(libs.junit4)
@@ -158,7 +202,16 @@ kotlin {
             }
         }
 
+        jvmTest.dependencies {
+            implementation(kotlin("test-junit5"))
+        }
+
+        val linuxX64Test by getting {
+            dependsOn(commonTest)
+        }
+
         val androidDeviceTest by getting {
+            dependsOn(commonTest)
             dependencies {
                 // THE BRAIN (Must match Host for code compatibility)
                 implementation(libs.junit4)
@@ -166,16 +219,11 @@ kotlin {
                 implementation(libs.androidx.test.ext.junit)
                 implementation(libs.androidx.runner)
                 // Note: Engine is provided by the Android-KMP plugin's test runner
-                // THE REAL BODY (No Robolectric)
                 implementation(libs.androidx.test.core)
-                // THE NERVOUS SYSTEM (Must match Host)
                 implementation(libs.koin.android)
-                implementation(libs.koin.test)
             }
         }
 
-    }
-    sourceSets.all {
     }
 }
 
@@ -184,15 +232,20 @@ room {
 }
 
 dependencies {
-    val isMac = System.getProperty("os.name") == "Mac OS X"
 
     add("kspCommonMainMetadata", libs.room.compiler)
+
     add("kspAndroid", libs.room.compiler)
-    // Ensure Room generates the _Impl classes for the Robolectric tests
     add("kspAndroidHostTest", libs.room.compiler)
+
     add("kspJvm", libs.room.compiler)
+    add("kspJvmTest", libs.room.compiler)
+
+    add("kspLinuxX64", libs.room.compiler)
+    add("kspLinuxX64Test", libs.room.compiler)
 
     // iOS targets
+    val isMac = System.getProperty("os.name") == "Mac OS X"
     if (isMac) {
         add("kspIosArm64", libs.room.compiler)
         add("kspIosSimulatorArm64", libs.room.compiler)
@@ -233,7 +286,8 @@ lintTasks.configureEach {
 
 
 // =========================== TESTING FORMATTING ===========================
-val targetTaskNames = setOf("jvmTest", "connectedAndroidDeviceTest", "testAndroidHostTest")
+val targetTaskNames =
+    setOf("jvmTest", "connectedAndroidDeviceTest", "testAndroidHostTest", "linuxX64Test")
 
 
 tasks.configureEach {
@@ -309,14 +363,6 @@ tasks.configureEach {
     }
 }
 
-tasks.register("verify") {
-    group = "verification"
-    description = "Runs the Big Three test suites (JVM, Host, and Device)."
-
-    // We target the lifecycle tasks which pull in the sub-tasks
-    dependsOn(":composeApp:allTests", ":composeApp:connectedAndroidDeviceTest")
-}
-
 tasks.register("verifyAll") {
     group = "verification"
     description = "Wipes the slate clean and runs all tests."
@@ -326,18 +372,12 @@ tasks.register("verifyAll") {
 
 tasks.register("verifyLocal") {
     group = "verification"
-    description = "Runs JVM and Host tests only, skipping physical device tests."
+    description =
+        "Runs linuxX64Main, JVM and Host tests only, skipping physical device tests."
 
     // This pulls in jvmTest and testAndroidHostTest via the KMP lifecycle
     dependsOn(":composeApp:allTests")
-}
-
-tasks.register("verifyLocalAll") {
-    group = "verification"
-    description = "Wipes the build and runs JVM + Host tests from a blank slate."
-
-    // The chain: Clean -> All Local Unit Tests
-    dependsOn("clean", "verifyLocal")
+    dependsOn(":composeApp:linuxX64Test")
 }
 
 

@@ -21,6 +21,7 @@ internal data class BioDeltaV1(
     @SerialName("5") val isDeleted: Boolean = false
 )
 
+
 class BioPayloadEncoderV1(logger: Logger, bufferProvider: BufferProvider) :
     BasePayloadEncoder<DailyContext>(
         version = 0x01,

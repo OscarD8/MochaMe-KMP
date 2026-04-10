@@ -4,6 +4,7 @@ import com.mochame.app.data.mappers.toDomain
 import com.mochame.app.data.mappers.toEntity
 import com.mochame.app.data.local.room.dao.ResonanceDao
 import com.mochame.app.data.local.room.entities.QuoteEntity
+import com.mochame.app.di.providers.DispatcherProvider
 import com.mochame.app.domain.exceptions.MochaException
 import com.mochame.app.domain.feature.resonance.Author
 import com.mochame.app.domain.feature.resonance.Book
@@ -22,7 +23,8 @@ import kotlinx.coroutines.withContext
 
 class RoomResonanceRepository(
     private val resonanceDao: ResonanceDao,
-    private val dateTimeUtils: DateTimeUtils
+    private val dateTimeUtils: DateTimeUtils,
+    private val dispatcher: DispatcherProvider
 ) : ResonanceRepository {
 
     // --- QUOTE FETCH ---
@@ -69,14 +71,14 @@ class RoomResonanceRepository(
         return updated.toDomain()
     }
 
-    override suspend fun upsertQuote(quote: Quote) = withContext(Dispatchers.IO) {
+    override suspend fun upsertQuote(quote: Quote) = withContext(dispatcher.io) {
         val syncReadyQuote = quote.copy(
             lastModified = dateTimeUtils.now().toEpochMilliseconds()
         )
         resonanceDao.upsertQuote(syncReadyQuote.toEntity())
     }
 
-    override suspend fun deleteQuote(quoteId: String) = withContext(Dispatchers.IO) {
+    override suspend fun deleteQuote(quoteId: String) = withContext(dispatcher.io) {
         resonanceDao.deleteQuoteById(quoteId)
     }
 
@@ -97,7 +99,7 @@ class RoomResonanceRepository(
         }
     }
 
-    override suspend fun upsertAuthor(author: Author) = withContext(Dispatchers.IO) {
+    override suspend fun upsertAuthor(author: Author) = withContext(dispatcher.io) {
         val syncReadyAuthor = author.copy(
             lastModified = dateTimeUtils.now().toEpochMilliseconds()
         )
@@ -110,7 +112,7 @@ class RoomResonanceRepository(
         }
     }
 
-    override suspend fun archiveBook(bookId: String) = withContext(Dispatchers.IO) {
+    override suspend fun archiveBook(bookId: String) = withContext(dispatcher.io) {
         val existing = resonanceDao.getBookById(bookId) ?: return@withContext
 
         // Use the master clock to refresh the sync heartbeat
@@ -121,14 +123,14 @@ class RoomResonanceRepository(
         resonanceDao.upsertBook(archived.toEntity())
     }
 
-    override suspend fun upsertBook(book: Book) = withContext(Dispatchers.IO) {
+    override suspend fun upsertBook(book: Book) = withContext(dispatcher.io) {
         val syncReadyBook = book.copy(
             lastModified = dateTimeUtils.now().toEpochMilliseconds()
         )
         resonanceDao.upsertBook(syncReadyBook.toEntity())
     }
 
-    override suspend fun deleteBook(bookId: String) = withContext(Dispatchers.IO) {
+    override suspend fun deleteBook(bookId: String) = withContext(dispatcher.io) {
         // 1. The Audit: Count the "Wisdom" inside
         val quoteCount = resonanceDao.getQuoteCountByBook(bookId)
 
@@ -143,7 +145,7 @@ class RoomResonanceRepository(
         resonanceDao.deleteBookById(bookId)
     }
 
-    override suspend fun deleteAuthor(authorId: String) = withContext(Dispatchers.IO) {
+    override suspend fun deleteAuthor(authorId: String) = withContext(dispatcher.io) {
         // Audit check to prevent RESTRICT crash
         val booksByAuthor = resonanceDao.getBooksByAuthorSync(authorId)
         if (booksByAuthor.isNotEmpty()) {

@@ -1,5 +1,6 @@
 package com.mochame.app.infrastructure.utils
 
+import co.touchlab.kermit.Logger
 import kotlinx.io.Source
 
 
@@ -8,11 +9,10 @@ interface Digest {
     fun digest(): ByteArray
 }
 
-expect fun createPlatformDigest(algorithm: String): Digest
+expect fun createPlatformDigest(algorithm: String, logger: Logger): Digest
 
 fun interface Hasher {
     operator fun invoke(): Digest
 }
 
-fun sha256Hasher() = Hasher { createPlatformDigest("SHA-256") }
 fun Digest.digestHex(): String = digest().toHexString()

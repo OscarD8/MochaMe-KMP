@@ -1,15 +1,17 @@
 package com.mochame.app.di.modules
 
 import com.mochame.app.data.local.room.MochaDatabase
+import com.mochame.app.data.local.room.getDatabaseBuilder
 import com.mochame.app.data.local.room.getRoomDatabase
-import com.mochame.app.database.getDatabaseBuilder
 import com.mochame.app.di.providers.AppPaths
 import com.mochame.app.di.providers.DispatcherProvider
+import com.mochame.app.infrastructure.logging.LogTags
 import com.mochame.app.infrastructure.utils.BufferProvider
 import com.mochame.app.infrastructure.utils.JvmBufferProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.io.files.FileSystem
 import kotlinx.io.files.SystemFileSystem
+import org.koin.core.parameter.parametersOf
 import org.koin.dsl.module
 
 actual val platformModule = module {
@@ -41,6 +43,12 @@ actual val platformModule = module {
         }
     }
 
-    single<BufferProvider> { JvmBufferProvider() }
+    single<BufferProvider> {
+        JvmBufferProvider(
+            logger = get {
+                parametersOf(LogTags.Domain.SYNC, LogTags.Layer.INFRA)
+            }
+        )
+    }
 
 }

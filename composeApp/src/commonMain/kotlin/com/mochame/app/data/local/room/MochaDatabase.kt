@@ -72,6 +72,7 @@ abstract class MochaDatabase : RoomDatabase() {
 // We use the @Suppress ONLY because Android Studio's editor
 // can't "see" the KSP-generated file, even when the build works.
 
+@Suppress("NO_ACTUAL_FOR_EXPECT")
 expect object MochaDatabaseConstructor : RoomDatabaseConstructor<MochaDatabase> {
     override fun initialize(): MochaDatabase
 }

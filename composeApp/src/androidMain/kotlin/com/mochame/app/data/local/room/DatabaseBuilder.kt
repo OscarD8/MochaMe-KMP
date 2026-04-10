@@ -1,11 +1,9 @@
-package com.mochame.app.database
+package com.mochame.app.data.local.room
 
 import android.content.Context
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import com.mochame.app.data.local.room.MochaDatabase
 import com.mochame.app.di.providers.AppPaths
-import com.mochame.app.di.providers.DispatcherProvider
 
 /**
  * Android Implementation:

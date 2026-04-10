@@ -115,7 +115,7 @@ class HlcFactory(
 
             state = FactoryState(hydrationHlc, currentNodeId)
 
-            hlcLog.d { "HLC Initialized: $hydrationHlc" }
+            hlcLog.d { "HLC hydrated: $hydrationHlc" }
             hydrationHlc
         }
 

@@ -1,21 +1,18 @@
 package com.mochame.app.di.modules
 
 import android.content.Context
-import com.mochame.app.database.getDatabaseBuilder // The Android-only path finder
-import com.mochame.app.data.local.room.getRoomDatabase    // The Shared configuration
 import com.mochame.app.data.local.room.MochaDatabase
+import com.mochame.app.data.local.room.getDatabaseBuilder
+import com.mochame.app.data.local.room.getRoomDatabase
 import com.mochame.app.di.providers.AppPaths
 import com.mochame.app.di.providers.DispatcherProvider
+import com.mochame.app.infrastructure.logging.LogTags
 import com.mochame.app.infrastructure.utils.AndroidBufferProvider
 import com.mochame.app.infrastructure.utils.BufferProvider
-import com.mochame.app.infrastructure.utils.Hasher
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.io.files.FileSystem
 import kotlinx.io.files.SystemFileSystem
-import org.koin.core.module.dsl.singleOf
-import org.koin.core.qualifier.named
+import org.koin.core.parameter.parametersOf
 import org.koin.dsl.module
 
 actual val platformModule = module {
@@ -49,6 +46,10 @@ actual val platformModule = module {
         }
     }
 
-    single<BufferProvider> { AndroidBufferProvider() }
+    single<BufferProvider> {
+        AndroidBufferProvider(
+            logger = get { parametersOf(LogTags.Domain.SYNC, LogTags.Layer.INFRA) }
+        )
+    }
 
 }

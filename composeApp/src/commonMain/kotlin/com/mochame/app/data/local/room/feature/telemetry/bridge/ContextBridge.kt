@@ -4,6 +4,7 @@ import com.benasher44.uuid.uuid4
 import com.mochame.app.data.local.room.dao.TelemetryDao
 import com.mochame.app.data.mappers.toDomain
 import com.mochame.app.data.mappers.toEntity
+import com.mochame.app.di.providers.DispatcherProvider
 import com.mochame.app.domain.exceptions.MochaException
 import com.mochame.app.domain.feature.telemetry.Domain
 import com.mochame.app.domain.feature.telemetry.Space
@@ -24,6 +25,7 @@ import kotlin.time.Clock
  */
 internal class ContextBridge(
     private val telemetryDao: TelemetryDao,
+    private val dispatcher: DispatcherProvider
 ) : ContextRepository {
 
 
@@ -35,7 +37,7 @@ internal class ContextBridge(
         hexColor: String,
         iconKey: String, // The new semantic anchor
         isActive: Boolean
-    ) = withContext(Dispatchers.IO) {
+    ) = withContext(dispatcher.io) {
         val cleanName = name.trim()
 
         // 1. The Lock: Prevents naming collisions across concurrent threads
@@ -64,7 +66,7 @@ internal class ContextBridge(
         }
     }
 
-    override suspend fun upsertDomain(domain: Domain) = withContext(Dispatchers.IO) {
+    override suspend fun upsertDomain(domain: Domain) = withContext(dispatcher.io) {
         val updatedDomain = domain.copy(
             lastModified = Clock.System.now().toEpochMilliseconds()
         )
@@ -72,7 +74,7 @@ internal class ContextBridge(
     }
 
     override suspend fun deleteDomain(domainId: String) = domainMutex.withLock {
-        withContext(Dispatchers.IO) {
+        withContext(dispatcher.io) {
             // Atomic Check-and-Delete: No moments can be added to this ID while we are checking.
             val usageCount = telemetryDao.getMomentCountForDomain(domainId)
 
@@ -84,7 +86,7 @@ internal class ContextBridge(
         }
     }
 
-    override suspend fun archiveDomain(domainId: String) = withContext(Dispatchers.IO) {
+    override suspend fun archiveDomain(domainId: String) = withContext(dispatcher.io) {
         val existing =
             telemetryDao.getDomainById(domainId) ?: throw MochaException.SemanticException.Domain.NotFound(domainId)
 
@@ -104,7 +106,7 @@ internal class ContextBridge(
         name: String,
         domainId: String,
         isActive: Boolean
-    ) = withContext(Dispatchers.IO) {
+    ) = withContext(dispatcher.io) {
         val cleanName = name.trim()
 
         topicMutex.withLock {
@@ -127,7 +129,7 @@ internal class ContextBridge(
         }
     }
 
-    override suspend fun upsertTopic(topic: Topic) = withContext(Dispatchers.IO) {
+    override suspend fun upsertTopic(topic: Topic) = withContext(dispatcher.io) {
         val updatedTopic = topic.copy(
             lastModified = Clock.System.now().toEpochMilliseconds()
         )
@@ -135,7 +137,7 @@ internal class ContextBridge(
     }
 
     override suspend fun deleteTopic(topicId: String) = topicMutex.withLock {
-        withContext(Dispatchers.IO) {
+        withContext(dispatcher.io) {
             val usageCount = telemetryDao.getMomentCountForTopic(topicId)
 
             if (usageCount == 0) {
@@ -146,7 +148,7 @@ internal class ContextBridge(
         }
     }
 
-    override suspend fun archiveTopic(topicId: String) = withContext(Dispatchers.IO) {
+    override suspend fun archiveTopic(topicId: String) = withContext(dispatcher.io) {
         val existing = telemetryDao.getTopicById(topicId)
             ?: throw MochaException.SemanticException.Topic.NotFound(topicId)
 
@@ -167,7 +169,7 @@ internal class ContextBridge(
         iconKey: String,
         defaultBiophilia: Int?,
         isControlled: Boolean
-    ) = withContext(Dispatchers.IO) {
+    ) = withContext(dispatcher.io) {
         val cleanName = name.trim()
 
         spaceMutex.withLock {
@@ -196,14 +198,14 @@ internal class ContextBridge(
         }
     }
 
-    override suspend fun upsertSpace(space: Space) = withContext(Dispatchers.IO) {
+    override suspend fun upsertSpace(space: Space) = withContext(dispatcher.io) {
         // We update the timestamp so the "Brain" (ok Gemini) knows this data is fresh
         val updatedSpace = space.copy(lastModified = Clock.System.now().toEpochMilliseconds())
 
         telemetryDao.upsertSpace(updatedSpace.toEntity())
     }
 
-    override suspend fun deleteSpace(id: String) = withContext(Dispatchers.IO) {
+    override suspend fun deleteSpace(id: String) = withContext(dispatcher.io) {
         // 1. Audit the Space's history
         val usageCount = telemetryDao.getMomentCountForSpace(id)
 
@@ -216,7 +218,7 @@ internal class ContextBridge(
         }
     }
 
-    override suspend fun archiveSpace(id: String) = withContext(Dispatchers.IO) {
+    override suspend fun archiveSpace(id: String) = withContext(dispatcher.io) {
         // 1. The Fetch: Retrieve the entity from the DAO
         // Note: Ensure your SpaceNotFoundException is defined in your CustomExceptions.kt
         val existing = telemetryDao.getSpaceById(id) ?: throw MochaException.SemanticException.Space.NotFound(id)

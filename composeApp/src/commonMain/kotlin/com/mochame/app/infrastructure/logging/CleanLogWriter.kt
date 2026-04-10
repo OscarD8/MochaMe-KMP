@@ -2,6 +2,7 @@ package com.mochame.app.infrastructure.logging
 
 import co.touchlab.kermit.LogWriter
 import co.touchlab.kermit.Severity
+import kotlin.time.Clock
 
 class CleanLogWriter(
     private val minSeverity: Severity = Severity.Verbose
@@ -14,7 +15,7 @@ class CleanLogWriter(
     ) {
         if (severity.ordinal < minSeverity.ordinal) return
 
-        val now = System.currentTimeMillis()
+        val now = Clock.System.now().toEpochMilliseconds()
         val timeStr = formatTime(now)
 
         val severityChar = when (severity) {

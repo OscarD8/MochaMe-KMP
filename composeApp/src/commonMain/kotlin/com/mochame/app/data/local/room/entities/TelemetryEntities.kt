@@ -19,8 +19,8 @@ import com.mochame.app.domain.feature.telemetry.MomentMetadata
 data class MomentWithAttachments(
     @Embedded val moment: MomentEntity,
     @Relation(
-        parentColumn = "id",         // Primary Key of MomentEntity
-        entityColumn = "momentId"    // Foreign Key in MomentAttachmentEntity
+        parentColumn = "id",
+        entityColumn = "momentId"
     )
     val attachments: List<MomentAttachmentEntity>
 )
@@ -44,7 +44,7 @@ data class MomentEntity(
     val topicId: String?,
     val spaceId: String?,
 
-    @Embedded val core: MomentCore, // not a 1-1 map with domain
+    @Embedded val core: MomentCore,
     @Embedded val detail: MomentDetail,
     @Embedded val context: MomentClimate,
     @Embedded val metadata: MomentMetadata,

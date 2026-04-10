@@ -1,22 +1,25 @@
 package com.mochame.app.infrastructure.utils
 
+import co.touchlab.kermit.Logger
 import kotlinx.io.Source
 import kotlinx.io.readByteArray
 import java.security.MessageDigest
 
-actual fun createPlatformDigest(algorithm: String): Digest = object : Digest {
-    private val delegate = MessageDigest.getInstance(algorithm)
+actual fun createPlatformDigest(algorithm: String, logger: Logger): Digest =
+    object : Digest {
+        private val delegate = MessageDigest.getInstance(algorithm)
+        private val log = logger.withTag("JvmDigest-$algorithm")
 
-    /**
-     * Reads the source directly into the algorithm as a byteArray.
-     * There is no check on the size of the byteArray being read so it assumes
-     * a value that is already being chunked.
-     */
-    override fun update(source: Source) {
-        delegate.update(source.readByteArray())
-    }
+        override fun update(source: Source) {
+            val bytes = source.readByteArray()
+            delegate.update(bytes)
 
-    override fun digest(): ByteArray {
-        return delegate.digest()
+            log.v { "Updated digest with ${bytes.size} bytes" }
+        }
+
+        override fun digest(): ByteArray {
+            val result = delegate.digest()
+            log.d { "Digest finalized | Hash Size: ${result.size} bytes" }
+            return result
+        }
     }
-}
