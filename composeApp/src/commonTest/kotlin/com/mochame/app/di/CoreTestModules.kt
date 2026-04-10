@@ -40,6 +40,7 @@ object TestTag {
     const val JVM = "JVMTest"
     const val ANDROID_DEVICE = "AndroidDeviceTest"
     const val ANDROID_HOST = "AndroidHostTest"
+    const val LINUX_X64 = "LinuxX64"
 }
 
 object CoreTestModules {

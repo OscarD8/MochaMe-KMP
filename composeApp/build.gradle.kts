@@ -1,5 +1,6 @@
 @file:OptIn(ExperimentalKotlinGradlePluginApi::class)
 
+import org.gradle.api.tasks.testing.logging.TestLogEvent
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
@@ -316,13 +317,15 @@ tasks.configureEach {
             println(banner)
         }
 
-        if (this is Test) {
+        if (this is AbstractTestTask) {
             testLogging {
                 showStandardStreams = false
                 showExceptions = false
                 showStackTraces = false
                 showCauses = false
-                events()
+                events(
+                    TestLogEvent.FAILED
+                )
             }
 
             // Summary per Platform
@@ -370,9 +373,13 @@ tasks.configureEach {
 
 tasks.register("verifyAll") {
     group = "verification"
-    description = "Wipes the slate clean and runs all tests."
+    description = "Runs all including device tests."
 
-    dependsOn("clean", "verify")
+    dependsOn(
+        ":composeApp:allTests",
+        ":composeApp:connectedAndroidDeviceTest",
+        ":composeApp:linuxX64Test"
+    )
 }
 
 tasks.register("verifyLocal") {
