@@ -54,63 +54,64 @@ config:
     spacing.nodeNodeBetweenLayers: 80
 ---
 graph TD
-    %% Tier 3: Entry Points
+%% Tier 3: Entry Points
     subgraph T3 [Application Entry]
         P_AND[androidApp]
         P_JVM[desktopApp-JVM]
         P_IOS[iosApp]
-        P_LNX[cli-linux]
+        P_LNX[cli-linux - native]
     end
 
-    %% Tier 2: Presentation
-    UI[:mocha-ui - ComposeMultiplatform]
+%% Tier 2: Presentation
+    UI([:mocha-ui - ComposeMultiplatform])
 
-    %% Tier 1: Domain
+%% Tier 1: Domain
     subgraph T1 [Feature]
         direction LR
-        BIO[:bio]
-        TEL[:telemetry]
-        RES[:resonance]
+        BI{{:bio}}
+        TEL{{:telemetry}}
+        RES{{:resonance}}
     end
 
-    %% Tier 0: The Foundations
-    SYNC[:sync-engine]
+%% Tier 0: The Foundations
+    SYNC(((sync-engine)))
     CORE[:core-platform]
 
-    %% Global Testing Provider
+%% Global Testing Provider
     subgraph Lab [Test Provider]
         TEST[:mocha-test-support]
     end
 
-    %% PRODUCTION FLOWS
-    %% CLI Bypass
+%% PRODUCTION FLOWS
+%% CLI Bypass
     P_LNX ==> T1
 
-    %% Standard App Flow
+%% Standard App Flow
     P_AND & P_JVM & P_IOS ==> UI
     UI ==> T1
 
-    %% Logic to Protocol
+%% Logic to Protocol
     T1 ==> SYNC
 
-    %% UNIVERSAL INFRASTRUCTURE DEPENDENCY
-    %% All layers depend on Core for expect/actual SAMs
-    T3 & UI & T1 & SYNC --> CORE
+%% UNIVERSAL INFRASTRUCTURE DEPENDENCY
+%% All layers depend on Core for expect/actual SAMs
+    T3 & UI & T1 & SYNC <-.-> CORE
 
-    %% INSTRUMENTATION FLOWS (Dashed)
-    %% Laboratory supports Tiers 1, 2, and 3. Sync Engine is isolated.
+%% INSTRUMENTATION FLOWS (Dashed)
+%% Laboratory supports Tiers 1, 2, and 3. Sync Engine is isolated.
     TEST -.-> T3
     TEST -.-> UI
     TEST -.-> T1
 
-    %% Custom Neon Styling
+%% Custom Neon Styling
     style CORE fill:#1a1a1a,stroke:#42094f,stroke-width:4px
-    style SYNC fill:#1a1a1a,stroke:#3b7571,stroke-width:2px
+    style SYNC fill:#1a1a1a,stroke:#7ad6c1,stroke-width:2px
     style T1 fill:#1a1a1a,stroke:#7000ff,stroke-width:2px
     style UI fill:#1a1a1a,stroke:#00d4ff
     style T3 fill:#0a0a0a,stroke:#330d0f,stroke-width:2px
     style Lab fill:#0a0a0a,stroke:#f8b229,stroke-dasharray: 5 5
-
+%% Style the TEST -> T3, UI, T1 links
+    linkStyle 6,7,8,9 stroke:#76b885,stroke-width:2px,stroke-dasharray: 5;
 
 ```
 
