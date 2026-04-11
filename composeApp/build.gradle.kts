@@ -79,15 +79,6 @@ kotlin {
 
     jvm()
     linuxX64 {
-        compilations.getByName("main") {
-            val openssl by cinterops.creating {
-                definitionFile.set(project.file("src/nativeInterop/cinterop/openssl.def"))
-            }
-        }
-        binaries.all {
-            linkerOpts("-lcrypto", "-lpthread", "-ldl")
-            linkerOpts("--allow-shlib-undefined")
-        }
     }
 
     sourceSets {
@@ -170,6 +161,9 @@ kotlin {
         val linuxX64Main by getting {
             dependsOn(commonMain)
             dependencies {
+                // idea is that this will never trigger, but because ive used
+                // compose multiplatform plugins for practicality, linuxNative
+                // needs to allow the plugin, but it is never used in compilation
                 implementation(libs.compose.runtime)
             }
         }

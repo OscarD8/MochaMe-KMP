@@ -3,67 +3,116 @@
 ---
 
 <details>
-<summary><b> Kotlin Multiplatform Structure</b></summary>
+<summary><b> Multiplatform Architecture </b></summary>
 
-<br>
-This is a Kotlin Multiplatform project targeting Android, iOS, Desktop (JVM).
+#### Approach to Development:
 
-- [/composeApp](./composeApp/src) is for code that will be shared across your Compose
-  Multiplatform applications.
-  It contains several subfolders:
-    - [commonMain](./composeApp/src/commonMain/kotlin) is for code that’s common for all
-      targets.
-    - Other folders are for Kotlin code that will be compiled for only the platform
-      indicated in the folder name.
-      For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin
-      app,
-      the [iosMain](./composeApp/src/iosMain/kotlin) folder would be the right place for
-      such calls.
-      Similarly, if you want to edit the Desktop (JVM) specific part,
-      the [jvmMain](./composeApp/src/jvmMain/kotlin)
-      folder is the appropriate location.
+```
+MochaMe/
+├── testing/                          # PROVIDER: Instrumentation
+│   └── :mocha-test-support           # Platform-agnostic mocks & DB builders
+│
+├── core-platform/                    # PROVIDER: Infrastructure
+│   └── src/                          # Expect/Actual (Hasher, Identity, POSIX)
+│       ├── commonMain/
+│       └── [platform]Main/           # jvm, linuxX64, android, ios
+│       └── [platform]Test/           # jvm, linuxX64, android, ios
 
-- [/iosApp](./iosApp/iosApp) contains iOS applications. Even if you’re sharing your UI
-  with Compose Multiplatform,
-  you need this entry point for your iOS app. This is also where you should add SwiftUI
-  code for your project.
+│
+├── sync-engine/                      # TIER 0: SYNC PROTOCOL
+│   └── src/
+│       ├── commonMain/
+│       └── commonTest/
+│
+├── mocha-feature/                    # TIER 1: DOMAIN (Pure Kotlin)
+│   └── :bio / :telemetry / :resonance
+│       └── src/
+│           ├── commonMain/
+│           └── commonTest/           # Fast testing via LinuxX64 engine
+│
+├── mocha-ui/                         # TIER 2: UI
+│   └── src/
+│       ├── commonMain/               # ComposeMultiplatform
+│       └── [platform]Main/           # Native resources (Insets, Windowing)
+│
+└── platform-*/                       # TIER 3: Entry Point
+    ├── :androidApp/                   # Android APK + @Database
+    ├── :desktopAppJVM/                   # JVM/Desktop + @Database
+    ├── :iosApp/                       # iOS Framework + @Database
+    └── :cli-linux/                    # (Headless) Native Binary + @Database
+```
 
-### Build and Run Android Application
+```mermaid
+---
+config:
+  look: handDrawn
+  theme: dark
+  layout: elk
+  elk:
+    nodePlacementStrategy: BRANDES_KOEPF
+    edgeRouting: ORTHOGONAL
+    spacing.nodeNodeBetweenLayers: 80
+---
+graph TD
+    %% Tier 3: Entry Points
+    subgraph T3 [Application Entry]
+        P_AND[androidApp]
+        P_JVM[desktopApp-JVM]
+        P_IOS[iosApp]
+        P_LNX[cli-linux]
+    end
 
-To build and run the development version of the Android app, use the run configuration
-from the run widget
-in your IDE’s toolbar or build it directly from the terminal:
+    %% Tier 2: Presentation
+    UI[:mocha-ui - ComposeMultiplatform]
 
-- on macOS/Linux
-  ```shell
-  ./gradlew :composeApp:assembleDebug
-  ```
-- on Windows
-  ```shell
-  .\gradlew.bat :composeApp:assembleDebug
-  ```
+    %% Tier 1: Domain
+    subgraph T1 [Feature]
+        direction LR
+        BIO[:bio]
+        TEL[:telemetry]
+        RES[:resonance]
+    end
 
-### Build and Run Desktop (JVM) Application
+    %% Tier 0: The Foundations
+    SYNC[:sync-engine]
+    CORE[:core-platform]
 
-To build and run the development version of the desktop app, use the run configuration
-from the run widget
-in your IDE’s toolbar or run it directly from the terminal:
+    %% Global Testing Provider
+    subgraph Lab [Test Provider]
+        TEST[:mocha-test-support]
+    end
 
-- on macOS/Linux
-  ```shell
-  ./gradlew :composeApp:run
-  ```
-- on Windows
-  ```shell
-  .\gradlew.bat :composeApp:run
-  ```
+    %% PRODUCTION FLOWS
+    %% CLI Bypass
+    P_LNX ==> T1
 
-### Build and Run iOS Application
+    %% Standard App Flow
+    P_AND & P_JVM & P_IOS ==> UI
+    UI ==> T1
 
-To build and run the development version of the iOS app, use the run configuration from
-the run widget
-in your IDE’s toolbar or open the [/iosApp](./iosApp) directory in Xcode and run it from
-there.
+    %% Logic to Protocol
+    T1 ==> SYNC
+
+    %% UNIVERSAL INFRASTRUCTURE DEPENDENCY
+    %% All layers depend on Core for expect/actual SAMs
+    T3 & UI & T1 & SYNC --> CORE
+
+    %% INSTRUMENTATION FLOWS (Dashed)
+    %% Laboratory supports Tiers 1, 2, and 3. Sync Engine is isolated.
+    TEST -.-> T3
+    TEST -.-> UI
+    TEST -.-> T1
+
+    %% Custom Neon Styling
+    style CORE fill:#1a1a1a,stroke:#42094f,stroke-width:4px
+    style SYNC fill:#1a1a1a,stroke:#3b7571,stroke-width:2px
+    style T1 fill:#1a1a1a,stroke:#7000ff,stroke-width:2px
+    style UI fill:#1a1a1a,stroke:#00d4ff
+    style T3 fill:#0a0a0a,stroke:#330d0f,stroke-width:2px
+    style Lab fill:#0a0a0a,stroke:#f8b229,stroke-dasharray: 5 5
+
+
+```
 
 </details>
 
