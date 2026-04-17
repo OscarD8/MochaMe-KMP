@@ -429,7 +429,7 @@ For pre-merge verification and final system checks.
 
 <br>
 
-<img width="780" height="1300" alt="image" src="https://github.com/user-attachments/assets/d946bd49-4c06-4f83-921f-6911e4cdf3ff" />
+<img width="550" height="700" alt="image" src="https://github.com/user-attachments/assets/01e432c0-9afb-4f34-bb44-c33a3d0dda27" />
 
 
 </details>
