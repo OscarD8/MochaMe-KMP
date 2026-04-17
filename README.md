@@ -1,4 +1,37 @@
-### Mocha Me
+# MochaMe-KMP
+
+This project is a proof-of-concept exploration into Kotlin Multiplatform. The goal is to build an isolated, privacy-centric, local-first sync engine deployable across platforms with minimal platform boilerplate. The centerpiece of this architecture is platform testability - utilizing Gradle and Koin.
+
+---
+<details>
+<summary> <b> Design Goals </b> </summary>
+
+#### Learning and Exposure
+The main focus for learning is to understand if/how Kotlin Multiplatform & Compose Multiplatform can be leveraged in its current state to achieve parity across platforms using the same core logic - in the following: 
+- concurrency
+- sync conflict resolution
+- recovery
+- atomicity for local persistence and synced intents across platforms
+- platform automated routines
+- application deployment per target
+- local inference 
+- encryption 
+
+
+#### Choice of Tech Stack
+The intent is to build a dry, modular architecture that achieves all of the above utilizing Kotlin's strengths that I have come across: generics, flows and state handling, coroutines, inline functions, c interops (at a very very high level), the bundled SQLite driver (capability of Room KMP in general), nullability handling - as well as Gradle build tools alongside Koin, and the host of KMP and CMP tools - to create a component based architecture isolated by design, platform agnostic where possible, achieving platform parity with minimal boilerplate, and completely testable by component. I also want to explore different ways of working with AI through this process.
+
+
+#### Schema / AI Inference / Privacy
+'MochaMe' acts as a relatively simple schema that primarily enables exposure to all of the above. The data model is designed to allow for logging and tracking of learning and experiences, as well as books read and any saved quotes (...something I want). I hope to link up the generated data to an inference layer later in development that uses platform swappable edge LLMs to generate predictive/descriptive analysis for insight into how different 'moments' and their context, with trends over time, affect personal energy, learning, mood, satisfaction, and decisions (this will also allow for performance comparisons of models across device specs). 
+
+Its an contained attempt to guage how the current state of local artificial intelligence models can become an extension of our own ability to analyzing our internal states and decision making. To achieve any level of actual insight, the data must be high fidelity (though its currently purely qualitative). Privacy is also central as the application handles personal data and decisions. Through a local-first architecture and local inference models, I hope to achieve complete privacy as the server only holds encypted binary payloads with sync metadata as a log entry. These payloads mean nothing at the server level. The local device itself is the only location where the payloads can be interpreted. That data is not fed to a cloud LLM. 
+
+
+#### TLDR
+Ultimately, this is an attempt to gauge how local-first architecture and edge AI can become a private extension of our own self-analysis. It is a proof of concept for personal analytics that doesn't trade privacy for insight.
+
+</details>
 
 ---
 
