@@ -74,79 +74,14 @@ MochaMe/
     ├── :iosApp/                       # iOS Framework + @Database
     └── :cli-linux/                    # (Headless) Native Binary + @Database
 ```
+<br>
 
-```mermaid
----
-config:
-  look: handDrawn
-  theme: dark
-  layout: elk
-  elk:
-    nodePlacementStrategy: BRANDES_KOEPF
-    edgeRouting: ORTHOGONAL
-    spacing.nodeNodeBetweenLayers: 80
----
-graph TD
-%% Tier 3: Entry Points
-    subgraph T3 [Application Entry]
-        P_AND[androidApp]
-        P_JVM[desktopApp-JVM]
-        P_IOS[iosApp]
-        P_LNX[cli-linux - native]
-    end
+<div align="center">
 
-%% Tier 2: Presentation
-    UI([:mocha-ui - ComposeMultiplatform])
+<img width="700" height="700" alt="kmp-arch" src="https://github.com/user-attachments/assets/ca4561e8-9010-4be4-a8a5-91cf05117001" />
 
-%% Tier 1: Domain
-    subgraph T1 [Feature]
-        direction LR
-        BI{{:bio}}
-        TEL{{:telemetry}}
-        RES{{:resonance}}
-    end
+</div>
 
-%% Tier 0: The Foundations
-    SYNC(((sync-engine)))
-    CORE[:core-platform]
-
-%% Global Testing Provider
-    subgraph Lab [Test Provider]
-        TEST[:mocha-test-support]
-    end
-
-%% PRODUCTION FLOWS
-%% CLI Bypass
-    P_LNX ==> T1
-
-%% Standard App Flow
-    P_AND & P_JVM & P_IOS ==> UI
-    UI ==> T1
-
-%% Logic to Protocol
-    T1 ==> SYNC
-
-%% UNIVERSAL INFRASTRUCTURE DEPENDENCY
-%% All layers depend on Core for expect/actual SAMs
-    T3 & UI & T1 & SYNC <-.-> CORE
-
-%% INSTRUMENTATION FLOWS (Dashed)
-%% Laboratory supports Tiers 1, 2, and 3. Sync Engine is isolated.
-    TEST -.-> T3
-    TEST -.-> UI
-    TEST -.-> T1
-
-%% Custom Neon Styling
-    style CORE fill:#1a1a1a,stroke:#42094f,stroke-width:4px
-    style SYNC fill:#1a1a1a,stroke:#7ad6c1,stroke-width:2px
-    style T1 fill:#1a1a1a,stroke:#7000ff,stroke-width:2px
-    style UI fill:#1a1a1a,stroke:#00d4ff
-    style T3 fill:#0a0a0a,stroke:#330d0f,stroke-width:2px
-    style Lab fill:#0a0a0a,stroke:#f8b229,stroke-dasharray: 5 5
-%% Style the TEST -> T3, UI, T1 links
-    linkStyle 6,7,8,9 stroke:#76b885,stroke-width:2px,stroke-dasharray: 5;
-
-```
 
 </details>
 
@@ -494,37 +429,7 @@ For pre-merge verification and final system checks.
 
 <br>
 
-```mermaid
----
-config:
-    themeVariables:
-        fontFamily: "Courier New"
----
-graph TD
-    subgraph Client [Local-First Architecture]
-        UI([UI / ViewModels]) <-- Flows --> Repo([Repositories])
-        Repo <-- Flows --> DAO([Local DAOs - Room KMP])
-        DAO <-.-> DB[(SQLite DB)]
+<img width="780" height="1300" alt="image" src="https://github.com/user-attachments/assets/d946bd49-4c06-4f83-921f-6911e4cdf3ff" />
 
-        subgraph SQLite [Triggers]
-            DB -- AFTER DELETE --> TS[SyncTombstones Table]
-            DB -- AFTER UPDATE --> LM[Update lastModified]
-        end
-
-        subgraph Cloud [Cloud Infrastructure]
-            API[Sync API - Ktor] --> Ledger[(PostgreSQL - Append-Only Ledger)]
-            Ledger -- "Global Sequence ID (Watermark)" --> API
-        end
-
-        SM[SyncManager - expect/actual] -- Debounced Trigger --> SC[SyncCoordinator]
-        SC[SyncCoordinator] <-- Consumes --> SG(((SyncGateway - Interface)))
-        SP[SyncPolicy - Domain Logic] -- Conflict Rules --> SC
-        Repo <-- Implements --> SG
-    end
-
-
-
-    SC <== "REST / JSON (Deltas + HLC)" ==> API
-```
 
 </details>
