@@ -24,7 +24,7 @@ The intent is to build a dry, modular architecture that achieves all of the abov
 
 
 #### Schema / AI Inference / Privacy
-'MochaMe' acts as a relatively simple schema that primarily enables exposure to all of the above. The data model is designed to allow for logging and tracking of learning and experiences, as well as books read and any saved quotes (...something I want). A qualitative sleep metric wraps each 'daily context' and its 'moments' (see data model below). I hope to link up the generated data to an inference layer later in development that uses platform swappable edge LLMs to generate predictive/descriptive analysis for insight into how different 'moments' and their own context, with trends over time, affect personal energy, learning, mood, satisfaction, and consequential moments/decisions (this will also allow for performance comparisons of models across device specs). 
+'MochaMe' acts as a relatively simple schema that primarily enables exposure to all of the above. The data model is designed to allow for logging and tracking of learning and experiences, as well as books read and any saved quotes (...something I want). A qualitative sleep metric wraps each 'daily context' and its 'moments' (see data model below). I hope to link up the generated data to an inference layer later in development that uses platform swappable edge LLMs to generate predictive/descriptive analysis for insight into how different 'moments' and _their own context_, with trends over time, affect personal energy, learning, mood, satisfaction, and consequential moments/decisions (this will also allow for performance comparisons of models across device specs). 
 
 Its a contained attempt to guage how the current state of local artificial intelligence models can become an extension of our own ability to analyze our internal states and decision making. To achieve any level of actual insight, the data must be high fidelity (though its currently purely qualitative). Privacy is also central as the application handles personal data and lifestyle habits with openness. Through a local-first architecture and local inference models, I hope to achieve complete privacy as the server only holds encypted binary payloads with sync metadata as a log entry. These payloads mean nothing at the server level. The local device itself is the only location where the payloads can be interpreted (a master-key sharable by QR code will provide a distributed system the same interpretation). That data is then not fed to a cloud LLM. 
 
@@ -120,60 +120,8 @@ Inspired by NASA's launch of Artemis II (and that I kept having to refactor) :)
 | **STL** | Safety       | Exception Mapping, Boot State, and Forensics. |
 | **GSL** | Local First  | Causality, server operations, and conflicts.  |
 
-#### Example prompt:
 
-ROLE: Concurrency Control Lead (CCL)
-
-Timeline: 2026 Standard Operating Procedure
-Objective: Verification of thread-safety, causal consistency (HLC), and non-blocking asynchronous orchestration.
-
-1. THE CONTEXT (NASA FLIGHT RULES)
-
-        You are the Concurrency Control Lead (CCL). You manage the "Timing and Sequencing" of this rocket.
-        Your mission is to eliminate race conditions, deadlocks, and "Zombie Tasks" before they reach the pad. You operate under a Launch Commit Criteria (LCC) framework. If a Coroutine scope isn't properly bounded or a Mutex is shadowed, you issue an "Abort" command. You work alongside the SSL, DPL, and STL. 2. THE 2026 TECH STACK (ACTIVE CONFIGURATION)
-
-All concurrency audits must be strictly compliant with:
-
-    Language: Kotlin 2.3.10 (K2) with strict Coroutine testing.
-
-    Asynchronous Core: kotlinx-coroutines 1.10.2.
-
-    Time Tracking: kotlinx-datetime 0.7.1 and Hybrid Logical Clock (HLC) implementations.
-
-    Persistence Interaction: Room 2.8.4 KMP with SQLITE_BUSY awareness.
-
-    Testing: kotlinx-coroutines-test and Turbine 1.2.1 for Flow verification.
-
-    Targets: Android (SDK 36), Linux (Desktop), with future iOS/Native compatibility
-
-3. YOUR CORE CONCERNS (CCL CONSOLE)
-
-Expect to verify other teams code against these concerns:
-
-    Causal Integrity: Verify that HLC timestamps remain monotonic and mutations are ordered correctly.
-
-    Mutex Orchestration: Prevent "Mutex Shadowing" where a Kotlin lock prevents the system from reaching the Database resilience layer.
-
-    Thread Confinement: Ensure no IO-heavy tasks leak onto the Main/UI thread.
-
-    DRY code and Kotlin syntax sugar: Consider the usage of interfaces, abstraction, and kotlin best practices for 2026. Consider helper functions where necessary, and ensuring code is dry and that readability is a priority over technicality.
-
-    Resource Leaks: Audit Coroutine Scopes to ensure tasks are cancelled when a component or lifecycle is destroyed.
-
-
-4. THE MISSION PROCEDURE (LCC CHECKLIST)
-
-For every proposal, you must provide a Concurrency Go/No-Go status based on:
-
-    [ ] Atomicity: Is the operation wrapped in a proper Mutex or Transaction boundary?
-
-    [ ] Non-Blocking: Does this use withContext(dispatcherProvider.io) for all blocking calls?
-
-    [ ] Causality: Does the implementation preserve HLC order for local-first sync?
-
-    [ ] Resilience: Does the delay() logic use proper jitter to prevent phase-locking?
-
-5. THE ANKI PROTOCOL
+#### Anki Integration
 
 Every major implementation discussion must conclude with a flashcard:
 
@@ -189,37 +137,6 @@ Every major implementation discussion must conclude with a flashcard:
 
     Gradle 10.0 Warning: [Specific configuration or versioning trap]
 
-5. INTEGRATION NOTES
-
-Extra details:
-
-    HLC Cardiologist: [The CCL should be the most skeptical of "System Time." It must always assume the clock is skewed or jumping.]
-
-    Turbine 1.2.1 Mastery: [In 2026, the CCL should suggest using Turbine for any Flow verification to ensure all emissions are captured before a test finishes.]
-
-    The "Wait" Strategy: [The CCL should be the one to suggest withTimeout() or withTimeoutOrNull() on any boot-path operation to prevent infinite hangs.]
-
-
-7.  PHASE 0: PRE-FLIGHT BRAINSTORM (PDR/CDR)
-
-Before generating any implementation code, you must enter a "Design-First" state. Your initial output for a new component must be a Structural Specification, not a code solution.
-You are strictly forbidden from writing functional code until a Go/No-Go Poll has been completed across all consoles. During this phase, you must:
-
-        Identify Critical Constraints: Define the specific architectural boundaries for this component.
-
-        Map Potential Failure Modes (FMEA): Predict where this component will likely hit different exception types or a Race Condition.
-
-        Request External Validation: If your design depends on a decision from another console (e.g., CCL for locking or DPL for schema), you must explicitly pause and ask Launch Control to "Poll the [Console Lead]" for confirmation.
-
-        Define Launch Commit Criteria (LCC): List the 3 specific conditions that must be true for this code to be considered "safe to launch."
-
-8.  [DAILY INPUT BLOCK]
-
-Launch Control (User) to CCL:
-Current Task: [INPUT COMPONENT OR PROBLEM HERE]
-Target Files/Documentation: [LIST ATTACHED FILES HERE]
-
-CCL, provide your initial FMEA (Failure Mode and Effects Analysis) and Concurrency Audit.
 
 </details>
 
@@ -227,6 +144,19 @@ CCL, provide your initial FMEA (Failure Mode and Effects Analysis) and Concurren
 
 <details>
 <summary><b> Data Model </b></summary>
+
+At its core, sleep context wraps each day, and the non nullable fields of any moment:
+
+```
+        +Int satisfactionScore "1-10"
+        +Int mood
+        +Int energyDelta "-5 to +5"
+        +Int intensityScale "1-10"
+```
+Weather/meta context to be handled in the background. A moment must be linked to a general domain (e.g. Kotlin or Exercise), with the topic being optional (e.g. concurrency or swimming). I hope this to be enough to generate useful analytics whilst requiring minimal input. 
+Social, environmental (made easier by the ability to save a space and its biophilia), journalling, duration, and entry energy, are all optional and serve only to enrich the analysis if the user wants.
+
+The Book logging and notes is primarily something I need, but may be useful in indicating whether the AI can match a specific state to valid areas of knowledge that the user has previously recorded.
 
 ```mermaid
 classDiagram
@@ -350,12 +280,7 @@ classDiagram
         +agency: Int
         +fromName(name: String) Mood$
     }
-    
-    class SyncTombstoneEntity {
-        +String entityId <<PK>>
-        +String tableName
-        +Long deletedAt
-    }
+
 
     %% --- RELATIONSHIPS ---
     Moment "*" --> "1" Space : occurs in
