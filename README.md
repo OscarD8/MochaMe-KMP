@@ -161,6 +161,7 @@ What it crucially lacks:
 - things I haven't thought of
 - nutritional information
 - biological context
+- influence of music
 
 The model below is constantly changing, and now includes atomic HLCs all over. 
 ```mermaid
