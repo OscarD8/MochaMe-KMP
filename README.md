@@ -54,35 +54,35 @@ Ultimately, this is an attempt to gauge how a local-first architecture with edge
 
 ```
 MochaMe/
-├── testing/                          # PROVIDER: Instrumentation
+├── testing/                          # Provider: Instrumentation
 │   └── :mocha-test-support           # Platform-agnostic mocks & DB builders
 │
-├── core-platform/                    # PROVIDER: Infrastructure
+├── core-platform/                    # Provider: Infrastructure
 │   └── src/                          # Expect/Actual (Hasher, Identity, POSIX)
 │       ├── commonMain/
 │       └── [platform]Main/           # jvm, linuxX64, android, ios
 │       └── [platform]Test/           # jvm, linuxX64, android, ios
 
 │
-├── sync-engine/                      # TIER 0: SYNC PROTOCOL
+├── sync-engine/                      # Layer 0: Sync Engine
 │   └── src/
 │       ├── commonMain/
 │       └── commonTest/
 │
-├── mocha-feature/                    # TIER 1: DOMAIN (Pure Kotlin)
+├── mocha-feature/                    # Layer 1: Specific Feature (Pure Kotlin)
 │   └── :bio / :telemetry / :resonance
 │       └── src/
 │           ├── commonMain/
-│           └── commonTest/           # Fast testing via LinuxX64 engine
+│           └── commonTest/           # optimized testing via LinuxX64
 │
-├── mocha-ui/                         # TIER 2: UI
+├── mocha-ui/                         # Layer 2: UI
 │   └── src/
 │       ├── commonMain/               # ComposeMultiplatform
 │       └── [platform]Main/           # Native resources (Insets, Windowing)
 │
-└── platform-*/                       # TIER 3: Entry Point
+└── platform-*/                        # Layer 3: Entry Point
     ├── :androidApp/                   # Android APK + @Database
-    ├── :desktopAppJVM/                   # JVM/Desktop + @Database
+    ├── :desktopAppJVM/                # JVM/Desktop + @Database
     ├── :iosApp/                       # iOS Framework + @Database
     └── :cli-linux/                    # (Headless) Native Binary + @Database
 ```
