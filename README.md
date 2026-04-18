@@ -1,6 +1,6 @@
 # MochaMe-KMP
 
-This project is a proof-of-concept exploration into Kotlin Multiplatform. The goal is to build an isolated, privacy-centric, local-first sync engine deployable across platforms with minimal platform boilerplate, incorporating edge AI inference. The centerpiece of this architecture is platform testability - utilizing Gradle and Koin.
+This project is a proof-of-concept exploration into Kotlin Multiplatform. The goal is to build an isolated, privacy-centric, local-first sync engine deployable across platforms with minimal platform boilerplate, with the application incorporating edge AI inference. The centerpiece of this architecture is platform testability - utilizing Gradle and Koin.
 
 ---
 <details>
@@ -23,13 +23,25 @@ The intent is to build a dry, modular architecture that achieves all of the abov
 
 
 #### Schema / AI Inference / Privacy
-'MochaMe' acts as a relatively simple schema that primarily enables exposure to all of the above. The data model is designed to allow for logging and tracking of learning and experiences, as well as books read and any saved quotes (...something I want). I hope to link up the generated data to an inference layer later in development that uses platform swappable edge LLMs to generate predictive/descriptive analysis for insight into how different 'moments' and their context, with trends over time, affect personal energy, learning, mood, satisfaction, and decisions (this will also allow for performance comparisons of models across device specs). 
+'MochaMe' acts as a relatively simple schema that primarily enables exposure to all of the above. The data model is designed to allow for logging and tracking of learning and experiences, as well as books read and any saved quotes (...something I want). A qualitative sleep metric wraps each 'daily context' and its 'moments' (see data model below). I hope to link up the generated data to an inference layer later in development that uses platform swappable edge LLMs to generate predictive/descriptive analysis for insight into how different 'moments' and their own context, with trends over time, affect personal energy, learning, mood, satisfaction, and consequential moments/decisions (this will also allow for performance comparisons of models across device specs). 
 
-Its an contained attempt to guage how the current state of local artificial intelligence models can become an extension of our own ability to analyzing our internal states and decision making. To achieve any level of actual insight, the data must be high fidelity (though its currently purely qualitative). Privacy is also central as the application handles personal data and decisions. Through a local-first architecture and local inference models, I hope to achieve complete privacy as the server only holds encypted binary payloads with sync metadata as a log entry. These payloads mean nothing at the server level. The local device itself is the only location where the payloads can be interpreted. That data is not fed to a cloud LLM. 
+Its a contained attempt to guage how the current state of local artificial intelligence models can become an extension of our own ability to analyze our internal states and decision making. To achieve any level of actual insight, the data must be high fidelity (though its currently purely qualitative). Privacy is also central as the application handles personal data and lifestyle habits with openness. Through a local-first architecture and local inference models, I hope to achieve complete privacy as the server only holds encypted binary payloads with sync metadata as a log entry. These payloads mean nothing at the server level. The local device itself is the only location where the payloads can be interpreted. That data is then not fed to a cloud LLM. 
 
 
 #### TLDR
-Ultimately, this is an attempt to gauge how local-first architecture and edge AI can become a private extension of our own self-analysis. It is a proof of concept for personal analytics that doesn't trade privacy for insight.
+Ultimately, this is an attempt to gauge how a local-first architecture with edge AI can provide a private extension of our own self-analysis and reflection. It is a proof of concept for personal analytics that avoids trading our data for insight.
+
+</details>
+
+---
+
+<details>
+<summary><b>Local First Architecture</b></summary>
+
+<br>
+
+<img width="550" height="700" alt="image" src="https://github.com/user-attachments/assets/01e432c0-9afb-4f34-bb44-c33a3d0dda27" />
+
 
 </details>
 
@@ -423,13 +435,3 @@ For pre-merge verification and final system checks.
 </details>
 
 ---
-
-<details>
-<summary><b>Local First Architecture</b></summary>
-
-<br>
-
-<img width="550" height="700" alt="image" src="https://github.com/user-attachments/assets/01e432c0-9afb-4f34-bb44-c33a3d0dda27" />
-
-
-</details>
