@@ -24,7 +24,7 @@ The intent is to build a dry, modular architecture that achieves all of the abov
 
 
 #### Schema / AI Inference / Privacy
-'MochaMe' acts as a relatively simple schema that primarily enables exposure to all of the above. The data model is designed to allow for logging and tracking of learning and experiences, as well as books read and any saved quotes (...something I want). A qualitative sleep metric wraps each 'daily context' and its 'moments' (see data model below). I hope to link up the generated data to an inference layer later in development that uses platform swappable edge LLMs to generate predictive/descriptive analysis for insight into how different 'moments' and _their own context_, with trends over time, affect personal energy, learning, mood, satisfaction, and consequential moments/decisions (this will also allow for performance comparisons of models across device specs). 
+'MochaMe' acts as a relatively simple schema that primarily enables exposure to all of the above. The data model is designed to allow for logging and tracking of learning and experiences, as well as books read and any saved quotes (...something I want). A qualitative sleep metric wraps each 'daily context' and its 'moments' (see data model below). I hope to link up the generated data to an inference layer later in development that uses platform swappable edge LLMs to generate predictive/descriptive analysis for insight into how different 'moments' and their _own_ context, with trends over time, affect personal energy, learning, mood, satisfaction, and consequential moments/decisions (this will also allow for performance comparisons of models across device specs). 
 
 Its a contained attempt to guage how the current state of local artificial intelligence models can become an extension of our own ability to analyze our internal states and decision making. To achieve any level of actual insight, the data must be high fidelity (though its currently purely qualitative). Privacy is also central as the application handles personal data and lifestyle habits with openness. Through a local-first architecture and local inference models, I hope to achieve complete privacy as the server only holds encypted binary payloads with sync metadata as a log entry. These payloads mean nothing at the server level. The local device itself is the only location where the payloads can be interpreted (a master-key sharable by QR code will provide a distributed system the same interpretation). That data is then not fed to a cloud LLM. 
 
@@ -153,11 +153,17 @@ At its core, sleep context wraps each day, and the non nullable fields of any mo
         +Int energyDelta "-5 to +5"
         +Int intensityScale "1-10"
 ```
-Weather/meta context to be handled in the background. A moment must be linked to a general domain (e.g. Kotlin or Exercise), with the topic being optional (e.g. concurrency or swimming). I hope this to be enough to generate useful analytics whilst requiring minimal input. 
+Weather/meta context to be handled in the background. A moment must be linked to a general domain (e.g. Kotlin or Exercise), with the topic being optional (e.g. concurrency or swimming). I hope this to be enough to generate useful analytics (mapping mood to a simple PAD model for the current scope) whilst requiring minimal input. 
 Social, environmental (made easier by the ability to save a space and its biophilia), journalling, duration, and entry energy, are all optional and serve only to enrich the analysis if the user wants.
 
-The Book logging and notes is primarily something I need, but may be useful in indicating whether the AI can match a specific state to valid areas of knowledge that the user has previously recorded.
+The Book logging and notes is primarily something I need, but may be useful in providing an obvious indication as to whether the AI can actually match a specific state to valid areas of knowledge that the user has previously recorded.
 
+What it crucially lacks:
+- things I haven't thought of
+- nutritional information
+- biological context
+
+The model below is constantly changing, and now includes atomic HLCs all over. 
 ```mermaid
 classDiagram
     %% --- BIO MODULE (The Context) ---
