@@ -41,8 +41,7 @@ Ultimately, this is an attempt to gauge how a local-first architecture with edge
 
 <br>
 
-<img width="550" height="700" alt="image" src="https://github.com/user-attachments/assets/01e432c0-9afb-4f34-bb44-c33a3d0dda27" />
-
+<img width="550" height="750" alt="image" src="https://github.com/user-attachments/assets/827177dc-1a2e-4d1b-8156-facf8df9ebe9" />
 
 </details>
 
