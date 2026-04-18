@@ -37,11 +37,11 @@ Ultimately, this is an attempt to gauge how a local-first architecture with edge
 ---
 
 <details>
-<summary><b>Local First Architecture</b></summary>
+<summary><b> Local First Architecture </b></summary>
 
 <br>
 
-<img width="550" height="750" alt="image" src="https://github.com/user-attachments/assets/827177dc-1a2e-4d1b-8156-facf8df9ebe9" />
+<img width="550" height="720" alt="image" src="https://github.com/user-attachments/assets/827177dc-1a2e-4d1b-8156-facf8df9ebe9" />
 
 </details>
 
@@ -90,7 +90,7 @@ MochaMe/
 
 <div align="center">
 
-<img width="700" height="700" alt="kmp-arch" src="https://github.com/user-attachments/assets/ca4561e8-9010-4be4-a8a5-91cf05117001" />
+<img width="550" height="500" alt="image" src="https://github.com/user-attachments/assets/12bf2559-f198-48ec-a3b7-66a5d348befe" />
 
 </div>
 
