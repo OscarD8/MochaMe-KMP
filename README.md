@@ -14,7 +14,8 @@ The main focus for learning is to understand if/how Kotlin Multiplatform & Compo
 - atomicity for local persistence and synced intents across platforms
 - platform automated routines
 - application deployment per target
-- local inference 
+- local inference
+- encoding
 - encryption 
 
 
