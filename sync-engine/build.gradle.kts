@@ -8,13 +8,24 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.mokkery)
     alias(libs.plugins.room)
+    alias(libs.plugins.koin.compiler)
 }
 
 kotlin {
     jvm()
-    linuxX64()
-    iosArm64()
-    iosSimulatorArm64()
+    linuxX64 {
+        // Access the existing binaries container
+        binaries {
+            // Find the automatically created 'test' binary
+            getTest("debug").linkerOpts(
+                "-Wl,--allow-shlib-undefined",
+                "-Wl,--unresolved-symbols=ignore-in-shared-libs",
+                "-lcrypto",
+                "-lpthread",
+                "-ldl"
+            )
+        }
+    }
 
     android {
         namespace = "com.mocha.app"
@@ -40,79 +51,72 @@ kotlin {
     val isMac = System.getProperty("os.name") == "Mac OS X"
 
     if (isMac) {
-        // 1. Define the targets
         val iosTargets = listOf(
             iosArm64(),
             iosSimulatorArm64()
         )
-
-        // 2. Configure the targets
-        iosTargets.forEach { iosTarget ->
-            iosTarget.binaries.framework {
-                baseName = "ComposeApp"
-                isStatic = true
-            }
-        }
     }
 
     sourceSets {
         commonMain.dependencies {
-            implementation(project(":core-platform"))
-//            implementation(project(":testing:mocha-test-support"))
+            implementation(project(":core:platform"))
+            implementation(project(":core:metadata"))
+            implementation(project(":core:di-api"))
+            implementation(project(":core:utils"))
+
             implementation(libs.kotlinx.serialization.protobuf)
             implementation(libs.kotlinx.datetime)
             implementation(libs.kotlinx.io.core)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.koin.core)
+            implementation(libs.koin.annotations)
             implementation(libs.kermit)
             implementation(libs.room.runtime)
             implementation(libs.sqlite.bundled)
         }
 
         commonTest.dependencies {
-            implementation(kotlin("test"))
-            implementation(libs.kotlinx.coroutines.test)
-            implementation(libs.koin.test)
-            implementation(libs.kermit.test)
-            implementation(libs.turbine)
+            implementation(project(":core:test:support"))
+            implementation(project(":core:test:metadata-test"))
+            implementation(project(":core:test:platform-test"))
         }
 
-        val commonTest by getting
+//        val commonTest by getting
+//
+//        val linuxX64Test by getting {
+//        }
+//
+//        jvmTest.dependencies {
+//            implementation(libs.test.junit.jupiter)
+//        }
+//
+//        val androidHostTest by getting {
+//            dependsOn(commonTest)
+//            dependencies {
+//                implementation(libs.junit4)
+//                implementation(libs.test.robolectric)
+//                runtimeOnly(libs.junit.vintage.engine)
+//                implementation(libs.androidx.test.core)
+//            }
+//        }
+//
+//        val androidDeviceTest by getting {
+//            dependsOn(commonTest)
+//            dependencies {
+//                implementation(libs.junit4)
+//                implementation(libs.androidx.test.ext.junit)
+//                implementation(libs.androidx.runner)
+//                implementation(libs.androidx.test.core)
+//                implementation(libs.koin.android)
+//            }
+//        }
+//
+//        if (isMac) {
+//            val iosTest by getting {
+//                dependsOn(commonTest)
+//            }
+//        }
 
-        val linuxX64Test by getting {
-            dependsOn(commonTest)
-        }
-
-        jvmTest.dependencies {
-            implementation(libs.test.junit.jupiter)
-        }
-
-        val androidHostTest by getting {
-            dependsOn(commonTest)
-            dependencies {
-                implementation(libs.junit4)
-                implementation(libs.test.robolectric)
-                runtimeOnly(libs.junit.vintage.engine)
-                implementation(libs.androidx.test.core)
-            }
-        }
-
-        val androidDeviceTest by getting {
-            dependsOn(commonTest)
-            dependencies {
-                implementation(libs.junit4)
-                implementation(libs.androidx.test.ext.junit)
-                implementation(libs.androidx.runner)
-                implementation(libs.androidx.test.core)
-                implementation(libs.koin.android)
-            }
-        }
-
-        if (isMac) {
-            val iosTest by getting {
-                dependsOn(commonTest)
-            }
-        }
     }
 }
 
@@ -130,7 +134,6 @@ dependencies {
     add("kspLinuxX64", libs.room.compiler)
     add("kspLinuxX64Test", libs.room.compiler)
 
-    // iOS targets
     val isMac = System.getProperty("os.name") == "Mac OS X"
     if (isMac) {
         add("kspIosArm64", libs.room.compiler)

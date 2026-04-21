@@ -12,10 +12,10 @@ import com.mochame.app.di.providers.AppPaths
 fun getDatabaseBuilder(
     ctx: Context,
     paths: AppPaths
-): RoomDatabase.Builder<MochaDatabase> {
+): RoomDatabase.Builder<MochaDbOld> {
     val appContext = ctx.applicationContext
 
-    return Room.databaseBuilder<MochaDatabase>(
+    return Room.databaseBuilder<MochaDbOld>(
         context = appContext,
         name = paths.databasePath
     )

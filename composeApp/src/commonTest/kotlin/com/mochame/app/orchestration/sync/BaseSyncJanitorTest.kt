@@ -3,7 +3,7 @@ package com.mochame.app.orchestration.sync
 import app.cash.turbine.test
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Severity
-import com.mochame.app.data.local.room.MochaDatabase
+import com.mochame.app.data.local.room.MochaDbOld
 import com.mochame.app.data.local.room.entities.SyncMetadataEntity
 import com.mochame.app.di.CoreTestModules
 import com.mochame.app.di.JanitorTestEnvironment
@@ -66,7 +66,7 @@ abstract class BaseSyncJanitorTest : KoinTest {
         runTest {
             val testDispatcher = this.utilizeTestScope()
 
-            val db: MochaDatabase = get { parametersOf(testDispatcher) }
+            val db: MochaDbOld = get { parametersOf(testDispatcher) }
             val env: JanitorTestEnvironment by inject()
 
             try {

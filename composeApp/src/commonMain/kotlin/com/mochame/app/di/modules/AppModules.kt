@@ -1,7 +1,7 @@
 package com.mochame.app.di.modules
 
 import co.touchlab.kermit.Logger
-import com.mochame.app.data.local.room.MochaDatabase
+import com.mochame.app.data.local.room.MochaDbOld
 import com.mochame.app.data.local.room.RoomImmediateTransProvider
 import com.mochame.app.data.local.room.RoomSettingsStore
 import com.mochame.app.data.local.room.feature.bio.RoomBioRepository
@@ -137,8 +137,8 @@ object AppModules {
         }
 
         // Infrastructure DAOs used by the components defined by the
-        single { get<MochaDatabase>().syncMetadataDao() }
-        single { get<MochaDatabase>().mutationLedgerDao() }
+        single { get<MochaDbOld>().syncMetadataDao() }
+        single { get<MochaDbOld>().mutationLedgerDao() }
     }
 
     /** --- INFRASTRUCTURE LAYER --- */
@@ -154,7 +154,7 @@ object AppModules {
             bind<SettingsStore>()
         }
 
-        single { get<MochaDatabase>().settingsDao() }
+        single { get<MochaDbOld>().settingsDao() }
 
         single {
             IdentityManager(
@@ -262,7 +262,7 @@ object AppModules {
 
     /** --- FEATURE SPECIFIC MODULES --- */
     val bioDataModule = module {
-        single { get<MochaDatabase>().bioDao() }
+        single { get<MochaDbOld>().bioDao() }
 
         single<RoomBioRepository> {
             RoomBioRepository(
@@ -284,12 +284,12 @@ object AppModules {
     }
 
     val signalDataModule = module {
-        single { get<MochaDatabase>().signalDao() }
+        single { get<MochaDbOld>().signalDao() }
         singleOf(::RoomResonanceRepository) { bind<ResonanceRepository>() }
     }
 
     val telemetryDataModule = module {
-        single { get<MochaDatabase>().telemetryDao() }
+        single { get<MochaDbOld>().telemetryDao() }
         singleOf(::RoomTelemetryRepository) { bind<TelemetryRepository>() }
 
         // Bridges for Telemetry

@@ -11,12 +11,11 @@ import com.mochame.app.domain.feature.telemetry.MomentDetail
 import com.mochame.app.domain.feature.telemetry.MomentDraft
 import com.mochame.app.domain.feature.telemetry.MomentMetadata
 import com.mochame.app.domain.feature.telemetry.repositories.MomentRepository
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
  * ObservationBridge: SQLite-backed implementation of [MomentRepository].
- * * Uses [DateTimeUtils] to calculate biological anchors and
+ * * Uses [com.mochame.sync.infrastructure.utils.DateTimeUtils] to calculate biological anchors and
  * [TelemetryDao] for persistent storage.
  */
 internal class MomentBridge(

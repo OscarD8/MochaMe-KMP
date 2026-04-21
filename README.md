@@ -54,6 +54,7 @@ MochaMe/
     ├── :iosApp/                       # iOS Framework + @Database
     └── :cli-linux/                    # (Headless) Native Binary + @Database
 ```
+<<<<<<< Updated upstream
 <br>
 
 <div align="center">
@@ -62,6 +63,13 @@ MochaMe/
 
 </div>
 
+=======
+---
+
+<br>
+
+<img src="docs/images/application-architecture.webp" alt="app architecture mermaid diagram">
+>>>>>>> Stashed changes
 
 </details>
 

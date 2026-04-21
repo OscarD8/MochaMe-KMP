@@ -6,7 +6,7 @@ import co.touchlab.kermit.Severity
 import co.touchlab.kermit.StaticConfig
 import co.touchlab.kermit.TestLogWriter
 import com.mochame.app.data.local.room.FakeLatentSettingsStore
-import com.mochame.app.data.local.room.MochaDatabase
+import com.mochame.app.data.local.room.MochaDbOld
 import com.mochame.app.data.local.room.sync.RoomMetadataStore
 import com.mochame.app.data.local.room.sync.RoomMutationLedger
 import com.mochame.app.data.local.room.RoomSettingsStore
@@ -23,7 +23,7 @@ import com.mochame.app.domain.sync.stores.BlobStager
 import com.mochame.app.infrastructure.fakeUtils.FakeDateTimeUtils
 import com.mochame.app.infrastructure.identity.IdentityManager
 import com.mochame.app.infrastructure.logging.CleanLogWriter
-import com.mochame.app.infrastructure.sync.FakeBlobStore
+import com.mochame.`platform,`.FakeBlobStore
 import com.mochame.app.infrastructure.sync.HlcFactory
 import com.mochame.app.infrastructure.system.boot.BootStatusUpdater
 import com.mochame.app.infrastructure.utils.DateTimeUtils
@@ -120,7 +120,7 @@ object CoreTestModules {
         includes(
             fakeDateTimeUtilsModule,
         )
-        single<SyncMetadataDao> { get<MochaDatabase>().syncMetadataDao() }
+        single<SyncMetadataDao> { get<MochaDbOld>().syncMetadataDao() }
         singleOf(::HLCTestEnvironment)
     }
 
@@ -169,7 +169,7 @@ data class IdentityTestEnvironment(
     val settingsStore: SettingsStore,
     val roomSettingsStore: RoomSettingsStore,
     val settingsDao: SettingsDao,
-    val db: MochaDatabase,
+    val db: MochaDbOld,
     val writer: TestLogWriter
 )
 
@@ -179,7 +179,7 @@ data class SyncPersistenceTestEnv(
     val ledgerDao: MutationLedgerDao,
     val metadataDao: SyncMetadataDao,
     val writer: TestLogWriter,
-    val db: MochaDatabase,
+    val db: MochaDbOld,
     val ledgerStore: RoomMutationLedger,
     val metadataStore: RoomMetadataStore
 )

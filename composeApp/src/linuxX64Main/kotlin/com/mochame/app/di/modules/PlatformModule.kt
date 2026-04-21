@@ -1,6 +1,6 @@
 package com.mochame.app.di.modules
 
-import com.mochame.app.data.local.room.MochaDatabase
+import com.mochame.app.data.local.room.MochaDbOld
 import com.mochame.app.data.local.room.getDatabaseBuilder
 import com.mochame.app.data.local.room.getRoomDatabase
 import com.mochame.app.di.providers.AppPaths
@@ -24,7 +24,7 @@ actual val platformModule = module {
         }
     }
 
-    single<MochaDatabase> {
+    single<MochaDbOld> {
         // We get the builder from JVM, then finish it in COMMON
         getRoomDatabase(
             getDatabaseBuilder(paths = get()),

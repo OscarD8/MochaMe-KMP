@@ -7,12 +7,7 @@ import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.execSQL
 import androidx.test.core.app.ApplicationProvider
 import co.touchlab.kermit.ExperimentalKermitApi
-import co.touchlab.kermit.Logger
-import co.touchlab.kermit.Severity
-import co.touchlab.kermit.StaticConfig
-import co.touchlab.kermit.TestLogWriter
-import com.mochame.app.infrastructure.logging.CleanLogWriter
-import com.mochame.app.data.local.room.MochaDatabase
+import com.mochame.app.data.local.room.MochaDbOld
 import kotlinx.coroutines.test.TestDispatcher
 import org.koin.dsl.module
 
@@ -20,10 +15,10 @@ import org.koin.dsl.module
 object AndroidHostTestModules {
 
     val databaseModule = module {
-        single<MochaDatabase> { params ->
+        single<MochaDbOld> { params ->
             val testDispatcher: TestDispatcher = params.get()
 
-            Room.inMemoryDatabaseBuilder<MochaDatabase>(
+            Room.inMemoryDatabaseBuilder<MochaDbOld>(
                 context = ApplicationProvider.getApplicationContext(),
             )
                 .setQueryCoroutineContext(testDispatcher)
@@ -35,4 +30,5 @@ object AndroidHostTestModules {
                 .build()
         }
     }
+
 }

@@ -6,10 +6,10 @@ import com.mochame.app.di.providers.AppPaths
 
 fun getDatabaseBuilder(
     paths: AppPaths
-) : RoomDatabase.Builder<MochaDatabase> {
+) : RoomDatabase.Builder<MochaDbOld> {
 
     // path handling
-    return Room.databaseBuilder<MochaDatabase>(
+    return Room.databaseBuilder<MochaDbOld>(
         name = paths.databasePath
     )
 }

@@ -3,7 +3,7 @@ package com.mochame.app.data.local.room.dao
 import app.cash.turbine.test
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.TestLogWriter
-import com.mochame.app.data.local.room.MochaDatabase
+import com.mochame.app.data.local.room.MochaDbOld
 import com.mochame.app.data.local.room.entities.DailyContextEntity
 import com.mochame.app.di.CoreTestModules
 import com.mochame.app.di.modules.AppModules
@@ -77,7 +77,7 @@ abstract class BaseBioDaoTest : KoinTest {
         val testDispatcher = this.coroutineContext[ContinuationInterceptor.Key] as TestDispatcher
 
         val writer: TestLogWriter = get()
-        val db: MochaDatabase = get { parametersOf(testDispatcher) }
+        val db: MochaDbOld = get { parametersOf(testDispatcher) }
         val dao = db.bioDao()
 
         try {

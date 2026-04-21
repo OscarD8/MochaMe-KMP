@@ -82,7 +82,7 @@ abstract class BaseSyncPersistenceTest : KoinTest {
         runTest {
             val testDispatcher = this.utilizeTestScope()
 
-            val db: MochaDatabase = get { parametersOf(testDispatcher) }
+            val db: MochaDbOld = get { parametersOf(testDispatcher) }
             val env: SyncPersistenceTestEnv by inject()
 
             try {

@@ -1,24 +1,13 @@
 package com.mochame.app.infrastructure.identity
 
-import androidx.sqlite.SQLiteException
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Severity
-import com.mochame.app.data.local.room.MochaDatabase
-import com.mochame.app.data.local.room.RoomSettingsStore
-import com.mochame.app.data.local.room.dao.SettingsDao
+import com.mochame.app.data.local.room.MochaDbOld
 import com.mochame.app.data.local.room.entities.GlobalSettingsEntity
 import com.mochame.app.di.CoreTestModules
 import com.mochame.app.di.IdentityTestEnvironment
 import com.mochame.app.di.modules.AppModules
 import com.mochame.app.utils.utilizeTestScope
-import dev.mokkery.answering.calls
-import dev.mokkery.answering.sequentially
-import dev.mokkery.answering.throws
-import dev.mokkery.everySuspend
-import dev.mokkery.matcher.any
-import dev.mokkery.mock
-import dev.mokkery.verify.VerifyMode
-import dev.mokkery.verifySuspend
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -36,7 +25,6 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
 
 @ExperimentalKermitApi
 abstract class BaseIdentityAndSettingsTest : KoinTest {
@@ -73,7 +61,7 @@ abstract class BaseIdentityAndSettingsTest : KoinTest {
     ) = runTest {
         val testDispatcher = this.utilizeTestScope()
 
-        val db: MochaDatabase = get { parametersOf(testDispatcher) }
+        val db: MochaDbOld = get { parametersOf(testDispatcher) }
         val env: IdentityTestEnvironment by inject()
 
         try {

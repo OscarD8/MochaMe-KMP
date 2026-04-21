@@ -3,8 +3,6 @@ package com.mochame.app.di.modules
 import co.touchlab.kermit.Logger
 import co.touchlab.kermit.StaticConfig
 import com.mochame.app.infrastructure.logging.CleanLogWriter
-import com.mochame.app.infrastructure.logging.LogTags
-import com.mochame.app.infrastructure.logging.appendTag
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
 
