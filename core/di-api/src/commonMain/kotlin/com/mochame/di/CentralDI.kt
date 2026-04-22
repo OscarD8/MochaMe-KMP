@@ -15,10 +15,20 @@ annotation class DefaultContext
 annotation class AppScope
 
 // -----------------------------------------------------------
+// FILE SYSTEM
+// -----------------------------------------------------------
+@Qualifier
+annotation class PendingDir
+@Qualifier
+annotation class CommittedDir
+
+
+// -----------------------------------------------------------
 // MUTEX
 // -----------------------------------------------------------
 @Qualifier
 annotation class IdentityMutex
 @Qualifier
 annotation class JanitorMutex
-
+@Qualifier
+annotation class BlobMutex

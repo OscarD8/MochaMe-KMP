@@ -3,8 +3,8 @@ package com.mochame.sync.data.entities
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.mochame.core.utils.MochaModule
-import com.mochame.core.utils.MutationOp
+import com.mochame.platform.utils.MochaModule
+import com.mochame.platform.utils.MutationOp
 import com.mochame.sync.domain.SyncStatus
 import kotlin.time.Clock
 

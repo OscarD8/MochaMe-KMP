@@ -2,10 +2,9 @@ package com.mochame.sync.infrastructure
 
 import co.touchlab.kermit.Logger
 import com.mochame.utils.DateTimeUtils
-import com.mochame.utils.logger.appendTag
 import com.mochame.utils.exceptions.MochaException
-import com.mochame.utils.logger.LogTags
-import com.mochame.utils.logger.withTags
+import com.mochame.logger.LogTags
+import com.mochame.logger.withTags
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.yield
@@ -86,7 +85,7 @@ class HlcFactory(
     private val logger = logger.withTags(
         layer = LogTags.Layer.INFRA,
         domain = LogTags.Domain.SYNC,
-        className = "BlobStore"
+        className = "HLC"
     )
 
     private data class FactoryState(
@@ -219,7 +218,7 @@ class HlcFactory(
      * HLC can be used to hydrate the factory, ensuring all local operations use it as a baseline.
      *
      * @return Verified [HLC] that has acceptable/no clock skew. If the current clock matches the
-     * historic HLC, it takes the historic counter, and assigns the reconciled HLC the [com.mochame.metadata.GlobalSettingsEntity.id] of the current device.
+     * historic HLC, it takes the historic counter, and assigns the reconciled HLC the [com.mochame.orchestrator.GlobalSettingsEntity.id] of the current device.
      * @throws [com.mochame.app.domain.exceptions.MochaException.Persistent.ClockSkew] Local device has drifted below the floor. Or history is more than one minute into the future of the local clock.
      */
     private fun reconcileHlc(

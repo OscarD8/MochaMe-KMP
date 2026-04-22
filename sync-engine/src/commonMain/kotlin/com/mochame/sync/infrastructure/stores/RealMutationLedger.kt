@@ -1,12 +1,14 @@
 package com.mochame.sync.infrastructure.stores
 
 
-import com.mochame.metadata.MochaModule
+import com.mochame.orchestrator.MochaModule
 import com.mochame.sync.data.daos.MutationLedgerDao
 import com.mochame.sync.data.entities.SyncIntentEntity
 import com.mochame.sync.domain.stores.MutationLedger
 import com.mochame.sync.domain.stores.MutationLedgerMaintenance
+import org.koin.core.annotation.Single
 
+@Single(binds = [MutationLedger::class, MutationLedgerMaintenance::class])
 class RealMutationLedger(
     private val dao: MutationLedgerDao
 ) : MutationLedger, MutationLedgerMaintenance {

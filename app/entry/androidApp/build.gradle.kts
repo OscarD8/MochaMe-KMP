@@ -37,27 +37,22 @@ configure<ApplicationExtension> {
 }
 
 dependencies {
-    implementation(project(":composeApp")) // Your shared logic/UI
     implementation(project(":mocha:mocha-schema"))
     implementation(project(":core:platform"))
+    implementation(project(":core:logger"))
+    implementation(project(":core:di-api"))
 
-    // KOIN: This is the critical piece you were missing
-    // It allows the Android App to provide the 'Context' to the shared Room DB
     implementation(libs.koin.android)
-    implementation(libs.koin.compose) // Optional, but helps with koinViewModel()
+    implementation(libs.koin.compose)
     implementation(libs.koin.compose.viewmodel)
-    // For 'koinViewModel()' inside @Composable
     implementation(libs.koin.compose)
     implementation(libs.material.v1120)
 
-    // Standard AndroidX & Compose Shell
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.activity.compose)
     implementation(libs.compose.ui)
     implementation(libs.compose.material3)
     implementation(libs.androidx.core.ktx)
-    implementation(libs.koin.annotations)
-    implementation(libs.kermit)
 //    implementation(libs.sqlite.bundled)
 
 

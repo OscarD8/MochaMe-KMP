@@ -1,6 +1,6 @@
 package com.mochame.sync.domain.stores
 
-import com.mochame.metadata.MochaModule
+import com.mochame.orchestrator.MochaModule
 import com.mochame.sync.domain.SyncStatus
 import com.mochame.sync.infrastructure.HLC
 

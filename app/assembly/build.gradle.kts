@@ -33,16 +33,15 @@ kotlin {
             implementation(project(":core:platform"))
             implementation(project(":core:metadata"))
             implementation(project(":core:utils"))
+            implementation(project(":core:di-api"))
+            implementation(project(":core:logger"))
 
-            api(libs.koin.core)
-            implementation(libs.koin.annotations)
-            implementation(libs.kermit)
             implementation(libs.kotlinx.coroutines.core)
         }
 
         commonTest.dependencies {
             implementation(project(":core:test:support"))
-            implementation(project(":core:test:metadata-test"))
+            implementation(project(":core:test:orchestrator-test"))
         }
     }
 }

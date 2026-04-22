@@ -28,9 +28,10 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(project(":core:platform"))
+            implementation(project(":core:di-api"))
+            implementation(project(":core:logger"))
             api(libs.kotlinx.io.core)
-            api(libs.koin.core)
-            implementation(project(":core:test:support"))
+            implementation(libs.kotlinx.datetime)
         }
     }
 }

@@ -20,20 +20,14 @@ kotlin {
             implementation(project(":app:assembly"))
             implementation(project(":core:platform"))
             implementation(project(":mocha:mocha-schema"))
-            implementation(libs.koin.core)
-            implementation(libs.koin.annotations)
+            implementation(project(":core:di-api"))
+            implementation(project(":core:logger"))
             implementation(libs.room.runtime)
             implementation(libs.sqlite.bundled)
             implementation(libs.kotlinx.coroutines.core)
-            implementation(libs.kermit)
-            implementation(libs.koin.annotations)
 
         }
     }
-}
-
-dependencies {
-    ksp(libs.room.compiler)
 }
 
 room {

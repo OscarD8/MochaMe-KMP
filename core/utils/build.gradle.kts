@@ -26,10 +26,12 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            api(libs.kotlinx.datetime)
+            implementation(libs.kotlinx.datetime)
             api(libs.kermit)
             implementation(libs.room.runtime)
             implementation(libs.kotlinx.io.core)
+            api(libs.koin.core)
+            api(libs.koin.annotations)
         }
     }
 }

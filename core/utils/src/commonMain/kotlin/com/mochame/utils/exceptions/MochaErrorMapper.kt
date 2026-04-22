@@ -15,7 +15,7 @@ fun Throwable.toMochaException(message: String? = null): MochaException {
         return MochaException.Transient.Contention(message = message, cause = this)
     }
 
-     if ( this is IOException) {
+    if ( this is IOException) {
         val msg = this.message ?: ""
 
         when {

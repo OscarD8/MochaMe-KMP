@@ -1,11 +1,10 @@
 package com.mochame.support
 
-import android.content.Context
 import androidx.sqlite.SQLiteDriver
 import androidx.sqlite.driver.AndroidSQLiteDriver
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.test.core.app.ApplicationProvider
-import com.mochame.core.providers.PlatformContext
+import com.mochame.platform.providers.PlatformContext
 import org.koin.core.module.Module
 import org.koin.dsl.module
 import kotlin.coroutines.CoroutineContext

@@ -1,17 +1,20 @@
 package com.mochame.sync.infrastructure.stores
 
 import co.touchlab.kermit.Logger
+import com.mochame.di.BlobMutex
+import com.mochame.di.CommittedDir
 import com.mochame.di.IoContext
-import com.mochame.sync.domain.providers.Hasher
-import com.mochame.sync.domain.providers.digestHex
+import com.mochame.di.PendingDir
+import com.mochame.utils.Hasher
+import com.mochame.utils.digestHex
 import com.mochame.sync.domain.stores.BlobReader
 import com.mochame.sync.domain.stores.BlobStager
 import com.mochame.utils.DateTimeUtils
 import com.mochame.utils.exceptions.MochaException
 import com.mochame.utils.exceptions.toMochaException
-import com.mochame.utils.logger.LogTags
-import com.mochame.utils.logger.withTags
-import com.mochame.utils.logger.withTimer
+import com.mochame.logger.LogTags
+import com.mochame.logger.withTags
+import com.mochame.logger.withTimer
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -20,6 +23,7 @@ import kotlinx.io.Source
 import kotlinx.io.buffered
 import kotlinx.io.files.FileSystem
 import kotlinx.io.files.Path
+import org.koin.core.annotation.Single
 import kotlin.coroutines.CoroutineContext
 import kotlin.random.Random
 import kotlin.time.TimeSource
@@ -27,14 +31,15 @@ import kotlin.time.TimeSource
 /**
  * BlobStore using kotlinx-io.
  */
+@Single(binds = [BlobStager::class, BlobReader::class])
 class RealBlobStore(
     private val dateTimeUtils: DateTimeUtils,
-    private val pendingDir: Path,
-    private val committedDir: Path,
     private val hashProvider: Hasher,
-    @IoContext private val ioContext: CoroutineContext,
     private val fileSystem: FileSystem,
-    private val initMutex: Mutex,
+    @IoContext private val ioContext: CoroutineContext,
+    @PendingDir private val pendingDir: Path,
+    @CommittedDir private val committedDir: Path,
+    @BlobMutex private val blobMutex: Mutex,
     logger: Logger
 ) : BlobStager, BlobReader {
 
@@ -59,7 +64,7 @@ class RealBlobStore(
     override suspend fun stage(source: Source): String = withContext(ioContext) {
         val mark = TimeSource.Monotonic.markNow()
         val now = dateTimeUtils.now().toEpochMilliseconds()
-        val tempPath = Path(pendingDir, "staging_${now}_${Random.Default.nextLong()}")
+        val tempPath = Path(pendingDir, "staging_${now}_${Random.nextLong()}")
         val hasher = hashProvider() // expect/actual bridge
         var totalBytes = 0L
 
@@ -210,7 +215,7 @@ class RealBlobStore(
     private suspend fun ensureChambersExist() {
         if (chambersVerified) return
 
-        initMutex.withLock {
+        blobMutex.withLock {
             if (chambersVerified) return@withLock
 
             try {

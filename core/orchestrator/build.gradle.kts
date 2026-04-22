@@ -7,7 +7,7 @@ plugins {
 
 kotlin {
     android {
-        namespace = "com.mochame.core.orchestrator"
+        namespace = "com.mochame.platform.orchestrator"
         compileSdk = 36
         compilerOptions { jvmTarget.set(JvmTarget.JVM_17) }
     }
@@ -29,9 +29,6 @@ kotlin {
             implementation(project(":core:di-api"))
 
             api(libs.kotlinx.coroutines.core)
-
-            api(libs.koin.core)
-            implementation(libs.koin.annotations)
         }
     }
 }

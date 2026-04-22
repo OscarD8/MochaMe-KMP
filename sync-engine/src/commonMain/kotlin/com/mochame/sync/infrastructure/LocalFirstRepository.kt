@@ -1,14 +1,14 @@
 package com.mochame.sync.infrastructure
 
 import co.touchlab.kermit.Logger
-import com.mochame.core.policies.ExecutionPolicy
-import com.mochame.core.providers.TransactionProvider
+import com.mochame.platform.policies.ExecutionPolicy
+import com.mochame.platform.providers.TransactionProvider
 import com.mochame.di.IoContext
-import com.mochame.metadata.BootState
-import com.mochame.metadata.MochaModule
-import com.mochame.metadata.MutationOp
+import com.mochame.orchestrator.BootState
+import com.mochame.orchestrator.MochaModule
+import com.mochame.orchestrator.MutationOp
 import com.mochame.sync.data.entities.SyncIntentEntity
-import com.mochame.sync.domain.BootStatusProvider
+import com.mochame.orchestrator.BootStatusProvider
 import com.mochame.sync.domain.PayloadEncoder
 import com.mochame.sync.domain.SyncReceiver
 import com.mochame.sync.domain.SyncStatus
@@ -19,7 +19,7 @@ import com.mochame.sync.domain.stores.MetadataStore
 import com.mochame.sync.domain.stores.MutationLedger
 import com.mochame.utils.exceptions.MochaException
 import com.mochame.utils.exceptions.toMochaException
-import com.mochame.utils.logger.withTimer
+import com.mochame.logger.withTimer
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout

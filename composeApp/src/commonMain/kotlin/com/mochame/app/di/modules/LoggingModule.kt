@@ -2,7 +2,6 @@ package com.mochame.app.di.modules
 
 import co.touchlab.kermit.Logger
 import co.touchlab.kermit.StaticConfig
-import com.mochame.app.infrastructure.logging.CleanLogWriter
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
 

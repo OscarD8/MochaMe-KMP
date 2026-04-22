@@ -1,10 +1,10 @@
 package com.mochame.androidapp.di
 
 import android.content.Context
-import com.mochame.core.di.DefaultContext
-import com.mochame.core.di.IoContext
-import com.mochame.core.di.MainContext
-import com.mochame.core.providers.AppPathsProvider
+import com.mochame.platform.di.DefaultContext
+import com.mochame.platform.di.IoContext
+import com.mochame.platform.di.MainContext
+import com.mochame.platform.providers.AppPathsProvider
 import kotlinx.coroutines.Dispatchers
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Module

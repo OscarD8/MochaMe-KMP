@@ -2,10 +2,12 @@ package com.mochame.sync.infrastructure
 
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import org.koin.core.annotation.Single
 
 /**
  * A KMP-compliant, reference-counted locker for keyed synchronization.
  */
+@Single
 class KeyedLocker {
     private class LockEntry(val mutex: Mutex = Mutex(), var activeUsers: Int = 0)
 

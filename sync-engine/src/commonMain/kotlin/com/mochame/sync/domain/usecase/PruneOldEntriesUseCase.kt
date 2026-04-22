@@ -3,12 +3,14 @@ package com.mochame.sync.domain.usecase
 import co.touchlab.kermit.Logger
 import com.mochame.sync.domain.stores.MutationLedgerMaintenance
 import com.mochame.utils.DateTimeUtils
-import com.mochame.utils.logger.LogTags
-import com.mochame.utils.logger.withTags
-import com.mochame.utils.logger.withTimer
+import com.mochame.logger.LogTags
+import com.mochame.logger.withTags
+import com.mochame.logger.withTimer
 import kotlinx.coroutines.yield
+import org.koin.core.annotation.Single
 import kotlin.time.TimeSource
 
+@Single
 class PruneOldEntriesUseCase(
     private val ledgerMaintenance: MutationLedgerMaintenance,
     private val dateTimeUtils: DateTimeUtils,

@@ -4,8 +4,8 @@ import androidx.room.ConstructedBy
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
-import com.mochame.metadata.GlobalMetadataDao
-import com.mochame.core.implementation.GlobalMetadataEntity
+import com.mochame.platform.global.GlobalMetadataDao
+import com.mochame.platform.global.GlobalMetadataEntity
 import com.mochame.sync.data.daos.MutationLedgerDao
 import com.mochame.sync.data.daos.SyncMetadataDao
 import com.mochame.sync.data.entities.SyncIntentEntity

@@ -1,81 +1,87 @@
+@file:OptIn(ExperimentalKermitApi::class)
+
 package com.mochame.sync.di
 
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.TestLogWriter
-import com.mochame.core.di.AppScope
-import com.mochame.core.di.IdentityMutex
-import com.mochame.core.di.JanitorMutex
-import com.mochame.core.policies.ExecutionPolicy
-import com.mochame.metadata.GlobalMetadataDao
-import com.mochame.sync.infrastructure.stores.RoomMetadataStore
-import com.mochame.sync.infrastructure.stores.RealMutationLedger
+import com.mochame.di.IdentityMutex
+import com.mochame.di.JanitorMutex
+import com.mochame.orchestrator.BootStatusUpdater
+import com.mochame.orchestrator.GlobalMetadataStore
+import com.mochame.orchestrator.test.di.OrchestratorTestModule
+import com.mochame.platform.global.GlobalMetadataDao
+import com.mochame.platform.policies.ExecutionPolicy
+import com.mochame.platform.providers.TransactionProvider
+import com.mochame.platform.test.di.FakePlatformModule
 import com.mochame.sync.data.daos.MutationLedgerDao
 import com.mochame.sync.data.daos.SyncMetadataDao
 import com.mochame.sync.database.SyncTestDatabase
-import com.mochame.core.providers.TransactionProvider
+import com.mochame.sync.domain.providers.SyncUserProvider
 import com.mochame.sync.domain.stores.MetadataStoreMaintenance
 import com.mochame.sync.domain.stores.MutationLedgerMaintenance
 import com.mochame.sync.infrastructure.HlcFactory
-import com.mochame.metadata.IdentityManager
-import com.mochame.platform.test.FakeBlobStore
-import com.mochame.support.di.fakeDateTimeUtilsModule
-import com.mochame.sync.domain.stores.BlobReader
-import com.mochame.sync.domain.stores.BlobStager
-import com.mochame.sync.domain.BootStatusUpdater
+import com.mochame.sync.infrastructure.stores.RealMutationLedger
+import com.mochame.sync.infrastructure.stores.RealMetadataStore
 import com.mochame.sync.orchestration.SyncJanitor
-import com.mochame.support.fakes.FakeDateTimeUtils
-import kotlinx.coroutines.CoroutineScope
+import come.mochame.utils.test.FakeDateTimeUtils
+import come.mochame.utils.test.di.FakeClockModule
 import kotlinx.coroutines.sync.Mutex
-import org.koin.core.annotation.Factory
+import org.koin.core.annotation.Module
 import org.koin.core.module.dsl.factoryOf
 import org.koin.core.module.dsl.singleOf
-import org.koin.dsl.binds
 import org.koin.dsl.module
 
-object SyncTestModules {
 
-    val fakeBlobStoreModule = module {
-        single<FakeBlobStore> { FakeBlobStore() }.binds(
-            arrayOf(
-                BlobReader::class,
-                BlobStager::class
-            )
-        )
-    }
-
-    @OptIn(ExperimentalKermitApi::class)
-    val janitorTestEnvironmentModule = module {
-        includes(
-            fakeDateTimeUtilsModule,
-            fakeBlobStoreModule
-        )
-
+@Module(
+    includes = [
+        SyncEngineModule::class,
+        HlcTestModule::class,
+        OrchestratorTestModule::class,
+        FakePlatformModule::class,
+        BlobStoreTestModule::class,
+        FakeClockModule::class
+    ]
+)
+class JanitorTestModule {
+    val definitions = module {
         factoryOf(::JanitorTestEnvironment)
     }
+}
 
-    @OptIn(ExperimentalKermitApi::class)
-    val hlcTestEnvironmentModule = module {
-        includes(
-            fakeDateTimeUtilsModule,
+@Module(
+    includes = [
+        SyncEngineModule::class,
+        FakePlatformModule::class,
+        FakeClockModule::class
+    ]
+)
+class BlobStoreTestModule {
+    val definitions = module {
+        includes(//future test env
         )
-        single<SyncMetadataDao> { get<MochaDbOld>().syncMetadataDao() }
-        singleOf(::HLCTestEnvironment)
-    }
-
-    @OptIn(ExperimentalKermitApi::class)
-    val identityTestEnvironmentModule = module {
-        singleOf(::IdentityTestEnvironment)
-    }
-
-    @OptIn(ExperimentalKermitApi::class)
-    val syncPersistenceTestModule = module {
-        singleOf(::SyncPersistenceTestEnv)
     }
 
 }
 
+@Module(
+    includes = [
+        FakeClockModule::class
+    ]
+)
+class HlcTestModule {
+    val definitions = module {
+        singleOf(::HLCTestEnvironment)
+    }
+}
 
-@Factory
+@Module
+class PersistenceTestModule {
+    val definitions = module {
+        singleOf(::SyncPersistenceTestEnv)
+    }
+}
+
+
 @ExperimentalKermitApi
 data class JanitorTestEnvironment(
     val janitor: SyncJanitor,
@@ -86,10 +92,9 @@ data class JanitorTestEnvironment(
     val ledgerMaintenance: MutationLedgerMaintenance,
     val transactor: TransactionProvider,
     val metadataDao: SyncMetadataDao,
-    val manager: IdentityManager,
+    val manager: SyncUserProvider,
     @JanitorMutex val janitorMutex: Mutex,
     @IdentityMutex val identityMutex: Mutex,
-    @AppScope val appScope: CoroutineScope
 )
 
 @ExperimentalKermitApi
@@ -101,8 +106,8 @@ data class HLCTestEnvironment(
 
 @ExperimentalKermitApi
 data class IdentityTestEnvironment(
-    val manager: IdentityManager,
-    val globalMetaStore: RoomGlobalMetadataStore,
+    val manager: SyncUserProvider,
+    val globalMetaStore: GlobalMetadataStore,
     val globalMetadataDao: GlobalMetadataDao,
     val db: SyncTestDatabase,
     val writer: TestLogWriter
@@ -116,5 +121,5 @@ data class SyncPersistenceTestEnv(
     val writer: TestLogWriter,
     val db: SyncTestDatabase,
     val ledgerStore: RealMutationLedger,
-    val metadataStore: RoomMetadataStore
+    val metadataStore: RealMetadataStore
 )

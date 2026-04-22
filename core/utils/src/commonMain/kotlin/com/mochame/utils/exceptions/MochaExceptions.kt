@@ -65,7 +65,7 @@ sealed class MochaException(
             Persistent("File not found: $blobId")
 
         class Internal(message: String?, cause: Throwable? = null) :
-                Persistent(message ?: "Internal failure. Dependency issue? ${cause?.message}", cause)
+            Persistent(message ?: "Internal failure. Dependency issue? ${cause?.message}", cause)
     }
 
     /**

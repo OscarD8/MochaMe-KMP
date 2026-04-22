@@ -22,6 +22,6 @@ actual fun createPlatformDigest(algorithm: String, logger: Logger): Digest =
         override fun digest(): ByteArray {
             val result = delegate.digest()
             log.d { "Digest finalized | Hash Size: ${result.size} bytes" }
-            return delegate.digest()
+            return result
         }
     }

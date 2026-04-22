@@ -1,6 +1,6 @@
 package com.mochame.sync.domain
 
-import com.mochame.metadata.MochaModule
+import com.mochame.orchestrator.MochaModule
 import com.mochame.sync.domain.model.EntityMetadata
 
 interface SyncReceiver {

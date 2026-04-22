@@ -68,20 +68,18 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":core:di-api"))
+            implementation(project(":core:logger"))
             implementation(project(":core:metadata"))
-            implementation(project(":core:utils"))
+            api(project(":core:utils"))
 
             implementation(libs.uuid)
-            implementation(libs.kotlinx.coroutines.core)
+            api(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.datetime)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.serialization.protobuf)
             implementation(libs.kotlinx.io.core)
-            implementation(libs.koin.annotations)
-            implementation(libs.koin.core)
             implementation(libs.room.runtime)
             implementation(libs.sqlite.bundled)
-            implementation(libs.kermit)
         }
 
         androidMain.dependencies {

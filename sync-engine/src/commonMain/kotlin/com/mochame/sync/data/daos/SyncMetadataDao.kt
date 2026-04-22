@@ -6,9 +6,9 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
-import com.mochame.app.domain.sync.utils.SyncStatus
-import com.mochame.app.domain.sync.utils.MochaModule
+import com.mochame.orchestrator.MochaModule
 import com.mochame.sync.data.entities.SyncMetadataEntity
+import com.mochame.sync.domain.SyncStatus
 
 @Dao
 interface SyncMetadataDao {

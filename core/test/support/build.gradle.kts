@@ -45,15 +45,15 @@ kotlin {
             api(kotlin("test"))
             api(libs.kotlinx.serialization.protobuf)
             api(libs.room.runtime)
+            api(libs.kotlinx.coroutines.test)
             api(libs.kermit.test)
             api(libs.turbine)
-            implementation(libs.kermit)
-            implementation(libs.koin.annotations)
-            implementation(libs.koin.core)
             implementation(libs.sqlite.bundled)
+
             implementation(project(":core:platform"))
-            implementation(project(":core:di-api"))
-            implementation(project(":core:utils"))
+            implementation(project(":core:test:utils-test"))
+            api(project(":core:di-api"))
+            api(project(":core:logger"))
         }
 
         androidMain.dependencies {

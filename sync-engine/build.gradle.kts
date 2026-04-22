@@ -63,22 +63,21 @@ kotlin {
             implementation(project(":core:metadata"))
             implementation(project(":core:di-api"))
             implementation(project(":core:utils"))
+            implementation(project(":core:logger"))
 
             implementation(libs.kotlinx.serialization.protobuf)
             implementation(libs.kotlinx.datetime)
             implementation(libs.kotlinx.io.core)
             implementation(libs.kotlinx.coroutines.core)
-            implementation(libs.koin.core)
-            implementation(libs.koin.annotations)
-            implementation(libs.kermit)
             implementation(libs.room.runtime)
             implementation(libs.sqlite.bundled)
         }
 
         commonTest.dependencies {
             implementation(project(":core:test:support"))
-            implementation(project(":core:test:metadata-test"))
+            implementation(project(":core:test:orchestrator-test"))
             implementation(project(":core:test:platform-test"))
+            implementation(project(":core:test:utils-test"))
         }
 
 //        val commonTest by getting
@@ -140,4 +139,6 @@ dependencies {
         add("kspIosSimulatorArm64", libs.room.compiler)
         add("kspIosSimulatorArm64Test", libs.room.compiler)
     }
+
+
 }

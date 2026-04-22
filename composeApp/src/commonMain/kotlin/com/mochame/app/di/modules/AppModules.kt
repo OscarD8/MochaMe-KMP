@@ -128,13 +128,7 @@ object AppModules {
         singleOf(::RoomImmediateTransProvider) {
             bind<TransactionProvider>()
         }
-        single {
-            PruneOldEntriesUseCase(
-                logger = get { parametersOf(LogTags.Domain.PRUNE, LogTags.Layer.DOMAIN) },
-                ledgerMaintenance = get(),
-                dateTimeUtils = get()
-            )
-        }
+
 
         // Infrastructure DAOs used by the components defined by the
         single { get<MochaDbOld>().syncMetadataDao() }
@@ -143,46 +137,8 @@ object AppModules {
 
     /** --- INFRASTRUCTURE LAYER --- */
 
-    val timeModule = module {
-        singleOf(::DateTimeUtils)
-    }
 
-    val identityModule = module {
-        single(named("IdentityMutex")) { Mutex() }
 
-        singleOf(::RoomSettingsStore) {
-            bind<SettingsStore>()
-        }
-
-        single { get<MochaDbOld>().settingsDao() }
-
-        single {
-            IdentityManager(
-                settingsStore = get(),
-                dispatcherProvider = get(),
-                logger = get { parametersOf(LogTags.Domain.SYNC, LogTags.Layer.BOOT) },
-                mutex = get(named("IdentityMutex"))
-            )
-        }
-    }
-
-    val hlcModule = module {
-        single {
-            HlcFactory(
-                logger = get { parametersOf(LogTags.Domain.SYNC, LogTags.Layer.INFRA) },
-                dateTimeUtils = get()
-            )
-        }
-    }
-
-    val systemModule = module {
-        singleOf(::KeyedLocker)
-
-        singleOf(::BootStatusManager) {
-            bind<BootStatusUpdater>()
-            bind<BootStatusProvider>()
-        }
-    }
 
     val janitorModule = module {
         single(named("JanitorMutex")) { Mutex() }

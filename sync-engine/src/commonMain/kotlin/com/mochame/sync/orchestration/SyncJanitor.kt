@@ -1,24 +1,24 @@
 package com.mochame.sync.orchestration
 
 import co.touchlab.kermit.Logger
-import com.mochame.core.policies.ExecutionPolicy
-import com.mochame.core.providers.TransactionProvider
+import com.mochame.platform.policies.ExecutionPolicy
+import com.mochame.platform.providers.TransactionProvider
 import com.mochame.di.AppScope
 import com.mochame.di.IoContext
-import com.mochame.sync.domain.BootStatusUpdater
+import com.mochame.di.JanitorMutex
+import com.mochame.orchestrator.BootStatusUpdater
 import com.mochame.sync.domain.providers.SyncUserProvider
 import com.mochame.sync.domain.stores.BlobStager
 import com.mochame.sync.domain.stores.MetadataStoreMaintenance
 import com.mochame.sync.domain.stores.MutationLedgerMaintenance
 import com.mochame.sync.domain.usecase.PruneOldEntriesUseCase
 import com.mochame.sync.infrastructure.HlcFactory
-import com.mochame.metadata.BootState
-import com.mochame.utils.logger.appendTag
+import com.mochame.orchestrator.BootState
 import com.mochame.utils.exceptions.MochaException
 import com.mochame.utils.exceptions.toMochaException
-import com.mochame.utils.logger.LogTags
-import com.mochame.utils.logger.withTags
-import com.mochame.utils.logger.withTimer
+import com.mochame.logger.LogTags
+import com.mochame.logger.withTags
+import com.mochame.logger.withTimer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.TimeoutCancellationException
@@ -28,9 +28,11 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
+import org.koin.core.annotation.Single
 import kotlin.coroutines.CoroutineContext
 import kotlin.time.TimeSource
 
+@Single(createdAtStart = true)
 class SyncJanitor(
     private val bootUpdater: BootStatusUpdater,
     private val transactor: TransactionProvider,
@@ -38,18 +40,18 @@ class SyncJanitor(
     private val ledgerStore: MutationLedgerMaintenance,
     private val pruneUseCase: PruneOldEntriesUseCase,
     private val identityManager: SyncUserProvider,
-    @IoContext private val ioContext: CoroutineContext,
-    @AppScope private val appScope: CoroutineScope,
     private val hlcFactory: HlcFactory,
-    private val mutex: Mutex,
     private val executor: ExecutionPolicy,
     private val blobStager: BlobStager,
+    @IoContext private val ioContext: CoroutineContext,
+    @AppScope private val appScope: CoroutineScope,
+    @JanitorMutex private val mutex: Mutex,
     logger: Logger
 ) {
     private val logger = logger.withTags(
         layer = LogTags.Layer.INFRA,
         domain = LogTags.Domain.SYNC,
-        className = "BlobStore"
+        className = "Janitor"
     )
 
     /**
