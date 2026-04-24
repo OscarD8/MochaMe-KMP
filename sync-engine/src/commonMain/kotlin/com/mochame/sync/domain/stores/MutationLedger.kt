@@ -1,7 +1,7 @@
 package com.mochame.sync.domain.stores
 
 
-import com.mochame.orchestrator.MochaModule
+import com.mochame.metadata.MochaModule
 import com.mochame.sync.data.entities.SyncIntentEntity
 
 interface MutationLedger {

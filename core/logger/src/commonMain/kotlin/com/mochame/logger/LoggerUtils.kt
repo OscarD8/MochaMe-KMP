@@ -1,6 +1,7 @@
 package com.mochame.logger
 
 import co.touchlab.kermit.Logger
+import kotlin.time.TimeMark
 
 object LogTags {
     const val APP = "Mocha"
@@ -35,3 +36,8 @@ fun Logger.withTags(layer: String, domain: String, className: String? = null): L
     return if (className != null) this.withTag("$base ❯ $className") else this.withTag(base)
 }
 
+/**
+ * Appends a duration to any log message.
+ */
+fun String.withTimer(mark: TimeMark): String =
+    "$this | Duration: ${mark.elapsedNow()}"

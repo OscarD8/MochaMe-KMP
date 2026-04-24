@@ -2,28 +2,22 @@ package com.mochame.support
 
 import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
-import androidx.sqlite.SQLiteDriver
-import com.mochame.platform.providers.PlatformContext
-import com.mochame.platform.providers.platformBuilder
 import com.mochame.di.AppScope
 import com.mochame.di.DefaultContext
 import com.mochame.di.IoContext
 import com.mochame.di.MainContext
 import com.mochame.platform.providers.RoomImmediateTransProvider
 import com.mochame.platform.providers.TransactionProvider
-import come.mochame.utils.test.di.testLoggingModule
+import com.mochame.platform.providers.platformBuilder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
-import org.koin.core.context.loadKoinModules
-import org.koin.core.context.startKoin
-import org.koin.core.context.stopKoin
+import org.koin.core.KoinApplication
 import org.koin.core.module.Module
 import org.koin.core.qualifier.qualifier
+import org.koin.dsl.koinApplication
 import org.koin.dsl.module
-import org.koin.mp.KoinPlatform.getKoin
 import kotlin.coroutines.ContinuationInterceptor
 import kotlin.coroutines.CoroutineContext
 
@@ -47,54 +41,68 @@ import kotlin.coroutines.CoroutineContext
  * - Caller modules (scopes, contexts and DAOs can now be mapped - protect against
  * production components that declare `createdAtStart`)
  */
-inline fun <reified T : RoomDatabase, reified env : Any> runTestWithPersistence(
+inline fun <reified T : RoomDatabase, reified E : Any> runTestWithPersistence(
     constructor: RoomDatabaseConstructor<T>,
-    callerModules: List<Module> = emptyList(),
+    crossinline koinSetup: KoinApplication.() -> Unit = {},
     crossinline daoWiring: T.() -> Module = { module { } },
-    crossinline block: suspend env.(T, TestScope) -> Unit
+    crossinline block: suspend E.(TestScope) -> Unit
 ) = runTest {
-    val context = this.coroutineContext[ContinuationInterceptor.Key] as CoroutineContext
-    val contextModule = this.utilizeTestScope(context)
-    val platformModule = getPlatformTestDependencies(context)
 
-    startKoin {
+    val koinApp = koinApplication(createEagerInstances = false) {
         allowOverride(true)
-        modules(contextModule + platformModule + testLoggingModule())
+        koinSetup()
+        modules(utilizeTestScope())
     }
 
-    val dbModule = module {
-        single<T> {
-            platformBuilder<T>(
-                context = get<PlatformContext>(),
-                queryContext = get(qualifier<IoContext>()),
-                isTest = true,
-                path = null,
-                driver = get<SQLiteDriver>(),
-                factory = { constructor.initialize() }
-            ).build()
+    val koin = koinApp.koin
+
+    val db = platformBuilder<T>(
+        context = koin.get(),
+        queryContext = koin.get(qualifier<IoContext>()),
+        isTest = true,
+        path = null,
+        driver = koin.get(),
+        factory = { constructor.initialize() }
+    ).build()
+
+    koin.loadModules(
+        listOf(
+            module {
+                single<T> { db }
+                single<TransactionProvider> { RoomImmediateTransProvider(get<T>()) }
+            },
+            db.daoWiring()
+        )
+    )
+
+    // Its actually really helpful
+    try {
+        koin.createEagerInstances()
+    } catch (e: Exception) {
+        println("\n🚨 === DI REGISTRY FAILURE === 🚨")
+        println("Crash: ${e.message}")
+        var cause = e.cause
+        while (cause != null) {
+            println("Missing Component: ${cause.message}")
+            cause = cause.cause
         }
-        single<TransactionProvider> {
-            RoomImmediateTransProvider(get<T>())
-        }
+        println("🚨 =========================== 🚨\n")
+        throw e
     }
-    loadKoinModules(dbModule)
 
-    val db = getKoin().get<T>(T::class)
-    loadKoinModules(db.daoWiring())
-
-    loadKoinModules(callerModules)
-
-    val environment = getKoin().get<env>()
+    val environment = koin.get<E>()
 
     try {
-        environment.block(db, this)
+        environment.block(this)
     } finally {
         db.close()
-        stopKoin()
+        koinApp.close()
     }
 }
 
-expect fun getPlatformTestDependencies(testContext: CoroutineContext): Module
+
+@org.koin.core.annotation.Module
+expect class SupportProviderModule()
 
 /**
  * Allocates all execution contexts to the context of the current test dispatcher.
@@ -103,7 +111,10 @@ expect fun getPlatformTestDependencies(testContext: CoroutineContext): Module
  * @return [Module] having wired the context from this [TestScope]
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-fun TestScope.utilizeTestScope(testContext: CoroutineContext): Module {
+fun TestScope.utilizeTestScope(): Module {
+    val testContext =
+        this.coroutineContext[ContinuationInterceptor.Key] as CoroutineContext
+
     return module {
         single<CoroutineContext> { testContext }
         factory<CoroutineScope>(qualifier<AppScope>()) { this@utilizeTestScope }

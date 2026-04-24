@@ -3,6 +3,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidKmpLibrary)
+    alias(libs.plugins.koin.compiler)
 }
 
 kotlin {
@@ -28,6 +29,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(project(":core:platform"))
+            implementation(project(":core:test:support"))
             implementation(project(":core:di-api"))
             implementation(project(":core:logger"))
             api(libs.kotlinx.io.core)

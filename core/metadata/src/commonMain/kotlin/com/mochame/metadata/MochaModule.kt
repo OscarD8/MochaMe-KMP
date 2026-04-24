@@ -1,4 +1,4 @@
-package com.mochame.orchestrator
+package com.mochame.metadata
 
 
 enum class MochaModule(val id: Int, val tag: String) {

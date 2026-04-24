@@ -1,12 +1,11 @@
 package com.mochame.assembly.di
 
-import com.mochame.sync.di.SyncEngineModule
+import com.mochame.sync.SyncProductionModule
 import org.koin.core.annotation.Module
 
 @Module(
     includes = [
-        SyncEngineModule::class,
-
+        SyncProductionModule::class,
     ]
 )
 class ProductionAssembly

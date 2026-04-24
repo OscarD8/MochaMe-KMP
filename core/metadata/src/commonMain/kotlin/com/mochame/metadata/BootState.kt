@@ -1,4 +1,4 @@
-package com.mochame.orchestrator
+package com.mochame.metadata
 
 sealed class BootState {
     object Idle : BootState()

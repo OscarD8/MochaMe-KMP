@@ -1,7 +1,7 @@
 package com.mochame.sync.infrastructure.stores
 
 
-import com.mochame.orchestrator.MochaModule
+import com.mochame.metadata.MochaModule
 import com.mochame.sync.data.daos.SyncMetadataDao
 import com.mochame.sync.data.entities.SyncMetadataEntity
 import com.mochame.sync.domain.SyncStatus

@@ -1,6 +1,6 @@
-package com.mochame.orchestrator.test
+package com.mochame.metadata.test
 
-import com.mochame.orchestrator.GlobalMetadataStore
+import com.mochame.metadata.GlobalMetadataStore
 
 class FakeGlobalMetaStore : GlobalMetadataStore {
     var storedId: String? = null

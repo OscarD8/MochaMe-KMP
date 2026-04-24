@@ -1,6 +1,6 @@
 package com.mochame.platform.global
 
-import com.mochame.orchestrator.GlobalMetadataStore
+import com.mochame.metadata.GlobalMetadataStore
 import org.koin.core.annotation.Single
 
 @Single(binds = [GlobalMetadataStore::class])

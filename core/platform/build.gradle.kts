@@ -6,8 +6,18 @@ plugins {
     alias(libs.plugins.androidLint)
     alias(libs.plugins.mokkery)
     alias(libs.plugins.ksp)
+    alias(libs.plugins.koin.compiler)
     alias(libs.plugins.room)
     alias(libs.plugins.kotlinSerialization)
+    id("mocha.test.conventions")
+    id("mocha.room")
+}
+
+koinCompiler {
+    userLogs = true           // Log component detection
+    debugLogs = true          // Log internal processing (verbose)
+    unsafeDslChecks = true    // Validates create() is the only instruction in lambda (default: true)
+    skipDefaultValues = true  // Skip injection for parameters with default values (default: true)
 }
 
 kotlin {
@@ -36,13 +46,12 @@ kotlin {
             sourceSetTreeName = "test"
         }
 
-        // Enable resources for Robolectric/Compose tests
         androidResources {
             enable = true
         }
 
         compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_17)
+            jvmTarget.set(JvmTarget.fromTarget(libs.versions.jvm.get()))
         }
     }
 
@@ -72,8 +81,8 @@ kotlin {
             implementation(project(":core:metadata"))
             api(project(":core:utils"))
 
+            implementation(libs.kotlinx.coroutines.core)
             implementation(libs.uuid)
-            api(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.datetime)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.serialization.protobuf)
@@ -147,10 +156,6 @@ kotlin {
         }
 
     }
-}
-
-room {
-    schemaDirectory("$projectDir/schemas")
 }
 
 dependencies {

@@ -2,9 +2,11 @@ package com.mochame.orchestrator
 
 import co.touchlab.kermit.Logger
 import com.mochame.di.IdentityMutex
-import com.mochame.utils.IdGenerator
+import com.mochame.di.IoContext
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
+import com.mochame.metadata.GlobalMetadataStore
+import com.mochame.utils.IdGenerator
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -14,13 +16,13 @@ import kotlin.coroutines.CoroutineContext
 @Single
 class IdentityManager(
     private val metadataStore: GlobalMetadataStore,
-    private val workContext: CoroutineContext,
     private val idGenerator: IdGenerator,
+    @IoContext private val workContext: CoroutineContext,
     @IdentityMutex private val mutex: Mutex,
     logger: Logger
 ) {
     private val logger = logger.withTags(
-        layer = LogTags.Layer.INFRA,
+        layer = LogTags.Layer.ORCH,
         domain = LogTags.Domain.METADATA,
         className = "IdentityManager"
     )

@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidKmpLibrary)
     alias(libs.plugins.kotlinSerialization)
+    alias(libs.plugins.koin.compiler)
 }
 
 kotlin {
@@ -24,9 +25,7 @@ kotlin {
         commonMain.dependencies {
             api(project(":core:metadata"))
             api(project(":core:orchestrator"))
-            implementation(project(":core:utils"))
-            implementation(project(":core:di-api"))
-            implementation(project(":core:logger"))
+            implementation(project(":core:test:support"))
         }
     }
 }

@@ -10,4 +10,5 @@ plugins {
     alias(libs.plugins.androidKmpLibrary) apply false
     alias(libs.plugins.mokkery) apply false
     alias(libs.plugins.androidLint) apply false
+    alias(libs.plugins.koin.compiler) apply false
 }

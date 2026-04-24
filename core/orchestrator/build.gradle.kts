@@ -3,6 +3,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidKmpLibrary)
+    alias(libs.plugins.koin.compiler)
 }
 
 kotlin {
@@ -23,10 +24,10 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(project(":core:utils"))
             implementation(project(":core:metadata"))
-            implementation(project(":sync-engine"))
-            implementation(project(":core:di-api"))
+            implementation(project(":core:logger"))
+            api(project(":core:di-api"))
+            api(project(":core:utils"))
 
             api(libs.kotlinx.coroutines.core)
         }

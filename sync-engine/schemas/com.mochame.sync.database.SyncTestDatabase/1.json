@@ -1,0 +1,231 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 1,
+    "identityHash": "f3213114a70455d20c93ee19b7c87e89",
+    "entities": [
+      {
+        "tableName": "sync_metadata",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`module` TEXT NOT NULL, `serverWatermark` TEXT, `localMaxHlc` TEXT, `syncId` TEXT, `syncStatus` INTEGER NOT NULL, `lastServerSyncTime` INTEGER NOT NULL, `lastLocalMutationTime` INTEGER NOT NULL, PRIMARY KEY(`module`))",
+        "fields": [
+          {
+            "fieldPath": "module",
+            "columnName": "module",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "serverWatermark",
+            "columnName": "serverWatermark",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "localMaxHlc",
+            "columnName": "localMaxHlc",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "syncId",
+            "columnName": "syncId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "syncStatus",
+            "columnName": "syncStatus",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastServerSyncTime",
+            "columnName": "lastServerSyncTime",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastLocalMutationTime",
+            "columnName": "lastLocalMutationTime",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "module"
+          ]
+        }
+      },
+      {
+        "tableName": "mutation_ledger",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`hlc` TEXT NOT NULL, `candidateKey` TEXT NOT NULL, `module` TEXT NOT NULL, `operation` INTEGER NOT NULL, `syncStatus` INTEGER NOT NULL, `syncId` TEXT, `payload` BLOB, `diagnosticSummary` TEXT, `overflowBlobId` TEXT, `hasConflict` INTEGER NOT NULL, `retryCount` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`hlc`))",
+        "fields": [
+          {
+            "fieldPath": "hlc",
+            "columnName": "hlc",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "candidateKey",
+            "columnName": "candidateKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "module",
+            "columnName": "module",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "operation",
+            "columnName": "operation",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "syncStatus",
+            "columnName": "syncStatus",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "syncId",
+            "columnName": "syncId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "payload",
+            "columnName": "payload",
+            "affinity": "BLOB"
+          },
+          {
+            "fieldPath": "diagnosticSummary",
+            "columnName": "diagnosticSummary",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "overflowBlobId",
+            "columnName": "overflowBlobId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "hasConflict",
+            "columnName": "hasConflict",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "retryCount",
+            "columnName": "retryCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "hlc"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_mutation_ledger_syncStatus",
+            "unique": false,
+            "columnNames": [
+              "syncStatus"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_mutation_ledger_syncStatus` ON `${TABLE_NAME}` (`syncStatus`)"
+          },
+          {
+            "name": "index_mutation_ledger_candidateKey_module_syncStatus",
+            "unique": false,
+            "columnNames": [
+              "candidateKey",
+              "module",
+              "syncStatus"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_mutation_ledger_candidateKey_module_syncStatus` ON `${TABLE_NAME}` (`candidateKey`, `module`, `syncStatus`)"
+          },
+          {
+            "name": "index_mutation_ledger_syncStatus_createdAt",
+            "unique": false,
+            "columnNames": [
+              "syncStatus",
+              "createdAt"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_mutation_ledger_syncStatus_createdAt` ON `${TABLE_NAME}` (`syncStatus`, `createdAt`)"
+          },
+          {
+            "name": "index_mutation_ledger_module_syncStatus",
+            "unique": false,
+            "columnNames": [
+              "module",
+              "syncStatus"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_mutation_ledger_module_syncStatus` ON `${TABLE_NAME}` (`module`, `syncStatus`)"
+          },
+          {
+            "name": "index_mutation_ledger_syncId",
+            "unique": false,
+            "columnNames": [
+              "syncId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_mutation_ledger_syncId` ON `${TABLE_NAME}` (`syncId`)"
+          }
+        ]
+      },
+      {
+        "tableName": "global_settings",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `nodeId` TEXT NOT NULL, `lastAppVersion` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nodeId",
+            "columnName": "nodeId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastAppVersion",
+            "columnName": "lastAppVersion",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'f3213114a70455d20c93ee19b7c87e89')"
+    ]
+  }
+}

@@ -100,8 +100,8 @@ kotlin {
             implementation(libs.sqlite.bundled)
 
             // Core Infrastructure
-            implementation(libs.koin.core)
             implementation(libs.kermit)
+            implementation(project(":core:di-api"))
         }
 
         // --- LAYER 2: COMPOSE UI BRIDGE (Y:ANDROID/JVM DESKTOP | N:LINUX/IOS NATIVE) ---

@@ -9,12 +9,13 @@ plugins {
     alias(libs.plugins.mokkery)
     alias(libs.plugins.room)
     alias(libs.plugins.koin.compiler)
+    id("mocha.test.conventions")
+    id("mocha.room")
 }
 
 kotlin {
     jvm()
     linuxX64 {
-        // Access the existing binaries container
         binaries {
             // Find the automatically created 'test' binary
             getTest("debug").linkerOpts(
@@ -28,7 +29,7 @@ kotlin {
     }
 
     android {
-        namespace = "com.mocha.app"
+        namespace = "com.mocha.sync"
         compileSdk = libs.versions.android.compileSdk.get().toInt()
         minSdk = libs.versions.android.minSdk.get().toInt()
 
@@ -38,13 +39,12 @@ kotlin {
             sourceSetTreeName = "test"
         }
 
-        // Enable resources for Robolectric/Compose tests
         androidResources {
             enable = true
         }
 
         compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_17)
+            jvmTarget.set(JvmTarget.fromTarget(libs.versions.jvm.get()))
         }
     }
 
@@ -77,50 +77,38 @@ kotlin {
             implementation(project(":core:test:support"))
             implementation(project(":core:test:orchestrator-test"))
             implementation(project(":core:test:platform-test"))
-            implementation(project(":core:test:utils-test"))
         }
 
-//        val commonTest by getting
-//
-//        val linuxX64Test by getting {
-//        }
-//
-//        jvmTest.dependencies {
-//            implementation(libs.test.junit.jupiter)
-//        }
-//
-//        val androidHostTest by getting {
-//            dependsOn(commonTest)
-//            dependencies {
-//                implementation(libs.junit4)
-//                implementation(libs.test.robolectric)
-//                runtimeOnly(libs.junit.vintage.engine)
-//                implementation(libs.androidx.test.core)
-//            }
-//        }
-//
-//        val androidDeviceTest by getting {
-//            dependsOn(commonTest)
-//            dependencies {
-//                implementation(libs.junit4)
-//                implementation(libs.androidx.test.ext.junit)
-//                implementation(libs.androidx.runner)
-//                implementation(libs.androidx.test.core)
-//                implementation(libs.koin.android)
-//            }
-//        }
-//
-//        if (isMac) {
-//            val iosTest by getting {
-//                dependsOn(commonTest)
-//            }
-//        }
+        val linuxX64Test by getting {
+        }
 
+        jvmTest.dependencies {
+            implementation(kotlin("test-junit5"))
+        }
+
+        val androidHostTest by getting {
+        }
+
+        val androidDeviceTest by getting {
+        }
+
+        if (isMac) {
+        }
+
+    }
+
+    compilerOptions {
+        // Suppresses the 'expect/actual classes are in Beta' warning
+        freeCompilerArgs.add("-Xexpect-actual-classes")
     }
 }
 
-room {
-    schemaDirectory("$projectDir/schemas")
+
+koinCompiler {
+    userLogs = true           // Log component detection
+    debugLogs = true          // Log internal processing (verbose)
+    unsafeDslChecks = true    // Validates create() is the only instruction in lambda (default: true)
+    skipDefaultValues = true  // Skip injection for parameters with default values (default: true)
 }
 
 dependencies {
@@ -139,6 +127,4 @@ dependencies {
         add("kspIosSimulatorArm64", libs.room.compiler)
         add("kspIosSimulatorArm64Test", libs.room.compiler)
     }
-
-
 }

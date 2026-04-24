@@ -2,86 +2,105 @@
 
 package com.mochame.sync.di
 
+import androidx.sqlite.SQLiteDriver
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.TestLogWriter
 import com.mochame.di.IdentityMutex
 import com.mochame.di.JanitorMutex
-import com.mochame.orchestrator.BootStatusUpdater
-import com.mochame.orchestrator.GlobalMetadataStore
-import com.mochame.orchestrator.test.di.OrchestratorTestModule
-import com.mochame.platform.global.GlobalMetadataDao
+import com.mochame.metadata.BootStatusUpdater
+import com.mochame.metadata.test.di.OrchestratorTestModule
+import com.mochame.orchestrator.IdentityManager
 import com.mochame.platform.policies.ExecutionPolicy
+import com.mochame.platform.providers.PlatformContext
 import com.mochame.platform.providers.TransactionProvider
 import com.mochame.platform.test.di.FakePlatformModule
+import com.mochame.support.SupportProviderModule
+import com.mochame.support.di.TestLoggerModule
+import com.mochame.sync.SyncConcurrencyModule
+import com.mochame.sync.SyncDomainModule
+import com.mochame.sync.SyncInfraModule
+import com.mochame.sync.SyncOrchestrationModule
 import com.mochame.sync.data.daos.MutationLedgerDao
 import com.mochame.sync.data.daos.SyncMetadataDao
 import com.mochame.sync.database.SyncTestDatabase
 import com.mochame.sync.domain.providers.SyncUserProvider
 import com.mochame.sync.domain.stores.MetadataStoreMaintenance
 import com.mochame.sync.domain.stores.MutationLedgerMaintenance
+import com.mochame.sync.domain.usecase.PruneOldEntriesUseCase
 import com.mochame.sync.infrastructure.HlcFactory
-import com.mochame.sync.infrastructure.stores.RealMutationLedger
 import com.mochame.sync.infrastructure.stores.RealMetadataStore
+import com.mochame.sync.infrastructure.stores.RealMutationLedger
 import com.mochame.sync.orchestration.SyncJanitor
 import come.mochame.utils.test.FakeDateTimeUtils
 import come.mochame.utils.test.di.FakeClockModule
 import kotlinx.coroutines.sync.Mutex
+import org.koin.core.annotation.ComponentScan
+import org.koin.core.annotation.Factory
+import org.koin.core.annotation.KoinApplication
 import org.koin.core.annotation.Module
-import org.koin.core.module.dsl.factoryOf
-import org.koin.core.module.dsl.singleOf
-import org.koin.dsl.module
+import org.koin.core.annotation.Single
 
-
-@Module(
-    includes = [
-        SyncEngineModule::class,
-        HlcTestModule::class,
-        OrchestratorTestModule::class,
-        FakePlatformModule::class,
-        BlobStoreTestModule::class,
-        FakeClockModule::class
-    ]
-)
-class JanitorTestModule {
-    val definitions = module {
-        factoryOf(::JanitorTestEnvironment)
-    }
-}
-
-@Module(
-    includes = [
-        SyncEngineModule::class,
-        FakePlatformModule::class,
-        FakeClockModule::class
-    ]
-)
-class BlobStoreTestModule {
-    val definitions = module {
-        includes(//future test env
-        )
-    }
-
-}
-
-@Module(
-    includes = [
-        FakeClockModule::class
-    ]
-)
-class HlcTestModule {
-    val definitions = module {
-        singleOf(::HLCTestEnvironment)
-    }
-}
 
 @Module
-class PersistenceTestModule {
-    val definitions = module {
-        singleOf(::SyncPersistenceTestEnv)
+class SyncPersistenceTestModule {
+    @Single
+    fun provideDatabase(
+        context: PlatformContext,
+        driver: SQLiteDriver
+    ): SyncTestDatabase {
+        throw IllegalStateException("Should be overridden by test wrapper")
     }
 }
 
+@KoinApplication(modules = [JanitorTestModule::class])
+object JanitorTestApp
 
+@Module(
+    includes = [
+        SyncOrchestrationModule::class,
+        SyncInfraModule::class,
+        SyncDomainModule::class,
+        SyncConcurrencyModule::class,
+        HlcTestModule::class,
+        OrchestratorTestModule::class,
+        BlobStoreTestModule::class,
+        SupportProviderModule::class,
+        SyncPersistenceTestModule::class
+    ]
+)
+@ComponentScan("com.mochame.sync.di")
+class JanitorTestModule {
+
+    @Single
+    fun provideSyncUserProvider(
+        identityManager: IdentityManager
+    ): SyncUserProvider = object : SyncUserProvider {
+        override suspend fun getOrCreateNodeId(): String {
+            return identityManager.getOrCreateNodeId()
+        }
+    }
+}
+
+@Module(
+    includes = [
+        FakePlatformModule::class,
+        FakeClockModule::class,
+        TestLoggerModule::class
+    ]
+)
+class BlobStoreTestModule
+
+@Module(
+    includes = [
+        FakeClockModule::class
+    ]
+)
+class HlcTestModule
+
+//@Module
+//class PersistenceTestModule
+
+@Factory
 @ExperimentalKermitApi
 data class JanitorTestEnvironment(
     val janitor: SyncJanitor,
@@ -98,6 +117,7 @@ data class JanitorTestEnvironment(
 )
 
 @ExperimentalKermitApi
+@Factory
 data class HLCTestEnvironment(
     val factory: HlcFactory,
     val writer: TestLogWriter,
@@ -105,21 +125,12 @@ data class HLCTestEnvironment(
 )
 
 @ExperimentalKermitApi
-data class IdentityTestEnvironment(
-    val manager: SyncUserProvider,
-    val globalMetaStore: GlobalMetadataStore,
-    val globalMetadataDao: GlobalMetadataDao,
-    val db: SyncTestDatabase,
-    val writer: TestLogWriter
-)
-
-@ExperimentalKermitApi
+@Factory
 data class SyncPersistenceTestEnv(
     val executor: ExecutionPolicy,
     val ledgerDao: MutationLedgerDao,
     val metadataDao: SyncMetadataDao,
     val writer: TestLogWriter,
-    val db: SyncTestDatabase,
     val ledgerStore: RealMutationLedger,
     val metadataStore: RealMetadataStore
 )

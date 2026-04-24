@@ -1,24 +1,24 @@
 package com.mochame.sync.orchestration
 
 import co.touchlab.kermit.Logger
-import com.mochame.platform.policies.ExecutionPolicy
-import com.mochame.platform.providers.TransactionProvider
 import com.mochame.di.AppScope
 import com.mochame.di.IoContext
 import com.mochame.di.JanitorMutex
-import com.mochame.orchestrator.BootStatusUpdater
+import com.mochame.logger.LogTags
+import com.mochame.logger.withTags
+import com.mochame.logger.withTimer
+import com.mochame.metadata.BootState
+import com.mochame.metadata.BootStatusUpdater
+import com.mochame.platform.policies.ExecutionPolicy
+import com.mochame.platform.providers.TransactionProvider
 import com.mochame.sync.domain.providers.SyncUserProvider
 import com.mochame.sync.domain.stores.BlobStager
 import com.mochame.sync.domain.stores.MetadataStoreMaintenance
 import com.mochame.sync.domain.stores.MutationLedgerMaintenance
 import com.mochame.sync.domain.usecase.PruneOldEntriesUseCase
 import com.mochame.sync.infrastructure.HlcFactory
-import com.mochame.orchestrator.BootState
 import com.mochame.utils.exceptions.MochaException
 import com.mochame.utils.exceptions.toMochaException
-import com.mochame.logger.LogTags
-import com.mochame.logger.withTags
-import com.mochame.logger.withTimer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.TimeoutCancellationException
@@ -77,7 +77,7 @@ class SyncJanitor(
 
                             blobReconciliation()
 
-                            logger.i { "Hydration: HLCFactory is hydrated." }
+                            logger.i { "Janitor start up checks finalized..." }
                         }
                     }
                 }

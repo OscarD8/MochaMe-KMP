@@ -1,4 +1,4 @@
-package com.mochame.orchestrator
+package com.mochame.metadata
 
 enum class MutationOp(val id: Int) {
     UPSERT(0),

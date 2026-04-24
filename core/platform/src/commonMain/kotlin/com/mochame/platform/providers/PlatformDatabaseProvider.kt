@@ -5,11 +5,13 @@ import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.SQLiteDriver
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
+import org.koin.core.annotation.Module
 import kotlin.coroutines.CoroutineContext
 
 // This is the "Ghost." Common code can pass it around,
 // but it cannot call any methods on it.
-expect abstract class PlatformContext
+@Module
+expect class PlatformContext
 
 // When you ask for a platformBuilder, the actuals are called
 // this passes any potential context and

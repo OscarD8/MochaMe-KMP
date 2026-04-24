@@ -3,8 +3,8 @@ package com.mochame.schema
 import androidx.room.TypeConverter
 import com.mochame.app.domain.feature.resonance.Resonance
 import com.mochame.app.domain.feature.telemetry.Mood
-import com.mochame.platform.utils.MochaModule
-import com.mochame.platform.utils.MutationOp
+import com.mochame.metadata.MochaModule
+import com.mochame.metadata.MutationOp
 import com.mochame.sync.domain.SyncStatus
 import com.mochame.sync.infrastructure.HLC
 import kotlin.time.Instant
@@ -37,7 +37,7 @@ class MochaConverters {
     // --- TEMPORAL INSTANTS ---
     /**
      * Bridges the gap between the Domain's [kotlin.time.Instant] and the Database's [Long].
-     * Essential for sync heartbeats and timestamps.
+     * Essential for sync and timestamps.
      */
     @TypeConverter
     fun fromInstant(instant: Instant?): Long? {

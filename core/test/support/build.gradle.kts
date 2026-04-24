@@ -8,6 +8,9 @@ plugins {
     alias(libs.plugins.room)
     alias(libs.plugins.kotlinSerialization)
     alias(libs.plugins.mokkery)
+    alias(libs.plugins.koin.compiler)
+    id("mocha.test.conventions")
+    id("mocha.room")
 }
 
 kotlin {
@@ -16,7 +19,7 @@ kotlin {
 
 
     android {
-        namespace = "com.mocha.app"
+        namespace = "com.mocha.test.support"
         compileSdk = libs.versions.android.compileSdk.get().toInt()
         minSdk = libs.versions.android.minSdk.get().toInt()
 
@@ -26,7 +29,7 @@ kotlin {
         }
 
         compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_17)
+            jvmTarget.set(JvmTarget.fromTarget(libs.versions.jvm.get()))
         }
     }
 
@@ -51,7 +54,7 @@ kotlin {
             implementation(libs.sqlite.bundled)
 
             implementation(project(":core:platform"))
-            implementation(project(":core:test:utils-test"))
+            api(project(":core:test:utils-test"))
             api(project(":core:di-api"))
             api(project(":core:logger"))
         }
@@ -84,10 +87,17 @@ kotlin {
         }
     }
 
+    compilerOptions {
+        freeCompilerArgs.add("-Xexpect-actual-classes")
+    }
+
 }
 
-room {
-    schemaDirectory("$projectDir/schemas")
+koinCompiler {
+    userLogs = true           // Log component detection
+    debugLogs = true          // Log internal processing (verbose)
+    unsafeDslChecks = true    // Validates create() is the only instruction in lambda (default: true)
+    skipDefaultValues = true  // Skip injection for parameters with default values (default: true)
 }
 
 dependencies {

@@ -52,5 +52,9 @@ kotlin {
 }
 
 koinCompiler {
+    userLogs = true           // Log component detection
+    debugLogs = false          // Log internal processing (verbose)
+    unsafeDslChecks = true    // Validates create() is the only instruction in lambda (default: true)
+    skipDefaultValues = true  // Skip injection for parameters with default values (default: true)
     compileSafety = true
 }

@@ -2,11 +2,11 @@ package com.mochame.platform.policies
 
 import androidx.sqlite.SQLiteException
 import co.touchlab.kermit.Logger
-import com.mochame.utils.exceptions.isVaultLocked
-import com.mochame.utils.exceptions.toMochaException
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.logger.withTimer
+import com.mochame.utils.exceptions.isVaultLocked
+import com.mochame.utils.exceptions.toMochaException
 import kotlinx.coroutines.delay
 import org.koin.core.annotation.Single
 import kotlin.coroutines.cancellation.CancellationException
@@ -26,7 +26,7 @@ class SqliteResiliencePolicy(
         private const val INITIAL_DELAY = 10L
     }
 
-    private val logger = rootLogger.withFoundryTags(
+    private val logger = logger.withTags(
         layer = LogTags.Layer.INFRA,
         domain = LogTags.Domain.SYNC,
         className = "SQLiteExecutor"

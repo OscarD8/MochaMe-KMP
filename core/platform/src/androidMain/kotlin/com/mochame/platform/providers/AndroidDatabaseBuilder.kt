@@ -4,9 +4,11 @@ import android.content.Context
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.sqlite.SQLiteDriver
+import org.koin.core.annotation.Module
 import kotlin.coroutines.CoroutineContext
 
-actual typealias PlatformContext = Context
+@Module
+actual class PlatformContext(val androidContext: Context)
 
 actual inline fun <reified T : RoomDatabase> platformBuilder(
     context: PlatformContext,
@@ -17,9 +19,9 @@ actual inline fun <reified T : RoomDatabase> platformBuilder(
     noinline factory: () -> T
 ): RoomDatabase.Builder<T> {
     val builder = if (isTest) {
-        Room.inMemoryDatabaseBuilder(context, factory)
+        Room.inMemoryDatabaseBuilder(context.androidContext, factory)
     } else {
-        Room.databaseBuilder<T>(context, path!!.databasePath, factory)
+        Room.databaseBuilder<T>(context.androidContext, path!!.databasePath, factory)
     }
     return builder.applyMochaDefaults(queryContext, driver)
 }

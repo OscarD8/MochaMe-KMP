@@ -1,3 +1,8 @@
 package com.mochame.logger
 
-actual fun getPlatformTag(): String = "JVM"
+import com.mochame.di.PlatformTag
+import org.koin.core.annotation.Single
+
+@Single
+@PlatformTag
+fun provideTag() = "JVM"

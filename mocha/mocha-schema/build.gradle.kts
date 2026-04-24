@@ -42,6 +42,7 @@ kotlin {
             implementation(project(":mocha:mocha-feature:bio"))
 //            implementation(project(":mocha-feature:telemetry"))
             implementation(project(":composeApp"))
+            implementation(project(":core:metadata"))
         }
     }
 }

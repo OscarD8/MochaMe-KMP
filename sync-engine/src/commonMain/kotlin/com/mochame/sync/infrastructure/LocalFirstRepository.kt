@@ -4,11 +4,11 @@ import co.touchlab.kermit.Logger
 import com.mochame.platform.policies.ExecutionPolicy
 import com.mochame.platform.providers.TransactionProvider
 import com.mochame.di.IoContext
-import com.mochame.orchestrator.BootState
-import com.mochame.orchestrator.MochaModule
-import com.mochame.orchestrator.MutationOp
+import com.mochame.metadata.BootState
+import com.mochame.metadata.MochaModule
+import com.mochame.metadata.MutationOp
 import com.mochame.sync.data.entities.SyncIntentEntity
-import com.mochame.orchestrator.BootStatusProvider
+import com.mochame.metadata.BootStatusProvider
 import com.mochame.sync.domain.PayloadEncoder
 import com.mochame.sync.domain.SyncReceiver
 import com.mochame.sync.domain.SyncStatus

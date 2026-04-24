@@ -13,6 +13,7 @@ pluginManagement {
         mavenCentral()
         gradlePluginPortal()
     }
+    includeBuild("build-logic")
 }
 
 dependencyResolutionManagement {
@@ -32,7 +33,6 @@ plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
 
-includeBuild("build-logic")
 
 include(":composeApp")
 include(":app:entry:androidApp")
@@ -50,6 +50,7 @@ include(":core:test:support")
 include(":core:test:orchestrator-test")
 include(":core:test:platform-test")
 include(":core:test:utils-test")
+include("core:test:sync-engine-test")
 
 include(":sync-engine")
 
