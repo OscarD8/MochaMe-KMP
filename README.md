@@ -71,9 +71,9 @@ MochaMe/
 
 #### Gradle Build-Logic Configs
 
-##### Core builds to plug in, and what they provide.
+###### Core builds to plug in, and what they provide.
 
-###### 1. `mocha.provider` (Lightweight Infrastructure)
+##### 1. `mocha.provider` (Lightweight Infrastructure)
 
 **Purpose:** Configures pure structural dependencies and targets for modules that act as APIs or expect/actual providers for simple requirements. Avoids all test runner configuration.
 
@@ -83,7 +83,7 @@ MochaMe/
 - **Koin Compiler:** Applied.
 - **Room Scope:** None.
 
-###### 2. `mocha.logic` (Pure Logic)
+##### 2. `mocha.logic` (Pure Logic)
 
 **Purpose:** Configures the standard execution environment for pure Kotlin modules that do not define persistence schemas. Essentially just tools.
 
@@ -93,7 +93,7 @@ MochaMe/
 - **Koin Compiler:** Applied.
 - **Room Scope:** None.
 
-###### 3. `mocha.feature` (Heavy Components)
+##### 3. `mocha.feature` (Heavy Components)
 
 **Purpose:** Designed exclusively for features that require isolated micro-schemas for testing their integration logic across platforms.
 
@@ -102,9 +102,9 @@ MochaMe/
 - **Test Runners:** Standard test runners (`androidHostTest`, `jvmTest`, `linuxX64Test`, iOS) injected.
 - **Koin Compiler:** Applied.
 - **Room Scope:** Runtime: Provided to `commonMain`.
-- **KSP (Compiler):** Applied strictly to test configurations (e.g., `kspAndroidHostTest`, `kspJvmTest`) using target iteration. Keep main compilation free of generation overhead - no `@Database` in main, purely in test.
+- **KSP (Compiler):** Applied strictly to test configurations purely for Room, not Koin (e.g., `kspAndroidHostTest`, `kspJvmTest`). Keeps main targets free of generation overhead - no `@Database` in main, purely in test.
 
-###### 4. `mocha.assembler` (Aggregator)
+##### 4. `mocha.assembler` (Aggregator)
 
 **Purpose:** Configures the final assembly points where domain DAOs are aggregated into production code.
 

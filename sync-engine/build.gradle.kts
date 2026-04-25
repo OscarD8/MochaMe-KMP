@@ -4,10 +4,7 @@ plugins {
 
 kotlin {
     android { namespace = "com.mocha.sync" }
-}
 
-
-kotlin {
     linuxX64 {
         binaries.getTest("debug").linkerOpts(
             "-Wl,--allow-shlib-undefined",
