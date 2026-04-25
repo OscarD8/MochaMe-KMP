@@ -150,7 +150,7 @@ class RealBlobStore(
                 .map { it.name }
                 .filter { it.length == 64 && !it.startsWith("staging_") } //
         } catch (e: Exception) {
-            logger.e(e) { "Infrastructure: Failed to scan pending chamber for hashes." }
+            logger.e(e) { "Failed to scan pending chamber for hashes." }
             emptyList()
         }
     }
@@ -221,11 +221,11 @@ class RealBlobStore(
             try {
                 if (!fileSystem.exists(pendingDir)) {
                     fileSystem.createDirectories(pendingDir)
-                    logger.i { "Infrastructure: Initialized Pending Chamber at $pendingDir" }
+                    logger.i { "Init Pending Chamber at $pendingDir" }
                 }
                 if (!fileSystem.exists(committedDir)) {
                     fileSystem.createDirectories(committedDir)
-                    logger.i { "Infrastructure: Initialized Committed Chamber at $committedDir" }
+                    logger.i { "Init Committed Chamber at $committedDir" }
                 }
                 chambersVerified = true
             } catch (e: Exception) {

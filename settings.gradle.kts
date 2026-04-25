@@ -50,7 +50,6 @@ include(":core:test:support")
 include(":core:test:orchestrator-test")
 include(":core:test:platform-test")
 include(":core:test:utils-test")
-include("core:test:sync-engine-test")
 
 include(":sync-engine")
 

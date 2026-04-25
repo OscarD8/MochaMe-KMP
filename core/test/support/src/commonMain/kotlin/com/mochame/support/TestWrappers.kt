@@ -22,29 +22,24 @@ import kotlin.coroutines.ContinuationInterceptor
 import kotlin.coroutines.CoroutineContext
 
 /**
- * Wrapper method that calls [platformBuilder] which handles establishing an
- * inMemory database, with platform dependencies overridden in :core:platform
- * via an interception of this methods [getPlatformTestDependencies] that
- * does what it says purely in relation to database dependencies.
+ * A wrapper method that calls [platformBuilder] which handles establishing a
+ * database for production, but this method overrides platform dependencies in :core:platform
+ * via an interception through Koin that links test dependencies. isTest is set
+ * to true for the database builder, ensuring an inMemory database is built. Koin DSL is
+ * used to provide a hybrid approach to dependency injection, allowing the
+ * runtime isolated [TestScope] to be fetched and wired into the
+ * [androidx.room.RoomDatabase.Builder.setQueryCoroutineContext] of the
+ * database builder, and any components requiring a [CoroutineContext] or [CoroutineScope]
+ * themselves. This is handled by the nested [utilizeTestScope].
  *
  * By calling this method, any scopes and coroutine contexts will be aligned
  * with the current [TestScope], the inMemory database will be established,
- * passing control back to the caller to handle their DAOs,
  * and the TestScope provided to the caller for manipulating the virtual
  * clock. The provided environment will be the scope you are now in.
- *
- * The idea is to iterate the koin dependency graph. Order of instantiating
- * for dependency mapping:
- * - Test Context, Platform Dependencies, Logger
- * - Database (accepts updated query context, and platform dependencies)
- * - DAOs (database now initialized)
- * - Caller modules (scopes, contexts and DAOs can now be mapped - protect against
- * production components that declare `createdAtStart`)
  */
 inline fun <reified T : RoomDatabase, reified E : Any> runTestWithPersistence(
     constructor: RoomDatabaseConstructor<T>,
     crossinline koinSetup: KoinApplication.() -> Unit = {},
-    crossinline daoWiring: T.() -> Module = { module { } },
     crossinline block: suspend E.(TestScope) -> Unit
 ) = runTest {
 
@@ -56,7 +51,7 @@ inline fun <reified T : RoomDatabase, reified E : Any> runTestWithPersistence(
 
     val koin = koinApp.koin
 
-    val db = platformBuilder<T>(
+    val database = platformBuilder<T>(
         context = koin.get(),
         queryContext = koin.get(qualifier<IoContext>()),
         isTest = true,
@@ -68,26 +63,16 @@ inline fun <reified T : RoomDatabase, reified E : Any> runTestWithPersistence(
     koin.loadModules(
         listOf(
             module {
-                single<T> { db }
+                single<T> { database }
                 single<TransactionProvider> { RoomImmediateTransProvider(get<T>()) }
             },
-            db.daoWiring()
         )
     )
 
-    // Its actually really helpful
     try {
         koin.createEagerInstances()
     } catch (e: Exception) {
-        println("\n🚨 === DI REGISTRY FAILURE === 🚨")
-        println("Crash: ${e.message}")
-        var cause = e.cause
-        while (cause != null) {
-            println("Missing Component: ${cause.message}")
-            cause = cause.cause
-        }
-        println("🚨 =========================== 🚨\n")
-        throw e
+        reportDiFailureAndThrow(e)
     }
 
     val environment = koin.get<E>()
@@ -95,20 +80,20 @@ inline fun <reified T : RoomDatabase, reified E : Any> runTestWithPersistence(
     try {
         environment.block(this)
     } finally {
-        db.close()
+        database.close()
         koinApp.close()
     }
 }
 
 
 @org.koin.core.annotation.Module
-expect class SupportProviderModule()
+expect class TestSupportModule()
 
 /**
- * Allocates all execution contexts to the context of the current test dispatcher.
- * An annotation for AppScope is overridden with the same test scope.
+ * Links the current test [kotlin.coroutines.coroutineContext] from the [TestScope]
+ * to qualifiers associated with coroutine context in the SUT.
  *
- * @return [Module] having wired the context from this [TestScope]
+ * @return [Module] wiring the context from this [TestScope]
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 fun TestScope.utilizeTestScope(): Module {
@@ -122,4 +107,21 @@ fun TestScope.utilizeTestScope(): Module {
         single<CoroutineContext>(qualifier<MainContext>()) { testContext }
         single<CoroutineContext>(qualifier<DefaultContext>()) { testContext }
     }
+}
+
+/**
+ * Forgive the format. It's really helpful.
+ */
+fun reportDiFailureAndThrow(e: Exception): Nothing {
+    println("\n🚨 === DI REGISTRY FAILURE === 🚨")
+    println("Crash: ${e.message}")
+
+    var cause = e.cause
+    while (cause != null) {
+        println("Missing Component: ${cause.message}")
+        cause = cause.cause
+    }
+
+    println("🚨 =========================== 🚨\n")
+    throw e
 }

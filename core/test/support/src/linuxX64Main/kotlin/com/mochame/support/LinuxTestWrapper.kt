@@ -12,7 +12,7 @@ import org.koin.core.annotation.Configuration
 
 @Module
 @Configuration
-actual class SupportProviderModule {
+actual class TestSupportModule {
     @Single
     @PlatformTag
     fun provideTag(): String = TestTag.LINUX_X64

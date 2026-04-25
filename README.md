@@ -54,7 +54,6 @@ MochaMe/
     ├── :iosApp/                       # iOS Framework + @Database
     └── :cli-linux/                    # (Headless) Native Binary + @Database
 ```
-<<<<<<< Updated upstream
 <br>
 
 <div align="center">
@@ -63,13 +62,62 @@ MochaMe/
 
 </div>
 
-=======
+</details>
+
 ---
+
+<details>
+<summary><b> Approach to Gradle Build Design </b></summary>
+
+## Gradle Build-Logic Configs
+
+#### What you plug in is what you get:
+
+## 1. `mocha.provider` (Lightweight Infrastructure)
+
+**Purpose:** Configures pure structural dependencies and targets for modules that act as APIs or expect/actual providers for simple requirements. Avoids all test runner configuration.
+
+- **Targets Declared:** `jvm()`, `linuxX64()`, `android()`, iOS.
+- **Source Sets Declared:** None explicitly.
+- **Test Runners:** None.
+- **Koin Compiler:** Applied.
+- **Room Scope:** None.
+
+## 2. `mocha.logic` (Pure Logic)
+
+**Purpose:** Configures the standard execution environment for pure Kotlin modules that do not define persistence schemas. Essentially just tools.
+
+- **Targets Declared:** `jvm()`, `linuxX64()`, `android()`, iOS.
+- **Source Sets Declared:** `androidHostTest`, `androidDeviceTest`, `jvmTest`
+- **Test Runners:** Standard test runners (`androidHostTest`, `jvmTest`, `linuxX64Test`, iOS) injected - _unit tests_.
+- **Koin Compiler:** Applied.
+- **Room Scope:** None.
+
+## 3. `mocha.feature` (Heavy Components)
+
+**Purpose:** Designed exclusively for features that require isolated micro-schemas for testing their integration logic across platforms.
+
+- **Targets Declared:** `jvm()`, `linuxX64()`, `android()`, iOS.
+- **Source Sets Declared:** `commonMain`: Injects `implementation(libs.room.runtime)` to allow `@Dao` and `@Entity` compilation.
+- **Test Runners:** Standard test runners (`androidHostTest`, `jvmTest`, `linuxX64Test`, iOS) injected.
+- **Koin Compiler:** Applied.
+- **Room Scope:** Runtime: Provided to `commonMain`.
+- **KSP (Compiler):** Applied strictly to test configurations (e.g., `kspAndroidHostTest`, `kspJvmTest`) using target iteration. Keep main compilation free of generation overhead - no `@Database` in main, purely in test.
+
+## 4. `mocha.assembler` (Aggregator)
+
+**Purpose:** Configures the final assembly points where domain DAOs are aggregated into production code.
+
+- **Targets Declared:** `jvm()`, `linuxX64()`, `android()`, iOS.
+- **Source Sets Declared:** `commonMain`: Injects `implementation(libs.room.runtime)`.
+- **Test Runners:** Fully configured.
+- **Koin Compiler:** Applied.
+- **Room Scope:** Runtime: Provided to `commonMain`.
+- **KSP (Compiler):** Applied to standard main configurations (e.g., `kspAndroid`, `kspJvm`). Expect `@Database` in main.
 
 <br>
 
-<img src="docs/images/application-architecture.webp" alt="app architecture mermaid diagram">
->>>>>>> Stashed changes
+<img src="docs/images/gradle-arch.webp" alt="gradle architecture mermaid diagram">
 
 </details>
 
@@ -122,7 +170,7 @@ Every major implementation discussion must conclude with a flashcard:
 
 <br>
 
-At its core, sleep context wraps each day, and the non nullable fields of any moment:
+At its core, sleep context wraps each day, and the non-nullable fields of any moment:
 
 ```
         +Int satisfactionScore "1-10"

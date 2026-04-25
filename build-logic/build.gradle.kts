@@ -7,4 +7,5 @@ dependencies {
     api(libs.ksp.gradle.plugin)
     api(libs.kotlin.gradle.plugin)
     api(libs.room.gradle.plugin)
+    api(libs.androidKmpLibrary)
 }

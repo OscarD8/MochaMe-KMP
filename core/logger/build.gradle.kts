@@ -12,12 +12,6 @@ kotlin {
         compileSdk = libs.versions.android.compileSdk.get().toInt()
         minSdk = libs.versions.android.minSdk.get().toInt()
 
-        withHostTestBuilder { }
-
-        withDeviceTestBuilder {
-            sourceSetTreeName = "test"
-        }
-
         androidResources {
             enable = true
         }
@@ -42,11 +36,6 @@ kotlin {
             api(libs.kermit)
             implementation(libs.kotlinx.datetime)
             implementation(libs.kotlinx.io.core)
-        }
-
-        commonTest.dependencies {
-            implementation(kotlin("test"))
-            api(libs.kermit.test)
         }
     }
 }
