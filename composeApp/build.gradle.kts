@@ -37,8 +37,8 @@ tasks.withType<Test>().configureEach {
 kotlin {
     android {
         namespace = "com.mocha.app"
-        compileSdk = libs.versions.android.compileSdk.get().toInt()
-        minSdk = libs.versions.android.minSdk.get().toInt()
+        compileSdk = 36
+        minSdk = 26
 
         // This command "unlocks" the folder you are looking for
         withHostTestBuilder { }

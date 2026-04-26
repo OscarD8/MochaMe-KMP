@@ -16,8 +16,8 @@ kotlin {
 
     android {
         namespace = "com.mocha.app"
-        compileSdk = libs.versions.android.compileSdk.get().toInt()
-        minSdk = libs.versions.android.minSdk.get().toInt()
+        compileSdk = libs.versions.android.sdk.compile.get().toInt()
+        minSdk = libs.versions.android.sdk.min.get().toInt()
 
         withHostTestBuilder { }
 
@@ -31,7 +31,7 @@ kotlin {
         }
 
         compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_17)
+            jvmTarget.set(JvmTarget.fromTarget(libs.versions.java.jvmTarget.get()))
         }
     }
 

@@ -21,7 +21,10 @@ actual inline fun <reified T : RoomDatabase> platformBuilder(
     val builder = if (isTest) {
         Room.inMemoryDatabaseBuilder(factory)
     } else {
-        Room.databaseBuilder<T>(name = path!!.databasePath, factory = factory)
+        val dbPath = requireNotNull(path?.databasePath) {
+            "Build Error: Production Database requested but AppPathsProvider (path) is null."
+        }
+        Room.databaseBuilder<T>(name = path.databasePath, factory = factory)
     }
     return builder.applyMochaDefaults(queryContext, driver)
 }

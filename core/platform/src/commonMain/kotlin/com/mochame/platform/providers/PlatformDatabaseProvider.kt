@@ -8,13 +8,17 @@ import androidx.sqlite.execSQL
 import org.koin.core.annotation.Module
 import kotlin.coroutines.CoroutineContext
 
-// This is the "Ghost." Common code can pass it around,
-// but it cannot call any methods on it.
+
 @Module
 expect class PlatformContext
 
-// When you ask for a platformBuilder, the actuals are called
-// this passes any potential context and
+
+sealed interface DatabaseLocation {
+    data object InMemory : DatabaseLocation
+    data class OnDisk(val path: String) : DatabaseLocation
+}
+
+
 expect inline fun <reified T : RoomDatabase> platformBuilder(
     context: PlatformContext,
     queryContext: CoroutineContext,

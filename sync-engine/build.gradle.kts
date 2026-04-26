@@ -1,5 +1,5 @@
 plugins {
-    id("mocha.feature")
+    id("mocha.convention.feature")
 }
 
 kotlin {

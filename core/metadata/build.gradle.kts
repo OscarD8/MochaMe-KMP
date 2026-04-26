@@ -1,33 +1,12 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-
-
 plugins {
-    alias(libs.plugins.kotlinMultiplatform)
-    alias(libs.plugins.androidKmpLibrary)
-    alias(libs.plugins.koin.compiler)
+    id("mocha.convention.provider")
     alias(libs.plugins.kotlinSerialization)
 }
 
 kotlin {
-    android {
-        namespace = "com.mocha.metadata"
-        compileSdk = libs.versions.android.compileSdk.get().toInt()
-        minSdk = libs.versions.android.minSdk.get().toInt()
-
-        androidResources {
-            enable = true
-        }
-
-        compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_17)
-        }
-    }
-
-    jvm()
-    linuxX64()
+    android { namespace = "com.mocha.metadata" }
 
     sourceSets {
-
         commonMain.dependencies {
             implementation(project(":core:utils"))
             implementation(project(":core:di-api"))

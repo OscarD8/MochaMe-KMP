@@ -21,23 +21,10 @@ actual inline fun <reified T : RoomDatabase> platformBuilder(
     val builder = if (isTest) {
         Room.inMemoryDatabaseBuilder(context.androidContext, factory)
     } else {
-        Room.databaseBuilder<T>(context.androidContext, path!!.databasePath, factory)
+        val dbPath = requireNotNull(path?.databasePath) {
+            "Build Error: Production Database requested but AppPathsProvider (path) is null."
+        }
+        Room.databaseBuilder<T>(context.androidContext, path.databasePath, factory)
     }
     return builder.applyMochaDefaults(queryContext, driver)
 }
-
-//actual class AndroidEnvironment(private val context: Context) : DatabaseEnvironment {
-//    override fun <T : RoomDatabase> build(
-//        create: (Context) -> RoomDatabase.Builder<T>
-//    ): T {
-//        // 1. The feature module uses the context to call the REIFIED builder
-//        val builder = create(context)
-//
-//        // 2. The platform module applies the shared, complex configuration
-//        return builder
-//            .setDriver(BundledSQLiteDriver())
-//            .setQueryCoroutineContext(Dispatchers.IO)
-//            .fallbackToDestructiveMigration(dropAllTables = true)
-//            .build()
-//    }
-//}
