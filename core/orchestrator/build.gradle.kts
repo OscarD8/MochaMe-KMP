@@ -14,5 +14,10 @@ kotlin {
 
             implementation(libs.kotlinx.coroutines.core)
         }
+
+        commonTest.dependencies {
+            implementation(project(":core:test:fixtures-metadata"))
+            implementation(project(":core:platform"))
+        }
     }
 }

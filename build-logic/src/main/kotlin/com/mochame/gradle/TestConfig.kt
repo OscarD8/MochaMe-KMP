@@ -41,8 +41,8 @@ fun KotlinMultiplatformExtension.configureTestTargets(libs: VersionCatalog) {
                 implementation(libs.getLibrary("junit4"))
                 implementation(libs.getLibrary("test-robolectric"))
                 implementation(libs.getLibrary("test-mockk"))
-                runtimeOnly(libs.getLibrary("junit-vintage-engine"))
                 implementation(libs.getLibrary("androidx-test-core"))
+                runtimeOnly(libs.getLibrary("junit-vintage-engine"))
             }
         }
 

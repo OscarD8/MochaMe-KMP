@@ -17,7 +17,7 @@ import kotlin.coroutines.CoroutineContext
 class IdentityManager(
     private val metadataStore: GlobalMetadataStore,
     private val idGenerator: IdGenerator,
-    @IoContext private val workContext: CoroutineContext,
+    @IoContext private val ioContext: CoroutineContext,
     @IdentityMutex private val mutex: Mutex,
     logger: Logger
 ) {
@@ -30,7 +30,7 @@ class IdentityManager(
     /**
      * Ensures this device has a name before the Janitor starts the clock.
      */
-    suspend fun getOrCreateNodeId(): String = withContext(workContext) {
+    suspend fun getOrCreateNodeId(): String = withContext(ioContext) {
         mutex.withLock {
             logger.d { "Resolving Node ID..." }
 

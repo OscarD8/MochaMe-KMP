@@ -19,7 +19,7 @@ kotlin {
 
         commonTest.dependencies {
             implementation(project(":core:test:support"))
-            implementation(project(":core:test:orchestrator-test"))
+            implementation(project(":core:test:fixtures-orchestrator"))
         }
     }
 }

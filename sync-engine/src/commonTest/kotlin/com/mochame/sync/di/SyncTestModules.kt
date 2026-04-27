@@ -9,12 +9,12 @@ import com.mochame.di.IdentityMutex
 import com.mochame.di.JanitorMutex
 import com.mochame.logger.test.TestLoggerModule
 import com.mochame.metadata.BootStatusUpdater
-import com.mochame.orchestrator.test.di.OrchestratorTestModule
 import com.mochame.orchestrator.IdentityManager
+import com.mochame.orchestrator.fixtures.OrchestratorFixtureModule
 import com.mochame.platform.global.GlobalMetadataDao
 import com.mochame.platform.providers.PlatformContext
 import com.mochame.platform.providers.TransactionProvider
-import com.mochame.platform.test.di.FakePlatformModule
+import com.mochame.platform.fixtures.di.FakePlatformModule
 import com.mochame.support.TestSupportModule
 import com.mochame.sync.SyncConcurrencyModule
 import com.mochame.sync.SyncDomainModule
@@ -28,7 +28,7 @@ import com.mochame.sync.domain.stores.MetadataStoreMaintenance
 import com.mochame.sync.domain.stores.MutationLedgerMaintenance
 import com.mochame.sync.infrastructure.HlcFactory
 import com.mochame.sync.orchestration.SyncJanitor
-import com.mochame.utils.test.di.FakeClockModule
+import com.mochame.utils.fixtures.di.FakeClockModule
 import kotlinx.coroutines.sync.Mutex
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Factory
@@ -68,7 +68,7 @@ class SyncPersistenceTestModule {
     // -----------------------------------------------------------
     @Single
     fun provideTransactionProvider(): TransactionProvider =
-        error("Blueprint Slot Only: Overridden at runtime in TestWrappers.kt")
+        error("Blueprint Slot Only: Overridden at runtime in WrapperPersistence.kt")
 }
 
 @KoinApplication(modules = [JanitorTestModule::class])
@@ -81,7 +81,7 @@ object JanitorTestApp
         SyncDomainModule::class,
         SyncConcurrencyModule::class,
         HlcTestModule::class,
-        OrchestratorTestModule::class,
+        OrchestratorFixtureModule::class,
         BlobStoreTestModule::class,
         TestSupportModule::class,
         SyncPersistenceTestModule::class,

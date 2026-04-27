@@ -31,9 +31,9 @@ kotlin {
         }
 
         commonTest.dependencies {
-            implementation(project(":core:test:orchestrator-test"))
-            implementation(project(":core:test:platform-test"))
-            implementation(project(":core:test:utils-test"))
+            implementation(project(":core:test:fixtures-orchestrator"))
+            implementation(project(":core:test:fixtures-platform"))
+            implementation(project(":core:test:fixtures-utils"))
         }
     }
 }

@@ -47,9 +47,10 @@ include(":core:metadata")
 include(":core:logger")
 
 include(":core:test:support")
-include(":core:test:orchestrator-test")
-include(":core:test:platform-test")
-include(":core:test:utils-test")
+include(":core:test:fixtures-platform")
+include(":core:test:fixtures-orchestrator")
+include(":core:test:fixtures-utils")
+include(":core:test:fixtures-metadata")
 include(":core:test:testlogger")
 
 include(":sync-engine")
