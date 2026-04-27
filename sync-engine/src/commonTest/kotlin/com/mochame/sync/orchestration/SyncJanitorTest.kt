@@ -5,6 +5,7 @@ package com.mochame.sync.orchestration
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Severity
 import com.mochame.metadata.MochaModule
+import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runTestWithPersistence
 import com.mochame.sync.database.SyncDatabaseConstructor
 import com.mochame.sync.database.SyncTestDatabase
@@ -31,7 +32,7 @@ inline fun runJanitorTest(crossinline block: JanitorTestEnvironment.(TestScope) 
 
 
 @ExperimentalCoroutinesApi
-class SyncJanitorTest {
+class SyncJanitorTest : MochaPlatformTest() {
 
     // -----------------------------------------------------------
     // LOGGING

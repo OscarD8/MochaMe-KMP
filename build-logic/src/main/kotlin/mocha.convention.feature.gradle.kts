@@ -2,8 +2,6 @@ import com.mochame.gradle.configureTargets
 import com.mochame.gradle.getLibrary
 import com.mochame.gradle.libs
 import com.mochame.gradle.standardConfigurations
-import gradle.kotlin.dsl.accessors._aea48d7fc91284f74eb23540e788dcf0.room
-import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinMetadataTarget
 
 plugins {
     id("org.jetbrains.kotlin.multiplatform")
@@ -31,23 +29,6 @@ kotlin {
         }
     }
 }
-
-
-
-//dependencies {
-//    val roomCompiler = libs.getLibrary("room-compiler")
-//
-//    kotlin.targets.configureEach {
-//        if (this !is KotlinMetadataTarget) {
-//            val testKspName = "ksp${name.replaceFirstChar { it.uppercase() }}Test"
-//
-//            configurations.matching { it.name == testKspName }.configureEach {
-//                project.dependencies.add(this.name, roomCompiler)
-//            }
-//        }
-//    }
-//}
-
 
 room {
     schemaDirectory("$projectDir/schemas")

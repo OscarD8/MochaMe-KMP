@@ -3,11 +3,11 @@ package com.mochame.platform.test.di
 import co.touchlab.kermit.Logger
 import com.mochame.di.CommittedDir
 import com.mochame.di.PendingDir
+import com.mochame.logger.test.TestLoggerModule
 import com.mochame.platform.policies.ExecutionPolicy
 import com.mochame.platform.policies.SqliteResiliencePolicy
 import com.mochame.platform.test.TestWorkspace
 import com.mochame.platform.test.createTestWorkspace
-import com.mochame.support.di.TestLoggerModule
 import com.mochame.utils.Digest
 import com.mochame.utils.Hasher
 import kotlinx.io.Source
@@ -15,12 +15,9 @@ import kotlinx.io.files.FileSystem
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlinx.io.readByteArray
-import org.koin.core.annotation.Configuration
 import org.koin.core.annotation.Factory
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
-import org.koin.core.qualifier.qualifier
-import org.koin.dsl.module
 
 /**
  * Provides a fake Hasher and test file workspace.

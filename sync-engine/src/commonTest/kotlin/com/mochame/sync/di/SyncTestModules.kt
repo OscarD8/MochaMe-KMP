@@ -7,15 +7,15 @@ import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.TestLogWriter
 import com.mochame.di.IdentityMutex
 import com.mochame.di.JanitorMutex
+import com.mochame.logger.test.TestLoggerModule
 import com.mochame.metadata.BootStatusUpdater
-import com.mochame.metadata.test.di.OrchestratorTestModule
+import com.mochame.orchestrator.test.di.OrchestratorTestModule
 import com.mochame.orchestrator.IdentityManager
 import com.mochame.platform.global.GlobalMetadataDao
 import com.mochame.platform.providers.PlatformContext
 import com.mochame.platform.providers.TransactionProvider
 import com.mochame.platform.test.di.FakePlatformModule
 import com.mochame.support.TestSupportModule
-import com.mochame.support.di.TestLoggerModule
 import com.mochame.sync.SyncConcurrencyModule
 import com.mochame.sync.SyncDomainModule
 import com.mochame.sync.SyncInfraModule

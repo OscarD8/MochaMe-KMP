@@ -20,18 +20,7 @@ fun KotlinMultiplatformExtension.configureTestTargets(libs: VersionCatalog) {
                 implementation(libs.getLibrary("koin-test"))
                 implementation(libs.getLibrary("kermit-test"))
 
-                implementation(project.project(":core:test:support"))
-            }
-        }
-
-        named("androidHostTest") {
-            dependsOn(commonTestProvider.get())
-            dependencies {
-                implementation(libs.getLibrary("junit4"))
-                implementation(libs.getLibrary("test-robolectric"))
-                implementation(libs.getLibrary("test-mockk"))
-                runtimeOnly(libs.getLibrary("junit-vintage-engine"))
-                implementation(libs.getLibrary("androidx-test-core"))
+                implementation(project(":core:test:support"))
             }
         }
 
@@ -44,6 +33,17 @@ fun KotlinMultiplatformExtension.configureTestTargets(libs: VersionCatalog) {
 
         named("linuxX64Test") {
             dependsOn(commonTestProvider.get())
+        }
+
+        named("androidHostTest") {
+            dependsOn(commonTestProvider.get())
+            dependencies {
+                implementation(libs.getLibrary("junit4"))
+                implementation(libs.getLibrary("test-robolectric"))
+                implementation(libs.getLibrary("test-mockk"))
+                runtimeOnly(libs.getLibrary("junit-vintage-engine"))
+                implementation(libs.getLibrary("androidx-test-core"))
+            }
         }
 
         named("androidDeviceTest") {

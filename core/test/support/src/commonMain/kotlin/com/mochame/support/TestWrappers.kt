@@ -6,6 +6,7 @@ import com.mochame.di.AppScope
 import com.mochame.di.DefaultContext
 import com.mochame.di.IoContext
 import com.mochame.di.MainContext
+import com.mochame.logger.test.TestLoggerModule
 import com.mochame.platform.providers.RoomImmediateTransProvider
 import com.mochame.platform.providers.TransactionProvider
 import com.mochame.platform.providers.platformBuilder
@@ -20,6 +21,9 @@ import org.koin.dsl.koinApplication
 import org.koin.dsl.module
 import kotlin.coroutines.ContinuationInterceptor
 import kotlin.coroutines.CoroutineContext
+
+
+expect abstract class MochaPlatformTest()
 
 /**
  * A wrapper method that calls [platformBuilder] which handles establishing a

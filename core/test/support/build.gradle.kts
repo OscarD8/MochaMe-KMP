@@ -7,34 +7,23 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            api(kotlin("test"))
-            api(libs.koin.test)
-            api(libs.kotlinx.serialization.protobuf)
-            api(libs.kotlinx.coroutines.test)
-            api(libs.kermit.test)
-            api(libs.turbine)
-            api(libs.room.runtime)
+            implementation(kotlin("test"))
             implementation(libs.sqlite.bundled)
+            implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.room.runtime)
 
             implementation(project(":core:platform"))
-            api(project(":core:test:utils-test"))
-            api(project(":core:di-api"))
-            api(project(":core:logger"))
+            implementation(project(":core:test:utils-test"))
+            implementation(project(":core:di-api"))
+            api(project(":core:test:testlogger"))
         }
 
         androidMain.dependencies {
-            api(libs.test.robolectric)
-            api(libs.androidx.test.core)
-            api(libs.junit4)
-            api(libs.test.mockk)
+            implementation(libs.test.robolectric)
+            implementation(libs.androidx.test.core)
+            implementation(libs.junit4)
+            implementation(libs.test.mockk)
             implementation(libs.androidx.junit.ktx)
-            runtimeOnly(libs.junit.vintage.engine)
-        }
-
-        val jvmMain by getting {
-            dependencies {
-                api(libs.test.junit.jupiter)
-            }
         }
     }
 }

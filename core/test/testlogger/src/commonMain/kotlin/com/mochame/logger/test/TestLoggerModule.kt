@@ -1,4 +1,4 @@
-package com.mochame.support.di
+package com.mochame.logger.test
 
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Logger
@@ -20,13 +20,19 @@ object TestTag {
     const val LINUX_X64 = "LinuxX64Test"
 }
 
-@OptIn(ExperimentalKermitApi::class)
 @Module
+expect class PlatformTagModule
+
+@OptIn(ExperimentalKermitApi::class)
+@Module (
+    includes = [PlatformTagModule::class]
+)
 @Configuration
 class TestLoggerModule {
 
     @Single
     fun provideTestLogWriter(): TestLogWriter = TestLogWriter(Severity.Verbose)
+
 
     @Single
     fun provideTestLogger(
@@ -42,5 +48,3 @@ class TestLoggerModule {
         tag = tag
     )
 }
-
-

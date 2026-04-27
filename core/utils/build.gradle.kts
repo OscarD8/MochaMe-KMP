@@ -1,37 +1,17 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-
 plugins {
-    alias(libs.plugins.kotlinMultiplatform)
-    alias(libs.plugins.androidKmpLibrary)
-    alias(libs.plugins.koin.compiler)
+    id("mocha.convention.provider")
 }
 
 kotlin {
-    android {
-        namespace = "com.mocha.core.utils"
-        compileSdk = 36
-
-        compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_17)
-        }
-    }
-
-    jvm()
-    linuxX64()
-
-    val isMac = System.getProperty("os.name") == "Mac OS X"
-    if (isMac) {
-        iosArm64()
-        iosSimulatorArm64()
-    }
+    android { namespace = "com.mocha.core.utils" }
 
     sourceSets {
         commonMain.dependencies {
             api(project(":core:di-api"))
             implementation(libs.kotlinx.datetime)
+            implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.io.core)
             implementation(libs.room.runtime)
-            implementation(libs.kotlinx.coroutines.core)
         }
     }
 }

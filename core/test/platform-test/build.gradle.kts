@@ -8,9 +8,8 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(project(":core:test:support"))
             implementation(project(":core:di-api"))
-            implementation(project(":core:logger"))
+            implementation(project(":core:test:testlogger"))
             api(project(":core:platform"))
 
             api(libs.kotlinx.io.core)

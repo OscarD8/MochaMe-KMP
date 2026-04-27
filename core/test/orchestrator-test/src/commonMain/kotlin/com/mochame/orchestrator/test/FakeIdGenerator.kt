@@ -1,4 +1,4 @@
-package com.mochame.metadata.test
+package com.mochame.orchestrator.test
 
 import com.mochame.utils.IdGenerator
 

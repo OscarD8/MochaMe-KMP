@@ -4,13 +4,21 @@ import androidx.sqlite.SQLiteDriver
 import androidx.sqlite.driver.AndroidSQLiteDriver
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.test.core.app.ApplicationProvider
-import com.mochame.di.PlatformTag
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.mochame.platform.providers.PlatformContext
-import com.mochame.support.di.TestTag
+import org.junit.runner.RunWith
 import org.koin.core.annotation.Configuration
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
 
+
+/**
+ * * @RunWith(AndroidJUnit4::class) intelligently delegates:
+ * - On JVM (Host): Routes to RobolectricTestRunner.
+ * - On Device (ART): Routes to InstrumentationRunner.
+ */
+@RunWith(AndroidJUnit4::class)
+actual abstract class MochaPlatformTest actual constructor()
 
 @Module
 @Configuration
@@ -22,10 +30,6 @@ actual class TestSupportModule {
         BundledSQLiteDriver()
     }
 
-    @Single
-    @PlatformTag
-    fun provideTag(): String =
-        if (isHostTest()) TestTag.ANDROID_HOST else TestTag.ANDROID_DEVICE
 
     @Single
     fun provideContext(): PlatformContext =

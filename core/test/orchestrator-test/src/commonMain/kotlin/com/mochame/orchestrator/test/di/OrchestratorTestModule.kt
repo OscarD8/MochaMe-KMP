@@ -1,4 +1,4 @@
-package com.mochame.metadata.test.di
+package com.mochame.orchestrator.test.di
 
 import co.touchlab.kermit.Logger
 import com.mochame.di.IdentityMutex
@@ -6,8 +6,8 @@ import com.mochame.di.IoContext
 import com.mochame.metadata.BootStatusProvider
 import com.mochame.metadata.BootStatusUpdater
 import com.mochame.metadata.GlobalMetadataStore
-import com.mochame.metadata.test.FakeGlobalMetaStore
-import com.mochame.metadata.test.FakeIdGenerator
+import com.mochame.orchestrator.test.FakeGlobalMetaStore
+import com.mochame.orchestrator.test.FakeIdGenerator
 import com.mochame.orchestrator.BootStatusManager
 import com.mochame.orchestrator.IdentityManager
 import com.mochame.utils.IdGenerator

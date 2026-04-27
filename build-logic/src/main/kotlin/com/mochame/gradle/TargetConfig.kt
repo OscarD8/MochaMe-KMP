@@ -40,11 +40,7 @@ fun KotlinMultiplatformExtension.configureTargets(
         }
     }
 
-    val isMac =
-        project.providers.systemProperty("os.name").get()
-            .contains("Mac OS X", ignoreCase = true)
-
-    if (isMac) {
+    if (project.isMac) {
         iosArm64()
         iosSimulatorArm64()
     }
