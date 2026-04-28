@@ -1,7 +1,7 @@
 package com.mochame.platform.di
 
-import com.mochame.di.CommittedDir
-import com.mochame.di.PendingDir
+import com.mochame.contract.di.CommittedDir
+import com.mochame.contract.di.PendingDir
 import com.mochame.platform.providers.AppPathsProvider
 import kotlinx.io.files.Path
 import org.koin.core.qualifier.qualifier

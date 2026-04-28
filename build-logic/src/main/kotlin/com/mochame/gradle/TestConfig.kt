@@ -1,12 +1,16 @@
 package com.mochame.gradle
 
+import org.gradle.api.Project
 import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
 import org.gradle.api.artifacts.VersionCatalog
 
 /**
  * Lifecycle-safe testing environment provider using lazy providers.
  */
-fun KotlinMultiplatformExtension.configureTestTargets(libs: VersionCatalog) {
+fun KotlinMultiplatformExtension.configureTestTargets(
+    project: Project,
+    libs: VersionCatalog
+) {
     sourceSets.apply {
         // Lazy Capture
         val commonTestProvider = named("commonTest")
@@ -20,7 +24,7 @@ fun KotlinMultiplatformExtension.configureTestTargets(libs: VersionCatalog) {
                 implementation(libs.getLibrary("koin-test"))
                 implementation(libs.getLibrary("kermit-test"))
 
-                implementation(project(":core:test:support"))
+                implementation(project.project(":core:test:support"))
             }
         }
 

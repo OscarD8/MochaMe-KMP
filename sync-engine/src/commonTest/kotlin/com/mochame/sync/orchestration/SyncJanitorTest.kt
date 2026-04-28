@@ -5,8 +5,8 @@ package com.mochame.sync.orchestration
 import app.cash.turbine.test
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Severity
-import com.mochame.metadata.BootState
-import com.mochame.metadata.MochaModule
+import com.mochame.contract.boot.BootState
+import com.mochame.contract.metadata.MochaModule
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runPersistenceEnvironment
 import com.mochame.sync.data.entities.SyncMetadataEntity
@@ -14,7 +14,7 @@ import com.mochame.sync.database.SyncDatabaseConstructor
 import com.mochame.sync.database.SyncTestDatabase
 import com.mochame.sync.di.JanitorTestApp
 import com.mochame.sync.di.JanitorTestEnvironment
-import com.mochame.sync.domain.SyncStatus
+import com.mochame.sync.domain.state.SyncStatus
 import com.mochame.utils.exceptions.MochaException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope

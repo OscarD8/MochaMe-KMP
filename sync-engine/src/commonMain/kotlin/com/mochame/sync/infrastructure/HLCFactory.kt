@@ -1,7 +1,7 @@
 package com.mochame.sync.infrastructure
 
 import co.touchlab.kermit.Logger
-import com.mochame.utils.DateTimeUtils
+import com.mochame.platform.providers.MochaDateTimeProvider
 import com.mochame.utils.exceptions.MochaException
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
@@ -80,7 +80,7 @@ data class HLC(
  */
 @Single
 class HlcFactory(
-    private val dateTimeUtils: DateTimeUtils,
+    private val dateTimeUtils: MochaDateTimeProvider,
     logger: Logger
 ) {
     
@@ -220,7 +220,7 @@ class HlcFactory(
      * HLC can be used to hydrate the factory, ensuring all local operations use it as a baseline.
      *
      * @return Verified [HLC] that has acceptable/no clock skew. If the current clock matches the
-     * historic HLC, it takes the historic counter, and assigns the reconciled HLC the [com.mochame.metadata.GlobalSettingsEntity.id] of the current device.
+     * historic HLC, it takes the historic counter, and assigns the reconciled HLC the [com.mochame.contract.GlobalSettingsEntity.id] of the current device.
      * @throws [com.mochame.app.domain.exceptions.MochaException.Persistent.ClockSkew] Local device has drifted below the floor. Or history is more than one minute into the future of the local clock.
      */
     private fun reconcileHlc(

@@ -40,7 +40,6 @@ dependencies {
     implementation(project(":mocha:mocha-schema"))
     implementation(project(":core:platform"))
     implementation(project(":core:logger"))
-    implementation(project(":core:di-api"))
 
     implementation(libs.koin.android)
     implementation(libs.koin.compose)

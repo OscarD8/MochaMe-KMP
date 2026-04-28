@@ -5,7 +5,6 @@ import org.gradle.api.artifacts.VersionCatalog
 import org.gradle.api.artifacts.VersionCatalogsExtension
 import org.gradle.api.tasks.testing.AbstractTestTask
 import org.gradle.api.tasks.testing.logging.TestLogEvent
-import org.gradle.kotlin.dsl.getByType
 import org.gradle.kotlin.dsl.withType
 import org.koin.compiler.plugin.KoinGradleExtension
 
@@ -39,7 +38,7 @@ fun Project.standardConfigurations() {
  * Accessor for the Koin Compiler.
  */
 private fun Project.mochaKoin(configure: KoinGradleExtension.() -> Unit) {
-    extensions.configure("koinCompiler", configure)
+    extensions.configure(KoinGradleExtension::class.java, configure)
 }
 
 
@@ -48,12 +47,12 @@ private fun Project.mochaKoin(configure: KoinGradleExtension.() -> Unit) {
  * Accessor for the Version Catalog.
  */
 val Project.libs: VersionCatalog
-    get() = runCatching {
-        extensions.getByType<VersionCatalogsExtension>().named("libs")
-    }.getOrElse {
-        error("\n[MochaMe Build Error]: The 'libs' Version Catalog is missing! \n" +
-                "Ensure it is defined in your settings.gradle.kts.")
-    }
+    get() = extensions.getByType(VersionCatalogsExtension::class.java)
+        .find("libs")
+        .orElseThrow {
+            IllegalStateException("[MochaMe] 'libs' Version Catalog retrieval failed. Confirm settings.gradle.kts.")
+        }
+
 /**
  * Accessor for OS detection.
  * Tracked by Gradle's Configuration Cache via 'project.providers'.

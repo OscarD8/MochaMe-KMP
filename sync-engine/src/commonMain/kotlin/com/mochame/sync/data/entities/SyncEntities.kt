@@ -3,9 +3,9 @@ package com.mochame.sync.data.entities
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.mochame.metadata.MochaModule
-import com.mochame.metadata.MutationOp
-import com.mochame.sync.domain.SyncStatus
+import com.mochame.contract.metadata.MochaModule
+import com.mochame.contract.metadata.MutationOp
+import com.mochame.sync.domain.state.SyncStatus
 import kotlin.time.Clock
 
 @Entity(tableName = "sync_metadata")

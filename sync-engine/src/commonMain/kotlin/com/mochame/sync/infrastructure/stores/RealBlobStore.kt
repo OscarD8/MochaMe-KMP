@@ -1,15 +1,15 @@
 package com.mochame.sync.infrastructure.stores
 
 import co.touchlab.kermit.Logger
-import com.mochame.di.BlobMutex
-import com.mochame.di.CommittedDir
-import com.mochame.di.IoContext
-import com.mochame.di.PendingDir
-import com.mochame.utils.Hasher
-import com.mochame.utils.digestHex
+import com.mochame.contract.di.BlobMutex
+import com.mochame.contract.di.CommittedDir
+import com.mochame.contract.di.IoContext
+import com.mochame.contract.di.PendingDir
+import com.mochame.contract.providers.Hasher
+import com.mochame.contract.providers.digestHex
 import com.mochame.sync.domain.stores.BlobReader
 import com.mochame.sync.domain.stores.BlobStager
-import com.mochame.utils.DateTimeUtils
+import com.mochame.platform.providers.MochaDateTimeProvider
 import com.mochame.utils.exceptions.MochaException
 import com.mochame.utils.exceptions.toMochaException
 import com.mochame.logger.LogTags
@@ -33,7 +33,7 @@ import kotlin.time.TimeSource
  */
 @Single(binds = [BlobStager::class, BlobReader::class])
 class RealBlobStore(
-    private val dateTimeUtils: DateTimeUtils,
+    private val dateTimeUtils: MochaDateTimeProvider,
     private val hashProvider: Hasher,
     private val fileSystem: FileSystem,
     @IoContext private val ioContext: CoroutineContext,

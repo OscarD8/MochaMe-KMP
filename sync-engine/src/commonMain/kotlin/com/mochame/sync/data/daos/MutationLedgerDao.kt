@@ -3,9 +3,9 @@ package com.mochame.sync.data.daos
 import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Upsert
-import com.mochame.metadata.MochaModule
+import com.mochame.contract.metadata.MochaModule
 import com.mochame.sync.data.entities.SyncIntentEntity
-import com.mochame.sync.domain.SyncStatus
+import com.mochame.sync.domain.state.SyncStatus
 import com.mochame.sync.infrastructure.HLC
 import kotlinx.coroutines.flow.Flow
 

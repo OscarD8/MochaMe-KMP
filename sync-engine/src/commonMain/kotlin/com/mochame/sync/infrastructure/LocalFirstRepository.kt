@@ -1,17 +1,17 @@
 package com.mochame.sync.infrastructure
 
 import co.touchlab.kermit.Logger
-import com.mochame.platform.policies.ExecutionPolicy
+import com.mochame.contract.policy.ExecutionPolicy
 import com.mochame.platform.providers.TransactionProvider
-import com.mochame.di.IoContext
-import com.mochame.metadata.BootState
-import com.mochame.metadata.MochaModule
-import com.mochame.metadata.MutationOp
+import com.mochame.contract.di.IoContext
+import com.mochame.contract.boot.BootState
+import com.mochame.contract.metadata.MochaModule
+import com.mochame.contract.metadata.MutationOp
 import com.mochame.sync.data.entities.SyncIntentEntity
-import com.mochame.metadata.BootStatusProvider
-import com.mochame.sync.domain.PayloadEncoder
-import com.mochame.sync.domain.SyncReceiver
-import com.mochame.sync.domain.SyncStatus
+import com.mochame.contract.boot.BootStatusProvider
+import com.mochame.sync.domain.contracts.PayloadEncoder
+import com.mochame.sync.domain.contracts.SyncReceiver
+import com.mochame.sync.domain.state.SyncStatus
 import com.mochame.sync.domain.model.EntityMetadata
 import com.mochame.sync.domain.model.LocalFirstEntity
 import com.mochame.sync.domain.stores.BlobStager

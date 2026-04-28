@@ -1,7 +1,7 @@
 package com.mochame.sync.domain.stores
 
-import com.mochame.metadata.MochaModule
-import com.mochame.sync.domain.SyncStatus
+import com.mochame.contract.metadata.MochaModule
+import com.mochame.sync.domain.state.SyncStatus
 import com.mochame.sync.infrastructure.HLC
 
 

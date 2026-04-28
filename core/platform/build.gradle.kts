@@ -23,13 +23,9 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(project(":core:di-api"))
-            implementation(project(":core:logger"))
-            implementation(project(":core:metadata"))
-            api(project(":core:utils"))
+            implementation(project(":core:utils"))
 
             implementation(libs.kotlinx.coroutines.core)
-            implementation(libs.uuid)
             implementation(libs.kotlinx.datetime)
             implementation(libs.kotlinx.serialization.protobuf)
             implementation(libs.kotlinx.io.core)

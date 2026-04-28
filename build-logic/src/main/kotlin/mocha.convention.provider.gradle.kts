@@ -1,3 +1,4 @@
+import com.mochame.gradle.applyStandardDependencies
 import com.mochame.gradle.configureTargets
 import com.mochame.gradle.libs
 import com.mochame.gradle.standardConfigurations
@@ -15,4 +16,6 @@ kotlin {
         project = this@Project,
         libs = libs
     )
+
+    applyStandardDependencies(this@Project)
 }

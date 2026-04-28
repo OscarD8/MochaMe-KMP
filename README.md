@@ -347,6 +347,10 @@ The architecture is unified through a custom Gradle verification system that pro
 
 ---
 
+### Testing Design Pattern
+
+<img src="docs/images/testing-design-img.webp" alt="testing design architecture mermaid diagram">
+
 ### Verification Commands
 
 The project includes specialized Gradle tasks to manage the build lifecycle and testing
@@ -376,19 +380,6 @@ For pre-merge verification and final system checks.
   executes every test suite from scratch.
 
 ---
-
-### Abstract Base Test Pattern
-
-**Shared Logic (commonTest)**:
-
-- Defines an abstract class containing all test scenarios and common logic using
-  kotlin.test.
-- E.g. declares an abstract fun createDatabase() to decouple logic from implementation.
-
-**Platform Implementation (jvmTest, androidHostTest, etc.**):
-
-- Each target extends the base class and provides their own concrete implementations
-  handling their own dependencies. The commands above then run the platform instances.
 
 </details>
 

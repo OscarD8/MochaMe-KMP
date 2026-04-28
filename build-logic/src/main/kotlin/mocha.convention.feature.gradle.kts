@@ -1,3 +1,4 @@
+import com.mochame.gradle.applyStandardDependencies
 import com.mochame.gradle.configureTargets
 import com.mochame.gradle.getLibrary
 import com.mochame.gradle.libs
@@ -19,6 +20,8 @@ kotlin {
         libs = libs,
         includeTestBuilders = true
     )
+
+    applyStandardDependencies(this@Project)
 
     sourceSets {
         val commonMainProvider = named("commonMain")

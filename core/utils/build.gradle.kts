@@ -1,5 +1,5 @@
 plugins {
-    id("mocha.convention.provider")
+    id("mocha.convention.logic")
 }
 
 kotlin {
@@ -7,11 +7,8 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            api(project(":core:di-api"))
             implementation(libs.kotlinx.datetime)
-            implementation(libs.kotlinx.coroutines.core)
-            implementation(libs.kotlinx.io.core)
-            implementation(libs.room.runtime)
+            implementation(libs.uuid)
         }
     }
 }

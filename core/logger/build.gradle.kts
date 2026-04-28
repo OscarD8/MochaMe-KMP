@@ -7,7 +7,6 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(project(":core:di-api"))
             implementation(libs.kotlinx.datetime)
             api(libs.kermit)
         }

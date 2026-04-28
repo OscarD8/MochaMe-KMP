@@ -1,15 +1,15 @@
 package com.mochame.sync.orchestration
 
 import co.touchlab.kermit.Logger
-import com.mochame.di.AppScope
-import com.mochame.di.IoContext
-import com.mochame.di.JanitorMutex
+import com.mochame.contract.di.AppScope
+import com.mochame.contract.di.IoContext
+import com.mochame.contract.di.JanitorMutex
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.logger.withTimer
-import com.mochame.metadata.BootState
-import com.mochame.metadata.BootStatusUpdater
-import com.mochame.platform.policies.ExecutionPolicy
+import com.mochame.contract.boot.BootState
+import com.mochame.contract.boot.BootStatusUpdater
+import com.mochame.contract.policy.ExecutionPolicy
 import com.mochame.platform.providers.TransactionProvider
 import com.mochame.sync.domain.providers.SyncUserProvider
 import com.mochame.sync.domain.stores.BlobStager

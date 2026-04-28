@@ -1,6 +1,6 @@
 package com.mochame.assembly
 
-import com.mochame.orchestrator.IdentityManager
+import com.mochame.logic.IdentityManager
 import com.mochame.sync.domain.providers.SyncUserProvider
 import org.koin.core.annotation.Single
 

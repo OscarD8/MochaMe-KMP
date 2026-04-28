@@ -8,8 +8,6 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(project(":core:di-api"))
-            implementation(project(":core:test:testlogger"))
             api(project(":core:platform"))
 
             api(libs.kotlinx.io.core)

@@ -37,21 +37,24 @@ plugins {
 include(":composeApp")
 include(":app:entry:androidApp")
 include(":app:entry:linuxCliApp")
+include(":app:entry:jvmApp")
 include(":app:assembly")
 
-include(":core:platform")
-include(":core:utils")
-include(":core:di-api")
-include(":core:orchestrator")
-include(":core:metadata")
+include(":core:contract")
 include(":core:logger")
+include(":core:utils")
+include(":core:platform")
+
+include("system:infra")
+include("system:orchestrator")
 
 include(":core:test:support")
-include(":core:test:fixtures-platform")
-include(":core:test:fixtures-orchestrator")
+include(":core:test:test-logger")
+include(":core:test:fixtures-contract")
+include(":core:test:fixtures-system-orchestrator")
+include(":core:test:fixtures-system-infra")
 include(":core:test:fixtures-utils")
-include(":core:test:fixtures-metadata")
-include(":core:test:testlogger")
+include(":core:test:fixtures-platform")
 
 include(":sync-engine")
 

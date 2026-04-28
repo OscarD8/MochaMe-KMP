@@ -101,7 +101,7 @@ kotlin {
 
             // Core Infrastructure
             implementation(libs.kermit)
-            implementation(project(":core:di-api"))
+            implementation(project(":core:contract"))
         }
 
         // --- LAYER 2: COMPOSE UI BRIDGE (Y:ANDROID/JVM DESKTOP | N:LINUX/IOS NATIVE) ---

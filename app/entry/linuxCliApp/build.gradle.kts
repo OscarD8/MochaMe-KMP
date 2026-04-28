@@ -16,16 +16,14 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(project(":sync-engine"))
             implementation(project(":app:assembly"))
-            implementation(project(":core:platform"))
             implementation(project(":mocha:mocha-schema"))
-            implementation(project(":core:di-api"))
-            implementation(project(":core:logger"))
+            implementation(project(":sync-engine"))
+            implementation(project(":core:platform"))
+
             implementation(libs.room.runtime)
             implementation(libs.sqlite.bundled)
             implementation(libs.kotlinx.coroutines.core)
-
         }
     }
 }

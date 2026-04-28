@@ -18,10 +18,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":core:platform"))
-            implementation(project(":core:metadata"))
-            implementation(project(":core:di-api"))
             implementation(project(":core:utils"))
-            implementation(project(":core:logger"))
 
             implementation(libs.kotlinx.serialization.protobuf)
             implementation(libs.kotlinx.datetime)
@@ -31,8 +28,8 @@ kotlin {
         }
 
         commonTest.dependencies {
-            implementation(project(":core:test:fixtures-orchestrator"))
-            implementation(project(":core:test:fixtures-platform"))
+            implementation(project(":core:test:fixtures-system-orchestrator"))
+            implementation(project(":core:test:fixtures-system-infra"))
             implementation(project(":core:test:fixtures-utils"))
         }
     }

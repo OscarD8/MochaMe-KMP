@@ -5,12 +5,12 @@ package com.mochame.sync.di
 import androidx.sqlite.SQLiteDriver
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.TestLogWriter
-import com.mochame.di.IdentityMutex
-import com.mochame.di.JanitorMutex
+import com.mochame.contract.di.IdentityMutex
+import com.mochame.contract.di.JanitorMutex
 import com.mochame.logger.test.TestLoggerModule
-import com.mochame.metadata.BootStatusUpdater
-import com.mochame.orchestrator.IdentityManager
-import com.mochame.orchestrator.fixtures.OrchestratorFixtureModule
+import com.mochame.contract.boot.BootStatusUpdater
+import com.mochame.logic.IdentityManager
+import com.mochame.logic.fixtures.OrchestratorFixtureModule
 import com.mochame.platform.global.GlobalMetadataDao
 import com.mochame.platform.providers.PlatformContext
 import com.mochame.platform.providers.TransactionProvider
@@ -47,10 +47,7 @@ class SyncPersistenceTestModule {
         throw IllegalStateException("Should be overridden by test wrapper")
     }
 
-    // -----------------------------------------------------------
-    // DAO BLUEPRINT SLOTS
-    // -----------------------------------------------------------
-    // These satisfy the compiler's audit for the Environment factories
+    // These satisfy the compiler's check for the Environment factories
     @Single
     fun provideMetadataDao(db: SyncTestDatabase): SyncMetadataDao =
         db.syncMetadataDao()
@@ -63,9 +60,6 @@ class SyncPersistenceTestModule {
     fun provideGlobalMetaDao(db: SyncTestDatabase): GlobalMetadataDao =
         db.globalMetaDao()
 
-    // -----------------------------------------------------------
-    // TRANSACTION PROVIDER SLOT
-    // -----------------------------------------------------------
     @Single
     fun provideTransactionProvider(): TransactionProvider =
         error("Blueprint Slot Only: Overridden at runtime in WrapperPersistence.kt")

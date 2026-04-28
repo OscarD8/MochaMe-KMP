@@ -1,7 +1,7 @@
 package com.mochame.platform.modules
 
 import com.benasher44.uuid.uuid4
-import com.mochame.utils.IdGenerator
+import com.mochame.contract.identity.IdGenerator
 import org.koin.core.annotation.Single
 
 @Single(binds = [IdGenerator::class])

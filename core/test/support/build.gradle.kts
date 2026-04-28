@@ -13,9 +13,8 @@ kotlin {
             implementation(libs.room.runtime)
 
             implementation(project(":core:platform"))
-            implementation(project(":core:di-api"))
             implementation(project(":core:test:fixtures-utils"))
-            api(project(":core:test:testlogger"))
+            api(project(":core:test:test-logger"))
         }
 
         androidMain.dependencies {

@@ -46,7 +46,7 @@ fun KotlinMultiplatformExtension.configureTargets(
     }
 
     if (includeTestBuilders) {
-        configureTestTargets(libs)
+        configureTestTargets(project, libs)
     }
 
     compilerOptions {
@@ -66,7 +66,28 @@ fun KotlinMultiplatformExtension.configureTargets(
 fun KotlinMultiplatformExtension.mochaAndroid(
     configure: KotlinMultiplatformAndroidLibraryTarget.() -> Unit
 ) {
-    (this as? ExtensionAware)?.extensions?.configure("android", configure)
+    (this as? ExtensionAware)?.extensions?.configure(
+        KotlinMultiplatformAndroidLibraryTarget::class.java,
+        configure
+    )
         ?: error("MochaMe Foundry: 'android' extension not found on Kotlin extension. " +
                 "Ensure the Android KMP plugin is applied.")
+}
+
+/**
+ * This ensures 'contract' and 'logger' are visible to all platform targets.
+ */
+fun KotlinMultiplatformExtension.applyStandardDependencies(project: Project) {
+    sourceSets.named("commonMain") {
+        dependencies {
+            if (project.path != ":core:contract") {
+                api(project.project(":core:contract"))
+            }
+
+            val isCore = project.path == ":core:logger" || project.path == ":core:contract"
+            if (!isCore) {
+                implementation(project.project(":core:logger"))
+            }
+        }
+    }
 }
