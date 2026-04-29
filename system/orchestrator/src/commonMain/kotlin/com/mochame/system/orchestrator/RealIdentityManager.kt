@@ -11,14 +11,17 @@ import com.mochame.contract.identity.IdentityManager
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import org.koin.core.annotation.Provided
+import org.koin.core.annotation.Single
 import kotlin.coroutines.CoroutineContext
 
+@Single(binds = [IdentityManager::class])
 class RealIdentityManager(
-    private val metadataStore: GlobalMetadataStore,
-    private val idGenerator: IdGenerator,
-    @IoContext private val ioContext: CoroutineContext,
+    @Provided private val metadataStore: GlobalMetadataStore,
+    @Provided private val idGenerator: IdGenerator,
+    @Provided @IoContext private val ioContext: CoroutineContext,
     @IdentityMutex private val mutex: Mutex,
-    logger: Logger
+    @Provided logger: Logger
 ) : IdentityManager {
     private val logger = logger.withTags(
         layer = LogTags.Layer.ORCH,

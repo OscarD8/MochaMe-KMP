@@ -9,10 +9,10 @@ import com.mochame.contract.identity.GlobalMetadataStore
 import com.mochame.contract.identity.IdGenerator
 import com.mochame.contract.identity.IdentityManager
 import com.mochame.support.TestSupportModule
-import com.mochame.system.orchestrator.RealIdentityManager
 import com.mochame.system.orchestrator.SystemOrchestratorModule
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.sync.Mutex
+import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Factory
 import org.koin.core.annotation.KoinApplication
 import org.koin.core.annotation.Module
@@ -35,6 +35,7 @@ object IdentityManagerUnitTestApp
         SystemOrchestratorModule::class
     ]
 )
+@ComponentScan("com.mochame.system.orchestrator.test.di")
 class IdentityManagerUnitModule
 
 // -----------------------------------------------------------
