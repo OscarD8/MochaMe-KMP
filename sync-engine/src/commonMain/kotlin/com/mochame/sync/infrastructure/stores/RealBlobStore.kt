@@ -5,13 +5,14 @@ import com.mochame.contract.di.BlobMutex
 import com.mochame.contract.di.CommittedDir
 import com.mochame.contract.di.IoContext
 import com.mochame.contract.di.PendingDir
+import com.mochame.contract.exceptions.MochaException
+import com.mochame.contract.exceptions.toMochaException
+import com.mochame.contract.providers.DateTimeProvider
 import com.mochame.contract.providers.Hasher
 import com.mochame.contract.providers.digestHex
 import com.mochame.sync.domain.stores.BlobReader
 import com.mochame.sync.domain.stores.BlobStager
-import com.mochame.platform.providers.MochaDateTimeProvider
-import com.mochame.utils.exceptions.MochaException
-import com.mochame.utils.exceptions.toMochaException
+import com.mochame.utils.MochaDateTimeProvider
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.logger.withTimer
@@ -33,7 +34,7 @@ import kotlin.time.TimeSource
  */
 @Single(binds = [BlobStager::class, BlobReader::class])
 class RealBlobStore(
-    private val dateTimeUtils: MochaDateTimeProvider,
+    private val dateTimeUtils: DateTimeProvider,
     private val hashProvider: Hasher,
     private val fileSystem: FileSystem,
     @IoContext private val ioContext: CoroutineContext,

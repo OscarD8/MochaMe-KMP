@@ -3,7 +3,7 @@ plugins {
 }
 
 kotlin {
-    android { namespace = "com.mochame.logic.fixtures" }
+    android { namespace = "com.mochame.orchestrator.fixtures" }
 
     sourceSets {
         commonMain.dependencies {

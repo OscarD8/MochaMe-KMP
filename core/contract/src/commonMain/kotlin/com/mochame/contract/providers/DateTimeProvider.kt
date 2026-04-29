@@ -1,6 +1,6 @@
 package com.mochame.contract.providers
 
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 interface DateTimeProvider {
     /** The actual system "now" */

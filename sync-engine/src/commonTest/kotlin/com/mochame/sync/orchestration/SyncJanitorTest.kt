@@ -6,6 +6,7 @@ import app.cash.turbine.test
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Severity
 import com.mochame.contract.boot.BootState
+import com.mochame.contract.exceptions.MochaException
 import com.mochame.contract.metadata.MochaModule
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runPersistenceEnvironment
@@ -15,7 +16,6 @@ import com.mochame.sync.database.SyncTestDatabase
 import com.mochame.sync.di.JanitorTestApp
 import com.mochame.sync.di.JanitorTestEnvironment
 import com.mochame.sync.domain.state.SyncStatus
-import com.mochame.utils.exceptions.MochaException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -133,7 +133,7 @@ class SyncJanitorTest : MochaPlatformTest() {
     fun should_report_transient_failure_when_boot_hydration_times_out() =
         runJanitorTest { scope ->
             // Arrange: lock IdentityManager node determination
-            identityMutex.lock()
+            manager.lock.lock()
 
             // Act: hijack the lock and then launch the janitor
             janitor.startupChecks()

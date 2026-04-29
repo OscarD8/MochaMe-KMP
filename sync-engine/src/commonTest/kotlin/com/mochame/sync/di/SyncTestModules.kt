@@ -5,16 +5,14 @@ package com.mochame.sync.di
 import androidx.sqlite.SQLiteDriver
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.TestLogWriter
-import com.mochame.contract.di.IdentityMutex
-import com.mochame.contract.di.JanitorMutex
-import com.mochame.logger.test.TestLoggerModule
 import com.mochame.contract.boot.BootStatusUpdater
-import com.mochame.logic.IdentityManager
-import com.mochame.logic.fixtures.OrchestratorFixtureModule
-import com.mochame.platform.global.GlobalMetadataDao
+import com.mochame.contract.di.JanitorMutex
+import com.mochame.contract.fixtures.FakeIdentityManager
+import com.mochame.contract.fixtures.di.FixturesContractModule
+import com.mochame.contract.identity.IdentityManager
+import com.mochame.platform.fixtures.di.FixturesPlatformModule
 import com.mochame.platform.providers.PlatformContext
 import com.mochame.platform.providers.TransactionProvider
-import com.mochame.platform.fixtures.di.FakePlatformModule
 import com.mochame.support.TestSupportModule
 import com.mochame.sync.SyncConcurrencyModule
 import com.mochame.sync.SyncDomainModule
@@ -28,6 +26,7 @@ import com.mochame.sync.domain.stores.MetadataStoreMaintenance
 import com.mochame.sync.domain.stores.MutationLedgerMaintenance
 import com.mochame.sync.infrastructure.HlcFactory
 import com.mochame.sync.orchestration.SyncJanitor
+import com.mochame.system.infra.local.GlobalMetadataDao
 import com.mochame.utils.fixtures.di.FakeClockModule
 import kotlinx.coroutines.sync.Mutex
 import org.koin.core.annotation.ComponentScan
@@ -47,7 +46,6 @@ class SyncPersistenceTestModule {
         throw IllegalStateException("Should be overridden by test wrapper")
     }
 
-    // These satisfy the compiler's check for the Environment factories
     @Single
     fun provideMetadataDao(db: SyncTestDatabase): SyncMetadataDao =
         db.syncMetadataDao()
@@ -65,7 +63,7 @@ class SyncPersistenceTestModule {
         error("Blueprint Slot Only: Overridden at runtime in WrapperPersistence.kt")
 }
 
-@KoinApplication(modules = [JanitorTestModule::class])
+@KoinApplication(modules = [SyncJanitorTestModule::class])
 object JanitorTestApp
 
 @Module(
@@ -74,22 +72,20 @@ object JanitorTestApp
         SyncInfraModule::class,
         SyncDomainModule::class,
         SyncConcurrencyModule::class,
-        HlcTestModule::class,
-        OrchestratorFixtureModule::class,
-        BlobStoreTestModule::class,
-        TestSupportModule::class,
+        SyncHlcTestModule::class,
+        SyncBlobStoreTestModule::class,
         SyncPersistenceTestModule::class,
-        TestLoggerModule::class,
-        FakePlatformModule::class,
+
+        TestSupportModule::class,
+        FixturesContractModule::class,
+        FixturesPlatformModule::class,
     ]
 )
 @ComponentScan("com.mochame.sync.di")
-class JanitorTestModule {
-
+class SyncJanitorTestModule {
     @Single
-    fun provideSyncUserProvider(
-        identityManager: IdentityManager
-    ): SyncUserProvider = object : SyncUserProvider {
+    fun provideSyncUserProvider(identityManager: IdentityManager)
+    : SyncUserProvider = object : SyncUserProvider {
         override suspend fun getOrCreateNodeId(): String {
             return identityManager.getOrCreateNodeId()
         }
@@ -98,19 +94,18 @@ class JanitorTestModule {
 
 @Module(
     includes = [
-        FakePlatformModule::class,
+        FixturesPlatformModule::class,
         FakeClockModule::class,
-        TestLoggerModule::class
     ]
 )
-class BlobStoreTestModule
+class SyncBlobStoreTestModule
 
 @Module(
     includes = [
         FakeClockModule::class
     ]
 )
-class HlcTestModule
+class SyncHlcTestModule
 
 //@Module
 //class PersistenceTestModule
@@ -126,9 +121,8 @@ data class JanitorTestEnvironment(
     val ledgerMaintenance: MutationLedgerMaintenance,
     val transactor: TransactionProvider,
     val metadataDao: SyncMetadataDao,
-    val manager: SyncUserProvider,
+    val manager: FakeIdentityManager,
     @JanitorMutex val janitorMutex: Mutex,
-    @IdentityMutex val identityMutex: Mutex,
 )
 
 //@ExperimentalKermitApi

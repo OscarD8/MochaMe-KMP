@@ -9,16 +9,16 @@ import com.mochame.logger.withTags
 import com.mochame.logger.withTimer
 import com.mochame.contract.boot.BootState
 import com.mochame.contract.boot.BootStatusUpdater
+import com.mochame.contract.exceptions.MochaException
 import com.mochame.contract.policy.ExecutionPolicy
 import com.mochame.platform.providers.TransactionProvider
+import com.mochame.platform.utils.toFullMochaCheck
 import com.mochame.sync.domain.providers.SyncUserProvider
 import com.mochame.sync.domain.stores.BlobStager
 import com.mochame.sync.domain.stores.MetadataStoreMaintenance
 import com.mochame.sync.domain.stores.MutationLedgerMaintenance
 import com.mochame.sync.domain.usecase.PruneOldEntriesUseCase
 import com.mochame.sync.infrastructure.HlcFactory
-import com.mochame.utils.exceptions.MochaException
-import com.mochame.utils.exceptions.toMochaException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.TimeoutCancellationException
@@ -86,7 +86,7 @@ class SyncJanitor(
 
             } catch (e: Exception) {
                 if (e is MochaException.Transient.BootTimeout) return@launch
-                handleBootFailure(e.toMochaException())
+                handleBootFailure(e.toFullMochaCheck())
             }
         }
     }

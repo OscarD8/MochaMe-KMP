@@ -2,7 +2,7 @@ package com.mochame.support
 
 import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
-import com.mochame.di.IoContext
+import com.mochame.contract.di.IoContext
 import com.mochame.platform.providers.RoomImmediateTransProvider
 import com.mochame.platform.providers.TransactionProvider
 import com.mochame.platform.providers.platformBuilder
@@ -67,7 +67,7 @@ inline fun <reified T : RoomDatabase, reified E : Any> runPersistenceEnvironment
     try {
         koin.createEagerInstances()
     } catch (e: Exception) {
-        reportDiFailureAndThrow(e)
+        e.reportAndThrowDiFailure()
     }
 
     val environment = koin.get<E>()
@@ -81,19 +81,3 @@ inline fun <reified T : RoomDatabase, reified E : Any> runPersistenceEnvironment
 }
 
 
-/**
- * Forgive the format. It's really helpful.
- */
-fun reportDiFailureAndThrow(e: Exception): Nothing {
-    println("\n🚨 === DI REGISTRY FAILURE === 🚨")
-    println("Crash: ${e.message}")
-
-    var cause = e.cause
-    while (cause != null) {
-        println("Missing Component: ${cause.message}")
-        cause = cause.cause
-    }
-
-    println("🚨 =========================== 🚨\n")
-    throw e
-}

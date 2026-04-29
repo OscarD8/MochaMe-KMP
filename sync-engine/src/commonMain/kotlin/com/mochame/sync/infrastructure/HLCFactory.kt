@@ -1,8 +1,9 @@
 package com.mochame.sync.infrastructure
 
 import co.touchlab.kermit.Logger
-import com.mochame.platform.providers.MochaDateTimeProvider
-import com.mochame.utils.exceptions.MochaException
+import com.mochame.contract.exceptions.MochaException
+import com.mochame.contract.providers.DateTimeProvider
+import com.mochame.utils.MochaDateTimeProvider
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import kotlinx.coroutines.sync.Mutex
@@ -80,7 +81,7 @@ data class HLC(
  */
 @Single
 class HlcFactory(
-    private val dateTimeUtils: MochaDateTimeProvider,
+    private val dateTimeUtils: DateTimeProvider,
     logger: Logger
 ) {
     

@@ -1,4 +1,4 @@
-package com.mochame.logic
+package com.mochame.system.orchestrator
 
 import co.touchlab.kermit.Logger
 import com.mochame.contract.di.IdentityMutex
@@ -7,20 +7,19 @@ import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.contract.identity.GlobalMetadataStore
 import com.mochame.contract.identity.IdGenerator
+import com.mochame.contract.identity.IdentityManager
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import org.koin.core.annotation.Single
 import kotlin.coroutines.CoroutineContext
 
-@Single
-class IdentityManager(
+class RealIdentityManager(
     private val metadataStore: GlobalMetadataStore,
     private val idGenerator: IdGenerator,
     @IoContext private val ioContext: CoroutineContext,
     @IdentityMutex private val mutex: Mutex,
     logger: Logger
-) {
+) : IdentityManager {
     private val logger = logger.withTags(
         layer = LogTags.Layer.ORCH,
         domain = LogTags.Domain.METADATA,
@@ -30,7 +29,7 @@ class IdentityManager(
     /**
      * Ensures this device has a name before the Janitor starts the clock.
      */
-    suspend fun getOrCreateNodeId(): String = withContext(ioContext) {
+    override suspend fun getOrCreateNodeId(): String = withContext(ioContext) {
         mutex.withLock {
             logger.d { "Resolving Node ID..." }
 

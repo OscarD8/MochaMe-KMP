@@ -24,15 +24,11 @@ object TestTag {
 expect class PlatformTagModule
 
 @OptIn(ExperimentalKermitApi::class)
-@Module (
-    includes = [PlatformTagModule::class]
-)
-@Configuration
+@Module ([PlatformTagModule::class])
 class TestLoggerModule {
 
     @Single
     fun provideTestLogWriter(): TestLogWriter = TestLogWriter(Severity.Verbose)
-
 
     @Single
     fun provideTestLogger(

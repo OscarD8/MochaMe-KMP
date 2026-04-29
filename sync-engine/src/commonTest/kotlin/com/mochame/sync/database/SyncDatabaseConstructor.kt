@@ -8,14 +8,14 @@ import androidx.room.TypeConverter
 import androidx.room.TypeConverters
 import com.mochame.contract.metadata.MochaModule
 import com.mochame.contract.metadata.MutationOp
-import com.mochame.platform.global.GlobalMetadataDao
-import com.mochame.platform.global.GlobalMetadataEntity
 import com.mochame.sync.data.daos.MutationLedgerDao
 import com.mochame.sync.data.daos.SyncMetadataDao
 import com.mochame.sync.data.entities.SyncIntentEntity
 import com.mochame.sync.data.entities.SyncMetadataEntity
 import com.mochame.sync.domain.state.SyncStatus
 import com.mochame.sync.infrastructure.HLC
+import com.mochame.system.infra.local.GlobalMetadataDao
+import com.mochame.system.infra.local.GlobalMetadataEntity
 import kotlin.time.Instant
 
 @ConstructedBy(SyncDatabaseConstructor::class)

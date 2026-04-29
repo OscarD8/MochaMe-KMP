@@ -1,7 +1,7 @@
 package com.mochame.utils.fixtures.di
 
 
-import com.mochame.utils.DateTimeUtils
+import com.mochame.contract.providers.DateTimeProvider
 import com.mochame.utils.fixtures.FakeDateTimeUtils
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
@@ -12,6 +12,6 @@ import org.koin.core.annotation.Single
 @Module
 class FakeClockModule {
     @Single
-    fun provideDateTimeUtils(): DateTimeUtils = FakeDateTimeUtils()
+    fun provideDateTimeUtils(): DateTimeProvider = FakeDateTimeUtils()
 }
 

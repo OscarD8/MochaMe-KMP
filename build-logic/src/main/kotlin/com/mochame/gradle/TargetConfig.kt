@@ -70,8 +70,10 @@ fun KotlinMultiplatformExtension.mochaAndroid(
         KotlinMultiplatformAndroidLibraryTarget::class.java,
         configure
     )
-        ?: error("MochaMe Foundry: 'android' extension not found on Kotlin extension. " +
-                "Ensure the Android KMP plugin is applied.")
+        ?: error(
+            "MochaMe Foundry: 'android' extension not found on Kotlin extension. " +
+                    "Ensure the Android KMP plugin is applied."
+        )
 }
 
 /**
@@ -84,9 +86,15 @@ fun KotlinMultiplatformExtension.applyStandardDependencies(project: Project) {
                 api(project.project(":core:contract"))
             }
 
-            val isCore = project.path == ":core:logger" || project.path == ":core:contract"
+            val isCore =
+                project.path == ":core:logger" || project.path == ":core:contract"
             if (!isCore) {
                 implementation(project.project(":core:logger"))
+            }
+
+            val isFixture = project.path.startsWith(":core:test:fixtures-")
+            if (isFixture) {
+                api(project.project(":core:test:support"))
             }
         }
     }

@@ -1,16 +1,15 @@
 package com.mochame.platform.policies
 
-import androidx.sqlite.SQLiteException
 import co.touchlab.kermit.Logger
+import com.mochame.contract.exceptions.MochaException
+import com.mochame.contract.exceptions.toMochaException
+import com.mochame.platform.utils.toFullMochaCheck
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.logger.withTimer
 import com.mochame.contract.policy.ExecutionPolicy
-import com.mochame.utils.exceptions.isVaultLocked
-import com.mochame.utils.exceptions.toMochaException
 import kotlinx.coroutines.delay
 import org.koin.core.annotation.Single
-import kotlin.coroutines.cancellation.CancellationException
 import kotlin.random.Random
 import kotlin.time.TimeSource
 
@@ -48,9 +47,10 @@ class SqliteResiliencePolicy(
                     }
                 }
             } catch (e: Exception) {
-                if (e is CancellationException) throw e
 
-                if (e is SQLiteException && e.isVaultLocked()) {
+                val mochaError = e.toFullMochaCheck(message = operationTag)
+
+                if (mochaError is MochaException.Transient.VaultBusy) {
                     if (attempt == 0) logger.w {
                         "Database busy, initiating retry loop".withTimer(mark)
                     }
@@ -59,11 +59,10 @@ class SqliteResiliencePolicy(
                     delay(currentDelay + jitter)
                     currentDelay *= 2
                 } else {
-                    throw e.toMochaException()
+                    throw mochaError
                 }
             }
         }
-
         // Final attempt handles the terminal failure
         return try {
             block()

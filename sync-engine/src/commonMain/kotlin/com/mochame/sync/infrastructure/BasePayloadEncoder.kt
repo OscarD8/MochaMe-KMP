@@ -1,11 +1,11 @@
 package com.mochame.sync.infrastructure
 
 import co.touchlab.kermit.Logger
+import com.mochame.contract.exceptions.MochaException
 import com.mochame.sync.domain.model.LocalFirstEntity
 import com.mochame.sync.domain.contracts.PayloadEncoder
 import com.mochame.sync.domain.model.EntityMetadata
 import com.mochame.sync.domain.providers.BufferProvider
-import com.mochame.utils.exceptions.MochaException
 import kotlinx.io.Source
 
 abstract class BasePayloadEncoder<T : LocalFirstEntity<T>>(

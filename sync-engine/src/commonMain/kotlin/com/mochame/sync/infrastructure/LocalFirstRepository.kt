@@ -9,6 +9,7 @@ import com.mochame.contract.metadata.MochaModule
 import com.mochame.contract.metadata.MutationOp
 import com.mochame.sync.data.entities.SyncIntentEntity
 import com.mochame.contract.boot.BootStatusProvider
+import com.mochame.contract.exceptions.MochaException
 import com.mochame.sync.domain.contracts.PayloadEncoder
 import com.mochame.sync.domain.contracts.SyncReceiver
 import com.mochame.sync.domain.state.SyncStatus
@@ -17,9 +18,8 @@ import com.mochame.sync.domain.model.LocalFirstEntity
 import com.mochame.sync.domain.stores.BlobStager
 import com.mochame.sync.domain.stores.MetadataStore
 import com.mochame.sync.domain.stores.MutationLedger
-import com.mochame.utils.exceptions.MochaException
-import com.mochame.utils.exceptions.toMochaException
 import com.mochame.logger.withTimer
+import com.mochame.platform.utils.toFullMochaCheck
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -254,7 +254,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                 }
             }
 
-            throw e.toMochaException(candidateKey)
+            throw e.toFullMochaCheck(candidateKey)
         }
     }
 

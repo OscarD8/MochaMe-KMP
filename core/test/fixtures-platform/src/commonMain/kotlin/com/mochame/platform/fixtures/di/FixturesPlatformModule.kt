@@ -1,15 +1,15 @@
 package com.mochame.platform.fixtures.di
 
 import co.touchlab.kermit.Logger
-import com.mochame.di.CommittedDir
-import com.mochame.di.PendingDir
+import com.mochame.contract.di.CommittedDir
+import com.mochame.contract.di.PendingDir
+import com.mochame.contract.policy.ExecutionPolicy
+import com.mochame.contract.providers.Digest
+import com.mochame.contract.providers.Hasher
 import com.mochame.logger.test.TestLoggerModule
-import com.mochame.platform.policies.ExecutionPolicy
 import com.mochame.platform.policies.SqliteResiliencePolicy
 import com.mochame.platform.fixtures.TestWorkspace
 import com.mochame.platform.fixtures.createTestWorkspace
-import com.mochame.utils.Digest
-import com.mochame.utils.Hasher
 import kotlinx.io.Source
 import kotlinx.io.files.FileSystem
 import kotlinx.io.files.Path
@@ -22,10 +22,8 @@ import org.koin.core.annotation.Single
 /**
  * Provides a fake Hasher and test file workspace.
  */
-@Module(
-    includes = [TestLoggerModule::class]
-)
-class FakePlatformModule {
+@Module([TestLoggerModule::class])
+class FixturesPlatformModule {
 
     @Factory
     fun provideHasher(): Hasher = Hasher {

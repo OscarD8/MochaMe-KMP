@@ -1,4 +1,4 @@
-package com.mochame.logic
+package com.mochame.system.orchestrator
 
 import com.mochame.contract.boot.BootState
 import com.mochame.contract.boot.BootStatusProvider
@@ -8,7 +8,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.koin.core.annotation.Single
 
-@Single(binds = [BootStatusUpdater::class, BootStatusProvider::class])
 class BootStatusManager : BootStatusProvider, BootStatusUpdater {
     private val _state = MutableStateFlow<BootState>(BootState.Idle)
 

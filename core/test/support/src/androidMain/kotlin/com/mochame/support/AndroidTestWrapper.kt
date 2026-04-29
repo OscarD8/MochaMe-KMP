@@ -21,8 +21,7 @@ import org.koin.core.annotation.Single
 actual abstract class MochaPlatformTest actual constructor()
 
 @Module
-@Configuration
-actual class TestSupportModule {
+actual class TestDependenciesModule {
     @Single
     fun provideDriver(): SQLiteDriver = if (isHostTest()) {
         AndroidSQLiteDriver()

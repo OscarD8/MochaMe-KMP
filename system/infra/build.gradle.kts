@@ -8,6 +8,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":core:contract"))
+            implementation(libs.room.runtime)
         }
     }
 }

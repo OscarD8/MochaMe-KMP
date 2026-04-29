@@ -1,14 +1,27 @@
 package com.mochame.utils.fixtures
 
-import com.mochame.utils.DateTimeUtils
+import com.mochame.contract.providers.DateTimeProvider
+import com.mochame.utils.MochaDateTimeProvider
 import kotlin.time.Instant
 
-class FakeDateTimeUtils(initialMillis: Long = 1740787200000L) : DateTimeUtils() {
+
+class FakeDateTimeUtils(initialMillis: Long = 1740787200000L) :
+    MochaDateTimeProvider(), DateTimeProvider
+{
     private var currentTime = initialMillis
 
-    fun advanceTime(ms: Long) { currentTime += ms }
-    fun reverseTime(ms: Long) { currentTime -= ms }
-    fun setTime(ms: Long) { currentTime = ms }
+    fun advanceTime(ms: Long) {
+        currentTime += ms
+    }
 
-    override fun now(): Instant = Instant.Companion.fromEpochMilliseconds(currentTime)
+    fun reverseTime(ms: Long) {
+        currentTime -= ms
+    }
+
+    fun setTime(ms: Long) {
+        currentTime = ms
+    }
+
+    override fun now(): Instant = Instant.fromEpochMilliseconds(currentTime)
+
 }
