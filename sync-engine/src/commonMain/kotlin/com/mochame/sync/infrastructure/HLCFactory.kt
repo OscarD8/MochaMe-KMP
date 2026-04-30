@@ -10,6 +10,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.yield
 import kotlinx.serialization.Serializable
+import org.koin.core.annotation.Provided
 import org.koin.core.annotation.Single
 
 
@@ -81,7 +82,7 @@ data class HLC(
  */
 @Single
 class HlcFactory(
-    private val dateTimeUtils: DateTimeProvider,
+    @Provided private val dateTimeUtils: DateTimeProvider,
     logger: Logger
 ) {
     

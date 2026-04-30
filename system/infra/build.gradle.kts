@@ -1,14 +1,16 @@
 
 plugins {
-    id("mocha.convention.logic")
+    id("mocha.convention.feature")
 }
 
 kotlin {
     android { namespace = "com.mochame.system.infra" }
     sourceSets {
         commonMain.dependencies {
-            implementation(project(":core:contract"))
             implementation(libs.room.runtime)
+        }
+        commonTest.dependencies {
+            implementation(project(":core:platform"))
         }
     }
 }

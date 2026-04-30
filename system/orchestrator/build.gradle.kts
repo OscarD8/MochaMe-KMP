@@ -3,22 +3,16 @@
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeCacheApi
 
 plugins {
-    id("mocha.convention.feature")
+    id("mocha.convention.logic")
 }
 
 kotlin {
     android { namespace = "com.mochame.system.orchestrator" }
 
-    linuxX64 {
-        binaries.all {
-            linkerOpts("-lcrypto", "-lpthread", "-ldl")
-            linkerOpts("-Wl,--allow-shlib-undefined")
-        }
-    }
-
     sourceSets {
         commonMain.dependencies {
             implementation(project(":core:utils"))
+            implementation(project(":system:infra"))
             implementation(libs.kotlinx.coroutines.core)
         }
 

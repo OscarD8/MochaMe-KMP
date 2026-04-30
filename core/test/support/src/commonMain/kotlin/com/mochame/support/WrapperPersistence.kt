@@ -65,15 +65,10 @@ inline fun <reified T : RoomDatabase, reified E : Any> runPersistenceEnvironment
     )
 
     try {
-        koin.createEagerInstances()
+        val environment = koin.get<E>()
+        environment.block(this)
     } catch (e: Exception) {
         e.reportAndThrowDiFailure()
-    }
-
-    val environment = koin.get<E>()
-
-    try {
-        environment.block(this)
     } finally {
         database.close()
         koinApp.close()

@@ -3,12 +3,12 @@ package com.mochame.contract.fixtures.di
 import com.mochame.contract.boot.BootStatusProvider
 import com.mochame.contract.boot.BootStatusUpdater
 import com.mochame.contract.fixtures.FakeBootStatusManager
-import com.mochame.contract.identity.GlobalMetadataStore
-import com.mochame.contract.fixtures.FakeGlobalMetaStore
+import com.mochame.contract.node.NodeContextStore
+import com.mochame.contract.fixtures.FakeNodeContextStore
 import com.mochame.contract.fixtures.FakeIdGenerator
-import com.mochame.contract.fixtures.FakeIdentityManager
-import com.mochame.contract.identity.IdGenerator
-import com.mochame.contract.identity.IdentityManager
+import com.mochame.contract.fixtures.FakeNodeContextManager
+import com.mochame.contract.node.IdGenerator
+import com.mochame.contract.node.NodeContextManager
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
 
@@ -27,9 +27,9 @@ class FixturesContractModule
  */
 @Module
 class FixtureIdentityProviderModule {
-    @Single
-    fun provideMetaStore(): GlobalMetadataStore = FakeGlobalMetaStore()
-    @Single
+    @Single(binds = [NodeContextStore::class, FakeNodeContextStore::class])
+    fun provideMetaStore(): NodeContextStore = FakeNodeContextStore()
+    @Single(binds = [IdGenerator::class, FakeIdGenerator::class])
     fun provideIdGenerator(): IdGenerator = FakeIdGenerator()
 }
 
@@ -44,6 +44,6 @@ class FixtureFakeBootManager {
  */
 @Module
 class FixtureFakeIdentityManager {
-    @Single(binds = [IdentityManager::class])
-    fun provideFakeIdentityManager(): FakeIdentityManager = FakeIdentityManager()
+    @Single(binds = [NodeContextManager::class, FakeNodeContextManager::class])
+    fun provideFakeIdentityManager(): FakeNodeContextManager = FakeNodeContextManager()
 }

@@ -19,7 +19,14 @@ fun KotlinMultiplatformExtension.configureTargets(
     includeTestBuilders: Boolean = false
 ) {
     jvm()
-    linuxX64()
+
+    // Come back to this
+    linuxX64 {
+        binaries.all {
+            linkerOpts("-lcrypto", "-lpthread", "-ldl")
+            linkerOpts("-Wl,--allow-shlib-undefined")
+        }
+    }
 
     mochaAndroid {
         compileSdk = libs.getVersionAsInt("android-sdk-compile")

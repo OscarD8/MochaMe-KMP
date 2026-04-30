@@ -6,7 +6,7 @@ import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
 
 @Module
-actual class PlatformTagModule {
+actual class PlatformTestTagModule {
     @Single
     @PlatformTag
     fun provideTag(): String = TestTag.JVM

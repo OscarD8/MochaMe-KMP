@@ -1,6 +1,6 @@
 package com.mochame.contract.fixtures
 
-import com.mochame.contract.identity.IdGenerator
+import com.mochame.contract.node.IdGenerator
 
 class FakeIdGenerator(
     private var nextIdToReturn: String? = null
@@ -13,3 +13,5 @@ class FakeIdGenerator(
         return id
     }
 }
+
+val Int.fakeId: String get() = "fake-id-$this"

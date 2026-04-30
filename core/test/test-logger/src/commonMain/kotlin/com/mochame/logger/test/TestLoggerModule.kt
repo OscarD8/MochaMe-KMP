@@ -7,7 +7,6 @@ import co.touchlab.kermit.StaticConfig
 import co.touchlab.kermit.TestLogWriter
 import com.mochame.contract.di.PlatformTag
 import com.mochame.logger.CleanLogWriter
-import org.koin.core.annotation.Configuration
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
 
@@ -21,10 +20,10 @@ object TestTag {
 }
 
 @Module
-expect class PlatformTagModule
+expect class PlatformTestTagModule
 
 @OptIn(ExperimentalKermitApi::class)
-@Module ([PlatformTagModule::class])
+@Module ([PlatformTestTagModule::class])
 class TestLoggerModule {
 
     @Single

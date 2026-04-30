@@ -13,10 +13,6 @@ kotlin {
                 definitionFile.set(project.file("src/nativeInterop/cinterop/openssl.def"))
             }
         }
-        binaries.all {
-            linkerOpts("-lcrypto", "-lpthread", "-ldl")
-            linkerOpts("-Wl,--allow-shlib-undefined")
-        }
     }
 
     android { namespace = "com.mochame.platform" }

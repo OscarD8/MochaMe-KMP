@@ -24,14 +24,7 @@ inline fun <reified E : Any> runUnitEnvironment(
     val koin = koinApp.koin
 
     try {
-        koin.createEagerInstances()
-    } catch (e: Exception) {
-        e.reportAndThrowDiFailure()
-    }
-
-    val environment = koin.get<E>()
-
-    try {
+        val environment = koin.get<E>()
         environment.block(this)
     } catch (e: Exception) {
         e.reportAndThrowDiFailure()
