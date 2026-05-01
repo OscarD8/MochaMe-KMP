@@ -1,6 +1,3 @@
-@file:OptIn(KotlinNativeCacheApi::class)
-
-import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeCacheApi
 
 plugins {
     id("mocha.convention.logic")

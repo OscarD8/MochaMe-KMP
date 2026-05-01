@@ -31,7 +31,7 @@ class SyncPersistenceTestModule {
 
     @Single
     fun provideNodeIdDao(db: SyncMicroSchema): NodeContextDao =
-        db.nodeIdDao()
+        db.nodeContextDao()
 
     @Single
     fun provideTransactionProvider(): TransactionProvider =

@@ -37,11 +37,13 @@ kotlin {
             api(libs.room.runtime)
             implementation(libs.koin.core)
 
+            implementation(project(":core:sync-contract"))
             implementation(project(":core:platform"))
             implementation(project(":system:infra"))
             implementation(project(":sync-engine"))
             implementation(project(":mocha:mocha-feature:bio"))
-//            implementation(project(":mocha-feature:telemetry"))
+            implementation(project(":mocha:mocha-feature:telemetry"))
+            implementation(project(":mocha:mocha-feature:resonance"))
         }
     }
 }

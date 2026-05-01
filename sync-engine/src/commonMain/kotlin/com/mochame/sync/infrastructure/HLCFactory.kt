@@ -3,88 +3,29 @@ package com.mochame.sync.infrastructure
 import co.touchlab.kermit.Logger
 import com.mochame.contract.exceptions.MochaException
 import com.mochame.contract.providers.DateTimeProvider
-import com.mochame.utils.MochaDateTimeProvider
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
+import com.mochame.sync.contract.HLC
+import com.mochame.sync.contract.HLC.Companion.APP_RELEASE_MS
+import com.mochame.sync.contract.HLC.Companion.MAX_COUNTER
+import com.mochame.sync.contract.HLC.Companion.MAX_DRIFT_MS
+import com.mochame.sync.contract.HLC.Companion.ONE_DAY_MS
+import com.mochame.sync.contract.HlcFactory
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.yield
-import kotlinx.serialization.Serializable
 import org.koin.core.annotation.Provided
 import org.koin.core.annotation.Single
 
 
 /**
- * A Hybrid Logical Clock (HLC) timestamp that provides strict ordering across distributed nodes.
- *
- * Serialized format: "ts:count:nodeId"
- *
- * @property ts Wall-clock time in milliseconds.
- * @property count Logical counter used to distinguish events occurring in the same millisecond.
- * @property nodeId Unique identifier for the originating device to prevent collisions.
- */
-@Serializable
-data class HLC(
-    val ts: Long,      // Physical wall-clock time
-    val count: Int,     // Logical counter for same-ms events
-    val nodeId: String,  // Unique device ID (prevents collisions)
-) : Comparable<HLC> {
-
-    /**
-     * Converts the HLC to its sortable string representation.
-     * TS: 15 digits
-     * Count: 5 digits (maps to MAX_COUNTER 65535)
-     */
-    override fun toString(): String {
-        val paddedTs = ts.toString().padStart(15, '0')
-        val paddedCount = count.toString().padStart(5, '0')
-        return "$paddedTs:$paddedCount:$nodeId"
-    }
-
-    override fun compareTo(other: HLC): Int {
-        return compareBy<HLC> { it.ts }
-            .thenBy { it.count }
-            .thenBy { it.nodeId }
-            .compare(this, other)
-    }
-
-    companion object {
-        /**
-         * Safely parses a serialized HLC string.
-         * @throws com.mochame.app.domain.exceptions.MochaException.Persistent.HlcParseException if not valid.
-         */
-        fun parse(hlcString: String): HLC {
-            val parts = hlcString.split(":")
-
-            if (parts.size != 3) throw MochaException.Persistent.HlcParseException("Format mismatch: $hlcString")
-
-            val ts = parts[0].toLongOrNull()
-                ?: throw MochaException.Persistent.HlcParseException("Invalid timestamp: ${parts[0]}")
-
-            val count = parts[1].toIntOrNull()
-                ?: throw MochaException.Persistent.HlcParseException("Invalid counter: ${parts[1]}")
-
-            val nodeId = parts[2].takeIf { it.isNotBlank() }
-                ?: throw MochaException.Persistent.HlcParseException("NodeId is missing")
-
-            return HLC(ts, count, nodeId)
-        }
-
-        /**
-         * Necessary as a DailyContext state comes down from the UI layer.
-         */
-        val EMPTY = HLC(0, 0, "init")
-    }
-}
-
-/**
  * Implements Non-Blocking Busy-Wait and NodeID Re-stamping.
  */
-@Single
-class HlcFactory(
+@Single(binds = [HlcFactory::class])
+class EngineHlcFactory(
     @Provided private val dateTimeUtils: DateTimeProvider,
     logger: Logger
-) {
+) : HlcFactory {
     
     private val logger = logger.withTags(
         layer = LogTags.Layer.INFRA,
@@ -95,19 +36,12 @@ class HlcFactory(
     private data class FactoryState(
         val lastHlc: HLC,
         val nodeId: String,
-        val isHydrated: Boolean = true
     )
 
     private val stateMutex = Mutex()
     private var state: FactoryState? = null
 
-    private val APP_RELEASE_MS = 1740787200000L // March 2026
-    private val MAX_DRIFT_MS = 60_000L
-    private val MAX_COUNTER = 65535             // 16-bit limit
-    private val ONE_DAY_MS = 86_400_000L
-
-
-    suspend fun hydrate(lastKnownHlc: String?, currentNodeId: String): HLC =
+    override suspend fun hydrate(lastKnownHlc: String?, currentNodeId: String): HLC =
         stateMutex.withLock {
             state?.let {
                 logger.w { "An attempt was made to rehydrate the HLC from ${it.lastHlc} to $lastKnownHlc." }
@@ -128,7 +62,7 @@ class HlcFactory(
      * Generates the next monotonic HLC.
      * Replaces Exception-on-Overflow with a Busy-Wait yield.
      */
-    suspend fun getNextHlc(): HLC {
+    override suspend fun getNextHlc(): HLC {
         var yieldCount = 0
 
         // Phase 1: Orchestration Loop
@@ -170,7 +104,7 @@ class HlcFactory(
      * This ensures causality: any HLC generated after this call will be
      * strictly greater than the witnessed HLC.
      */
-    suspend fun witness(remoteHlc: HLC) = stateMutex.withLock {
+    override suspend fun witness(remoteHlc: HLC) = stateMutex.withLock {
         val currentState = state ?: run {
             logger.w { "Attempt made to witness remote HLC against no internal state." }
             return@withLock
@@ -204,7 +138,7 @@ class HlcFactory(
      * data that may have got around the hydration procedure, and
      * is sitting in local storage as corrupted data.
      */
-    fun isValid(hlc: HLC): Boolean {
+    override fun isValid(hlc: HLC): Boolean {
         val wallClock = dateTimeUtils.now().toEpochMilliseconds()
 
         return when {

@@ -9,7 +9,7 @@ import org.koin.core.annotation.Single
 
 
 @Module
-actual class TestDependenciesModule {
+actual class TestTargetsProviderModule {
 
     @Single
     fun provideDriver(): SQLiteDriver = BundledSQLiteDriver()

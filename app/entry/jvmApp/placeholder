@@ -1,0 +1,21 @@
+package com.mochame.app
+
+import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.application     * THE LINUX EXPRESSION
+     * No briefing needed here. The Ribosome starts with default instructions
+     * because on the Linux planet, we don't need a special security key
+     * to access the filesystem.
+import com.mochame.app.di.initKoin
+
+fun main() = application {
+    /**
+     */
+    initKoin("JVM")
+
+    Window(
+        onCloseRequest = ::exitApplication,
+        title = "Mocha Me: Linux Kernel Test"
+    ) {
+        App()
+    }
+}

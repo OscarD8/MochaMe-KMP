@@ -5,16 +5,6 @@ plugins {
 kotlin {
     android { namespace = "com.mocha.sync" }
 
-    linuxX64 {
-        binaries.getTest("debug").linkerOpts(
-            "-Wl,--allow-shlib-undefined",
-            "-Wl,--unresolved-symbols=ignore-in-shared-libs",
-            "-lcrypto",
-            "-lpthread",
-            "-ldl"
-        )
-    }
-
     sourceSets {
         commonMain.dependencies {
             implementation(project(":core:platform"))

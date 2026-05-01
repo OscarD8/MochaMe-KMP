@@ -3,7 +3,6 @@ import com.mochame.gradle.configureTargets
 import com.mochame.gradle.getLibrary
 import com.mochame.gradle.libs
 import com.mochame.gradle.standardConfigurations
-import gradle.kotlin.dsl.accessors._aea48d7fc91284f74eb23540e788dcf0.room
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinMetadataTarget
 
 plugins {

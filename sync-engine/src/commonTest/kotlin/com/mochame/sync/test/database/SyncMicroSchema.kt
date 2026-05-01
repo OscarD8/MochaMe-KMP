@@ -13,7 +13,7 @@ import com.mochame.sync.data.entities.SyncMetadataEntity
 import com.mochame.system.infra.data.NodeContextDao
 import com.mochame.system.infra.data.NodeIdentityEntity
 
-@ConstructedBy(SyncDatabaseConstructor::class)
+@ConstructedBy(SyncMicroSchemaConstructor::class)
 @Database(
     entities = [SyncMetadataEntity::class, SyncIntentEntity::class, NodeIdentityEntity::class],
     version = 1,
@@ -23,7 +23,7 @@ import com.mochame.system.infra.data.NodeIdentityEntity
 abstract class SyncMicroSchema : RoomDatabase() {
     abstract fun syncMetadataDao(): SyncMetadataDao
     abstract fun mutationLedgerDao(): MutationLedgerDao
-    abstract fun nodeIdDao(): NodeContextDao
+    abstract fun nodeContextDao(): NodeContextDao
 
     companion object {
         const val NAME = "sync_micro_schema.db"
@@ -31,6 +31,6 @@ abstract class SyncMicroSchema : RoomDatabase() {
 }
 
 @Suppress("NO_ACTUAL_FOR_EXPECT")
-expect object SyncDatabaseConstructor : RoomDatabaseConstructor<SyncMicroSchema> {
+expect object SyncMicroSchemaConstructor : RoomDatabaseConstructor<SyncMicroSchema> {
     override fun initialize(): SyncMicroSchema
 }

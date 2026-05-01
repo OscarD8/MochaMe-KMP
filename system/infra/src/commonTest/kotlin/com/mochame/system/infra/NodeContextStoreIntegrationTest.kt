@@ -2,8 +2,8 @@ package com.mochame.system.infra
 
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runPersistenceEnvironment
-import com.mochame.system.infra.database.NodeIdentityDatabaseConstructor
-import com.mochame.system.infra.database.NodeIdentityMicroSchema
+import com.mochame.system.infra.database.NodeContextMicroSchema
+import com.mochame.system.infra.database.NodeContextMicroSchemaConstructor
 import com.mochame.system.infra.di.NodeContextStoreIntegrationTestApp
 import com.mochame.system.infra.di.NodeContextStoreTestEnv
 import kotlinx.coroutines.test.TestScope
@@ -17,8 +17,8 @@ import kotlin.test.assertEquals
 // -----------------------------------------------------------
 
 private inline fun runEnv(crossinline block: suspend NodeContextStoreTestEnv.(TestScope) -> Unit) =
-    runPersistenceEnvironment<NodeIdentityMicroSchema, NodeContextStoreTestEnv>(
-        constructor = NodeIdentityDatabaseConstructor,
+    runPersistenceEnvironment<NodeContextMicroSchema, NodeContextStoreTestEnv>(
+        constructor = NodeContextMicroSchemaConstructor,
         koinSetup = { includes(koinConfiguration<NodeContextStoreIntegrationTestApp>()) },
         block = block
     )

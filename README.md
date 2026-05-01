@@ -353,31 +353,15 @@ The architecture is unified through a custom Gradle verification system that pro
 
 ### Verification Commands
 
-The project includes specialized Gradle tasks to manage the build lifecycle and testing
-suites effectively. 'All' commands automatically bypass the task cache to ensure a fresh "
-rerun" of the test logic.
-Application is not implementing ios testing, but the setup allows integration in the
-future.
-
-The commands below print all tests results and their corresponding platform to the
-terminal, providing
-a cross-platform test run/analysis with a single command.
+Needs changing
 
 #### Local Suite (Fastest)
 
-Use these for rapid iteration during active development.
-
-- **`./gradlew verifyLocal`**: Runs all JVM and Android Host (Robolectric) tests.
-- **`./gradlew verifyLocalAll`**: Performs a `clean` followed by all local unit tests to
-  ensure no stale artifacts remain.
+Needs changing
 
 #### Full Suite (Comprehensive)
 
-For pre-merge verification and final system checks.
-
-- **`./gradlew verify`**: JVM, androidHost, and connected Android device tests.
-- **`./gradlew verifyAll`**: The "Nuclear Option." Wipes the entire build directory and
-  executes every test suite from scratch.
+Needs changing
 
 ---
 

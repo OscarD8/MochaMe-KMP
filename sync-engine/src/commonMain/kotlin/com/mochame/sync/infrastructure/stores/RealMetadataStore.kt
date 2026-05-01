@@ -3,12 +3,12 @@ package com.mochame.sync.infrastructure.stores
 
 import com.mochame.contract.exceptions.MochaException
 import com.mochame.contract.metadata.MochaModule
+import com.mochame.sync.contract.HLC
 import com.mochame.sync.data.daos.SyncMetadataDao
 import com.mochame.sync.data.entities.SyncMetadataEntity
 import com.mochame.sync.domain.state.SyncStatus
 import com.mochame.sync.domain.stores.MetadataStore
 import com.mochame.sync.domain.stores.MetadataStoreMaintenance
-import com.mochame.sync.infrastructure.HLC
 import org.koin.core.annotation.Single
 import kotlin.time.Clock
 

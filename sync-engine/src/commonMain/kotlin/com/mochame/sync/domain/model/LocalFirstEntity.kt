@@ -1,6 +1,6 @@
 package com.mochame.sync.domain.model
 
-import com.mochame.sync.infrastructure.HLC
+import com.mochame.sync.contract.HLC
 
 interface LocalFirstEntity<T : LocalFirstEntity<T>> {
     val id: String

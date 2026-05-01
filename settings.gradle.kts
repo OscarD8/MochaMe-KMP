@@ -34,13 +34,13 @@ plugins {
 }
 
 
-include(":composeApp")
 include(":app:entry:androidApp")
 include(":app:entry:linuxCliApp")
 include(":app:entry:jvmApp")
 include(":app:assembly")
 
 include(":core:contract")
+include(":core:sync-contract")
 include(":core:logger")
 include(":core:utils")
 include(":core:platform")
@@ -58,5 +58,7 @@ include(":core:test:fixtures-platform")
 include(":sync-engine")
 
 include(":mocha:mocha-feature:bio")
+include(":mocha:mocha-feature:telemetry")
+include(":mocha:mocha-feature:resonance")
 include(":mocha:mocha-ui")
 include(":mocha:mocha-schema")

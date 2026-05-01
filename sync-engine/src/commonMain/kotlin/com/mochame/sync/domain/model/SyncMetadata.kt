@@ -3,8 +3,8 @@ package com.mochame.sync.domain.model
 
 import com.mochame.contract.metadata.MochaModule
 import com.mochame.contract.metadata.MutationOp
+import com.mochame.sync.contract.HLC
 import com.mochame.sync.domain.state.SyncStatus
-import com.mochame.sync.infrastructure.HLC
 
 data class SyncMetadata(
     val module: MochaModule,

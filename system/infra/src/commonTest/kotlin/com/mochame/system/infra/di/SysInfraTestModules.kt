@@ -8,8 +8,9 @@ import com.mochame.platform.providers.PlatformContext
 import com.mochame.platform.providers.TransactionProvider
 import com.mochame.support.TestSupportModule
 import com.mochame.system.infra.SysInfraModule
-import com.mochame.system.infra.database.NodeIdentityMicroSchema
+import com.mochame.system.infra.database.NodeContextMicroSchemaConstructor
 import com.mochame.system.infra.data.NodeContextDao
+import com.mochame.system.infra.database.NodeContextMicroSchema
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Factory
 import org.koin.core.annotation.KoinApplication
@@ -43,12 +44,12 @@ class NodeContextPersistenceModule {
     fun provideDatabase(
         context: PlatformContext,
         driver: SQLiteDriver
-    ): NodeIdentityMicroSchema {
+    ): NodeContextMicroSchema {
         throw IllegalStateException("Should be overridden by test wrapper")
     }
 
     @Single
-    fun provideNodeContextDao(db: NodeIdentityMicroSchema): NodeContextDao =
+    fun provideNodeContextDao(db: NodeContextMicroSchema): NodeContextDao =
         db.nodeContextDao()
 
     @Single

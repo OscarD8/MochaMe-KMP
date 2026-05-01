@@ -20,6 +20,8 @@ import com.mochame.sync.domain.stores.MetadataStore
 import com.mochame.sync.domain.stores.MutationLedger
 import com.mochame.logger.withTimer
 import com.mochame.platform.utils.toFullMochaCheck
+import com.mochame.sync.contract.HLC
+import com.mochame.sync.contract.HlcFactory
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout

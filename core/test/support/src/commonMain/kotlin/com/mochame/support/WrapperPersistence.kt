@@ -41,9 +41,8 @@ inline fun <reified T : RoomDatabase, reified E : Any> runPersistenceEnvironment
     val koinApp = koinApplication(createEagerInstances = false) {
         allowOverride(true)
         koinSetup()
-        modules(utilizeTestScope())
+        modules(scopeKoinModule())
     }
-
     val koin = koinApp.koin
 
     val database = platformBuilder<T>(
@@ -74,5 +73,6 @@ inline fun <reified T : RoomDatabase, reified E : Any> runPersistenceEnvironment
         koinApp.close()
     }
 }
+
 
 

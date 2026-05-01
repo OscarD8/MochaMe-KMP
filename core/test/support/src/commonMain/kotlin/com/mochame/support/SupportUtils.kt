@@ -6,9 +6,10 @@ import com.mochame.contract.di.IoContext
 import com.mochame.contract.di.MainContext
 import com.mochame.logger.test.TestLoggerModule
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.test.TestScope
+import org.koin.core.annotation.ComponentScan
+import org.koin.core.annotation.Configuration
 import org.koin.core.annotation.Single
 import org.koin.core.module.Module
 import org.koin.core.qualifier.qualifier
@@ -27,34 +28,16 @@ expect abstract class MochaPlatformTest()
  * Provides platform test dependencies.
  */
 @org.koin.core.annotation.Module
-expect class TestDependenciesModule()
-
-
-/**
- * Links the current test [kotlin.coroutines.coroutineContext] from the [TestScope]
- * to qualifiers associated with coroutine context in the SUT.
- *
- * @return [Module] wiring the context from this [TestScope]
- */
-@OptIn(ExperimentalCoroutinesApi::class)
-fun TestScope.utilizeTestScope(): Module {
-    val testContext =
-        this.coroutineContext[ContinuationInterceptor.Key] as CoroutineContext
-
-    return module {
-        single<CoroutineContext> { testContext }
-        factory<CoroutineScope>(qualifier<AppScope>()) { this@utilizeTestScope }
-        single<CoroutineContext>(qualifier<IoContext>()) { testContext }
-        single<CoroutineContext>(qualifier<MainContext>()) { testContext }
-        single<CoroutineContext>(qualifier<DefaultContext>()) { testContext }
-    }
-}
+expect class TestTargetsProviderModule()
 
 
 /**
  * Global providers for testing setup.
  */
-@org.koin.core.annotation.Module([TestLoggerModule::class, TestDependenciesModule::class])
+@Configuration
+@org.koin.core.annotation.Module(
+    includes = [TestLoggerModule::class, TestTargetsProviderModule::class]
+)
 class TestSupportModule {
     @Single
     @AppScope
@@ -63,6 +46,24 @@ class TestSupportModule {
     @Single
     @IoContext
     fun provideTestIoContext(): CoroutineContext = EmptyCoroutineContext
+}
+
+
+/**
+ * Generates the test context bindings dynamically.
+ */
+fun TestScope.scopeKoinModule(): Module {
+    val dispatcher =
+        this.coroutineContext[ContinuationInterceptor.Key] as CoroutineContext
+
+    return module {
+        single<CoroutineContext> { dispatcher }
+        single<CoroutineContext>(qualifier<IoContext>()) { dispatcher }
+        single<CoroutineContext>(qualifier<MainContext>()) { dispatcher }
+        single<CoroutineContext>(qualifier<DefaultContext>()) { dispatcher }
+
+        factory<CoroutineScope>(qualifier<AppScope>()) { this@scopeKoinModule }
+    }
 }
 
 

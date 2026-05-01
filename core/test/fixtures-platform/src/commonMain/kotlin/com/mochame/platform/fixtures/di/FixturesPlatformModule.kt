@@ -4,8 +4,8 @@ import co.touchlab.kermit.Logger
 import com.mochame.contract.di.CommittedDir
 import com.mochame.contract.di.PendingDir
 import com.mochame.contract.policy.ExecutionPolicy
-import com.mochame.contract.providers.Digest
-import com.mochame.contract.providers.Hasher
+import com.mochame.platform.providers.Digest
+import com.mochame.platform.providers.Hasher
 import com.mochame.logger.test.TestLoggerModule
 import com.mochame.platform.policies.SqliteResiliencePolicy
 import com.mochame.platform.fixtures.TestWorkspace

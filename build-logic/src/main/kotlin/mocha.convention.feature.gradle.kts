@@ -28,6 +28,8 @@ kotlin {
         commonMainProvider.configure {
             dependencies {
                 implementation(libs.getLibrary("room-runtime"))
+                implementation(project(":core:contract"))
+                implementation(project(":core:sync-contract"))
             }
         }
     }
@@ -44,16 +46,12 @@ dependencies {
         if (this !is org.jetbrains.kotlin.gradle.plugin.mpp.KotlinMetadataTarget) {
             val targetName = name.replaceFirstChar { it.uppercase() }
 
-            // 1. Unified Naming Strategy for 2026
             val kspNames = if (name == "android") {
-                // Updated for Gradle 9.1+ / AGP 8.8+ Unified Naming
                 listOf("kspAndroidHostTest", "kspAndroidDeviceTest")
             } else {
-                // Standard KMP (JVM, Linux, iOS)
                 listOf("ksp${targetName}Test")
             }
 
-            // 2. Surgical Injection
             kspNames.forEach { kspName ->
                 configurations.findByName(kspName)?.let { config ->
                     project.dependencies.add(config.name, roomCompiler)

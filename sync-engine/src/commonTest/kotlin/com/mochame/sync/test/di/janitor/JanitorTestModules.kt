@@ -18,11 +18,12 @@ import com.mochame.sync.data.daos.SyncMetadataDao
 import com.mochame.sync.domain.providers.SyncUserProvider
 import com.mochame.sync.domain.stores.MetadataStoreMaintenance
 import com.mochame.sync.domain.stores.MutationLedgerMaintenance
-import com.mochame.sync.infrastructure.HlcFactory
 import com.mochame.sync.orchestration.SyncJanitor
 import com.mochame.sync.test.di.blob.SyncBlobStoreTestModule
-import com.mochame.sync.test.di.hlc.SyncHlcTestModule
+import com.mochame.sync.test.di.hlc.FakeHlcFactoryModule
+import com.mochame.sync.test.di.hlc.SyncHlcUnitTestModule
 import com.mochame.sync.test.di.persistence.SyncPersistenceTestModule
+import com.mochame.sync.test.fakes.FakeHlcFactory
 import kotlinx.coroutines.sync.Mutex
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Factory
@@ -40,6 +41,7 @@ object JanitorTestApp
         TestSupportModule::class,
         FixturesContractModule::class,
         FixturesPlatformModule::class,
+        FakeHlcFactoryModule::class,
 
         SyncOrchestrationModule::class,
         SyncDomainModule::class,
@@ -47,7 +49,7 @@ object JanitorTestApp
         SyncConcurrencyModule::class,
         SyncBlobStoreTestModule::class,
         SyncPersistenceTestModule::class,
-        SyncHlcTestModule::class,
+        SyncHlcUnitTestModule::class,
     ]
 )
 @ComponentScan("com.mochame.sync.test.di.janitor")
@@ -68,7 +70,7 @@ data class JanitorTestEnv(
     val janitor: SyncJanitor,
     val writer: TestLogWriter,
     val bootUpdater: BootStatusUpdater,
-    val hlcFactory: HlcFactory,
+    val hlcFactory: FakeHlcFactory,
     val metadataStore: MetadataStoreMaintenance,
     val ledgerMaintenance: MutationLedgerMaintenance,
     val transactor: TransactionProvider,

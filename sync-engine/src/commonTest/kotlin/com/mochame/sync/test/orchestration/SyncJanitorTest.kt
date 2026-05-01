@@ -11,7 +11,7 @@ import com.mochame.contract.metadata.MochaModule
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runPersistenceEnvironment
 import com.mochame.sync.data.entities.SyncMetadataEntity
-import com.mochame.sync.test.database.SyncDatabaseConstructor
+import com.mochame.sync.test.database.SyncMicroSchemaConstructor
 import com.mochame.sync.test.database.SyncMicroSchema
 import com.mochame.sync.test.di.janitor.JanitorTestApp
 import com.mochame.sync.test.di.janitor.JanitorTestEnv
@@ -33,7 +33,7 @@ import kotlin.test.assertTrue
 // -----------------------------------------------------------
 private inline fun runEnv(crossinline block: suspend JanitorTestEnv.(TestScope) -> Unit) =
     runPersistenceEnvironment<SyncMicroSchema, JanitorTestEnv>(
-        constructor = SyncDatabaseConstructor,
+        constructor = SyncMicroSchemaConstructor,
         koinSetup = { includes(koinConfiguration<JanitorTestApp>()) },
         block = block
     )
