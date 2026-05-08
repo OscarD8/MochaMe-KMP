@@ -39,7 +39,7 @@ class SyncJanitor(
     private val metadataStore: MetadataStoreMaintenance,
     private val ledgerStore: MutationLedgerMaintenance,
     private val pruneUseCase: PruneOldEntriesUseCase,
-    private val identityManager: SyncUserProvider,
+    private val nodeManager: SyncUserProvider,
     private val hlcFactory: HlcFactory,
     private val executor: ExecutionPolicy,
     private val blobStager: BlobStager,
@@ -103,7 +103,7 @@ class SyncJanitor(
     private suspend fun initHydration() = withTimeout(5000L) {
         try {
             val lastHlc = metadataStore.getGlobalMaxHlc()
-            val nodeId = identityManager.getOrCreateNodeId()
+            val nodeId = nodeManager.getOrCreateNodeId()
 
             logger.i { "Hydrating HLC Factory | Last Known Local HLC: ${lastHlc ?: "NONE"} | NodeID: $nodeId" }
 
