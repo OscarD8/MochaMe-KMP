@@ -34,7 +34,7 @@ interface BlobStager {
 
 interface BlobReader {
     /** Only allowed to open files from the /committed chamber. */
-    fun open(blobId: String): Source
+    suspend fun open(blobId: String): Source
 
-    fun exists(blobId: String): Boolean
+    suspend fun exists(blobId: String): Boolean
 }

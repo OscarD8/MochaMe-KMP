@@ -3,7 +3,8 @@ package com.mochame.platform.di
 import android.content.Context
 import com.mochame.contract.di.CommittedDir
 import com.mochame.contract.di.PendingDir
-import com.mochame.platform.providers.*
+import com.mochame.platform.providers.AppPathsProvider
+import com.mochame.platform.providers.DatabaseLocation
 import kotlinx.io.files.FileSystem
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
@@ -25,6 +26,11 @@ actual class InternalPlatformModule {
             override val databasePath = "$baseDir/mocha.db"
         }
     }
+
+    @Single(binds = [DatabaseLocation::class])
+    fun provideDatabasePath(
+        path: AppPathsProvider
+    ): DatabaseLocation = DatabaseLocation.OnDisk(path.databasePath)
 
     @Single
     @PendingDir

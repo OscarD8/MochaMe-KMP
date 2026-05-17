@@ -23,7 +23,7 @@ expect inline fun <reified T : RoomDatabase> platformBuilder(
     context: PlatformContext,
     queryContext: CoroutineContext,
     isTest: Boolean = false,
-    path: AppPathsProvider?,
+    location: DatabaseLocation,
     driver: SQLiteDriver = BundledSQLiteDriver(),
     noinline factory: () -> T
 ): RoomDatabase.Builder<T>

@@ -5,6 +5,7 @@ import com.mochame.contract.di.PendingDir
 import com.mochame.logger.LogTags
 import com.mochame.platform.providers.AppPathsProvider
 import com.mochame.platform.providers.BufferProvider
+import com.mochame.platform.providers.DatabaseLocation
 import com.mochame.platform.providers.LinuxBufferProvider
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.toKString
@@ -40,15 +41,20 @@ actual class InternalPlatformModule : KoinComponent {
         }
     }
 
+    @Single(binds = [DatabaseLocation::class])
+    fun provideDatabasePath(
+        path: AppPathsProvider
+    ): DatabaseLocation = DatabaseLocation.OnDisk(path.databasePath)
+
     @Single
     @PendingDir
     fun providePendingPath(paths: AppPathsProvider): Path =
-        kotlinx.io.files.Path(paths.blobPending)
+        Path(paths.blobPending)
 
     @Single
     @CommittedDir
     fun provideCommittedPath(paths: AppPathsProvider): Path =
-        kotlinx.io.files.Path(paths.blobCommitted)
+        Path(paths.blobCommitted)
 
     @Single
     fun provideBufferProvider(): BufferProvider {

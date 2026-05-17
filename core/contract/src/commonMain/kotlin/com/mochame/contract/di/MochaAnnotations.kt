@@ -34,7 +34,6 @@ annotation class PendingDir
 @Qualifier
 annotation class CommittedDir
 
-
 // -----------------------------------------------------------
 // MUTEX
 // -----------------------------------------------------------

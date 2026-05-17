@@ -3,6 +3,7 @@ package com.mochame.support
 import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
 import com.mochame.contract.di.IoContext
+import com.mochame.platform.providers.DatabaseLocation
 import com.mochame.platform.providers.RoomImmediateTransProvider
 import com.mochame.platform.providers.TransactionProvider
 import com.mochame.platform.providers.platformBuilder
@@ -25,7 +26,8 @@ import kotlin.coroutines.CoroutineContext
  * runtime isolated [TestScope] to be fetched and wired into the
  * [androidx.room.RoomDatabase.Builder.setQueryCoroutineContext] of the
  * database builder, and any components requiring a [CoroutineContext] or [CoroutineScope]
- * themselves. This is handled by the nested [utilizeTestScope].
+ * themselves. This is handled by the nested [TestScope.scopeKoinModule] method utilizing
+ * Koin DSL.
  *
  * By calling this method, any scopes and coroutine contexts will be aligned
  * with the current [TestScope], the inMemory database will be established,
@@ -49,7 +51,7 @@ inline fun <reified T : RoomDatabase, reified E : Any> runPersistenceEnvironment
         context = koin.get(),
         queryContext = koin.get(qualifier<IoContext>()),
         isTest = true,
-        path = null,
+        location = DatabaseLocation.InMemory,
         driver = koin.get(),
         factory = { constructor.initialize() }
     ).build()

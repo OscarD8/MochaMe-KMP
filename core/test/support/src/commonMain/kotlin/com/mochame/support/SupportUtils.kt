@@ -5,8 +5,10 @@ import com.mochame.contract.di.DefaultContext
 import com.mochame.contract.di.IoContext
 import com.mochame.contract.di.MainContext
 import com.mochame.logger.test.TestLoggerModule
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.TestScope
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Configuration
@@ -53,8 +55,8 @@ class TestSupportModule {
  * Generates the test context bindings dynamically.
  */
 fun TestScope.scopeKoinModule(): Module {
-    val dispatcher =
-        this.coroutineContext[ContinuationInterceptor.Key] as CoroutineContext
+    val dispatcher = this.coroutineContext[CoroutineDispatcher]
+        ?: run { throw IllegalStateException("Error fetching the dispatcher of an established test scope.") }
 
     return module {
         single<CoroutineContext> { dispatcher }

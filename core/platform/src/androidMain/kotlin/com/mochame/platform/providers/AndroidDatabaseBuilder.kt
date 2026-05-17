@@ -14,17 +14,17 @@ actual inline fun <reified T : RoomDatabase> platformBuilder(
     context: PlatformContext,
     queryContext: CoroutineContext,
     isTest: Boolean,
-    path: AppPathsProvider?,
+    location: DatabaseLocation,
     driver: SQLiteDriver,
     noinline factory: () -> T
 ): RoomDatabase.Builder<T> {
-    val builder = if (isTest) {
-        Room.inMemoryDatabaseBuilder(context.androidContext, factory)
-    } else {
-        val dbPath = requireNotNull(path?.databasePath) {
-            "Build Error: Production Database requested but AppPathsProvider (path) is null."
+    val builder = when (location) {
+        is DatabaseLocation.InMemory -> {
+            Room.inMemoryDatabaseBuilder(context.androidContext, factory)
         }
-        Room.databaseBuilder<T>(context.androidContext, path.databasePath, factory)
+        is DatabaseLocation.OnDisk -> {
+            Room.databaseBuilder<T>(context.androidContext, location.path, factory)
+        }
     }
     return builder.applyMochaDefaults(queryContext, driver)
 }

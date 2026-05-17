@@ -125,7 +125,7 @@ class RealBlobStore(
 
     }
 
-    override suspend fun abort(blobId: String) {
+    override suspend fun abort(blobId: String) = withContext(ioContext) {
         val abortPath = Path(pendingDir, blobId)
 
         if (fileSystem.exists(abortPath)) {
@@ -194,13 +194,13 @@ class RealBlobStore(
 
     // --- READ ACCESS ---
 
-    override fun exists(blobId: String): Boolean {
+    override suspend fun exists(blobId: String): Boolean = withContext(ioContext) {
         val path = Path(committedDir, blobId)
         // Direct check on the singleton fileSystem
-        return fileSystem.exists(path)
+        fileSystem.exists(path)
     }
 
-    override fun open(blobId: String): Source {
+    override suspend fun open(blobId: String): Source = withContext(ioContext) {
         val path = Path(committedDir, blobId)
 
         if (!fileSystem.exists(path)) {
@@ -208,12 +208,12 @@ class RealBlobStore(
         }
 
         // Returns a RawSource wrapped in a buffered Source.
-        return fileSystem.source(path).buffered()
+        fileSystem.source(path).buffered()
     }
 
     // --- Helpers ---
-    private suspend fun ensureChambersExist() {
-        if (chambersVerified) return
+    private suspend fun ensureChambersExist() = withContext(ioContext) {
+        if (chambersVerified) return@withContext
 
         blobMutex.withLock {
             if (chambersVerified) return@withLock
