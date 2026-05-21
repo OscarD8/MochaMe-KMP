@@ -9,5 +9,5 @@ import org.koin.core.annotation.Single
 actual class PlatformTestTagModule {
     @Single
     @PlatformTag
-    fun provideTag(): String = TestTag.JVM
+    fun provideTag(): String = TestTag.LINUX_X64
 }

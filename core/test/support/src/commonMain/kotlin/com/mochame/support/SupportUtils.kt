@@ -8,15 +8,12 @@ import com.mochame.logger.test.TestLoggerModule
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.TestScope
-import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Configuration
 import org.koin.core.annotation.Single
 import org.koin.core.module.Module
 import org.koin.core.qualifier.qualifier
 import org.koin.dsl.module
-import kotlin.coroutines.ContinuationInterceptor
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
 
@@ -56,7 +53,7 @@ class TestSupportModule {
  */
 fun TestScope.scopeKoinModule(): Module {
     val dispatcher = this.coroutineContext[CoroutineDispatcher]
-        ?: run { throw IllegalStateException("Error fetching the dispatcher of an established test scope.") }
+        ?: throw IllegalStateException("Error fetching the dispatcher of an established test scope.")
 
     return module {
         single<CoroutineContext> { dispatcher }
@@ -67,6 +64,7 @@ fun TestScope.scopeKoinModule(): Module {
         factory<CoroutineScope>(qualifier<AppScope>()) { this@scopeKoinModule }
     }
 }
+
 
 
 /**

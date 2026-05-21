@@ -29,7 +29,10 @@ object LogTags {
 }
 
 /**
- * Ensures the exact format: Platform ❯ Layer ❯ Domain ❯ Class
+ * Ensures the format: Platform ❯ Layer ❯ Domain ❯ Class.
+ *
+ * Utilizes Kermit [withTag] method to ensure each new instance points to the same
+ * Logger config.
  */
 fun Logger.withTags(layer: String, domain: String, className: String? = null): Logger {
     val base = "${this.tag} ❯ $layer ❯ $domain"

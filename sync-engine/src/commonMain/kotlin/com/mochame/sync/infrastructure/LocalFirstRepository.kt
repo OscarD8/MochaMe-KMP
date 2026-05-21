@@ -64,7 +64,8 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
      * @param fetchOldState used to perform a backup causality check, and possible ghost deleteBlobByHash.
      * @param computeChange requires the feature to assert the state change they wish to make.
      * @param persist after verifying and stamping the feature state change, the finalized state is persisted atomically alongside sync payloads/metadata.
-     * @param onSkip offers a type-safe way to return R.
+     * @param onSkip offers a type-safe way to return R. Potential case of multiple concurrent requests to processing the same intent -
+     * these will fail when accessing the database write lock, causing duplicate intents to [PayloadEncoder.encode] a state that already exists, triggering onSkip.
      */
     protected suspend inline fun <R> processIntent(
         candidateKey: String,
@@ -77,6 +78,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     ): R = withContext(ioContext) {
         ensureReady()
         val isRemote = incomingHlc != null
+
 
         locker.withLock(candidateKey) {
             executor.execute("[${module}_$op]") {

@@ -33,6 +33,10 @@ import kotlin.coroutines.CoroutineContext
  * with the current [TestScope], the inMemory database will be established,
  * and the TestScope provided to the caller for manipulating the virtual
  * clock. The provided environment will be the scope you are now in.
+ *
+ * Inline all calls up to the point of the call to runTest, so the final size for each test method will
+ * include the test code, the environment, and this persistence wrapper. This is then stored
+ * on the heap and passed as a single lambda to the testBody of [runTest].
  */
 inline fun <reified T : RoomDatabase, reified E : Any> runPersistenceEnvironment(
     constructor: RoomDatabaseConstructor<T>,

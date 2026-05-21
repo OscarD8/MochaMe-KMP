@@ -12,6 +12,8 @@ import com.mochame.contract.metadata.MochaModule
 import com.mochame.contract.metadata.MutationOp
 import com.mochame.contract.policy.ExecutionPolicy
 import com.mochame.contract.providers.DateTimeProvider
+import com.mochame.logger.LogTags
+import com.mochame.logger.withTags
 import com.mochame.platform.providers.TransactionProvider
 import com.mochame.sync.contract.HlcFactory
 import com.mochame.sync.domain.contracts.PayloadEncoder
@@ -41,7 +43,11 @@ class RoomBioRepository(
 ) : LocalFirstRepository<DailyContext>(
     hlcFactory = hlcFactory,
     module = MochaModule.BIO,
-    logger = logger.withTag(TAG),
+    logger = logger.withTags(
+        layer = LogTags.Layer.INFRA,
+        domain = LogTags.Domain.BIO,
+        className = "BioRepo"
+    ),
     provider = bootStatusProvider,
     mutationLedger = mutationLedger,
     transactor = transactor,
@@ -52,10 +58,6 @@ class RoomBioRepository(
     encoder = encoder,
     ioContext = ioContext
 ), BioRepository {     // syncGateway still to come
-
-    companion object {
-        const val TAG = "BioRepo"
-    }
 
     override suspend fun establishDay(
         sleepHours: Double,

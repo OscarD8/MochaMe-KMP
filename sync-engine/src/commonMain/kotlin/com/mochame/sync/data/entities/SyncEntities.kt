@@ -23,15 +23,10 @@ data class SyncMetadataEntity(
 @Entity(
     tableName = "mutation_ledger",
     indices = [
-        // 1. For the SyncCoordinator: "Find all PENDING work"
         Index(value = ["syncStatus"]),
-        // 2. For the BaseRepository: "Is there a PENDING mutation for this specific record?"
         Index(value = ["candidateKey", "module", "syncStatus"]),
-        // 3. For the Pruning Worker: "Delete everything SYNCED and older than 30 days"
         Index(value = ["syncStatus", "createdAt"]),
-        // 4. For Module Routing: "Give me only BIO mutations"
         Index(value = ["module", "syncStatus"]),
-        // 5. Records scanned after 200 OK
         Index(value = ["syncId"])
     ]
 )
