@@ -5,12 +5,12 @@ This project is a proof-of-concept exploration into Kotlin Multiplatform. The go
 ---
 
 <details>
-<summary><b> [Understand Anything] Visual Tour of the Codebase: </b></summary>
+<summary><b> [UnderstandAnything] Visual Tour of the Codebase: </b></summary>
 
 <br>
 
 Follow the installation script directly from the repository:
-- **[Understand-Anything Installation Guide](https://github.com/Lum1104/Understand-Anything.git**
+- [Understand-Anything Installation Guide](https://github.com/Lum1104/Understand-Anything.git)
 
 Open the terminal inside the project root directory and run (**NOTE this last cost me 9p!**):
 ```bash
