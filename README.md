@@ -5,10 +5,28 @@ This project is a proof-of-concept exploration into Kotlin Multiplatform. The go
 ---
 
 <details>
+<summary><b> [Understand Anything] Visual Tour of the Codebase: </b></summary>
+
+<br>
+
+Follow the installation script directly from the repository:
+- **[Understand-Anything Installation Guide](https://github.com/Lum1104/Understand-Anything.git**
+
+Open the terminal inside the project root directory and run (**NOTE this last cost me 9p!**):
+```bash
+   understand-dashboard
+```
+
+</details>
+
+---
+
+<details>
 <summary><b> Local First Architecture </b></summary>
 
 <br>
 
+Needs Updating 
 <img width="550" height="720" alt="image" src="https://github.com/user-attachments/assets/827177dc-1a2e-4d1b-8156-facf8df9ebe9" />
 
 </details>
@@ -20,6 +38,7 @@ This project is a proof-of-concept exploration into Kotlin Multiplatform. The go
 
 #### Approach to Development:
 
+Needs Updating
 ```
 MochaMe/
 ├── testing/                          # Provider: Instrumentation
@@ -181,15 +200,7 @@ At its core, sleep context wraps each day, and the non-nullable fields of any mo
 Weather/meta context to be handled in the background. A moment must be linked to a general domain (e.g. Kotlin or Exercise), with the topic being optional (e.g. concurrency or swimming). I hope this to be enough to generate useful analytics (mapping mood to a simple PAD model for the current scope) whilst requiring minimal input. 
 Social, environmental (made easier by the ability to save a space and its biophilia), journalling, duration, and entry energy, are all optional and serve only to enrich the analysis if the user wants.
 
-The Book logging and notes is primarily something I need, but may be useful in providing an obvious indication as to whether the AI can actually match a specific state to valid areas of knowledge that the user has previously recorded.
-
-What it crucially lacks:
-- things I haven't thought of
-- nutritional information
-- biological context
-- influence of music
-
-The model below is constantly changing, and now includes atomic HLCs all over. 
+The model below is changing, and now includes HLCs all over. 
 ```mermaid
 classDiagram
     %% --- BIO MODULE (The Context) ---
@@ -362,8 +373,6 @@ Needs changing
 #### Full Suite (Comprehensive)
 
 Needs changing
-
----
 
 </details>
 
