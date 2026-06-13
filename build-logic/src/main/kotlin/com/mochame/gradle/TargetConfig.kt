@@ -41,7 +41,7 @@ fun KotlinMultiplatformExtension.configureTargets(
         }
 
         if (includeTestBuilders) {
-            withHostTestBuilder { }
+            withHostTest { }
 
             withDeviceTestBuilder { sourceSetTreeName = "test" }
         }
@@ -78,8 +78,8 @@ fun KotlinMultiplatformExtension.mochaAndroid(
         configure
     )
         ?: error(
-            "MochaMe Foundry: 'android' extension not found on Kotlin extension. " +
-                    "Ensure the Android KMP plugin is applied."
+            "MochaMe Foundry: 'KotlinMultiplatformAndroidLibraryTarget' extension not found on Kotlin extension. " +
+                    "Check the Android KMP plugin."
         )
 }
 

@@ -4,18 +4,18 @@ package com.mochame.sync.infrastructure.stores
 import com.mochame.contract.exceptions.MochaException
 import com.mochame.contract.metadata.MochaModule
 import com.mochame.sync.contract.HLC
-import com.mochame.sync.data.daos.SyncMetadataDao
-import com.mochame.sync.data.entities.SyncMetadataEntity
+import com.mochame.sync.data.daos.SyncModuleStateDao
+import com.mochame.sync.data.entities.SyncModuleStateEntity
 import com.mochame.sync.domain.state.SyncStatus
-import com.mochame.sync.domain.stores.MetadataStore
-import com.mochame.sync.domain.stores.MetadataStoreMaintenance
+import com.mochame.sync.domain.stores.SyncModuleStateStore
+import com.mochame.sync.domain.stores.SyncModuleStateMaintenanceStore
 import org.koin.core.annotation.Single
 import kotlin.time.Clock
 
-@Single(binds = [MetadataStore::class, MetadataStoreMaintenance::class])
-class RealMetadataStore(
-    private val dao: SyncMetadataDao
-) : MetadataStore, MetadataStoreMaintenance {
+@Single(binds = [SyncModuleStateStore::class, SyncModuleStateMaintenanceStore::class])
+class DefaultSyncModuleStateStore(
+    private val dao: SyncModuleStateDao
+) : SyncModuleStateStore, SyncModuleStateMaintenanceStore {
 
     override suspend fun recordPendingMetadata(
         module: MochaModule,
@@ -114,12 +114,12 @@ class RealMetadataStore(
         return dao.getMetadataCount()
     }
 
-    suspend fun getModuleMetadata(module: MochaModule): SyncMetadataEntity?  {
+    suspend fun getModuleMetadata(module: MochaModule): SyncModuleStateEntity?  {
         return dao.getMetadataForModule(module)
     }
 
     override suspend fun ensureSeeded(): Int {
-        return dao.ensureSeeded(MochaModule.entries.toList())
+        return dao.ensureSeeded(MochaModule.all)
     }
 
     override suspend fun getGlobalMaxHlc(): String? {

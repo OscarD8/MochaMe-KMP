@@ -18,7 +18,7 @@ import kotlin.coroutines.CoroutineContext
 
 
 @Single(binds = [NodeContextManager::class])
-class RealNodeContextManager(
+class DefaultNodeContextManager(
     @Provided private val nodeStore: NodeContextStore,
     @Provided private val idGenerator: IdGenerator,
     @Provided @IoContext private val ioContext: CoroutineContext,

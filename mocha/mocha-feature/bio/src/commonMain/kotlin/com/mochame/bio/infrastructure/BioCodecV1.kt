@@ -2,9 +2,11 @@ package com.mochame.bio.infrastructure
 
 import co.touchlab.kermit.Logger
 import com.mochame.bio.domain.DailyContext
+import com.mochame.logger.LogTags
+import com.mochame.logger.withTags
 import com.mochame.platform.providers.BufferProvider
 import com.mochame.sync.domain.model.EntityMetadata
-import com.mochame.sync.infrastructure.BasePayloadEncoder
+import com.mochame.sync.infrastructure.FeatureCodec
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoBuf
@@ -22,11 +24,14 @@ internal data class BioDeltaV1(
 )
 
 
+/**
+ * V1 of the DailyContext codec.
+ */
 @Single
-class BioPayloadEncoderV1(logger: Logger, bufferProvider: BufferProvider) :
-    BasePayloadEncoder<DailyContext>(
+class BioCodecV1(logger: Logger, bufferProvider: BufferProvider) :
+    FeatureCodec<DailyContext>(
         version = 0x01,
-        logger = logger.withTag("BioEncoder"),
+        logger = logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.BIO, "BioCodecV1"),
         bufferProvider = bufferProvider
     ) {
 
@@ -100,7 +105,7 @@ class BioPayloadEncoderV1(logger: Logger, bufferProvider: BufferProvider) :
             val opCode = if (isTombstone) "DELETE" else "UPSERT"
             "OP:${opCode}_V1 [${tags.distinct().sorted().joinToString(",")}]"
         } catch (e: Exception) {
-            logger.e(e) { "Forensics: Packet reconstruction failed (${data.size} bytes)" }
+            logger.e(e) { "Packet reconstruction failed (${data.size} bytes)" }
             "OP:CORRUPT_PACKET"
         }
     }
@@ -132,10 +137,10 @@ class BioPayloadEncoderV1(logger: Logger, bufferProvider: BufferProvider) :
         payloadBits: ByteArray,
         metadata: EntityMetadata
     ): DailyContext {
-        // 1. Deserialize the Delta
+        // Deserialize
         val delta = ProtoBuf.decodeFromByteArray(BioDeltaV1.serializer(), payloadBits)
 
-        // 2. Reconstruct the full state using the "Envelope" (The SQL fields)
+        // Reconstruct
         return DailyContext(
             id = metadata.id,
             hlc = metadata.hlc,

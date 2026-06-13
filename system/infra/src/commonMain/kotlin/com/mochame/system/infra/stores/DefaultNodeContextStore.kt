@@ -8,7 +8,7 @@ import org.koin.core.annotation.Provided
 import org.koin.core.annotation.Single
 
 @Single(binds = [NodeContextStore::class])
-class RealNodeContextStore(
+class DefaultNodeContextStore(
     @Provided private val dao: NodeContextDao,
 ) : NodeContextStore {
 

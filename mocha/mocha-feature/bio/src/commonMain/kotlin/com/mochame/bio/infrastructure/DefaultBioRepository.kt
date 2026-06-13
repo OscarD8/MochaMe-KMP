@@ -16,47 +16,49 @@ import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.platform.providers.TransactionProvider
 import com.mochame.sync.contract.HlcFactory
-import com.mochame.sync.domain.contracts.PayloadEncoder
+import com.mochame.sync.domain.components.FeatureCodecRegistry
 import com.mochame.sync.domain.stores.BlobStager
-import com.mochame.sync.domain.stores.MetadataStore
-import com.mochame.sync.domain.stores.MutationLedger
+import com.mochame.sync.domain.stores.SyncModuleStateStore
+import com.mochame.sync.domain.stores.SyncIntentStore
 import com.mochame.sync.infrastructure.KeyedLocker
 import com.mochame.sync.infrastructure.LocalFirstRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import org.koin.core.annotation.Single
 import kotlin.coroutines.CoroutineContext
 
-class RoomBioRepository(
+@Single([BioRepository::class])
+class DefaultBioRepository(
     private val dateTimeUtils: DateTimeProvider,
     private val bioDao: BioDao,
     @IoContext ioContext: CoroutineContext,
     logger: Logger,
     bootStatusProvider: BootStatusProvider,
     hlcFactory: HlcFactory,
-    metadataStore: MetadataStore,
+    syncModuleStateStore: SyncModuleStateStore,
     transactor: TransactionProvider,
-    mutationLedger: MutationLedger,
+    syncIntentStore: SyncIntentStore,
     executor: ExecutionPolicy,
-    encoder: PayloadEncoder<DailyContext>,
+    codec: FeatureCodecRegistry<DailyContext>,
     blobStore: BlobStager,
     locker: KeyedLocker,
 ) : LocalFirstRepository<DailyContext>(
     hlcFactory = hlcFactory,
-    module = MochaModule.BIO,
+    module = MochaModule.Bio.DailyContext,
+    provider = bootStatusProvider,
+    syncIntentStore = syncIntentStore,
+    transactor = transactor,
+    syncModuleStateStore = syncModuleStateStore,
+    executor = executor,
+    blobStore = blobStore,
+    locker = locker,
+    codec = codec,
+    ioContext = ioContext,
     logger = logger.withTags(
         layer = LogTags.Layer.INFRA,
         domain = LogTags.Domain.BIO,
         className = "BioRepo"
-    ),
-    provider = bootStatusProvider,
-    mutationLedger = mutationLedger,
-    transactor = transactor,
-    metadataStore = metadataStore,
-    executor = executor,
-    blobStore = blobStore,
-    locker = locker,
-    encoder = encoder,
-    ioContext = ioContext
+    )
 ), BioRepository {     // syncGateway still to come
 
     override suspend fun establishDay(
@@ -70,15 +72,15 @@ class RoomBioRepository(
         return processIntent(
             candidateKey = id,
             op = MutationOp.UPSERT,
-            fetchOldState = { bioDao.getContextById(id)?.toDomain() },
-            computeChange = { old ->
-                merge(
+            fetchExistingState = { bioDao.getContextById(id)?.toDomain() },
+            computeChange = { existing ->
+                meldState(
                     id,
                     mochaDay,
                     sleepHours,
                     readinessScore,
                     isNapped,
-                    old
+                    existing
                 )
             },
             persist = { stamped ->
@@ -89,20 +91,23 @@ class RoomBioRepository(
         )
     }
 
+    /**
+     * Currently set to return 0 where there was a skip.
+     */
     override suspend fun deleteContext(epochDay: Long): Int {
         val id = epochDay.toString()
 
         return processIntent(
             candidateKey = id,
             op = MutationOp.DELETE,
-            fetchOldState = {
+            fetchExistingState = {
                 bioDao.getContextById(id)
                     // Gemini noted possible issue here - check bottom note
                     ?.takeIf { !it.isDeleted }
                     ?.toDomain()
             },
-            computeChange = { old ->
-                old?.copy(isDeleted = true)
+            computeChange = { existing ->
+                existing?.copy(isDeleted = true)
             },
             persist = { tombstone ->
                 bioDao.markAsDeleted(
@@ -140,7 +145,7 @@ class RoomBioRepository(
     }
 
     // --- HELPERS ---
-    private fun merge(
+    private fun meldState(
         newId: String,
         currentDay: Long,
         sleepHours: Double,
@@ -168,8 +173,6 @@ class RoomBioRepository(
 /*
 The Tombstone Trap in deleteContext
 
-Look closely at your fetchOldState implementation inside deleteContext:
-Kotlin
 
 fetchOldState = {
     bioDao.getContextById(id)
@@ -185,7 +188,7 @@ Imagine this exact timeline playing out across your system:
 
     Remote Incoming Sync: A remote sync packet arrives from the server. It contains an old modification for this exact same daily context, generated on a different device that went offline yesterday. Its HLC is older, say, 090.
 
-    The Engine Executes: Your processRemoteChange function triggers and calls processIntent.
+    The Engine Executes: Your processRemoteIntent function triggers and calls processIntent.
 
     The Fetch Phase: processIntent invokes your lambda: fetchOldState().
 

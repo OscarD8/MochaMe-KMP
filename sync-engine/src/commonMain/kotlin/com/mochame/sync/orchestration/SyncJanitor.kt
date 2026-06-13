@@ -16,8 +16,8 @@ import com.mochame.platform.utils.toFullMochaCheck
 import com.mochame.sync.contract.HlcFactory
 import com.mochame.sync.domain.providers.SyncUserProvider
 import com.mochame.sync.domain.stores.BlobStager
-import com.mochame.sync.domain.stores.MetadataStoreMaintenance
-import com.mochame.sync.domain.stores.MutationLedgerMaintenance
+import com.mochame.sync.domain.stores.SyncModuleStateMaintenanceStore
+import com.mochame.sync.domain.stores.SyncIntentMaintenanceStore
 import com.mochame.sync.domain.usecase.PruneOldEntriesUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.NonCancellable
@@ -36,8 +36,8 @@ import kotlin.time.TimeSource
 class SyncJanitor(
     private val bootUpdater: BootStatusUpdater,
     private val transactor: TransactionProvider,
-    private val metadataStore: MetadataStoreMaintenance,
-    private val ledgerStore: MutationLedgerMaintenance,
+    private val moduleStore: SyncModuleStateMaintenanceStore,
+    private val intentStore: SyncIntentMaintenanceStore,
     private val pruneUseCase: PruneOldEntriesUseCase,
     private val nodeManager: SyncUserProvider,
     private val hlcFactory: HlcFactory,
@@ -102,7 +102,7 @@ class SyncJanitor(
 
     private suspend fun initHydration() = withTimeout(5000L) {
         try {
-            val lastHlc = metadataStore.getGlobalMaxHlc()
+            val lastHlc = moduleStore.getGlobalMaxHlc()
             val nodeId = nodeManager.getOrCreateNodeId()
 
             logger.i { "Hydrating HLC Factory | Last Known Local HLC: ${lastHlc ?: "NONE"} | NodeID: $nodeId" }
@@ -122,18 +122,18 @@ class SyncJanitor(
         val mark = TimeSource.Monotonic.markNow()
 
         transactor.runImmediateTransaction {
-            metadataStore.ensureSeeded().takeIf { it > 0 }?.let {
+            moduleStore.ensureSeeded().takeIf { it > 0 }?.let {
                 logger.i { "Maintenance: Seeded $it missing metadata entries." }
             }
 
-            ledgerStore.clearAllLocksAndResetToPending().takeIf { it > 0 }?.let {
+            intentStore.clearAllLocksAndResetToPending().takeIf { it > 0 }?.let {
                 logger.w { "Maintenance: Cleared $it stale mutation locks." }
             }
 
-            val recoveredModules = metadataStore.getDirtyModuleNames()
+            val recoveredModules = moduleStore.getDirtyModuleNames()
             if (recoveredModules.isNotEmpty()) {
                 logger.i { "Maintenance: Recovered dirty modules: ${recoveredModules.joinToString()}" }
-                metadataStore.bulkResetDirtyModules()
+                moduleStore.bulkResetDirtyModules()
             }
         }
 
@@ -162,7 +162,7 @@ class SyncJanitor(
         val pendingHashes = blobStager.listPendingHashes()
 
         pendingHashes.forEach { hash ->
-            if (ledgerStore.existsForBlob(hash)) {
+            if (intentStore.existsForBlob(hash)) {
                 logger.i { "Maintenance: Recovering stranded blob $hash. Finalizing commit." }
                 blobStager.commit(hash)
             } else {

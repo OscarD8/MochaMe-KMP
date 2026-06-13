@@ -10,13 +10,13 @@ import com.mochame.sync.domain.state.SyncStatus
 import kotlinx.coroutines.flow.Flow
 
 @Dao
-interface MutationLedgerDao {
+interface SyncIntentDao {
 
     /**
      * The Global Watermark: Hydrates the HlcFactory.
      * Room uses the HLC TypeConverter to return the object directly.
      */
-    @Query("SELECT MAX(hlc) FROM mutation_ledger")
+    @Query("SELECT MAX(hlc) FROM SyncIntentEntity")
     suspend fun getLedgerGlobalMaxHlc(): String?
 
     /**
@@ -24,7 +24,7 @@ interface MutationLedgerDao {
      */
     @Query(
         """
-        SELECT * FROM mutation_ledger 
+        SELECT * FROM SyncIntentEntity 
         WHERE candidateKey = :candidateKey 
         AND module = :module 
         AND syncStatus = :status 
@@ -39,7 +39,7 @@ interface MutationLedgerDao {
 
     @Query(
         """
-        SELECT * FROM mutation_ledger
+        SELECT * FROM SyncIntentEntity
         WHERE module = :module
         AND syncStatus = :status
     """
@@ -52,10 +52,10 @@ interface MutationLedgerDao {
     // Step 1: Claim the batch with a unique ID
     @Query(
         """
-        UPDATE mutation_ledger 
+        UPDATE SyncIntentEntity 
         SET syncId = :sessionId, syncStatus = :syncingStatus
         WHERE hlc IN (
-            SELECT hlc FROM mutation_ledger
+            SELECT hlc FROM SyncIntentEntity
             WHERE syncId IS NULL 
             AND module = :entityType 
             AND syncStatus = :pendingStatus
@@ -74,7 +74,7 @@ interface MutationLedgerDao {
     /**
      * Batch Collector: Grabs changes to ship to the Cloud Vault.
      */
-    @Query("SELECT * FROM mutation_ledger WHERE syncId = :sessionId")
+    @Query("SELECT * FROM SyncIntentEntity WHERE syncId = :sessionId")
     suspend fun getClaimedBatch(sessionId: String): List<SyncIntentEntity>
 
     /**
@@ -82,7 +82,7 @@ interface MutationLedgerDao {
      */
     @Query(
         """
-        UPDATE mutation_ledger 
+        UPDATE SyncIntentEntity 
         SET syncStatus = :status, syncId = NULL 
         WHERE hlc IN (:hlcs)
     """
@@ -92,7 +92,7 @@ interface MutationLedgerDao {
         status: SyncStatus = SyncStatus.SUCCESS
     )
 
-    @Query("SELECT EXISTS(SELECT 1 FROM mutation_ledger WHERE overflowBlobId = :blobId)")
+    @Query("SELECT EXISTS(SELECT 1 FROM SyncIntentEntity WHERE overflowBlobId = :blobId)")
     suspend fun existsByBlobId(blobId: String): Boolean
 
     /**
@@ -100,9 +100,9 @@ interface MutationLedgerDao {
      */
     @Query(
         """
-    DELETE FROM mutation_ledger 
+    DELETE FROM SyncIntentEntity 
         WHERE syncId IN (
-            SELECT syncId FROM mutation_ledger
+            SELECT syncId FROM SyncIntentEntity
             WHERE syncStatus = :status 
             AND createdAt < :cutoff
             LIMIT :limit
@@ -118,10 +118,10 @@ interface MutationLedgerDao {
     @Upsert
     suspend fun upsert(entry: SyncIntentEntity)
 
-    @Query("DELETE FROM mutation_ledger WHERE hlc = :hlc")
+    @Query("DELETE FROM SyncIntentEntity WHERE hlc = :hlc")
     suspend fun deleteByHlc(hlc: String)
 
-    @Query("SELECT COUNT(*) FROM mutation_ledger WHERE syncStatus = :status")
+    @Query("SELECT COUNT(*) FROM SyncIntentEntity WHERE syncStatus = :status")
     fun observePendingCount(status: SyncStatus = SyncStatus.PENDING): Flow<Int>
 
     // ----- CLEAN UP (Janitor Support) ------
@@ -131,7 +131,7 @@ interface MutationLedgerDao {
      */
     @Query(
         """
-        UPDATE mutation_ledger 
+        UPDATE SyncIntentEntity 
         SET syncId = NULL, syncStatus = :desiredStatus 
         WHERE syncId IS NOT NULL
     """

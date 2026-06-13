@@ -3,8 +3,8 @@ package com.mochame.sync.test.di.persistence
 import androidx.sqlite.SQLiteDriver
 import com.mochame.platform.providers.PlatformContext
 import com.mochame.platform.providers.TransactionProvider
-import com.mochame.sync.data.daos.MutationLedgerDao
-import com.mochame.sync.data.daos.SyncMetadataDao
+import com.mochame.sync.data.daos.SyncIntentDao
+import com.mochame.sync.data.daos.SyncModuleStateDao
 import com.mochame.sync.test.database.SyncMicroSchema
 import com.mochame.system.infra.data.NodeContextDao
 import org.koin.core.annotation.Module
@@ -22,11 +22,11 @@ class SyncPersistenceTestModule {
     }
 
     @Single
-    fun provideMetadataDao(db: SyncMicroSchema): SyncMetadataDao =
+    fun provideMetadataDao(db: SyncMicroSchema): SyncModuleStateDao =
         db.syncMetadataDao()
 
     @Single
-    fun provideLedgerDao(db: SyncMicroSchema): MutationLedgerDao =
+    fun provideLedgerDao(db: SyncMicroSchema): SyncIntentDao =
         db.mutationLedgerDao()
 
     @Single

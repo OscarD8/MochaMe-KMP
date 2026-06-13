@@ -3,6 +3,7 @@ import com.mochame.gradle.configureTargets
 import com.mochame.gradle.getLibrary
 import com.mochame.gradle.libs
 import com.mochame.gradle.standardConfigurations
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinMetadataTarget
 
 plugins {
     id("org.jetbrains.kotlin.multiplatform")
@@ -43,7 +44,7 @@ dependencies {
     val roomCompiler = libs.getLibrary("room-compiler")
 
     kotlin.targets.configureEach {
-        if (this !is org.jetbrains.kotlin.gradle.plugin.mpp.KotlinMetadataTarget) {
+        if (this !is KotlinMetadataTarget) {
             val targetName = name.replaceFirstChar { it.uppercase() }
 
             val kspNames = if (name == "android") {

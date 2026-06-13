@@ -50,7 +50,7 @@ sealed class MochaException(
             Persistent("System clock is out of sync by $driftDisplay $unit.", cause)
 
         class BootInitializationError(message: String?, cause: Throwable? = null) :
-            Exception(message ?: "Failed to initialize system.", cause)
+            Persistent(message ?: "Failed to initialize system.", cause)
 
         class HlcParseException(rawString: String) :
             Persistent("Failed to parse HLC string: '$rawString'. Data integrity at risk.")
@@ -121,7 +121,7 @@ sealed class MochaException(
 
         // DOMAINS
         sealed class Domain(message: String) : SemanticException(message) {
-            data class InUse(val id: String, val momentCount: Int) : Book(
+            data class InUse(val id: String, val momentCount: Int) : Domain(
                 "Cannot deleteBlobByHash Domain $id: It still has $momentCount associated quotes."
             )
 
@@ -139,7 +139,7 @@ sealed class MochaException(
 
             data class NotFound(val id: String) : Topic("Topic $id not found.")
 
-            data class InUse(val id: String, val momentCount: Int) : Book(
+            data class InUse(val id: String, val momentCount: Int) : Topic(
                 "Cannot deleteBlobByHash Topic $id: It still has $momentCount associated quotes."
             )
         }

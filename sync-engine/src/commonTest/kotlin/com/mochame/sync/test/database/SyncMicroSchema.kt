@@ -6,23 +6,23 @@ import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
 import androidx.room.TypeConverters
 import com.mochame.sync.data.SyncConverters
-import com.mochame.sync.data.daos.MutationLedgerDao
-import com.mochame.sync.data.daos.SyncMetadataDao
+import com.mochame.sync.data.daos.SyncIntentDao
+import com.mochame.sync.data.daos.SyncModuleStateDao
 import com.mochame.sync.data.entities.SyncIntentEntity
-import com.mochame.sync.data.entities.SyncMetadataEntity
+import com.mochame.sync.data.entities.SyncModuleStateEntity
 import com.mochame.system.infra.data.NodeContextDao
 import com.mochame.system.infra.data.NodeIdentityEntity
 
 @ConstructedBy(SyncMicroSchemaConstructor::class)
 @Database(
-    entities = [SyncMetadataEntity::class, SyncIntentEntity::class, NodeIdentityEntity::class],
+    entities = [SyncModuleStateEntity::class, SyncIntentEntity::class, NodeIdentityEntity::class],
     version = 1,
     exportSchema = false
 )
 @TypeConverters(SyncConverters::class)
 abstract class SyncMicroSchema : RoomDatabase() {
-    abstract fun syncMetadataDao(): SyncMetadataDao
-    abstract fun mutationLedgerDao(): MutationLedgerDao
+    abstract fun syncMetadataDao(): SyncModuleStateDao
+    abstract fun mutationLedgerDao(): SyncIntentDao
     abstract fun nodeContextDao(): NodeContextDao
 
     companion object {
@@ -30,7 +30,6 @@ abstract class SyncMicroSchema : RoomDatabase() {
     }
 }
 
-@Suppress("NO_ACTUAL_FOR_EXPECT")
 expect object SyncMicroSchemaConstructor : RoomDatabaseConstructor<SyncMicroSchema> {
     override fun initialize(): SyncMicroSchema
 }

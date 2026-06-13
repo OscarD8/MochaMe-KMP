@@ -1,4 +1,4 @@
-package com.mochame.sync.domain.contracts
+package com.mochame.sync.contract
 
 interface SyncPolicy<T> {
     /**

@@ -5,7 +5,7 @@ import com.mochame.contract.node.IdGenerator
 import org.koin.core.annotation.Single
 
 @Single(binds = [IdGenerator::class])
-class RealIdGenerator : IdGenerator {
+class DefaultIdGenerator : IdGenerator {
     override suspend fun nextId(): String = uuid4().toString()
 }
 

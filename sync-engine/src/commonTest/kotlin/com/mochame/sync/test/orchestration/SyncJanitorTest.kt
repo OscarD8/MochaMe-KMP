@@ -10,7 +10,7 @@ import com.mochame.contract.exceptions.MochaException
 import com.mochame.contract.metadata.MochaModule
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runPersistenceEnvironment
-import com.mochame.sync.data.entities.SyncMetadataEntity
+import com.mochame.sync.data.entities.SyncModuleStateEntity
 import com.mochame.sync.test.database.SyncMicroSchemaConstructor
 import com.mochame.sync.test.database.SyncMicroSchema
 import com.mochame.sync.test.di.janitor.JanitorTestApp
@@ -51,7 +51,7 @@ class SyncJanitorTest : MochaPlatformTest() {
 
         scope.advanceUntilIdle()
 
-        assertEquals(MochaModule.entries.size, metadataStore.getMetadataCount())
+        assertEquals(MochaModule.all.size, metadataStore.getMetadataCount())
     }
 
     // -----------------------------------------------------------
@@ -61,13 +61,13 @@ class SyncJanitorTest : MochaPlatformTest() {
     fun should_enter_critical_failure_when_last_hlc_is_from_the_future() =
         runEnv { scope ->
             // Arrange
-            // Seed a "Future" HLC (2040-01-01...)
+            // Seed a Future HLC (2040-01-01...)
             val futureHlc = "2209032000000:0:node-1"
 
             metadataDao.upsertMetadata(
-                SyncMetadataEntity(
-                    module = MochaModule.BIO,
-                    localMaxHlc = futureHlc,
+                SyncModuleStateEntity(
+                    module = MochaModule.Bio.DailyContext,
+                    moduleMaxHlc = futureHlc,
                     syncStatus = SyncStatus.IDLE,
                     lastServerSyncTime = 1000L,
                     lastLocalMutationTime = 1000L
@@ -158,7 +158,7 @@ class SyncJanitorTest : MochaPlatformTest() {
     // -----------------------------------------------------------
     @Test
     fun should_log_correct_seeding_count_when_new_install() = runEnv { scope ->
-        val count = MochaModule.entries.size
+        val count = MochaModule.all.size
 
         janitor.startupChecks()
         scope.advanceUntilIdle()

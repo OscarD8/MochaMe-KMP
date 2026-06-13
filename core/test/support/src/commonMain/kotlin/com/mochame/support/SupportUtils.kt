@@ -14,6 +14,7 @@ import org.koin.core.annotation.Single
 import org.koin.core.module.Module
 import org.koin.core.qualifier.qualifier
 import org.koin.dsl.module
+import kotlin.coroutines.ContinuationInterceptor
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
 
@@ -52,7 +53,7 @@ class TestSupportModule {
  * Generates the test context bindings dynamically.
  */
 fun TestScope.scopeKoinModule(): Module {
-    val dispatcher = this.coroutineContext[CoroutineDispatcher]
+    val dispatcher = this.coroutineContext[ContinuationInterceptor.Key]
         ?: throw IllegalStateException("Error fetching the dispatcher of an established test scope.")
 
     return module {

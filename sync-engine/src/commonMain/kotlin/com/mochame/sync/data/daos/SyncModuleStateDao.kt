@@ -7,35 +7,35 @@ import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
 import com.mochame.contract.metadata.MochaModule
-import com.mochame.sync.data.entities.SyncMetadataEntity
+import com.mochame.sync.data.entities.SyncModuleStateEntity
 import com.mochame.sync.domain.state.SyncStatus
 
 @Dao
-interface SyncMetadataDao {
+interface SyncModuleStateDao {
 
     // -----------------------------------------------------------
     // METADATA BASIC
     // -----------------------------------------------------------
 
-    @Query("SELECT COUNT(*) FROM sync_metadata")
+    @Query("SELECT COUNT(*) FROM SyncModuleStateEntity")
     suspend fun getMetadataCount(): Int
 
-    @Query("SELECT * FROM sync_metadata WHERE module = :module")
-    suspend fun getMetadataForModule(module: MochaModule): SyncMetadataEntity?
+    @Query("SELECT * FROM SyncModuleStateEntity WHERE module = :module")
+    suspend fun getMetadataForModule(module: MochaModule): SyncModuleStateEntity?
 
-    @Query("SELECT * FROM sync_metadata")
-    suspend fun getAllMetadata(): List<SyncMetadataEntity>
+    @Query("SELECT * FROM SyncModuleStateEntity")
+    suspend fun getAllMetadata(): List<SyncModuleStateEntity>
 
     /**
      * The 2026 Way: Atomic update or insert without row destruction.
      */
     @Upsert
-    suspend fun upsertMetadata(metadata: SyncMetadataEntity)
+    suspend fun upsertMetadata(metadata: SyncModuleStateEntity)
 
     /**
      * Lightweight Status Check: Avoids loading the entire entity for a quick busy check.
      */
-    @Query("SELECT syncStatus FROM sync_metadata WHERE module = :module")
+    @Query("SELECT syncStatus FROM SyncModuleStateEntity WHERE module = :module")
     suspend fun getSyncStatus(module: MochaModule): SyncStatus?
 
     // -----------------------------------------------------------
@@ -44,7 +44,7 @@ interface SyncMetadataDao {
 
     @Query(
         """
-    UPDATE sync_metadata 
+    UPDATE SyncModuleStateEntity 
     SET syncId = NULL, syncStatus = :fallbackStatus 
     WHERE module = :module AND syncId = :staleSyncId
     """
@@ -60,7 +60,7 @@ interface SyncMetadataDao {
      * Returns 1 if claim succeeded, 0 if another session already locked it.
      */
     @Query("""
-        UPDATE sync_metadata 
+        UPDATE SyncModuleStateEntity 
         SET syncId = :newSyncId, syncStatus = :syncingStatus
         WHERE module = :module 
         AND (syncStatus = :idleStatus OR syncStatus = :pendingStatus)
@@ -81,7 +81,7 @@ interface SyncMetadataDao {
 
     @Query(
         """
-        UPDATE sync_metadata
+        UPDATE SyncModuleStateEntity
         SET syncStatus = :toStatus
         WHERE module = :module
         AND syncStatus = :fromStatus
@@ -95,7 +95,7 @@ interface SyncMetadataDao {
 
     @Query(
         """
-    UPDATE sync_metadata 
+    UPDATE SyncModuleStateEntity 
     SET syncStatus = :status, 
         syncId = NULL, 
         serverWatermark = :watermark,
@@ -117,8 +117,8 @@ interface SyncMetadataDao {
      */
     @Query(
         """
-        UPDATE sync_metadata 
-        SET localMaxHlc = :hlc, 
+        UPDATE SyncModuleStateEntity 
+        SET moduleMaxHlc = :hlc, 
             lastLocalMutationTime = :now ,
             syncStatus = :syncStatus
         WHERE module = :module
@@ -135,7 +135,7 @@ interface SyncMetadataDao {
      * Full Re-Sync Setup: Wipes remote progress but PRESERVES local causality (HLC).
      */
     @Query("""
-        UPDATE sync_metadata 
+        UPDATE SyncModuleStateEntity 
         SET serverWatermark = NULL, 
             lastServerSyncTime = 0, 
             syncStatus = :status,
@@ -153,7 +153,7 @@ interface SyncMetadataDao {
      */
     @Query(
         """
-        UPDATE sync_metadata 
+        UPDATE SyncModuleStateEntity 
         SET serverWatermark = :watermark, 
             lastServerSyncTime = :timestamp, 
             syncStatus = :status, 
@@ -172,21 +172,21 @@ interface SyncMetadataDao {
     // HLC
     // -----------------------------------------------------------
 
-    @Query("SELECT localMaxHlc FROM sync_metadata WHERE module = :module")
+    @Query("SELECT moduleMaxHlc FROM SyncModuleStateEntity WHERE module = :module")
     suspend fun getModuleMaxHlc(module: MochaModule): String?
 
-    @Query("SELECT localMaxHlc FROM sync_metadata")
+    @Query("SELECT moduleMaxHlc FROM SyncModuleStateEntity")
     suspend fun getAllLocalMaxHlcs(): List<String>
 
-    @Query("SELECT MAX(localMaxHlc) FROM sync_metadata")
+    @Query("SELECT MAX(moduleMaxHlc) FROM SyncModuleStateEntity")
     suspend fun getGlobalMaxHlc(): String?
 
     @Query(
         """
-    UPDATE sync_metadata 
-    SET localMaxHlc = :newHlcFloor
+    UPDATE SyncModuleStateEntity 
+    SET moduleMaxHlc = :newHlcFloor
     WHERE module = :module 
-    AND (localMaxHlc < :newHlcFloor OR localMaxHlc IS NULL)
+    AND (moduleMaxHlc < :newHlcFloor OR moduleMaxHlc IS NULL)
     """
     )
     suspend fun updateHlcFloor(module: MochaModule, newHlcFloor: String): Int
@@ -197,7 +197,7 @@ interface SyncMetadataDao {
     // -----------------------------------------------------------
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun seedDefaultMetadata(metadata: List<SyncMetadataEntity>): List<Long>
+    suspend fun seedDefaultMetadata(metadata: List<SyncModuleStateEntity>): List<Long>
 
     /**
      * Flips any module that isn't 'IDLE' back to 'PENDING'.
@@ -205,7 +205,7 @@ interface SyncMetadataDao {
      */
     @Query(
         """
-        UPDATE sync_metadata 
+        UPDATE SyncModuleStateEntity 
         SET syncStatus = :desiredStatus, syncId = NULL 
         WHERE syncStatus != :ignoredStatus
     """
@@ -218,7 +218,7 @@ interface SyncMetadataDao {
     @Query(
         """
         SELECT module
-        FROM sync_metadata WHERE syncStatus != :ignoredStatus
+        FROM SyncModuleStateEntity WHERE syncStatus != :ignoredStatus
     """
     )
     suspend fun getDirtyModuleNames(
@@ -231,7 +231,7 @@ interface SyncMetadataDao {
         if (existingCount >= expectedModules.size) return 0
 
         val entities = expectedModules.map { module ->
-            SyncMetadataEntity(
+            SyncModuleStateEntity(
                 module = module,
                 syncStatus = SyncStatus.IDLE
             )
@@ -246,7 +246,7 @@ interface SyncMetadataDao {
 
     @Query(
         """
-    UPDATE sync_metadata 
+    UPDATE SyncModuleStateEntity 
     SET serverWatermark = :newWatermark, 
         syncStatus = :status 
     WHERE module = :module

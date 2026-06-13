@@ -22,7 +22,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.CoroutineContext
 
-class RoomResonanceRepository(
+class DefaultResonanceRepository(
     private val resonanceDao: ResonanceDao,
     private val dateTimeUtils: DateTimeProvider,
     @IoContext private val ioContext: CoroutineContext

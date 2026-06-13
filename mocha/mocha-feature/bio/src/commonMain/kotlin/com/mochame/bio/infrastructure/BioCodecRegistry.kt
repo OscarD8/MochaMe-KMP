@@ -5,18 +5,21 @@ import com.mochame.bio.domain.DailyContext
 import com.mochame.contract.exceptions.MochaException
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
-import com.mochame.sync.domain.contracts.PayloadEncoder
+import com.mochame.sync.domain.components.FeatureCodecRegistry
 import com.mochame.sync.domain.model.EntityMetadata
+import org.koin.core.annotation.Single
 
 /**
- * The App Release Version Dispatcher.
+ * The App Release Version identifier/router for binary payloads.
  * Routes all binary operations based on the 1-byte header.
+ * If adding a new version, ensure [encode] is updated to route that version.
  */
-class BioPayloadCodecRegistry(
-    private val v1: BioPayloadEncoderV1,
-    // private val v2: BioPayloadEncoderV2 // FUTURE: 2027 Protocol Shift
+@Single(binds = [FeatureCodecRegistry::class])
+class BioCodecRegistry(
+    private val v1: BioCodecV1,
+    // private val v2: BioPayloadEncoderV2 - demonstration
     logger: Logger
-) : PayloadEncoder<DailyContext> {
+) : FeatureCodecRegistry<DailyContext> {
 
     private val logger = logger.withTags(
         layer = LogTags.Layer.INFRA,
@@ -25,15 +28,14 @@ class BioPayloadCodecRegistry(
     )
 
     override fun encode(new: DailyContext, old: DailyContext?): ByteArray? {
-        //Always encode using the LATEST protocol available.
-        return v1.encode(new, old)
+        return v1.encode(new, old) // Always encode using the latest protocol available
     }
 
     override fun validate(data: ByteArray): Boolean {
         if (data.isEmpty()) return false
         return when (data[0]) {
-            0x01.toByte() -> true // V1 is active
-            // 0x02.toByte() -> v2.validate(data) // FUTURE
+            0x01.toByte() -> v1.validate(data)
+            // 0x02.toByte() -> v2.validate(data)
             else -> false
         }
     }
@@ -43,12 +45,12 @@ class BioPayloadCodecRegistry(
      */
     override fun decode(data: ByteArray, metadata: EntityMetadata): DailyContext {
         if (data.isEmpty()) {
-            logger.e { "Codec Registry: Received empty payload for ${metadata.id}" }
+            logger.e { "Received empty payload for ${metadata.id}" }
             throw MochaException.Persistent.CorruptionDetected("Empty Payload")
         }
         return when (data[0]) {
             0x01.toByte() -> v1.decode(data, metadata)
-            // 0x02.toByte() -> v2.decode(data) // Route to the 2027 engine
+            // 0x02.toByte() -> v2.decode(data)
             else -> {
                 logger.e {
                     "Protocol Collision | ID: ${metadata.id} | " +
@@ -66,7 +68,7 @@ class BioPayloadCodecRegistry(
         if (data.isEmpty()) return "OP:INVALID"
         return when (data[0]) {
             0x01.toByte() -> v1.reconstructSummary(data)
-            // 0x02.toByte() -> v2.summarize(data) // FUTURE
+            // 0x02.toByte() -> v2.summarize(data)
             else -> "OP:UNKNOWN_VERSION_${data[0]}"
         }
     }

@@ -14,10 +14,10 @@ import com.mochame.sync.SyncConcurrencyModule
 import com.mochame.sync.SyncDomainModule
 import com.mochame.sync.SyncInfraModule
 import com.mochame.sync.SyncOrchestrationModule
-import com.mochame.sync.data.daos.SyncMetadataDao
+import com.mochame.sync.data.daos.SyncModuleStateDao
 import com.mochame.sync.domain.providers.SyncUserProvider
-import com.mochame.sync.domain.stores.MetadataStoreMaintenance
-import com.mochame.sync.domain.stores.MutationLedgerMaintenance
+import com.mochame.sync.domain.stores.SyncModuleStateMaintenanceStore
+import com.mochame.sync.domain.stores.SyncIntentMaintenanceStore
 import com.mochame.sync.orchestration.SyncJanitor
 import com.mochame.sync.test.di.blob.SyncBlobStoreTestModule
 import com.mochame.sync.test.di.hlc.FakeHlcFactoryModule
@@ -71,10 +71,10 @@ data class JanitorTestEnv(
     val writer: TestLogWriter,
     val bootUpdater: BootStatusUpdater,
     val hlcFactory: FakeHlcFactory,
-    val metadataStore: MetadataStoreMaintenance,
-    val ledgerMaintenance: MutationLedgerMaintenance,
+    val metadataStore: SyncModuleStateMaintenanceStore,
+    val ledgerMaintenance: SyncIntentMaintenanceStore,
     val transactor: TransactionProvider,
-    val metadataDao: SyncMetadataDao,
+    val metadataDao: SyncModuleStateDao,
     val manager: FakeNodeContextManager,
     @JanitorMutex val janitorMutex: Mutex,
 )

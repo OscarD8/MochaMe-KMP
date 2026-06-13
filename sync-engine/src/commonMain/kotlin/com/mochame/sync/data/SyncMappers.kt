@@ -1,17 +1,21 @@
 package com.mochame.sync.data
 
-import com.mochame.sync.data.entities.SyncMetadataEntity
-import com.mochame.sync.domain.model.SyncMetadata
+import com.mochame.contract.metadata.MochaModule
+import com.mochame.sync.contract.HLC
+import com.mochame.sync.data.entities.SyncIntentEntity
+import com.mochame.sync.data.entities.SyncModuleStateEntity
+import com.mochame.sync.domain.model.SyncIntent
+import com.mochame.sync.domain.model.SyncModuleState
 
 
 /**
  * Database Entity -> Domain Model
  */
-fun SyncMetadataEntity.toDomain(): SyncMetadata {
-    return SyncMetadata(
+fun SyncModuleStateEntity.toDomain(): SyncModuleState {
+    return SyncModuleState(
         module = module,
         serverWatermark = serverWatermark,
-        localMaxHlc = localMaxHlc,
+        localMaxHlc = moduleMaxHlc,
         activeSyncId = syncId,
         status = syncStatus,
         lastServerSyncTime = lastServerSyncTime,
@@ -22,14 +26,52 @@ fun SyncMetadataEntity.toDomain(): SyncMetadata {
 /**
  * Domain Model -> Database Entity
  */
-fun SyncMetadata.toEntity(): SyncMetadataEntity {
-    return SyncMetadataEntity(
+fun SyncModuleState.toEntity(): SyncModuleStateEntity {
+    return SyncModuleStateEntity(
         module = module,
         serverWatermark = serverWatermark,
-        localMaxHlc = localMaxHlc,
+        moduleMaxHlc = localMaxHlc,
         syncId = activeSyncId,
         syncStatus = status,
         lastServerSyncTime = lastServerSyncTime,
         lastLocalMutationTime = lastLocalMutationTime
     )
 }
+
+
+
+fun SyncIntentEntity.toDomain(): SyncIntent {
+    return SyncIntent(
+        hlc = HLC.parse(hlc),
+        candidateKey = candidateKey,
+        module = module,
+        model = model,
+        operation = operation,
+        syncStatus = syncStatus,
+        syncId = syncId,
+        payload = payload,
+        diagnosticSummary = diagnosticSummary,
+        overflowBlobId = overflowBlobId,
+        hasConflict = hasConflict,
+        retryCount = retryCount,
+        createdAt = createdAt
+    )
+}
+
+fun SyncIntent.toEntity(): SyncIntentEntity {
+        return SyncIntentEntity(
+            hlc = hlc.toString(),
+            candidateKey = candidateKey,
+            module = module,
+            model = model,
+            operation = operation,
+            syncStatus = syncStatus,
+            syncId = syncId,
+            payload = payload,
+            diagnosticSummary = diagnosticSummary,
+            overflowBlobId = overflowBlobId,
+            hasConflict = hasConflict,
+            retryCount = retryCount,
+            createdAt = createdAt
+        )
+    }

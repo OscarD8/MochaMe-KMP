@@ -5,7 +5,7 @@ import com.mochame.sync.contract.HLC
 import com.mochame.sync.domain.state.SyncStatus
 
 
-interface MetadataStore {
+interface SyncModuleStateStore {
     suspend fun recordPendingMetadata(module: MochaModule, hlc: HLC)
 
     suspend fun updateSyncingToFailure(
@@ -36,12 +36,12 @@ interface MetadataStore {
     suspend fun finalizeSync(module: MochaModule, syncId: String, newWatermark: String)
 }
 
-interface MetadataStoreMaintenance {
+interface SyncModuleStateMaintenanceStore {
     /**
      * Performs a sweep of all modules currently not Idle
      * and resets status to Pending (by default).
      * Used in a context where the state is stale.
-     * Should be used in conjunction with [MutationLedgerMaintenance.clearAllLocksAndResetToPending].
+     * Should be used in conjunction with [SyncIntentMaintenanceStore.clearAllLocksAndResetToPending].
      */
     suspend fun bulkResetDirtyModules(): Int
 

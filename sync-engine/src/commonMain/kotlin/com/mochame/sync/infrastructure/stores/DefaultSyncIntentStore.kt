@@ -2,16 +2,16 @@ package com.mochame.sync.infrastructure.stores
 
 
 import com.mochame.contract.metadata.MochaModule
-import com.mochame.sync.data.daos.MutationLedgerDao
+import com.mochame.sync.data.daos.SyncIntentDao
 import com.mochame.sync.data.entities.SyncIntentEntity
-import com.mochame.sync.domain.stores.MutationLedger
-import com.mochame.sync.domain.stores.MutationLedgerMaintenance
+import com.mochame.sync.domain.stores.SyncIntentStore
+import com.mochame.sync.domain.stores.SyncIntentMaintenanceStore
 import org.koin.core.annotation.Single
 
-@Single(binds = [MutationLedger::class, MutationLedgerMaintenance::class])
-class RealMutationLedger(
-    private val dao: MutationLedgerDao
-) : MutationLedger, MutationLedgerMaintenance {
+@Single(binds = [SyncIntentStore::class, SyncIntentMaintenanceStore::class])
+class DefaultSyncIntentStore(
+    private val dao: SyncIntentDao
+) : SyncIntentStore, SyncIntentMaintenanceStore {
 
     override suspend fun getPendingByKey(
         candidateKey: String,

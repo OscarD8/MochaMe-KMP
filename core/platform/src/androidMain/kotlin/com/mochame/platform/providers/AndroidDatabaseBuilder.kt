@@ -20,7 +20,7 @@ actual inline fun <reified T : RoomDatabase> platformBuilder(
 ): RoomDatabase.Builder<T> {
     val builder = when (location) {
         is DatabaseLocation.InMemory -> {
-            Room.inMemoryDatabaseBuilder(context.androidContext, factory)
+            Room.inMemoryDatabaseBuilder<T>(context.androidContext, factory)
         }
         is DatabaseLocation.OnDisk -> {
             Room.databaseBuilder<T>(context.androidContext, location.path, factory)

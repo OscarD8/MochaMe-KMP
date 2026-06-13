@@ -2,8 +2,7 @@ package com.mochame.sync.domain.usecase
 
 import co.touchlab.kermit.Logger
 import com.mochame.contract.providers.DateTimeProvider
-import com.mochame.sync.domain.stores.MutationLedgerMaintenance
-import com.mochame.utils.MochaDateTimeProvider
+import com.mochame.sync.domain.stores.SyncIntentMaintenanceStore
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.logger.withTimer
@@ -13,7 +12,7 @@ import kotlin.time.TimeSource
 
 @Single
 class PruneOldEntriesUseCase(
-    private val ledgerMaintenance: MutationLedgerMaintenance,
+    private val ledgerMaintenance: SyncIntentMaintenanceStore,
     private val dateTimeUtils: DateTimeProvider,
     logger: Logger
 ) {

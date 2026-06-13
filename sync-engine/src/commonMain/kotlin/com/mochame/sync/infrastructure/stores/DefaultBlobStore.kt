@@ -32,7 +32,7 @@ import kotlin.time.TimeSource
  * BlobStore using kotlinx-io.
  */
 @Single(binds = [BlobStager::class, BlobReader::class])
-class RealBlobStore(
+class DefaultBlobStore(
     private val dateTimeUtils: DateTimeProvider,
     private val hashProvider: Hasher,
     private val fileSystem: FileSystem,

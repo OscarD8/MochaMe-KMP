@@ -1,21 +1,21 @@
 package com.mochame.bio.domain
 
 import com.mochame.sync.contract.HLC
-import com.mochame.sync.domain.model.LocalFirstEntity
+import com.mochame.sync.contract.LocalFirstEntity
 
 /**
  * Represents the biological capacity and readiness for a single day.
  * This acts as the framing context for all telemetry logged during this period.
  */
 data class DailyContext(
-    override val id: String,        // Deterministic: epochDay.toString()
-    override val hlc: HLC = HLC.EMPTY, // WHY?
+    override val id: String,
+    override val hlc: HLC = HLC.EMPTY,
     val epochDay: Long,
     val sleepHours: Double,
     val readinessScore: Int,
     val isNapped: Boolean = false,
-    val isDeleted: Boolean = false, // The "Tombstone" flag
-    val lastModified: Long = 0L     // Driven by hlc.ts for UI consistency
+    val isDeleted: Boolean = false,
+    val lastModified: Long = 0L
 ) : LocalFirstEntity<DailyContext> {
 
     /**

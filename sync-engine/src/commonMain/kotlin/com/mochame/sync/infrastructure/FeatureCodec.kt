@@ -2,19 +2,18 @@ package com.mochame.sync.infrastructure
 
 import co.touchlab.kermit.Logger
 import com.mochame.contract.exceptions.MochaException
-import com.mochame.sync.domain.model.LocalFirstEntity
-import com.mochame.sync.domain.contracts.PayloadEncoder
-import com.mochame.sync.domain.model.EntityMetadata
 import com.mochame.platform.providers.BufferProvider
+import com.mochame.sync.contract.LocalFirstEntity
+import com.mochame.sync.domain.model.EntityMetadata
 import kotlinx.io.Source
 
-abstract class BasePayloadEncoder<T : LocalFirstEntity<T>>(
+abstract class FeatureCodec<T : LocalFirstEntity<T>>(
     protected val version: Byte,
     protected val bufferProvider: BufferProvider,
     protected val logger: Logger
-) : PayloadEncoder<T> {
+) {
 
-    final override fun encode(new: T, old: T?): ByteArray? {
+    fun encode(new: T, old: T?): ByteArray? {
         val bits = generateDelta(new, old) ?: return null
 
         // Simple 2-copy process (Header + Bits)
@@ -33,7 +32,7 @@ abstract class BasePayloadEncoder<T : LocalFirstEntity<T>>(
     /**
      * Validates and strips the header.
      */
-    final override fun decode(data: ByteArray, metadata: EntityMetadata): T {
+    fun decode(data: ByteArray, metadata: EntityMetadata): T {
         // 1. Ensure we aren't decoding the wrong language
         if (!validate(data)) {
             throw MochaException.Persistent.UnknownProtocolVersion(
@@ -89,4 +88,11 @@ abstract class BasePayloadEncoder<T : LocalFirstEntity<T>>(
             else -> throw MochaException.Persistent.CorruptionDetected("Unsupported Wire Type: $wireType")
         }
     }
+
+    abstract fun validate(data: ByteArray): Boolean
+
+    abstract fun reconstructSummary(data: ByteArray): String
+
+    abstract fun summarize(new: T, old: T?): String
+
 }

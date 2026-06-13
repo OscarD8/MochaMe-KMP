@@ -10,14 +10,14 @@ import com.mochame.contract.metadata.MutationOp
 import com.mochame.sync.data.entities.SyncIntentEntity
 import com.mochame.contract.boot.BootStatusProvider
 import com.mochame.contract.exceptions.MochaException
-import com.mochame.sync.domain.contracts.PayloadEncoder
-import com.mochame.sync.domain.contracts.SyncReceiver
+import com.mochame.sync.domain.components.FeatureCodecRegistry
+import com.mochame.sync.domain.components.SyncReceiver
 import com.mochame.sync.domain.state.SyncStatus
 import com.mochame.sync.domain.model.EntityMetadata
-import com.mochame.sync.domain.model.LocalFirstEntity
+import com.mochame.sync.contract.LocalFirstEntity
 import com.mochame.sync.domain.stores.BlobStager
-import com.mochame.sync.domain.stores.MetadataStore
-import com.mochame.sync.domain.stores.MutationLedger
+import com.mochame.sync.domain.stores.SyncModuleStateStore
+import com.mochame.sync.domain.stores.SyncIntentStore
 import com.mochame.logger.withTimer
 import com.mochame.platform.utils.toFullMochaCheck
 import com.mochame.sync.contract.HLC
@@ -30,26 +30,26 @@ import kotlin.coroutines.CoroutineContext
 import kotlin.time.TimeSource
 
 /**
- * The standard engine for local-first data mutations.
+ * The default logic for local-first data mutations.
  *
  * This chassis ensures that any change to local state is atomically bound
- * to a "Sync Intent" in the mutation ledger.
+ * to a [SyncIntentEntity].
  *
- * @param T The entity type, adhering to the [com.mochame.sync.domain.model.LocalFirstEntity] contract.
+ * @param T The entity type, adhering to the [LocalFirstEntity] contract.
  */
 abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     protected val hlcFactory: HlcFactory,
     protected val executor: ExecutionPolicy,
-    protected val encoder: PayloadEncoder<T>,
+    protected val codec: FeatureCodecRegistry<T>,
     protected val locker: KeyedLocker,
     protected val logger: Logger,
     @IoContext protected val ioContext: CoroutineContext,
     protected val transactor: TransactionProvider,
     protected val blobStore: BlobStager,
-    protected val mutationLedger: MutationLedger,
+    protected val syncIntentStore: SyncIntentStore,
     override val module: MochaModule,
     private val provider: BootStatusProvider,
-    private val metadataStore: MetadataStore
+    private val syncModuleStateStore: SyncModuleStateStore
 ) : SyncReceiver {
 
     /**
@@ -61,44 +61,44 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
      * @param candidateKey the item (either fetched remotely, or from a local UI event) to be persisted locally.
      * @param incomingHlc used when the SyncCoordinator is calling to process an intent. Forks how we process the intent.
      * @param op the DML operation for the intent. Required for metadata, logging, and state verification.
-     * @param fetchOldState used to perform a backup causality check, and possible ghost deleteBlobByHash.
-     * @param computeChange requires the feature to assert the state change they wish to make.
+     * @param fetchExistingState used to perform a backup causality check, and possible ghost deleteBlobByHash.
+     * @param computeChange requires the feature to assert the state change they wish to make. T is nullable in the case of deletions where a remote intent is made to delete state that does not exist locally.
      * @param persist after verifying and stamping the feature state change, the finalized state is persisted atomically alongside sync payloads/metadata.
      * @param onSkip offers a type-safe way to return R. Potential case of multiple concurrent requests to processing the same intent -
-     * these will fail when accessing the database write lock, causing duplicate intents to [PayloadEncoder.encode] a state that already exists, triggering onSkip.
+     * these will fail when accessing the database write lock, causing duplicate intents to [FeatureCodecRegistry.encode] a state that already exists, triggering onSkip.
      */
     protected suspend inline fun <R> processIntent(
         candidateKey: String,
-        incomingHlc: HLC? = null,
+        incomingHlc: HLC? = null, // does this need to be HLC.EMPTY?
         op: MutationOp,
-        crossinline fetchOldState: suspend () -> T?,
-        crossinline computeChange: suspend (old: T?) -> T?,
+        crossinline fetchExistingState: suspend () -> T?,
+        crossinline computeChange: suspend (existing: T?) -> T?,
         crossinline persist: suspend (stamped: T) -> R,
-        crossinline onSkip: (old: T?) -> R
+        crossinline onSkip: (existing: T?) -> R
     ): R = withContext(ioContext) {
-        ensureReady()
-        val isRemote = incomingHlc != null
 
+        ensureReady()
+        val isRemoteIntent = incomingHlc != null
 
         locker.withLock(candidateKey) {
             executor.execute("[${module}_$op]") {
-                val oldState = fetchOldState()
+                val existingState = fetchExistingState()
 
                 // 1. Initial state verification & LWW Checks
-                if (oldState != null && !hlcFactory.isValid(oldState.hlc)) {
-                    throw MochaException.Persistent.CorruptionDetected("Invalid HLC [${oldState.hlc}] for $candidateKey")
+                if (existingState != null && !hlcFactory.isValid(existingState.hlc)) {
+                    throw MochaException.Persistent.CorruptionDetected("Invalid HLC [${existingState.hlc}] for $candidateKey")
                 }
 
-                if (isRemote && oldState != null && incomingHlc <= oldState.hlc) {
-                    logger.d { "Local item [$candidateKey / ${oldState.hlc}] rejected incoming $op [$incomingHlc]." }
-                    return@execute onSkip(oldState)
+                if (isRemoteIntent && existingState != null && incomingHlc <= existingState.hlc) {
+                    logger.d { "Local item [$candidateKey / ${existingState.hlc}] rejected incoming $op [$incomingHlc]." }
+                    return@execute onSkip(existingState)
                 }
 
                 // 2. Transformation & State Validation
-                val provisionalState = computeChange(oldState)
+                val provisionalState = computeChange(existingState)
                 val validatedState =
                     validateMutationOrAbort(op, provisionalState, candidateKey)
-                        ?: return@execute onSkip(oldState)
+                        ?: return@execute onSkip(existingState)
 
                 // 3. HLC Advancement
                 incomingHlc?.let { hlcFactory.witness(it) }
@@ -106,16 +106,16 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                 val stampedState = validatedState.withHlc(hlc)
 
                 // 4. Fork depending on commit strategy (encoding/staging/ledgering)
-                return@execute if (isRemote) {
+                return@execute if (isRemoteIntent) {
                     handleRemoteCommit(
                         candidateKey = candidateKey,
                         hlc = hlc,
                         persistAction = { persist(stampedState) }
                     )
                 } else {
-                    val payload = encoder.encode(stampedState, oldState)
-                        ?: return@execute onSkip(oldState)
-                    val summary = encoder.summarize(stampedState, oldState)
+                    val payload = codec.encode(stampedState, existingState)
+                        ?: return@execute onSkip(existingState)
+                    val summary = codec.summarize(stampedState, existingState)
 
                     handleStagingAndCommit(
                         candidateKey = candidateKey,
@@ -130,24 +130,21 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         }
     }
 
-    override suspend fun processRemoteChange(
+    override suspend fun processRemoteIntent(
         metadata: EntityMetadata,
         payload: ByteArray
     ) {
-        val incomingHlc = HLC.parse(metadata.hlc.toString())
-
         // Use the repository's specific encoder to turn bytes into T
-        val remoteEntity = encoder.decode(payload, metadata)
+        val remoteEntity = codec.decode(payload, metadata)
 
-        // Funnel this into the unified processIntent engine
         processIntent(
             candidateKey = remoteEntity.id,
-            incomingHlc = incomingHlc,
+            incomingHlc = metadata.hlc,
             op = metadata.op,
-            fetchOldState = { fetch(metadata.id) },
+            fetchExistingState = { fetch(metadata.id) },
             computeChange = { remoteEntity }, // The "change" is just the remote state
             persist = { stamped -> save(stamped) },
-            onSkip = { old -> logger.v { "Confirmation: Sync skipped" } }
+            onSkip = { old -> logger.v { "Remote intent skipped: $old." } }
         )
     }
 
@@ -158,14 +155,14 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     ): R {
         val mark = TimeSource.Monotonic.markNow()
         val result = transactor.runImmediateTransaction {
-            // CLEANUP: If a newer remote change arrives, any pending local
+            // If a newer remote change arrives, any pending local
             // work for this key is now obsolete.
-            mutationLedger.getPendingByKey(candidateKey, module)?.let {
-                mutationLedger.discardIntent(it.hlc)
+            syncIntentStore.getPendingByKey(candidateKey, module)?.let {
+                syncIntentStore.discardIntent(it.hlc)
             }
 
             val localResult = persistAction()
-            updateModuleMetadata(hlc) //
+            updateModuleMetadata(hlc)
             localResult
         }
 
@@ -271,21 +268,22 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         diagnosticSummary: String
     ) {
         // Look for existing work that hasn't been synced yet
-        val pending = mutationLedger.getPendingByKey(candidateKey, module)
+        val pending = syncIntentStore.getPendingByKey(candidateKey, module)
 
         val effectiveCreatedAt = resolvePruningTimestamp(pending, op, hlc.ts)
 
         // Compaction: Remove the old intent before writing the new one
         pending?.let {
             logger.i { "Compacting Ledger | Replacing HLC [${it.hlc}] with [$hlc] for Key [$candidateKey]" }
-            mutationLedger.discardIntent(it.hlc)
+            syncIntentStore.discardIntent(it.hlc)
         }
 
-        mutationLedger.recordIntent(
+        syncIntentStore.recordIntent(
             SyncIntentEntity(
                 hlc = hlc.toString(),
                 candidateKey = candidateKey,
                 module = module,
+                model = module.modelName,
                 operation = op,
                 syncStatus = SyncStatus.PENDING,
                 createdAt = effectiveCreatedAt,
@@ -312,7 +310,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     }
 
     protected suspend fun updateModuleMetadata(hlc: HLC) {
-        metadataStore.recordPendingMetadata(
+        syncModuleStateStore.recordPendingMetadata(
             module = module, hlc = hlc
         )
     }

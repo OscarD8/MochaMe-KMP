@@ -1,13 +1,13 @@
-package com.mochame.sync.domain.contracts
+package com.mochame.sync.domain.components
 
+import com.mochame.sync.contract.LocalFirstEntity
 import com.mochame.sync.domain.model.EntityMetadata
-import com.mochame.sync.domain.model.LocalFirstEntity
-
 
 /**
  * Contract for transforming domain changes into binary bitstreams.
  */
-interface PayloadEncoder<T : LocalFirstEntity<T>> {
+interface FeatureCodecRegistry<T : LocalFirstEntity<T>> {
+
     /**
      * Delta Generation: Compares the absolute latest state against
      * the new intent. If [old] is null, it encodes a full record.

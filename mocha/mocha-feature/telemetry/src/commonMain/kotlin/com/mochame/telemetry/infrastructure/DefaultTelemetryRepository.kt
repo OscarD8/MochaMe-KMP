@@ -25,7 +25,7 @@ This is Composition over Inheritance, even though it wears an "Interface" mask.
     But the remote delegates your button press to the right component.
     To the user (the ViewModel), the remote is the volume and channel controller.
  */
-internal class RoomTelemetryRepository(
+internal class DefaultTelemetryRepository(
     private val context: ContextRepository,
     private val moment: MomentRepository,
     private val analytics: AnalyticsRepository

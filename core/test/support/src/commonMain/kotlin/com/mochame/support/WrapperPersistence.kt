@@ -34,9 +34,13 @@ import kotlin.coroutines.CoroutineContext
  * and the TestScope provided to the caller for manipulating the virtual
  * clock. The provided environment will be the scope you are now in.
  *
- * Inline all calls up to the point of the call to runTest, so the final size for each test method will
+ * Inline usage - all calls up to the call to runTest, so the final size for each test method will
  * include the test code, the environment, and this persistence wrapper. This is then stored
  * on the heap and passed as a single lambda to the testBody of [runTest].
+ *
+ * @param constructor Micro schema constructor which is passed to a builder.
+ * @param koinSetup Expects a nested inclusion of the SUT koin application, its modules then attached to a test koin application.
+ * @param block The actual test block to be run once the test environment is set up.
  */
 inline fun <reified T : RoomDatabase, reified E : Any> runPersistenceEnvironment(
     constructor: RoomDatabaseConstructor<T>,

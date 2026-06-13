@@ -12,7 +12,6 @@ fun KotlinMultiplatformExtension.configureTestTargets(
     libs: VersionCatalog
 ) {
     sourceSets.apply {
-        // Lazy Capture
         val commonTestProvider = named("commonTest")
 
         // Lazy Configuration

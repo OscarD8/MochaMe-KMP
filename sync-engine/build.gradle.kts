@@ -1,5 +1,6 @@
 plugins {
     id("mocha.convention.feature")
+    alias(libs.plugins.kotlinSerialization)
 }
 
 kotlin {

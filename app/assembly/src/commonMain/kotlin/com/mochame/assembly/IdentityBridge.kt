@@ -1,6 +1,6 @@
 package com.mochame.assembly
 
-import com.mochame.system.orchestrator.RealNodeContextManager
+import com.mochame.system.orchestrator.DefaultNodeContextManager
 import com.mochame.sync.domain.providers.SyncUserProvider
 import org.koin.core.annotation.Single
 
@@ -18,7 +18,7 @@ import org.koin.core.annotation.Single
  */
 @Single(binds = [SyncUserProvider::class])
 class NodeBridge(
-    private val nodeContextManager: RealNodeContextManager
+    private val nodeContextManager: DefaultNodeContextManager
 ) : SyncUserProvider {
     override suspend fun getOrCreateNodeId(): String {
         return nodeContextManager.getOrCreateNodeId()

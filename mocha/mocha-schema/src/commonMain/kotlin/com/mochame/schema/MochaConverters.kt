@@ -79,11 +79,8 @@ class MochaConverters {
     fun toStatus(id: Int): SyncStatus = SyncStatus.fromId(id)
 
     @TypeConverter
-    fun fromMochaModule(module: MochaModule): String = module.tag
+    fun fromMochaModule(module: MochaModule): String = module.modelName
 
     @TypeConverter
-    fun toMochaModule(tag: String): MochaModule {
-        return MochaModule.entries.find { it.tag == tag }
-            ?: throw IllegalArgumentException("Unknown MochaModule tag: $tag")
-    }
+    fun toMochaModule(tag: String): MochaModule = MochaModule.modelFromString(tag)
 }

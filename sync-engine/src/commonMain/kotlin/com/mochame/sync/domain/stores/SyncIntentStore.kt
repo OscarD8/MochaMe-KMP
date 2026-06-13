@@ -4,7 +4,7 @@ package com.mochame.sync.domain.stores
 import com.mochame.contract.metadata.MochaModule
 import com.mochame.sync.data.entities.SyncIntentEntity
 
-interface MutationLedger {
+interface SyncIntentStore {
     suspend fun getPendingByKey(
         candidateKey: String,
         entityType: MochaModule
@@ -15,7 +15,7 @@ interface MutationLedger {
     suspend fun getPendingByModule(module: MochaModule): List<SyncIntentEntity?>
 }
 
-interface MutationLedgerMaintenance {
+interface SyncIntentMaintenanceStore {
     suspend fun clearAllLocksAndResetToPending(): Int
     suspend fun pruneOldSynced(olderThan: Long, limit: Int): Int
     suspend fun existsForBlob(blobId: String): Boolean

@@ -4,13 +4,10 @@ import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.TestLogWriter
 import com.mochame.contract.di.IdentityMutex
 import com.mochame.contract.fixtures.FakeIdGenerator
-import com.mochame.contract.fixtures.FakeNodeContextManager
 import com.mochame.contract.fixtures.FakeNodeContextStore
 import com.mochame.contract.fixtures.di.FixtureIdentityProviderModule
-import com.mochame.contract.node.IdGenerator
-import com.mochame.contract.node.NodeContextStore
 import com.mochame.support.TestSupportModule
-import com.mochame.system.orchestrator.RealNodeContextManager
+import com.mochame.system.orchestrator.DefaultNodeContextManager
 import com.mochame.system.orchestrator.SystemOrchestratorModule
 import kotlinx.coroutines.sync.Mutex
 import org.koin.core.annotation.ComponentScan
@@ -46,7 +43,7 @@ class NodeManagerUnitTestModule
 @OptIn(ExperimentalKermitApi::class)
 @Factory
 data class NodeManagerTestEnv(
-    val manager: RealNodeContextManager,
+    val manager: DefaultNodeContextManager,
     val fakeStore: FakeNodeContextStore,
     val fakeIdGen: FakeIdGenerator,
     val writer: TestLogWriter,
