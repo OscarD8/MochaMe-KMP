@@ -4,10 +4,10 @@ import co.touchlab.kermit.Logger
 import com.mochame.contract.exceptions.MochaException
 import com.mochame.platform.providers.BufferProvider
 import com.mochame.sync.contract.LocalFirstEntity
-import com.mochame.sync.domain.model.EntityMetadata
+import com.mochame.sync.domain.model.DecodeContext
 import kotlinx.io.Source
 
-abstract class FeatureCodec<T : LocalFirstEntity<T>>(
+abstract class BaseFeatureCodec<T : LocalFirstEntity<T>>(
     protected val version: Byte,
     protected val bufferProvider: BufferProvider,
     protected val logger: Logger
@@ -32,7 +32,7 @@ abstract class FeatureCodec<T : LocalFirstEntity<T>>(
     /**
      * Validates and strips the header.
      */
-    fun decode(data: ByteArray, metadata: EntityMetadata): T {
+    fun decode(data: ByteArray, decodeContext: DecodeContext): T {
         // 1. Ensure we aren't decoding the wrong language
         if (!validate(data)) {
             throw MochaException.Persistent.UnknownProtocolVersion(
@@ -44,13 +44,13 @@ abstract class FeatureCodec<T : LocalFirstEntity<T>>(
         val payloadBits = data.copyOfRange(1, data.size)
 
         // 3. Delegation: Pass the raw bits to the submodule
-        return internalDecode(payloadBits, metadata)
+        return internalDecode(payloadBits, decodeContext)
     }
 
     /**
      * Submodules only implement the raw Protobuf-to-Object mapping.
      */
-    abstract fun internalDecode(payloadBits: ByteArray, metadata: EntityMetadata): T
+    abstract fun internalDecode(payloadBits: ByteArray, decodeContext: DecodeContext): T
 
     /**
      * Performs a non-allocating scan of the Protobuf bitstream.

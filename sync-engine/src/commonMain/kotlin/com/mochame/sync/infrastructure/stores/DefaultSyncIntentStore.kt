@@ -38,10 +38,8 @@ class DefaultSyncIntentStore(
     /**
      * Assumes use in a stale context. No sync should be active, as it will
      * reset all syncIds to null and the status to Pending.
-     * At the ledger level, this would reflect that single entries require a
+     * At the level of individual intents, this would reflect that single entries require a
      * further attempt to sync.
-     * Should be used in conjunction with [com.mochame.app.domain.sync.stores.MetadataStoreMaintenance.bulkResetDirtyModules].
-     *
      */
     override suspend fun clearAllLocksAndResetToPending(): Int {
         return dao.clearAllLocksAndResetStatus()

@@ -5,8 +5,8 @@ import com.mochame.bio.domain.DailyContext
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.platform.providers.BufferProvider
-import com.mochame.sync.domain.model.EntityMetadata
-import com.mochame.sync.infrastructure.FeatureCodec
+import com.mochame.sync.domain.model.DecodeContext
+import com.mochame.sync.infrastructure.BaseFeatureCodec
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoBuf
@@ -29,7 +29,7 @@ internal data class BioDeltaV1(
  */
 @Single
 class BioCodecV1(logger: Logger, bufferProvider: BufferProvider) :
-    FeatureCodec<DailyContext>(
+    BaseFeatureCodec<DailyContext>(
         version = 0x01,
         logger = logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.BIO, "BioCodecV1"),
         bufferProvider = bufferProvider
@@ -88,7 +88,7 @@ class BioCodecV1(logger: Logger, bufferProvider: BufferProvider) :
         }
 
         return try {
-            val peekSource = buffer.peek() // Non-destructive Zero-Copy Scan
+            val peekSource = buffer.peek()
             peekSource.readByte() // Skip version header
 
             var isTombstone = false
@@ -135,17 +135,17 @@ class BioCodecV1(logger: Logger, bufferProvider: BufferProvider) :
     @OptIn(ExperimentalSerializationApi::class)
     override fun internalDecode(
         payloadBits: ByteArray,
-        metadata: EntityMetadata
+        decodeContext: DecodeContext
     ): DailyContext {
         // Deserialize
         val delta = ProtoBuf.decodeFromByteArray(BioDeltaV1.serializer(), payloadBits)
 
         // Reconstruct
         return DailyContext(
-            id = metadata.id,
-            hlc = metadata.hlc,
-            lastModified = metadata.lastModified,
-            epochDay = metadata.id.toLong(),
+            id = decodeContext.id,
+            hlc = decodeContext.hlc,
+            lastModified = decodeContext.lastModified,
+            epochDay = decodeContext.id.toLong(),
             sleepHours = delta.sleepHours ?: 0.0,
             readinessScore = delta.readinessScore ?: 0,
             isNapped = delta.isNapped ?: false,

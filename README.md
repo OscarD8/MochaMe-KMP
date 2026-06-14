@@ -27,6 +27,7 @@ Open the terminal inside the project root directory and run (**NOTE this last co
 <br>
 
 Needs Updating 
+
 <img width="550" height="720" alt="image" src="https://github.com/user-attachments/assets/827177dc-1a2e-4d1b-8156-facf8df9ebe9" />
 
 </details>
@@ -38,41 +39,26 @@ Needs Updating
 
 #### Approach to Development:
 
-Needs Updating
-```
-MochaMe/
-├── testing/                          # Provider: Instrumentation
-│   └── :mocha-test-support           # Platform-agnostic mocks & DB builders
-│
-├── core-platform/                    # Provider: Infrastructure
-│   └── src/                          # Expect/Actual (Hasher, Identity, POSIX)
-│       ├── commonMain/
-│       └── [platform]Main/           # jvm, linuxX64, android, ios
-│       └── [platform]Test/           # jvm, linuxX64, android, ios
+Needs Updating but general idea:
 
-│
-├── sync-engine/                      # Layer 0: Sync Engine
-│   └── src/
-│       ├── commonMain/
-│       └── commonTest/
-│
-├── mocha-feature/                    # Layer 1: Specific Feature (Pure Kotlin)
-│   └── :bio / :telemetry / :resonance
-│       └── src/
-│           ├── commonMain/
-│           └── commonTest/           # optimized testing via LinuxX64
-│
-├── mocha-ui/                         # Layer 2: UI
-│   └── src/
-│       ├── commonMain/               # ComposeMultiplatform
-│       └── [platform]Main/           # Native resources (Insets, Windowing)
-│
-└── platform-*/                        # Layer 3: Entry Point
-    ├── :androidApp/                   # Android APK + @Database
-    ├── :desktopAppJVM/                # JVM/Desktop + @Database
-    ├── :iosApp/                       # iOS Framework + @Database
-    └── :cli-linux/                    # (Headless) Native Binary + @Database
-```
+┌────────────────────────────────────────┐
+│              app:assembly              │
+└───────────────────┬────────────────────┘
+                    │
+┌───────────────────▼────────────────────┐
+│                 mocha:                 │
+│  (mocha-feature, mocha-schema, etc.)   │
+└───────────────────┬────────────────────┘
+                    │
+┌───────────────────▼────────────────────┐
+│              sync-engine               │
+└───────────────────┬────────────────────┘
+                    │
+┌───────────────────▼────────────────────┐
+│                  core:                 │
+│  (sync-contract, platform, logger)     │
+└────────────────────────────────────────┘
+
 <br>
 
 <div align="center">
@@ -96,7 +82,7 @@ MochaMe/
 
 **Purpose:** Configures pure structural dependencies and targets for modules that act as APIs or expect/actual providers for simple requirements. Avoids all test runner configuration.
 
-- **Targets Declared:** `jvm()`, `linuxX64()`, `android()`, iOS.
+- **Targets Declared:** `jvm()`, `linuxX64()`, `android()`.
 - **Source Sets Declared:** None explicitly.
 - **Test Runners:** None.
 - **Koin Compiler:** Applied.
@@ -106,7 +92,7 @@ MochaMe/
 
 **Purpose:** Configures the standard execution environment for pure Kotlin modules that do not define persistence schemas. Essentially just tools.
 
-- **Targets Declared:** `jvm()`, `linuxX64()`, `android()`, iOS.
+- **Targets Declared:** `jvm()`, `linuxX64()`, `android()`.
 - **Source Sets Declared:** `androidHostTest`, `androidDeviceTest`, `jvmTest`
 - **Test Runners:** Standard test runners (`androidHostTest`, `jvmTest`, `linuxX64Test`, iOS) injected - _unit tests_.
 - **Koin Compiler:** Applied.
@@ -116,9 +102,9 @@ MochaMe/
 
 **Purpose:** Designed exclusively for features that require isolated micro-schemas for testing their integration logic across platforms.
 
-- **Targets Declared:** `jvm()`, `linuxX64()`, `android()`, iOS.
+- **Targets Declared:** `jvm()`, `linuxX64()`, `android()`.
 - **Source Sets Declared:** `commonMain`: Injects `implementation(libs.room.runtime)` to allow `@Dao` and `@Entity` compilation.
-- **Test Runners:** Standard test runners (`androidHostTest`, `jvmTest`, `linuxX64Test`, iOS) injected.
+- **Test Runners:** Standard test runners (`androidHostTest`, `jvmTest`, `linuxX64Test`) injected.
 - **Koin Compiler:** Applied.
 - **Room Scope:** Runtime: Provided to `commonMain`.
 - **KSP (Compiler):** Applied strictly to test configurations purely for Room, not Koin (e.g., `kspAndroidHostTest`, `kspJvmTest`). Keeps main targets free of generation overhead - no `@Database` in main, purely in test.
@@ -127,7 +113,7 @@ MochaMe/
 
 **Purpose:** Configures the final assembly points where domain DAOs are aggregated into production code.
 
-- **Targets Declared:** `jvm()`, `linuxX64()`, `android()`, iOS.
+- **Targets Declared:** `jvm()`, `linuxX64()`, `android()`.
 - **Source Sets Declared:** `commonMain`: Injects `implementation(libs.room.runtime)`.
 - **Test Runners:** Fully configured.
 - **Koin Compiler:** Applied.
@@ -147,20 +133,17 @@ MochaMe/
 
 #### AI Usage Aim:
 
-Different contexts assigned roles attempting to achieve domain specialization and cross verification. 
-Each shift to developing a new component of the system requires a refresh to the context, and specific documentation + code files relevant to that component. 
-Initially a cross team brainstorm is performed, defining a specification, which is then used to develop code which is verified against the Go/No-Go check across domains. 
-This development system was designed to introduce me to new concepts, cope with AI hallucinations, and make a significant amount of the development cycle not about implementation but critical analysis.
-It was an experiment to see if AI can be used to achieve cross-domain critical analysis in solo development. 
-Inspired by NASA's launch of Artemis II (and that I kept having to refactor) :)
+Different contexts assigned roles attempting to achieve domain specialization and cross verification.
+This has sort of changed to a standard verifier and architect context between Claude and Gemini with some Antigravity CLI usage.
+If the component is more complex, I will create specific roles.
 
 | Lead    | Domain       | Focus & Technical Details                     |
-| :------ | :----------- | :-------------------------------------------- |
-| **SSL** | Architecture | Decoupling, DI (Koin), and Module Boundaries. |
+|:--------| :----------- |:----------------------------------------------|
+| **ARL** | Architecture | Decoupling, DI (Koin), and Module Boundaries. |
 | **CCL** | Concurrency  | Coroutines, Mutexes, and HLC Causality.       |
 | **DPL** | Persistence  | Room KMP, SQLite Atomicity, and Migrations.   |
-| **STL** | Safety       | Exception Mapping, Boot State, and Forensics. |
-| **GSL** | Local First  | Causality, server operations, and conflicts.  |
+| **SSL** | Safety       | Exception Mapping, Boot State, Recovery.      |
+| **LFL** | Local First  | Causality, server operations, and conflicts.  |
 
 
 #### Anki Integration
@@ -189,7 +172,7 @@ Every major implementation discussion must conclude with a flashcard:
 
 <br>
 
-At its core, sleep context wraps each day, and the non-nullable fields of any moment:
+Not really the purpose of the project, more so to learn other things. At its core, sleep context wraps each day, and the non-nullable fields of any moment:
 
 ```
         +Int satisfactionScore "1-10"
@@ -360,7 +343,7 @@ The architecture is unified through a custom Gradle verification system that pro
 
 ### Testing Design Pattern
 
-<img src="docs/images/testing-design-img.webp" alt="testing design architecture mermaid diagram">
+UPDATE - no longer propagating fakes
 
 ### Verification Commands
 

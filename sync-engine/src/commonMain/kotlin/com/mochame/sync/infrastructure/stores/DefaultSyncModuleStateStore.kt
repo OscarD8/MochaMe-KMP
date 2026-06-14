@@ -9,6 +9,7 @@ import com.mochame.sync.data.entities.SyncModuleStateEntity
 import com.mochame.sync.domain.state.SyncStatus
 import com.mochame.sync.domain.stores.SyncModuleStateStore
 import com.mochame.sync.domain.stores.SyncModuleStateMaintenanceStore
+import kotlinx.coroutines.flow.Flow
 import org.koin.core.annotation.Single
 import kotlin.time.Clock
 
@@ -20,7 +21,7 @@ class DefaultSyncModuleStateStore(
     override suspend fun recordPendingMetadata(
         module: MochaModule,
         hlc: HLC
-    )  {
+    ) {
         dao.recordLocalMutation(
             module = module,
             hlc = hlc.toString(),
@@ -29,12 +30,15 @@ class DefaultSyncModuleStateStore(
         )
     }
 
+    override suspend fun observePendingModules(): Flow<List<SyncModuleStateEntity>> =
+        dao.observePendingModules()
+
     override suspend fun stampModuleMetadata(
         module: MochaModule,
         watermark: String?,
         timestamp: Long,
         status: SyncStatus
-    )  {
+    ) {
         dao.stampMetadata(
             module,
             watermark,
@@ -67,7 +71,7 @@ class DefaultSyncModuleStateStore(
         module: MochaModule,
         from: SyncStatus,
         to: SyncStatus
-    )  {
+    ) {
         val affected = dao.transitionState(
             module = module,
             fromStatus = from,
@@ -114,7 +118,7 @@ class DefaultSyncModuleStateStore(
         return dao.getMetadataCount()
     }
 
-    suspend fun getModuleMetadata(module: MochaModule): SyncModuleStateEntity?  {
+    suspend fun getModuleMetadata(module: MochaModule): SyncModuleStateEntity? {
         return dao.getMetadataForModule(module)
     }
 

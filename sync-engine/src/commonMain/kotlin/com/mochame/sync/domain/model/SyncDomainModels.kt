@@ -37,7 +37,7 @@ data class SyncIntent(
  * Fields existing in the synced payload that are required to reconstruct the model payload itself.
  * Currently used for decoding a payload in [LocalFirstRepository].
  */
-data class EntityMetadata(
+data class DecodeContext(
     val id: String,
     val hlc: HLC,
     val op: MutationOp,

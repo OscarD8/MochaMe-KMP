@@ -7,7 +7,7 @@ import com.mochame.contract.metadata.MochaModule
 import com.mochame.contract.metadata.MutationOp
 import com.mochame.sync.domain.state.SyncStatus
 import kotlin.time.Clock
-import com.mochame.sync.domain.model.EntityMetadata
+import com.mochame.sync.domain.model.DecodeContext
 
 /**
  * For module level determination of sync status.
@@ -26,7 +26,7 @@ data class SyncModuleStateEntity(
 
 
 /**
- * Sync metadata wrapping each local intent. This model extends on the domain model [EntityMetadata]
+ * Sync metadata wrapping each local intent. This model extends on the domain model [DecodeContext]
  * to extend conflict resolution capabilities.
  * Idea is for this to act as a persistence record of a mutation's lifecycle.
  */

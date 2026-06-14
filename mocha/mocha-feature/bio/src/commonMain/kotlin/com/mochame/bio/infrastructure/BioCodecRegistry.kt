@@ -6,7 +6,8 @@ import com.mochame.contract.exceptions.MochaException
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.sync.domain.components.FeatureCodecRegistry
-import com.mochame.sync.domain.model.EntityMetadata
+import com.mochame.sync.domain.model.DecodeContext
+import com.mochame.sync.infrastructure.codec.BaseFeatureCodecRegistry
 import org.koin.core.annotation.Single
 
 /**
@@ -19,13 +20,13 @@ class BioCodecRegistry(
     private val v1: BioCodecV1,
     // private val v2: BioPayloadEncoderV2 - demonstration
     logger: Logger
-) : FeatureCodecRegistry<DailyContext> {
-
-    private val logger = logger.withTags(
+) : BaseFeatureCodecRegistry<DailyContext>(
+    logger.withTags(
         layer = LogTags.Layer.INFRA,
         domain = LogTags.Domain.BIO,
-        className = "BioCodec"
+        className = "BioCodecRegistry"
     )
+) {
 
     override fun encode(new: DailyContext, old: DailyContext?): ByteArray? {
         return v1.encode(new, old) // Always encode using the latest protocol available
@@ -43,7 +44,7 @@ class BioCodecRegistry(
     /**
      * Decoding Routing: Peeks at the header and picks the right engine.
      */
-    override fun decode(data: ByteArray, metadata: EntityMetadata): DailyContext {
+    override fun decode(data: ByteArray, metadata: DecodeContext): DailyContext {
         if (data.isEmpty()) {
             logger.e { "Received empty payload for ${metadata.id}" }
             throw MochaException.Persistent.CorruptionDetected("Empty Payload")
@@ -65,7 +66,7 @@ class BioCodecRegistry(
      * Forensic Overload: Summarize from Raw Bits.
      */
     override fun reconstructSummary(data: ByteArray): String {
-        if (data.isEmpty()) return "OP:INVALID"
+        if (data.isEmpty()) return "Summary reconstruction attempt made against empty ByteArray."
         return when (data[0]) {
             0x01.toByte() -> v1.reconstructSummary(data)
             // 0x02.toByte() -> v2.summarize(data)

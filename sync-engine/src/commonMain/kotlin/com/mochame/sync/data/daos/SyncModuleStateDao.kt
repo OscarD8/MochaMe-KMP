@@ -9,6 +9,7 @@ import androidx.room.Upsert
 import com.mochame.contract.metadata.MochaModule
 import com.mochame.sync.data.entities.SyncModuleStateEntity
 import com.mochame.sync.domain.state.SyncStatus
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface SyncModuleStateDao {
@@ -132,7 +133,7 @@ interface SyncModuleStateDao {
     )
 
     /**
-     * Full Re-Sync Setup: Wipes remote progress but PRESERVES local causality (HLC).
+     * Re-Sync Setup: Wipes remote progress but preserves local causality (HLC).
      */
     @Query("""
         UPDATE SyncModuleStateEntity 
@@ -167,6 +168,9 @@ interface SyncModuleStateDao {
         timestamp: Long,
         status: SyncStatus = SyncStatus.PENDING // Reconciled from IDLE
     )
+
+    @Query("SELECT * FROM SyncModuleStateEntity WHERE syncStatus = :status")
+    fun observePendingModules(status: SyncStatus = SyncStatus.PENDING): Flow<List<SyncModuleStateEntity>>
 
     // -----------------------------------------------------------
     // HLC

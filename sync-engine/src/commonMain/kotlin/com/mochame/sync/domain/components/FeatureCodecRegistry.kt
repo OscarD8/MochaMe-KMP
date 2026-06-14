@@ -1,7 +1,7 @@
 package com.mochame.sync.domain.components
 
 import com.mochame.sync.contract.LocalFirstEntity
-import com.mochame.sync.domain.model.EntityMetadata
+import com.mochame.sync.domain.model.DecodeContext
 
 /**
  * Contract for transforming domain changes into binary bitstreams.
@@ -31,6 +31,7 @@ interface FeatureCodecRegistry<T : LocalFirstEntity<T>> {
      */
     fun validate(data: ByteArray): Boolean
 
-    fun decode(data: ByteArray, metadata: EntityMetadata): T
+    fun decode(data: ByteArray, metadata: DecodeContext): T
+    fun decode(data: ByteArray?, blobId: String?, metadata: DecodeContext): T  // overflow-aware
 
 }

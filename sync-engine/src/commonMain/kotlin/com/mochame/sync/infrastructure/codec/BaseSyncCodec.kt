@@ -4,7 +4,7 @@ import co.touchlab.kermit.Logger
 import com.mochame.contract.exceptions.MochaException
 import com.mochame.sync.domain.model.SyncIntent
 
-abstract class SyncCodec(
+abstract class BaseSyncCodec(
     protected val version: Byte,
     protected val logger: Logger
 ) {

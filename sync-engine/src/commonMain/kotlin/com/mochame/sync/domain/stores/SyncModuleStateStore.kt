@@ -2,11 +2,15 @@ package com.mochame.sync.domain.stores
 
 import com.mochame.contract.metadata.MochaModule
 import com.mochame.sync.contract.HLC
+import com.mochame.sync.data.entities.SyncModuleStateEntity
 import com.mochame.sync.domain.state.SyncStatus
+import kotlinx.coroutines.flow.Flow
 
 
 interface SyncModuleStateStore {
     suspend fun recordPendingMetadata(module: MochaModule, hlc: HLC)
+
+    suspend fun observePendingModules() : Flow<List<SyncModuleStateEntity>>
 
     suspend fun updateSyncingToFailure(
         module: MochaModule,

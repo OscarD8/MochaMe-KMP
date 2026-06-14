@@ -79,8 +79,8 @@ class MochaConverters {
     fun toStatus(id: Int): SyncStatus = SyncStatus.fromId(id)
 
     @TypeConverter
-    fun fromMochaModule(module: MochaModule): String = module.modelName
+    fun fromMochaModule(module: MochaModule): String = module.moduleName
 
     @TypeConverter
-    fun toMochaModule(tag: String): MochaModule = MochaModule.modelFromString(tag)
+    fun toMochaModule(model: String): MochaModule = MochaModule.modelFromString(model)
 }

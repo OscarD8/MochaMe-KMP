@@ -11,11 +11,12 @@ interface SyncIntentStore {
     ): SyncIntentEntity?
 
     suspend fun recordIntent(entry: SyncIntentEntity)
-    suspend fun discardIntent(hlc: String)
     suspend fun getPendingByModule(module: MochaModule): List<SyncIntentEntity?>
+    suspend fun discardIntent(hlc: String)
+
 }
 
-interface SyncIntentMaintenanceStore {
+interface SyncIntentMaintenanceStore : SyncIntentStore {
     suspend fun clearAllLocksAndResetToPending(): Int
     suspend fun pruneOldSynced(olderThan: Long, limit: Int): Int
     suspend fun existsForBlob(blobId: String): Boolean

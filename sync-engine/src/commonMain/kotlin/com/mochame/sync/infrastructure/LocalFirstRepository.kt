@@ -13,7 +13,7 @@ import com.mochame.contract.exceptions.MochaException
 import com.mochame.sync.domain.components.FeatureCodecRegistry
 import com.mochame.sync.domain.components.SyncReceiver
 import com.mochame.sync.domain.state.SyncStatus
-import com.mochame.sync.domain.model.EntityMetadata
+import com.mochame.sync.domain.model.DecodeContext
 import com.mochame.sync.contract.LocalFirstEntity
 import com.mochame.sync.domain.stores.BlobStager
 import com.mochame.sync.domain.stores.SyncModuleStateStore
@@ -131,17 +131,18 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     }
 
     override suspend fun processRemoteIntent(
-        metadata: EntityMetadata,
-        payload: ByteArray
+        decodeContext: DecodeContext,
+        payload: ByteArray?,
+        blobId: String?
     ) {
         // Use the repository's specific encoder to turn bytes into T
-        val remoteEntity = codec.decode(payload, metadata)
+        val remoteEntity = codec.decode(payload, blobId, decodeContext)
 
         processIntent(
             candidateKey = remoteEntity.id,
-            incomingHlc = metadata.hlc,
-            op = metadata.op,
-            fetchExistingState = { fetch(metadata.id) },
+            incomingHlc = decodeContext.hlc,
+            op = decodeContext.op,
+            fetchExistingState = { fetch(decodeContext.id) },
             computeChange = { remoteEntity }, // The "change" is just the remote state
             persist = { stamped -> save(stamped) },
             onSkip = { old -> logger.v { "Remote intent skipped: $old." } }
@@ -274,7 +275,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
 
         // Compaction: Remove the old intent before writing the new one
         pending?.let {
-            logger.i { "Compacting Ledger | Replacing HLC [${it.hlc}] with [$hlc] for Key [$candidateKey]" }
+            logger.i { "Compacting Intent | Replacing HLC [${it.hlc}] with [$hlc] for Key [$candidateKey]" }
             syncIntentStore.discardIntent(it.hlc)
         }
 

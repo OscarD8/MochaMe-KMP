@@ -26,6 +26,9 @@ sealed class MochaException(
 
         class BootTimeout(message: String? = null, cause: Throwable? = null) :
             Transient(message ?: "Boot system timeout.", cause)
+
+        class BlobResolutionPending(val blobId: String) :
+            Transient("Payload overflow pending blob resolution: $blobId")
     }
 
     /**
