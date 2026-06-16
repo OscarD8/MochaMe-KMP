@@ -12,7 +12,6 @@ data class SyncModuleState(
     val serverWatermark: String?,
     val localMaxHlc: String?,
     val activeSyncId: String?,
-    val status: SyncStatus,
     val lastServerSyncTime: Long,
     val lastLocalMutationTime: Long
 )

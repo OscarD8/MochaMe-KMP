@@ -59,6 +59,7 @@ interface SyncIntentDao {
             WHERE syncId IS NULL 
             AND module = :entityType 
             AND syncStatus = :pendingStatus
+            ORDER BY hlc ASC
             LIMIT :limit
         )
     """
@@ -101,8 +102,8 @@ interface SyncIntentDao {
     @Query(
         """
     DELETE FROM SyncIntentEntity 
-        WHERE syncId IN (
-            SELECT syncId FROM SyncIntentEntity
+        WHERE hlc IN (
+            SELECT hlc FROM SyncIntentEntity
             WHERE syncStatus = :status 
             AND createdAt < :cutoff
             LIMIT :limit

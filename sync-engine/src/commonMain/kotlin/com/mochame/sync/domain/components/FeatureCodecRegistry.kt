@@ -31,7 +31,7 @@ interface FeatureCodecRegistry<T : LocalFirstEntity<T>> {
      */
     fun validate(data: ByteArray): Boolean
 
-    fun decode(data: ByteArray, metadata: DecodeContext): T
-    fun decode(data: ByteArray?, blobId: String?, metadata: DecodeContext): T  // overflow-aware
+    fun decode(data: ByteArray, decodeContext: DecodeContext): T
+    fun decode(data: ByteArray?, blobId: String?, decodeContext: DecodeContext): T  // overflow-aware
 
 }

@@ -10,7 +10,10 @@ import kotlin.time.Clock
 import com.mochame.sync.domain.model.DecodeContext
 
 /**
- * For module level determination of sync status.
+ * For quick lookups of max HLC values as boot and server watermarks.
+ * Note - no longer using this as an attempt to perform quick sweep of
+ * failing sync intents, in shift to using the SyncIntent states themselves
+ * and flows observing statuses.
  */
 @Entity
 data class SyncModuleStateEntity(
@@ -19,7 +22,6 @@ data class SyncModuleStateEntity(
     val serverWatermark: String? = null,
     val moduleMaxHlc: String? = null,
     val syncId: String? = null,
-    val syncStatus: SyncStatus = SyncStatus.IDLE,
     val lastServerSyncTime: Long = 0L,           // Wall-clock of the last successful 200 OK
     val lastLocalMutationTime: Long = 0L         // Wall-clock of the last local HLC generation
 )
@@ -45,12 +47,13 @@ data class SyncIntentEntity(
     val module: MochaModule,
     val model: String,
     val operation: MutationOp,
+    val payload: ByteArray?,
+    val overflowBlobId: String?,
     val syncStatus: SyncStatus,
     val syncId: String? = null,
-    val payload: ByteArray?,
     val diagnosticSummary: String?,
-    val overflowBlobId: String?,
     val hasConflict: Boolean = false,
     val retryCount: Int = 0,
-    val createdAt: Long = Clock.System.now().toEpochMilliseconds()
+    val createdAt: Long = Clock.System.now().toEpochMilliseconds(),
+    val lastErrorMessage: String? = null
 )

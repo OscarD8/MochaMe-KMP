@@ -2,6 +2,7 @@ package com.mochame.sync.orchestration
 
 import co.touchlab.kermit.Logger
 import com.mochame.contract.exceptions.MochaException
+import com.mochame.contract.node.IdGenerator
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.sync.data.toEntity
@@ -20,6 +21,7 @@ class SyncCoordinator(
     private val intentStore: SyncIntentMaintenanceStore,
     private val moduleStateStore: SyncModuleStateStore,
     private val syncCodec: SyncCodecRegistry,
+    private val idGenerator: IdGenerator,
     logger: Logger
 ) {
     private val logger = logger.withTags(
@@ -34,14 +36,12 @@ class SyncCoordinator(
     // awaiting implementation of the server
 
     // Called by the app's lifecycle owner on startup
-//    suspend fun startOutboundPipeline() {
-//        moduleStateStore.observePendingModules()
-//            .collect { pendingModules ->
-//                pendingModules.forEach { moduleState ->
-//                    packageAndShip(moduleState.module)
-//                }
-//            }
-//    }
+    suspend fun startOutboundPipeline() {
+        intentStore.observePendingCount()
+            .collect { pendingCount ->
+
+            }
+    }
 
 //    private suspend fun packageAndShip(module: MochaModule) {
 //        val pending = intentStore.getPendingByModule(module)
@@ -61,6 +61,9 @@ class SyncCoordinator(
 //        }
 //    }
 
+    /**
+     * This will blow up if any message other than a Mocha.Persistent comes through
+     */
     internal suspend fun onInboundBytes(raw: ByteArray) {
         val intent = try {
             syncCodec.decode(raw)
@@ -69,12 +72,15 @@ class SyncCoordinator(
             return  // unrecoverable — bad bytes, nothing to persist
         }
 
-        // Only persist if we cannot process immediately
-        if (intent.overflowBlobId != null && intent.payload == null) {
-            intentStore.recordIntent(intent.toEntity())
-            logger.w { "Inbound overflow intent persisted: ${intent.candidateKey}" }
-            return
-        }
+        // Only persist if we cannot process immediately - changing this to persist the intent always possibly
+        // for error handling - janitor should be updated to ensure it knows how to handle received entities
+//        if (intent.overflowBlobId != null && intent.payload == null) {
+//            intentStore.recordIntent(intent.toEntity())
+//            logger.w { "Inbound overflow intent persisted: ${intent.candidateKey}" }
+//            return
+//        }
+
+        intentStore.recordIntent(intent.toEntity())
 
         try {
             processInbound(intent)
@@ -97,14 +103,14 @@ class SyncCoordinator(
                 "No SyncReceiver for model string '${intent.model}'"
             )
 
-        val metadata = DecodeContext(
+        val intentContext = DecodeContext(
             id = intent.candidateKey,
             hlc = intent.hlc,
             lastModified = intent.createdAt,
             op = intent.operation
         )
 
-        receiver.processRemoteIntent(metadata, intent.payload, intent.overflowBlobId)
+        receiver.processRemoteIntent(intentContext, intent.payload, intent.overflowBlobId)
     }
 
 }

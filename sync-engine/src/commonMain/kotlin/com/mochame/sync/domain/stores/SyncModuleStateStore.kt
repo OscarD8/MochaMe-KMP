@@ -2,54 +2,22 @@ package com.mochame.sync.domain.stores
 
 import com.mochame.contract.metadata.MochaModule
 import com.mochame.sync.contract.HLC
-import com.mochame.sync.data.entities.SyncModuleStateEntity
-import com.mochame.sync.domain.state.SyncStatus
-import kotlinx.coroutines.flow.Flow
 
 
 interface SyncModuleStateStore {
-    suspend fun recordPendingMetadata(module: MochaModule, hlc: HLC)
 
-    suspend fun observePendingModules() : Flow<List<SyncModuleStateEntity>>
-
-    suspend fun updateSyncingToFailure(
-        module: MochaModule,
-        fromStatus: SyncStatus = SyncStatus.SYNCING,
-        toStatus: SyncStatus = SyncStatus.FAILED
-    )
-
-    suspend fun updateSyncingToSuccess(
-        module: MochaModule,
-        fromStatus: SyncStatus = SyncStatus.SYNCING,
-        toStatus: SyncStatus = SyncStatus.SUCCESS
-    )
-
-    suspend fun updatePendingToSyncing(
-        module: MochaModule,
-        fromStatus: SyncStatus = SyncStatus.PENDING,
-        toStatus: SyncStatus = SyncStatus.SYNCING
-    )
+    suspend fun updateHlcFloor(module: MochaModule, hlc: HLC)
 
     suspend fun stampModuleMetadata(
         module: MochaModule,
         watermark: String?,
         timestamp: Long,
-        status: SyncStatus = SyncStatus.PENDING
     )
 
-    suspend fun finalizeSync(module: MochaModule, syncId: String, newWatermark: String)
+    suspend fun stampWatermark(module: MochaModule, syncId: String, newWatermark: String)
 }
 
 interface SyncModuleStateMaintenanceStore {
-    /**
-     * Performs a sweep of all modules currently not Idle
-     * and resets status to Pending (by default).
-     * Used in a context where the state is stale.
-     * Should be used in conjunction with [SyncIntentMaintenanceStore.clearAllLocksAndResetToPending].
-     */
-    suspend fun bulkResetDirtyModules(): Int
-
-    suspend fun getDirtyModuleNames(): List<String>
 
     suspend fun getMetadataCount(): Int
 

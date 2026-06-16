@@ -130,7 +130,7 @@ class SyncJanitor(
                 logger.w { "Maintenance: Cleared $it stale mutation locks." }
             }
 
-            val recoveredModules = moduleStore.getDirtyModuleNames()
+            val recoveredModules = moduleStore.getNonIdleModules()
             if (recoveredModules.isNotEmpty()) {
                 logger.i { "Maintenance: Recovered dirty modules: ${recoveredModules.joinToString()}" }
                 moduleStore.bulkResetDirtyModules()

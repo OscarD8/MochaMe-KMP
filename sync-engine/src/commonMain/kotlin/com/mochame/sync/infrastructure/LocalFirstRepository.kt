@@ -117,7 +117,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                         ?: return@execute onSkip(existingState)
                     val summary = codec.summarize(stampedState, existingState)
 
-                    handleStagingAndCommit(
+                    handleStagingAndLocalCommit(
                         candidateKey = candidateKey,
                         op = op,
                         hlc = hlc,
@@ -158,12 +158,14 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         val result = transactor.runImmediateTransaction {
             // If a newer remote change arrives, any pending local
             // work for this key is now obsolete.
-            syncIntentStore.getPendingByKey(candidateKey, module)?.let {
-                syncIntentStore.discardIntent(it.hlc)
-            }
+            // I just don't get why Gemini did the below but leaving here for now
+//            syncIntentStore.getPendingByPrimaryKey(candidateKey, module)?.let {
+//                syncIntentStore.discardIntent(it.hlc)
+//            }
 
+            updateHlcFloor(module, hlc)
             val localResult = persistAction()
-            updateModuleMetadata(hlc)
+
             localResult
         }
 
@@ -197,7 +199,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         return provisionalState
     }
 
-    protected suspend inline fun <R> handleStagingAndCommit(
+    protected suspend inline fun <R> handleStagingAndLocalCommit(
         candidateKey: String,
         op: MutationOp,
         hlc: HLC,
@@ -228,13 +230,12 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                     blobId,
                     summary
                 )
-                updateModuleMetadata(hlc)
+                updateHlcFloor(module, hlc)
                 localResult
             }.also {
                 dbCommitted = true
                 logger.v { "Local DB Transaction Committed".withTimer(mark) }
             }
-
 
             // 3. Commit the blob (sync intent commit means it cannot be orphaned)
             blobId?.also {
@@ -269,7 +270,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         diagnosticSummary: String
     ) {
         // Look for existing work that hasn't been synced yet
-        val pending = syncIntentStore.getPendingByKey(candidateKey, module)
+        val pending = syncIntentStore.getPendingByPrimaryKey(candidateKey, module)
 
         val effectiveCreatedAt = resolvePruningTimestamp(pending, op, hlc.ts)
 
@@ -310,10 +311,9 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         }
     }
 
-    protected suspend fun updateModuleMetadata(hlc: HLC) {
-        syncModuleStateStore.recordPendingMetadata(
-            module = module, hlc = hlc
-        )
+
+    protected suspend fun updateHlcFloor(module: MochaModule, hlc: HLC) {
+        syncModuleStateStore.updateHlcFloor(module, hlc)
     }
 
     /**

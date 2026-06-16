@@ -61,11 +61,11 @@ Needs Updating but general idea:
 
 <br>
 
-<div align="center">
+<br>
 
-<img width="550" height="500" alt="image" src="https://github.com/user-attachments/assets/12bf2559-f198-48ec-a3b7-66a5d348befe" />
+<img src="/docs/images/project_dependency_flow.webp" alt="project dependency flow mermaid diagram">
 
-</div>
+<br>
 
 </details>
 

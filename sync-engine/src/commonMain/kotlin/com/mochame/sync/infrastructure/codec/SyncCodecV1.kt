@@ -59,7 +59,7 @@ class SyncCodecV1(logger: Logger) : BaseSyncCodec(
             module = MochaModule.modelFromString(envelope.module),
             model = envelope.model,
             operation = MutationOp.valueOf(envelope.operation),
-            syncStatus = SyncStatus.PENDING,
+            syncStatus = SyncStatus.RECEIVED,
             syncId = null,
             payload = envelope.payloadBlob,
             diagnosticSummary = null,

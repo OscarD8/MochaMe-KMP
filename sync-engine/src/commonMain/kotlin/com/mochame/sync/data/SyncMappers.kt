@@ -17,7 +17,6 @@ fun SyncModuleStateEntity.toDomain(): SyncModuleState {
         serverWatermark = serverWatermark,
         localMaxHlc = moduleMaxHlc,
         activeSyncId = syncId,
-        status = syncStatus,
         lastServerSyncTime = lastServerSyncTime,
         lastLocalMutationTime = lastLocalMutationTime
     )
@@ -32,7 +31,6 @@ fun SyncModuleState.toEntity(): SyncModuleStateEntity {
         serverWatermark = serverWatermark,
         moduleMaxHlc = localMaxHlc,
         syncId = activeSyncId,
-        syncStatus = status,
         lastServerSyncTime = lastServerSyncTime,
         lastLocalMutationTime = lastLocalMutationTime
     )

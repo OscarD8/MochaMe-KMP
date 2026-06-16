@@ -6,6 +6,7 @@ import com.mochame.sync.data.daos.SyncIntentDao
 import com.mochame.sync.data.entities.SyncIntentEntity
 import com.mochame.sync.domain.stores.SyncIntentStore
 import com.mochame.sync.domain.stores.SyncIntentMaintenanceStore
+import kotlinx.coroutines.flow.Flow
 import org.koin.core.annotation.Single
 
 @Single(binds = [SyncIntentStore::class, SyncIntentMaintenanceStore::class])
@@ -13,7 +14,7 @@ class DefaultSyncIntentStore(
     private val dao: SyncIntentDao
 ) : SyncIntentStore, SyncIntentMaintenanceStore {
 
-    override suspend fun getPendingByKey(
+    override suspend fun getPendingByPrimaryKey(
         candidateKey: String,
         entityType: MochaModule
     ): SyncIntentEntity? {
@@ -47,6 +48,10 @@ class DefaultSyncIntentStore(
 
     override suspend fun pruneOldSynced(olderThan: Long, limit: Int): Int {
         return dao.pruneOldSynced(cutoff = olderThan, limit = limit)
+    }
+
+    override suspend fun observePendingCount(): Flow<Int> {
+        return dao.observePendingCount()
     }
 
 }

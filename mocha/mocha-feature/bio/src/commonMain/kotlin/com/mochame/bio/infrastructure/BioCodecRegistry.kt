@@ -44,17 +44,17 @@ class BioCodecRegistry(
     /**
      * Decoding Routing: Peeks at the header and picks the right engine.
      */
-    override fun decode(data: ByteArray, metadata: DecodeContext): DailyContext {
+    override fun decode(data: ByteArray, decodeContext: DecodeContext): DailyContext {
         if (data.isEmpty()) {
-            logger.e { "Received empty payload for ${metadata.id}" }
+            logger.e { "Received empty payload for ${decodeContext.id}" }
             throw MochaException.Persistent.CorruptionDetected("Empty Payload")
         }
         return when (data[0]) {
-            0x01.toByte() -> v1.decode(data, metadata)
+            0x01.toByte() -> v1.decode(data, decodeContext)
             // 0x02.toByte() -> v2.decode(data)
             else -> {
                 logger.e {
-                    "Protocol Collision | ID: ${metadata.id} | " +
+                    "Protocol Collision | ID: ${decodeContext.id} | " +
                             "Node received version ${data[0]} but only supports V1."
                 }
                 throw MochaException.Persistent.UnknownProtocolVersion(data[0])

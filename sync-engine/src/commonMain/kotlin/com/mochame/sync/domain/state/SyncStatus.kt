@@ -22,7 +22,11 @@ enum class SyncStatus(val id: Int) {
 
     /** * Metadata Only: The last session crashed or returned an error.
      */
-    FAILED(4);
+    FAILED(4),
+
+    /** Incoming payloads set this status via the codecs decoding methods to ensure they
+     * are categorically distinct from outgoing intent processing. */
+    RECEIVED(5);
 
     companion object {
         fun fromId(id: Int) = entries.find { it.id == id } ?: PENDING
