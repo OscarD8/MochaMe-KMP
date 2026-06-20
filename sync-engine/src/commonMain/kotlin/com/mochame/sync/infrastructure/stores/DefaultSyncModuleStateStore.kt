@@ -34,12 +34,13 @@ class DefaultSyncModuleStateStore(
     override suspend fun updateHlcFloor(module: MochaModule, hlc: HLC) =
         dao.updateHlcFloor(module, hlc.toString())
 
-//    override suspend fun stampWatermark(
-//        module: MochaModule,
-//        syncId: String,
-//        newWatermark: String
-//    ) {
-//        dao.stampMetadata(module,syncId,newWatermark)
-//    }
+    override suspend fun stampModuleMetadata(
+        module: MochaModule,
+        watermark: String?,
+        timestamp: Long
+    ) {
+        dao.stampMetadata(module,watermark,timestamp)
+    }
+
 
 }

@@ -22,6 +22,7 @@ import com.mochame.sync.domain.usecase.PruneOldEntriesUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -30,6 +31,7 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 import org.koin.core.annotation.Single
 import kotlin.coroutines.CoroutineContext
+import kotlin.time.Clock
 import kotlin.time.TimeSource
 
 @Single(createdAtStart = true)
@@ -54,13 +56,19 @@ class SyncJanitor(
         className = "Janitor"
     )
 
+    companion object {
+        const val LEASE_TIMEOUT_MS = 30_000L
+        const val RETRY_THRESHOLD = 5
+    }
+
+
     /**
      * The single entry point for app initialization.
      */
     fun startupChecks() {
         appScope.launch(ioContext) {
             try {
-                withTimeout(15_000L) {
+                withTimeout(10_000L) {
                     executor.execute("[Startup Checks]") {
                         mutex.withLock {
                             bootUpdater.bootState.takeIf { !isValidBootState() }?.run {
@@ -129,15 +137,21 @@ class SyncJanitor(
             intentStore.clearAllLocksAndResetToPending().takeIf { it > 0 }?.let {
                 logger.w { "Maintenance: Cleared $it stale mutation locks." }
             }
-
-            val recoveredModules = moduleStore.getNonIdleModules()
-            if (recoveredModules.isNotEmpty()) {
-                logger.i { "Maintenance: Recovered dirty modules: ${recoveredModules.joinToString()}" }
-                moduleStore.bulkResetDirtyModules()
-            }
         }
 
         logger.d { "Maintenance Cycle Complete".withTimer(mark) }
+    }
+
+    fun startRuntimeMaintenance() {
+        appScope.launch(ioContext) {
+            while (true) {
+                delay(LEASE_TIMEOUT_MS)
+                mutex.withLock {
+                    assessStaleLeases()
+                    pruneInChunks()
+                }
+            }
+        }
     }
 
     /**
@@ -175,6 +189,35 @@ class SyncJanitor(
         blobStager.clearIncompleteStaging()
 
         logger.d { "Blob Reconciliation Complete".withTimer(mark) }
+    }
+
+    /**
+     * Janitor owns the retry lifecycle of payloads. It is the only component that sees
+     * the full history of an intent across multiple sync attempts.
+     * This runtime method runs periodically during active operation, not just on startup.
+     */
+    private suspend fun assessStaleLeases() {
+        val cutoff = Clock.System.now().toEpochMilliseconds() - LEASE_TIMEOUT_MS
+
+        transactor.runImmediateTransaction {
+            val staleLeases = intentStore.getStaleLeasedIntents(olderThan = cutoff)
+
+            staleLeases.forEach { intent ->
+                val newRetryCount = intent.retryCount + 1
+
+                if (newRetryCount >= RETRY_THRESHOLD) {
+                    intentStore.quarantine(
+                        hlc = intent.hlc,
+                        retryCount = newRetryCount
+                    )
+                } else {
+                    intentStore.resetLease(
+                        hlc = intent.hlc,
+                        retryCount = newRetryCount
+                    )
+                }
+            }
+        }
     }
 
 

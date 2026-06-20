@@ -1,6 +1,7 @@
 package com.mochame.sync
 
 import com.mochame.contract.di.BlobMutex
+import com.mochame.contract.di.CoordinatorMutex
 import com.mochame.contract.di.JanitorMutex
 import kotlinx.coroutines.sync.Mutex
 import org.koin.core.annotation.ComponentScan
@@ -43,4 +44,8 @@ class SyncConcurrencyModule {
     @Single
     @BlobMutex
     fun provideBlobMutex(): Mutex = Mutex()
+
+    @Single
+    @CoordinatorMutex
+    fun provideCoordinatorMutex(): Mutex = Mutex()
 }

@@ -8,7 +8,6 @@ import com.mochame.platform.providers.PlatformContext
 import com.mochame.platform.providers.TransactionProvider
 import com.mochame.support.TestSupportModule
 import com.mochame.system.infra.SysInfraModule
-import com.mochame.system.infra.database.NodeContextMicroSchemaConstructor
 import com.mochame.system.infra.data.NodeContextDao
 import com.mochame.system.infra.database.NodeContextMicroSchema
 import org.koin.core.annotation.ComponentScan

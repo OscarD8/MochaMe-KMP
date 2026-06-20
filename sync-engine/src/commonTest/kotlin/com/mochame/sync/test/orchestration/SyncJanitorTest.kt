@@ -11,11 +11,10 @@ import com.mochame.contract.metadata.MochaModule
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runPersistenceEnvironment
 import com.mochame.sync.data.entities.SyncModuleStateEntity
-import com.mochame.sync.test.database.SyncMicroSchemaConstructor
 import com.mochame.sync.test.database.SyncMicroSchema
+import com.mochame.sync.test.database.SyncMicroSchemaConstructor
 import com.mochame.sync.test.di.janitor.JanitorTestApp
 import com.mochame.sync.test.di.janitor.JanitorTestEnv
-import com.mochame.sync.domain.state.SyncStatus
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -68,7 +67,6 @@ class SyncJanitorTest : MochaPlatformTest() {
                 SyncModuleStateEntity(
                     module = MochaModule.Bio.DailyContext,
                     moduleMaxHlc = futureHlc,
-                    syncStatus = SyncStatus.IDLE,
                     lastServerSyncTime = 1000L,
                     lastLocalMutationTime = 1000L
                 )

@@ -27,20 +27,20 @@ abstract class BaseFeatureCodecRegistry<T : LocalFirstEntity<T>>(
      * a typed exception — the actual blob fetch is a future concern.
      * If payload is present, delegates to the concrete registry's version-routing decode.
      */
-    override fun decode(data: ByteArray?, blobId: String?, metadata: DecodeContext): T {
+    override fun decode(data: ByteArray?, blobId: String?, decodeContext: DecodeContext): T {
         return when {
             data != null -> {
-                decode(data, metadata)
+                decode(data, decodeContext)
             }
             blobId != null -> {
                 logger.w {
-                    "Overflow payload detected for ${metadata.id} | blobId: $blobId | Blob resolution not yet implemented."
+                    "Overflow payload detected for ${decodeContext.id} | blobId: $blobId | Blob resolution not yet implemented."
                 }
                 throw MochaException.Transient.BlobResolutionPending(blobId)
             }
             else -> {
-                logger.e { "Received null payload with no overflow reference for ${metadata.id}" }
-                throw MochaException.Persistent.CorruptionDetected("Null payload with no blobId for ${metadata.id}")
+                logger.e { "Received null payload with no overflow reference for ${decodeContext.id}" }
+                throw MochaException.Persistent.CorruptionDetected("Null payload with no blobId for ${decodeContext.id}")
             }
         }
     }

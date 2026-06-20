@@ -1,19 +1,19 @@
-package com.mochame.sync.infrastructure.codec
+package com.mochame.sync.infrastructure.codec.intent
 
 import co.touchlab.kermit.Logger
 import com.mochame.contract.exceptions.MochaException
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
-import com.mochame.sync.domain.components.SyncCodecRegistry
+import com.mochame.sync.domain.components.SyncIntentCodecRegistry
 import com.mochame.sync.domain.model.SyncIntent
 import org.koin.core.annotation.Single
 
-@Single(binds = [SyncCodecRegistry::class])
-class DefaultSyncCodecRegistry(
-    private val v1: SyncCodecV1,
+@Single(binds = [SyncIntentCodecRegistry::class])
+class DefaultSyncIntentCodecRegistry(
+    private val v1: SyncIntentCodecV1,
     // private val v2: SyncCodecV2 - future
     logger: Logger
-) : SyncCodecRegistry {
+) : SyncIntentCodecRegistry {
 
     private val logger =
         logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.SYNC, "SyncCodecRegistry")
@@ -37,12 +37,4 @@ class DefaultSyncCodecRegistry(
         }
     }
 
-    override fun validate(bytes: ByteArray): Boolean {
-        if (bytes.isEmpty()) return false
-        return when (bytes[0]) {
-            0x01.toByte() -> true
-            // 0x02.toByte() -> v2.validate(data)
-            else -> false
-        }
-    }
 }

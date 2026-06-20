@@ -25,12 +25,6 @@ interface FeatureCodecRegistry<T : LocalFirstEntity<T>> {
      */
     fun reconstructSummary(data: ByteArray): String
 
-    /**
-     * Terminal Failure Signal: Returns a specific error if
-     * version mismatch or corruption is detected.
-     */
-    fun validate(data: ByteArray): Boolean
-
     fun decode(data: ByteArray, decodeContext: DecodeContext): T
     fun decode(data: ByteArray?, blobId: String?, decodeContext: DecodeContext): T  // overflow-aware
 

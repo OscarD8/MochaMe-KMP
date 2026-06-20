@@ -1,17 +1,24 @@
 package com.mochame.sync.orchestration
 
 import co.touchlab.kermit.Logger
+import com.mochame.contract.di.CoordinatorMutex
 import com.mochame.contract.exceptions.MochaException
 import com.mochame.contract.node.IdGenerator
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
+import com.mochame.platform.providers.TransactionProvider
+import com.mochame.sync.data.toDomain
 import com.mochame.sync.data.toEntity
-import com.mochame.sync.domain.components.SyncCodecRegistry
+import com.mochame.sync.domain.components.SyncBatchCodecRegistry
+import com.mochame.sync.domain.components.SyncIntentCodecRegistry
 import com.mochame.sync.domain.components.SyncReceiver
 import com.mochame.sync.domain.model.DecodeContext
 import com.mochame.sync.domain.model.SyncIntent
+import com.mochame.sync.domain.providers.tryWithLock
 import com.mochame.sync.domain.stores.SyncIntentMaintenanceStore
-import com.mochame.sync.domain.stores.SyncModuleStateStore
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.sync.Mutex
 import org.koin.core.annotation.Single
 
 
@@ -19,9 +26,12 @@ import org.koin.core.annotation.Single
 class SyncCoordinator(
     receivers: List<SyncReceiver>, // koin handles as long as classes are bound
     private val intentStore: SyncIntentMaintenanceStore,
-    private val moduleStateStore: SyncModuleStateStore,
-    private val syncCodec: SyncCodecRegistry,
+    private val transactor: TransactionProvider,
+//    private val moduleStateStore: SyncModuleStateStore,
+    private val batchCodecRegistry: SyncBatchCodecRegistry,
+    private val intentCodecRegistry: SyncIntentCodecRegistry,
     private val idGenerator: IdGenerator,
+    @CoordinatorMutex private val coordinatorMutex: Mutex,
     logger: Logger
 ) {
     private val logger = logger.withTags(
@@ -36,10 +46,49 @@ class SyncCoordinator(
     // awaiting implementation of the server
 
     // Called by the app's lifecycle owner on startup
+    @OptIn(FlowPreview::class)
     suspend fun startOutboundPipeline() {
         intentStore.observePendingCount()
+            .debounce(200) // due to potential overhead of Rooms invalidation trackers
             .collect { pendingCount ->
+                if (pendingCount == 0) return@collect
 
+                coordinatorMutex.tryWithLock {
+                    val sessionId = idGenerator.nextId()
+
+                    while (true) {
+                        val batch = transactor.runImmediateTransaction {
+                            val claimedRows = intentStore.claimBatch(sessionId)
+                            if (claimedRows == 0) return@runImmediateTransaction emptyList() // necessary in case Janitor just performed manual sweep
+
+                            intentStore.getClaimedBatch(sessionId)
+                        }
+
+                        if (batch.isEmpty()) break
+
+                        try {
+                            val payload = batchCodecRegistry.encode(
+                                batch.map { it.toDomain() }
+                            )
+//                            val response = networkApi.push(payload)
+//                            val accepted = response.results.filter { it.accepted }.map { it.hlc }
+//                            val rejected = response.results.filter { !it.accepted }
+
+//                            intentStore.acknowledgeSuccess(accepted.map { it.hlc })
+//
+//                            rejected.forEach { result ->
+//                                intentStore.stampLastError(
+//                                    hlcs = listOf(result.hlc),
+//                                    message = result.errorMessage ?: "Server rejected intent"
+//                                )
+//                            }
+                        } catch (e: Exception) {
+                            logger.w(e) { "Transmission failed for session: $sessionId" }
+
+                            break // Break loop; Janitor repairs stranded lease rows later
+                        }
+                    }
+                }
             }
     }
 
@@ -61,56 +110,51 @@ class SyncCoordinator(
 //        }
 //    }
 
-    /**
-     * This will blow up if any message other than a Mocha.Persistent comes through
-     */
+    //
     internal suspend fun onInboundBytes(raw: ByteArray) {
-        val intent = try {
-            syncCodec.decode(raw)
+        val intents = try {
+            batchCodecRegistry.decode(raw)
         } catch (e: MochaException.Persistent) {
-            logger.e(e) { "Sync envelope rejected: ${e.message}" }
-            return  // unrecoverable — bad bytes, nothing to persist
-        }
-
-        // Only persist if we cannot process immediately - changing this to persist the intent always possibly
-        // for error handling - janitor should be updated to ensure it knows how to handle received entities
-//        if (intent.overflowBlobId != null && intent.payload == null) {
-//            intentStore.recordIntent(intent.toEntity())
-//            logger.w { "Inbound overflow intent persisted: ${intent.candidateKey}" }
-//            return
-//        }
-
-        intentStore.recordIntent(intent.toEntity())
-
-        try {
-            processInbound(intent)
-        } catch (e: MochaException.Persistent.Internal) {
-            // Routing failure — no receiver registered
-            // Intent is persisted, Janitor cannot fix this either
-            // This is a deployment error, log loudly
-            logger.e(e) { "Routing failure for model '${intent.model}'" }
+            logger.e(e) { "Transport batch package completely corrupted or invalid" }
+            return
         } catch (e: Exception) {
-            // Processing failed but intent is persisted
-            // Janitor will retry via processInbound
-            // Build on overflow logic here
-            logger.w(e) { "processInbound failed for ${intent.candidateKey}, Janitor will retry" }
+            logger.e(e) { "Unexpected parsing failure during batch unrolling" }
+            return
         }
+
+        intents.forEach { processIntent(it) }
     }
 
-    private suspend fun processInbound(intent: SyncIntent) {
-        val receiver = receiverRoutingMap[intent.model]
-            ?: throw MochaException.Persistent.Internal(
+    private suspend fun processIntent(intent: SyncIntent) {
+        val receiver = receiverRoutingMap[intent.model] ?: run {
+            logger.e { "Routing failure for model '${intent.model}'" }
+            throw MochaException.Persistent.Internal(
                 "No SyncReceiver for model string '${intent.model}'"
             )
+        }
 
-        val intentContext = DecodeContext(
-            id = intent.candidateKey,
-            hlc = intent.hlc,
-            lastModified = intent.createdAt,
-            op = intent.operation
-        )
+        // Claude: only necessary to persist in case of overflow.
+        // If debugging is a nightmare change this
+        if (intent.payload == null && intent.overflowBlobId != null) {
+            intentStore.recordIntent(intent.toEntity())
+            logger.w { "Overflow intent staged: ${intent.candidateKey}" }
+            return
+        }
 
-        receiver.processRemoteIntent(intentContext, intent.payload, intent.overflowBlobId)
+        try {
+            val intentContext = DecodeContext(
+                id = intent.candidateKey,
+                hlc = intent.hlc,
+                lastModified = intent.createdAt,
+                op = intent.operation
+            )
+
+            receiver.processRemoteIntent(intentContext, intent.payload, intent.overflowBlobId)
+        } catch (e: MochaException.Persistent.Internal) {
+            logger.e(e) { "Routing failure for model '${intent.model}'. Error : ${e.message}" }
+        } catch (e: Exception) {
+            logger.w(e) { "Processing failed for ${intent.candidateKey}. Error : ${e.message}" }
+        }
     }
 
 }

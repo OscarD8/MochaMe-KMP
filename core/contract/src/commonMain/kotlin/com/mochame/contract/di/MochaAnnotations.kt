@@ -49,6 +49,10 @@ annotation class JanitorMutex
 @Retention(AnnotationRetention.BINARY)
 @Qualifier
 annotation class BlobMutex
+@Target(AnnotationTarget.VALUE_PARAMETER, AnnotationTarget.FUNCTION, AnnotationTarget.TYPE)
+@Retention(AnnotationRetention.BINARY)
+@Qualifier
+annotation class CoordinatorMutex
 
 
 // -----------------------------------------------------------

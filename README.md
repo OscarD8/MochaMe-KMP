@@ -41,6 +41,9 @@ Needs Updating
 
 Needs Updating but general idea:
 
+<br>
+
+```text
 ┌────────────────────────────────────────┐
 │              app:assembly              │
 └───────────────────┬────────────────────┘
@@ -58,8 +61,7 @@ Needs Updating but general idea:
 │                  core:                 │
 │  (sync-contract, platform, logger)     │
 └────────────────────────────────────────┘
-
-<br>
+```
 
 <br>
 

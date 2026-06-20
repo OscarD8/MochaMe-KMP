@@ -50,9 +50,10 @@ fun SyncIntentEntity.toDomain(): SyncIntent {
         payload = payload,
         diagnosticSummary = diagnosticSummary,
         overflowBlobId = overflowBlobId,
-        hasConflict = hasConflict,
         retryCount = retryCount,
-        createdAt = createdAt
+        createdAt = createdAt,
+        leasedAt = leasedAt,
+        lastErrorMessage = lastErrorMessage
     )
 }
 
@@ -68,8 +69,9 @@ fun SyncIntent.toEntity(): SyncIntentEntity {
             payload = payload,
             diagnosticSummary = diagnosticSummary,
             overflowBlobId = overflowBlobId,
-            hasConflict = hasConflict,
             retryCount = retryCount,
-            createdAt = createdAt
+            createdAt = createdAt,
+            leasedAt = leasedAt,
+            lastErrorMessage = lastErrorMessage
         )
     }

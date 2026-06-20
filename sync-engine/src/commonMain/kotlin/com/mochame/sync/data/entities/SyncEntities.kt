@@ -50,10 +50,11 @@ data class SyncIntentEntity(
     val payload: ByteArray?,
     val overflowBlobId: String?,
     val syncStatus: SyncStatus,
-    val syncId: String? = null,
+    val syncId: String? = null,          // lease identity, diagnostic traceability
+    val leasedAt: Long? = null,          // enables safe Janitor cutoff queries
     val diagnosticSummary: String?,
-    val hasConflict: Boolean = false,
-    val retryCount: Int = 0,
-    val createdAt: Long = Clock.System.now().toEpochMilliseconds(),
-    val lastErrorMessage: String? = null
+    val retryCount: Int = 0,              // Janitor implements threshold logic
+    val lastErrorMessage: String? = null, // works in conjunction with retryCount
+    val createdAt: Long = Clock.System.now().toEpochMilliseconds()
+    // hasConflict removed — until server conflict protocol is defined
 )

@@ -41,7 +41,7 @@ fun KotlinMultiplatformExtension.configureTargets(
         }
 
         if (includeTestBuilders) {
-            withHostTest { }
+            withHostTestBuilder {  }
 
             withDeviceTestBuilder { sourceSetTreeName = "test" }
         }

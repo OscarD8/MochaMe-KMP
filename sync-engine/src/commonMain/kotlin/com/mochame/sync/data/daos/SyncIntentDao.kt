@@ -6,6 +6,7 @@ import androidx.room.Upsert
 import com.mochame.contract.metadata.MochaModule
 import com.mochame.sync.contract.HLC
 import com.mochame.sync.data.entities.SyncIntentEntity
+import com.mochame.sync.domain.model.QuarantinedModuleSummary
 import com.mochame.sync.domain.state.SyncStatus
 import kotlinx.coroutines.flow.Flow
 
@@ -49,7 +50,6 @@ interface SyncIntentDao {
         status: SyncStatus = SyncStatus.PENDING
     ): List<SyncIntentEntity>
 
-    // Step 1: Claim the batch with a unique ID
     @Query(
         """
         UPDATE SyncIntentEntity 
@@ -57,7 +57,6 @@ interface SyncIntentDao {
         WHERE hlc IN (
             SELECT hlc FROM SyncIntentEntity
             WHERE syncId IS NULL 
-            AND module = :entityType 
             AND syncStatus = :pendingStatus
             ORDER BY hlc ASC
             LIMIT :limit
@@ -66,7 +65,6 @@ interface SyncIntentDao {
     )
     suspend fun claimBatch(
         sessionId: String,
-        entityType: MochaModule,
         limit: Int,
         pendingStatus: SyncStatus = SyncStatus.PENDING,
         syncingStatus: SyncStatus = SyncStatus.SYNCING
@@ -77,6 +75,19 @@ interface SyncIntentDao {
      */
     @Query("SELECT * FROM SyncIntentEntity WHERE syncId = :sessionId")
     suspend fun getClaimedBatch(sessionId: String): List<SyncIntentEntity>
+
+    // using transaction provider instead
+//    @Transaction
+//    suspend fun claimAndFetchBatch(
+//        sessionId: String,
+//        entityType: MochaModule,
+//        limit: Int
+//    ): List<SyncIntentEntity> {
+//        val rowsAffected = claimBatch(sessionId, entityType, limit)
+//        if (rowsAffected == 0) return emptyList()
+//
+//        return getClaimedBatch(sessionId)
+//    }
 
     /**
      * Final ACK: Marks a batch of mutations as successfully synced.
@@ -92,6 +103,15 @@ interface SyncIntentDao {
         hlcs: List<HLC>,
         status: SyncStatus = SyncStatus.SUCCESS
     )
+
+    @Query(
+        """
+            UPDATE SyncIntentEntity
+            SET syncStatus = :status
+            WHERE hlc = :hlc    
+        """
+    )
+    suspend fun setStatus(hlc: HLC, status: SyncStatus)
 
     @Query("SELECT EXISTS(SELECT 1 FROM SyncIntentEntity WHERE overflowBlobId = :blobId)")
     suspend fun existsByBlobId(blobId: String): Boolean
@@ -141,4 +161,57 @@ interface SyncIntentDao {
         desiredStatus: SyncStatus = SyncStatus.PENDING
     ): Int
 
+    @Query(
+        """
+        UPDATE SyncIntentEntity
+        SET lastErrorMessage = :message
+        WHERE hlc IN (:hlcs)
+    """
+    )
+    suspend fun stampLastError(hlcs: List<String>, message: String)
+
+    @Query(
+        """
+        UPDATE SyncIntentEntity
+        SET syncStatus = :status, retryCount = :retryCount
+        WHERE hlc = :hlc    
+        """
+    )
+    suspend fun quarantineIntent(
+        hlc: String,
+        retryCount: Int,
+        status: SyncStatus = SyncStatus.QUARANTINED
+    )
+
+    @Query(
+        """
+        SELECT * FROM SyncIntentEntity
+        WHERE syncId != NULL AND syncStatus = :targetStatus
+        """
+    )
+    suspend fun getStaleLeasedIntents(
+        cutOff: Long,
+        targetStatus: SyncStatus = SyncStatus.SYNCING,
+    ): List<SyncIntentEntity>
+
+    @Query(
+        """
+        UPDATE SyncIntentEntity
+        SET retryCount = :retryCount, syncStatus = :resetStatus, syncId = NULL
+        WHERE hlc = :hlc
+    """
+    )
+    suspend fun resetLease(
+        hlc: String,
+        retryCount: Int,
+        resetStatus: SyncStatus = SyncStatus.PENDING
+    )
+
+    @Query("""
+        SELECT module, COUNT(*)  
+        FROM SyncIntentEntity
+        WHERE syncStatus = :quarantinedStatus 
+        GROUP BY module
+    """)
+    suspend fun observeQuarantinedCountByModule(quarantinedStatus: SyncStatus = SyncStatus.QUARANTINED): Flow<List<QuarantinedModuleSummary>>
 }

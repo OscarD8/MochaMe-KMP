@@ -1,4 +1,4 @@
-package com.mochame.sync.infrastructure.codec
+package com.mochame.sync.infrastructure.codec.intent
 
 import co.touchlab.kermit.Logger
 import com.mochame.contract.metadata.MochaModule
@@ -31,7 +31,7 @@ internal data class SyncIntentDeltaV1(
 
 @OptIn(ExperimentalSerializationApi::class)
 @Single
-class SyncCodecV1(logger: Logger) : BaseSyncCodec(
+class SyncIntentCodecV1(logger: Logger) : BaseSyncIntentCodec(
     version = 0x01,
     logger = logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.SYNC, "SyncCodecV1")
 ) {
@@ -64,13 +64,12 @@ class SyncCodecV1(logger: Logger) : BaseSyncCodec(
             payload = envelope.payloadBlob,
             diagnosticSummary = null,
             overflowBlobId = envelope.overflowBlobId,
-            hasConflict = false,
             retryCount = 0,
-            createdAt = Clock.System.now().toEpochMilliseconds()
+            createdAt = Clock.System.now().toEpochMilliseconds(),
+            leasedAt = null,
+            lastErrorMessage = null
         )
     }
 
-    override fun validate(bytes: ByteArray): Boolean =
-        bytes.size > 1 && bytes[0] == version
 
 }

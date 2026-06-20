@@ -14,7 +14,7 @@ interface SyncModuleStateStore {
         timestamp: Long,
     )
 
-    suspend fun stampWatermark(module: MochaModule, syncId: String, newWatermark: String)
+//    suspend fun stampWatermark(module: MochaModule, syncId: String, newWatermark: String)
 }
 
 interface SyncModuleStateMaintenanceStore {

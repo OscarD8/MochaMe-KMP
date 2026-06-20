@@ -33,17 +33,14 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>>(
      * Validates and strips the header.
      */
     fun decode(data: ByteArray, decodeContext: DecodeContext): T {
-        // 1. Ensure we aren't decoding the wrong language
         if (!validate(data)) {
             throw MochaException.Persistent.UnknownProtocolVersion(
                 data.getOrNull(0) ?: -1
             )
         }
 
-        // 2. Header Stripping: Remove the first byte
         val payloadBits = data.copyOfRange(1, data.size)
 
-        // 3. Delegation: Pass the raw bits to the submodule
         return internalDecode(payloadBits, decodeContext)
     }
 
@@ -89,7 +86,7 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>>(
         }
     }
 
-    abstract fun validate(data: ByteArray): Boolean
+    protected fun validate(data: ByteArray): Boolean =  data.size > 1 && data[0] == version
 
     abstract fun reconstructSummary(data: ByteArray): String
 

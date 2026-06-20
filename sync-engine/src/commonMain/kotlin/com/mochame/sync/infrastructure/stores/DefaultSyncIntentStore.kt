@@ -2,8 +2,11 @@ package com.mochame.sync.infrastructure.stores
 
 
 import com.mochame.contract.metadata.MochaModule
+import com.mochame.sync.contract.HLC
 import com.mochame.sync.data.daos.SyncIntentDao
 import com.mochame.sync.data.entities.SyncIntentEntity
+import com.mochame.sync.domain.model.QuarantinedModuleSummary
+import com.mochame.sync.domain.state.SyncStatus
 import com.mochame.sync.domain.stores.SyncIntentStore
 import com.mochame.sync.domain.stores.SyncIntentMaintenanceStore
 import kotlinx.coroutines.flow.Flow
@@ -53,5 +56,35 @@ class DefaultSyncIntentStore(
     override suspend fun observePendingCount(): Flow<Int> {
         return dao.observePendingCount()
     }
+
+    override suspend fun stampLastError(hlcs: List<String>, message: String) {
+        if(hlcs.isNotEmpty()) dao.stampLastError(hlcs, message)
+    }
+
+    override suspend fun claimBatch(sessionId: String, limit: Int): Int =
+        dao.claimBatch(sessionId, limit)
+
+    override suspend fun getClaimedBatch(sessionId: String): List<SyncIntentEntity> =
+        dao.getClaimedBatch(sessionId)
+
+    override suspend fun acknowledgeSuccess(hlcList: List<String>) {
+        hlcList.forEach { hlc ->
+            dao.setStatus(HLC.parse(hlc), SyncStatus.SUCCESS)
+        }
+    }
+
+    override suspend fun getStaleLeasedIntents(olderThan: Long): List<SyncIntentEntity> =
+        dao.getStaleLeasedIntents(olderThan)
+
+    override suspend fun resetLease(hlc: String, retryCount: Int) =
+        dao.resetLease(hlc, retryCount)
+
+    override suspend fun quarantine(
+        hlc: String,
+        retryCount: Int
+    ) = dao.quarantineIntent(hlc, retryCount)
+
+    override suspend fun observeQuarantinedCountByModule(): Flow<List<QuarantinedModuleSummary>> =
+        dao.observeQuarantinedCountByModule()
 
 }

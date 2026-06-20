@@ -11,9 +11,8 @@ import com.mochame.sync.infrastructure.codec.BaseFeatureCodecRegistry
 import org.koin.core.annotation.Single
 
 /**
- * The App Release Version identifier/router for binary payloads.
  * Routes all binary operations based on the 1-byte header.
- * If adding a new version, ensure [encode] is updated to route that version.
+ * If adding a new version, ensure methods are updated to route that version.
  */
 @Single(binds = [FeatureCodecRegistry::class])
 class BioCodecRegistry(
@@ -30,15 +29,6 @@ class BioCodecRegistry(
 
     override fun encode(new: DailyContext, old: DailyContext?): ByteArray? {
         return v1.encode(new, old) // Always encode using the latest protocol available
-    }
-
-    override fun validate(data: ByteArray): Boolean {
-        if (data.isEmpty()) return false
-        return when (data[0]) {
-            0x01.toByte() -> v1.validate(data)
-            // 0x02.toByte() -> v2.validate(data)
-            else -> false
-        }
     }
 
     /**

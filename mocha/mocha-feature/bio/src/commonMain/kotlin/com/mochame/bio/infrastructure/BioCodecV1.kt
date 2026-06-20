@@ -127,8 +127,6 @@ class BioCodecV1(logger: Logger, bufferProvider: BufferProvider) :
         }"
     }
 
-    override fun validate(data: ByteArray): Boolean = data.size > 1 && data[0] == version
-
     /**
      * Reanimates a DailyContext from V1 Protobuf bits.
      */
