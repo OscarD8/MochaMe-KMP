@@ -7,7 +7,7 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(project(":mocha:mocha-feature:bio"))
+            implementation(project(":mocha:feature:bio"))
             implementation(libs.uuid)
         }
     }

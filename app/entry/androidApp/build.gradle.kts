@@ -37,7 +37,7 @@ configure<ApplicationExtension> {
 }
 
 dependencies {
-    implementation(project(":mocha:mocha-schema"))
+    implementation(project(":mocha:schema"))
     implementation(project(":core:platform"))
     implementation(project(":core:logger"))
 

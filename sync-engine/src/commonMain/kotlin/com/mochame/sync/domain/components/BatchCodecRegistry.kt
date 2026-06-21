@@ -2,7 +2,7 @@ package com.mochame.sync.domain.components
 
 import com.mochame.sync.domain.model.SyncIntent
 
-interface SyncBatchCodecRegistry {
+interface BatchCodecRegistry {
     fun encode(intents: List<SyncIntent>): ByteArray
 
     /**

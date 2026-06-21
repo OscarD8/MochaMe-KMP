@@ -41,9 +41,9 @@ kotlin {
             implementation(project(":core:platform"))
             implementation(project(":system:infra"))
             implementation(project(":sync-engine"))
-            implementation(project(":mocha:mocha-feature:bio"))
-            implementation(project(":mocha:mocha-feature:telemetry"))
-            implementation(project(":mocha:mocha-feature:resonance"))
+            implementation(project(":mocha:feature:bio"))
+            implementation(project(":mocha:feature:telemetry"))
+            implementation(project(":mocha:feature:resonance"))
         }
     }
 }

@@ -40,7 +40,7 @@ import kotlin.time.TimeSource
 abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     protected val hlcFactory: HlcFactory,
     protected val executor: ExecutionPolicy,
-    protected val codec: FeatureCodecRegistry<T>,
+    protected val codecRouter: FeatureCodecRegistry<T>,
     protected val locker: KeyedLocker,
     protected val logger: Logger,
     @IoContext protected val ioContext: CoroutineContext,
@@ -113,9 +113,9 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                         persistAction = { persist(stampedState) }
                     )
                 } else {
-                    val payload = codec.encode(stampedState, existingState)
+                    val payload = codecRouter.encode(stampedState, existingState)
                         ?: return@execute onSkip(existingState)
-                    val summary = codec.summarize(stampedState, existingState)
+                    val summary = codecRouter.summarize(stampedState, existingState)
 
                     handleStagingAndLocalCommit(
                         candidateKey = candidateKey,
@@ -136,7 +136,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         blobId: String?
     ) {
         // Use the repository's specific encoder to turn bytes into T
-        val remoteEntity = codec.decode(payload, blobId, decodeContext)
+        val remoteEntity = codecRouter.decode(payload, blobId, decodeContext)
 
         processIntent(
             candidateKey = remoteEntity.id,

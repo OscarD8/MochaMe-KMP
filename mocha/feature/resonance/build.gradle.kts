@@ -8,7 +8,7 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(project(":mocha:mocha-feature:telemetry"))
+            implementation(project(":mocha:feature:telemetry"))
         }
     }
 }

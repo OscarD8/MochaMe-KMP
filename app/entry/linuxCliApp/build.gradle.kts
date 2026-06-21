@@ -17,7 +17,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":app:assembly"))
-            implementation(project(":mocha:mocha-schema"))
+            implementation(project(":mocha:schema"))
             implementation(project(":sync-engine"))
             implementation(project(":core:platform"))
 

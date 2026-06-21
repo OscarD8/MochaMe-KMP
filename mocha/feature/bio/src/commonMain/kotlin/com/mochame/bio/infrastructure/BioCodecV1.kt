@@ -6,7 +6,7 @@ import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.platform.providers.BufferProvider
 import com.mochame.sync.domain.model.DecodeContext
-import com.mochame.sync.infrastructure.FeatureCodec
+import com.mochame.sync.infrastructure.serialization.feature.FeatureCodec
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoBuf

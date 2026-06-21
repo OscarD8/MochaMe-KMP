@@ -66,8 +66,7 @@ fun KotlinMultiplatformExtension.configureTargets(
  * This matches the scope of 'com.android.build.api.dsl' and provides
  * a stable accessor for the 'android' KMP target.
  *  * Replaces machine-specific generated accessors with a portable extension lookup.
- *  * Why: Precompiled scripts in build-logic cannot see the 'android' block
- *  * without ephemeral hashes. This provides a static, compile-time reference to an
+ *  * Why: Precompiled scripts in build-logic cannot see the 'android' block without ephemeral hashes. This provides a static, compile-time reference to an
  *  object container.
  */
 fun KotlinMultiplatformExtension.mochaAndroid(
@@ -78,7 +77,7 @@ fun KotlinMultiplatformExtension.mochaAndroid(
         configure
     )
         ?: error(
-            "MochaMe Foundry: 'KotlinMultiplatformAndroidLibraryTarget' extension not found on Kotlin extension. " +
+            "'KotlinMultiplatformAndroidLibraryTarget' extension not found on Kotlin extension. " +
                     "Check the Android KMP plugin."
         )
 }

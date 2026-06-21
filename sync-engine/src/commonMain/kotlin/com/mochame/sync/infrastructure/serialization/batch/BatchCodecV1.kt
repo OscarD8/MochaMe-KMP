@@ -19,10 +19,10 @@ private data class SyncBatchPayloadV1(
 
 @ExperimentalSerializationApi
 @Single
-class SyncBatchCodecV1(
+class BatchCodecV1(
     intentCodec: IntentCodecV1,
     logger: Logger
-) : BaseSyncBatchCodec(
+) : BatchCodec(
     version = 0x01,
     intentCodec = intentCodec,
     logger = logger.withTags(

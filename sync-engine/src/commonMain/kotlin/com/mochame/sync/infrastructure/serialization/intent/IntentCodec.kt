@@ -2,12 +2,12 @@ package com.mochame.sync.infrastructure.serialization.intent
 
 import co.touchlab.kermit.Logger
 import com.mochame.sync.domain.model.SyncIntent
-import com.mochame.sync.infrastructure.serialization.BaseVersionedCodec
+import com.mochame.sync.infrastructure.serialization.VersionedCodec
 
-abstract class BaseIntentCodec(
+abstract class IntentCodec(
     version: Byte,
     logger: Logger
-) : BaseVersionedCodec(version,logger) {
+) : VersionedCodec(version,logger) {
 
     internal fun encode(intent: SyncIntent): ByteArray {
         return wrapHeader(encodePayload(intent))

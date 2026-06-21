@@ -4,7 +4,7 @@ import co.touchlab.kermit.Logger
 import com.mochame.bio.domain.DailyContext
 import com.mochame.sync.domain.components.FeatureCodecRegistry
 import com.mochame.sync.domain.model.DecodeContext
-import com.mochame.sync.infrastructure.FeatureCodec
+import com.mochame.sync.infrastructure.serialization.feature.FeatureCodec
 import com.mochame.sync.infrastructure.serialization.feature.BaseFeatureCodecRegistry
 import org.koin.core.annotation.Single
 

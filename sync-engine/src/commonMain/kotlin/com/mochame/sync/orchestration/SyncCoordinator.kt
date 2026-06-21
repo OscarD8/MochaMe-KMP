@@ -9,8 +9,8 @@ import com.mochame.logger.withTags
 import com.mochame.platform.providers.TransactionProvider
 import com.mochame.sync.data.toDomain
 import com.mochame.sync.data.toEntity
-import com.mochame.sync.domain.components.SyncBatchCodecRegistry
-import com.mochame.sync.domain.components.SyncIntentCodecRegistry
+import com.mochame.sync.domain.components.BatchCodecRegistry
+import com.mochame.sync.domain.components.IntentCodecRegistry
 import com.mochame.sync.domain.components.SyncReceiver
 import com.mochame.sync.domain.model.DecodeContext
 import com.mochame.sync.domain.model.SyncIntent
@@ -28,8 +28,8 @@ class SyncCoordinator(
     private val intentStore: SyncIntentMaintenanceStore,
     private val transactor: TransactionProvider,
 //    private val moduleStateStore: SyncModuleStateStore,
-    private val batchCodecRegistry: SyncBatchCodecRegistry,
-    private val intentCodecRegistry: SyncIntentCodecRegistry,
+    private val batchCodecRegistry: BatchCodecRegistry,
+    private val intentCodecRegistry: IntentCodecRegistry,
     private val idGenerator: IdGenerator,
     @CoordinatorMutex private val coordinatorMutex: Mutex,
     logger: Logger
@@ -118,7 +118,7 @@ class SyncCoordinator(
             logger.e(e) { "Transport batch package completely corrupted or invalid" }
             return
         } catch (e: Exception) {
-            logger.e(e) { "Unexpected parsing failure during batch unrolling" }
+            logger.e(e) { "Unexpected parsing failure during batch processing" }
             return
         }
 
@@ -134,7 +134,7 @@ class SyncCoordinator(
         }
 
         // Claude: only necessary to persist in case of overflow.
-        // If debugging is a nightmare change this
+        // If debugging is a nightmare change this?
         if (intent.payload == null && intent.overflowBlobId != null) {
             intentStore.recordIntent(intent.toEntity())
             logger.w { "Overflow intent staged: ${intent.candidateKey}" }
@@ -150,8 +150,6 @@ class SyncCoordinator(
             )
 
             receiver.processRemoteIntent(intentContext, intent.payload, intent.overflowBlobId)
-        } catch (e: MochaException.Persistent.Internal) {
-            logger.e(e) { "Routing failure for model '${intent.model}'. Error : ${e.message}" }
         } catch (e: Exception) {
             logger.w(e) { "Processing failed for ${intent.candidateKey}. Error : ${e.message}" }
         }

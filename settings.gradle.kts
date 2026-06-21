@@ -57,8 +57,8 @@ include(":core:test:fixtures-platform")
 
 include(":sync-engine")
 
-include(":mocha:mocha-feature:bio")
-include(":mocha:mocha-feature:telemetry")
-include(":mocha:mocha-feature:resonance")
-include(":mocha:mocha-ui")
-include(":mocha:mocha-schema")
+include(":mocha:feature:bio")
+include(":mocha:feature:telemetry")
+include(":mocha:feature:resonance")
+include(":mocha:ui")
+include(":mocha:schema")

@@ -186,7 +186,7 @@ interface SyncIntentDao {
     @Query(
         """
         SELECT * FROM SyncIntentEntity
-        WHERE syncId != NULL AND syncStatus = :targetStatus
+        WHERE syncId != NULL AND syncStatus = :targetStatus AND leasedAt > :cutOff
         """
     )
     suspend fun getStaleLeasedIntents(
@@ -208,10 +208,10 @@ interface SyncIntentDao {
     )
 
     @Query("""
-        SELECT module, COUNT(*)  
+        SELECT module, COUNT(*) AS count
         FROM SyncIntentEntity
         WHERE syncStatus = :quarantinedStatus 
         GROUP BY module
     """)
-    suspend fun observeQuarantinedCountByModule(quarantinedStatus: SyncStatus = SyncStatus.QUARANTINED): Flow<List<QuarantinedModuleSummary>>
+    fun observeQuarantinedCountByModule(quarantinedStatus: SyncStatus = SyncStatus.QUARANTINED): Flow<List<QuarantinedModuleSummary>>
 }

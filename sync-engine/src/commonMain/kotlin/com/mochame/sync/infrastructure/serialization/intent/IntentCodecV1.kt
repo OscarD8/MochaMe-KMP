@@ -31,7 +31,7 @@ internal data class SyncIntentDeltaV1(
 
 @OptIn(ExperimentalSerializationApi::class)
 @Single
-class SyncIntentCodecV1(logger: Logger) : BaseSyncIntentCodec(
+class IntentCodecV1(logger: Logger) : IntentCodec(
     version = 0x01,
     logger = logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.SYNC, "SyncCodecV1")
 ) {
@@ -70,6 +70,5 @@ class SyncIntentCodecV1(logger: Logger) : BaseSyncIntentCodec(
             lastErrorMessage = null
         )
     }
-
 
 }

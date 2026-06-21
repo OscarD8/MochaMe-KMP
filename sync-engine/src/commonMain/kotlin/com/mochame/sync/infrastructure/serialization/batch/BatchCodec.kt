@@ -1,17 +1,16 @@
 package com.mochame.sync.infrastructure.serialization.batch
 
 import co.touchlab.kermit.Logger
-import com.mochame.contract.exceptions.MochaException
 import com.mochame.sync.domain.model.SyncIntent
-import com.mochame.sync.infrastructure.serialization.BaseVersionedCodec
-import com.mochame.sync.infrastructure.serialization.intent.BaseIntentCodec
+import com.mochame.sync.infrastructure.serialization.VersionedCodec
+import com.mochame.sync.infrastructure.serialization.intent.IntentCodec
 
 
-abstract class BaseBatchCodec(
+abstract class BatchCodec(
     version: Byte,
     logger: Logger,
-    protected val intentCodec: BaseIntentCodec
-) : BaseVersionedCodec(version, logger) {
+    protected val intentCodec: IntentCodec
+) : VersionedCodec(version, logger) {
 
     /**
      * Wraps the internal codecs serialization design with the version number.

@@ -14,9 +14,9 @@ interface FeatureCodecRegistry<T : LocalFirstEntity<T>> {
      */
     fun encode(new: T, old: T?): ByteArray?
 
-    fun decode(data: ByteArray, decodeContext: DecodeContext): T
+    fun decode(data: ByteArray, context: DecodeContext): T
 
-    fun decode(data: ByteArray?, blobId: String?, decodeContext: DecodeContext): T  // overflow-aware
+    fun decode(data: ByteArray?, blobId: String?, context: DecodeContext): T  // overflow-aware
 
 
     /**

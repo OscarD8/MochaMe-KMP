@@ -1,37 +1,25 @@
 package com.mochame.sync.infrastructure.serialization.batch
 
 import co.touchlab.kermit.Logger
-import com.mochame.contract.exceptions.MochaException
 import com.mochame.sync.domain.components.BatchCodecRegistry
 import com.mochame.sync.domain.model.SyncIntent
+import com.mochame.sync.infrastructure.serialization.CodecRegistry
 import kotlinx.serialization.ExperimentalSerializationApi
 import org.koin.core.annotation.Single
 
 @ExperimentalSerializationApi
 @Single(binds = [BatchCodecRegistry::class])
 class DefaultBatchCodecRegistry(
-    private val v1: BatchCodecV1,
-    // private val v2: SyncBatchCodecV2
-    private val logger: Logger
-) : BatchCodecRegistry {
+    v1: BatchCodecV1,
+    logger: Logger
+) : CodecRegistry<BatchCodec>(
+    codecMap = mapOf(0x01.toByte() to v1),
+    latestVersion = 0x01,
+    logger = logger
+), BatchCodecRegistry {
 
-    override fun encode(intents: List<SyncIntent>): ByteArray {
-        // Outbound packaging always uses the absolute latest protocol version
-        return v1.encode(intents)
-    }
+    override fun encode(intents: List<SyncIntent>) = latestCodec.encode(intents)
 
-    override fun decode(bytes: ByteArray): List<SyncIntent> {
-        if (bytes.isEmpty()) {
-            throw MochaException.Persistent.CorruptionDetected("Empty transport package received")
-        }
-
-        return when (bytes[0]) {
-            0x01.toByte() -> v1.decode(bytes)
-            // 0x02.toByte() -> v2.decode(bytes)
-            else -> {
-                logger.e { "Unknown transport bundle version: ${bytes[0]}" }
-                throw MochaException.Persistent.UnknownProtocolVersion(bytes[0])
-            }
-        }
-    }
+    override fun decode(bytes: ByteArray): List<SyncIntent> =
+        routePayload(bytes) { codec, bytes -> codec.decode(bytes) }
 }
