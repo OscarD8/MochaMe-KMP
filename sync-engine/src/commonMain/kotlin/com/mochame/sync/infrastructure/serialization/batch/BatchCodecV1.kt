@@ -1,10 +1,10 @@
-package com.mochame.sync.infrastructure.codec.batch
+package com.mochame.sync.infrastructure.serialization.batch
 
 import co.touchlab.kermit.Logger
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.sync.domain.model.SyncIntent
-import com.mochame.sync.infrastructure.codec.intent.SyncIntentCodecV1
+import com.mochame.sync.infrastructure.serialization.intent.IntentCodecV1
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoBuf
@@ -20,7 +20,7 @@ private data class SyncBatchPayloadV1(
 @ExperimentalSerializationApi
 @Single
 class SyncBatchCodecV1(
-    intentCodec: SyncIntentCodecV1,
+    intentCodec: IntentCodecV1,
     logger: Logger
 ) : BaseSyncBatchCodec(
     version = 0x01,

@@ -6,7 +6,7 @@ import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.platform.providers.BufferProvider
 import com.mochame.sync.domain.model.DecodeContext
-import com.mochame.sync.infrastructure.BaseFeatureCodec
+import com.mochame.sync.infrastructure.FeatureCodec
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoBuf
@@ -29,10 +29,10 @@ internal data class BioDeltaV1(
  */
 @Single
 class BioCodecV1(logger: Logger, bufferProvider: BufferProvider) :
-    BaseFeatureCodec<DailyContext>(
+    FeatureCodec<DailyContext>(
         version = 0x01,
         logger = logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.BIO, "BioCodecV1"),
-        bufferProvider = bufferProvider
+        bufferProvider = bufferProvider,
     ) {
 
     /**
@@ -128,22 +128,20 @@ class BioCodecV1(logger: Logger, bufferProvider: BufferProvider) :
     }
 
     /**
-     * Reanimates a DailyContext from V1 Protobuf bits.
+     * Reconstructs a DailyContext from passed bytes.
      */
     @OptIn(ExperimentalSerializationApi::class)
     override fun internalDecode(
         payloadBits: ByteArray,
-        decodeContext: DecodeContext
+        context: DecodeContext
     ): DailyContext {
-        // Deserialize
         val delta = ProtoBuf.decodeFromByteArray(BioDeltaV1.serializer(), payloadBits)
 
-        // Reconstruct
         return DailyContext(
-            id = decodeContext.id,
-            hlc = decodeContext.hlc,
-            lastModified = decodeContext.lastModified,
-            epochDay = decodeContext.id.toLong(),
+            id = context.id,
+            hlc = context.hlc,
+            lastModified = context.lastModified,
+            epochDay = context.id.toLong(),
             sleepHours = delta.sleepHours ?: 0.0,
             readinessScore = delta.readinessScore ?: 0,
             isNapped = delta.isNapped ?: false,

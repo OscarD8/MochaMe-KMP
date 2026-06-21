@@ -52,7 +52,7 @@ class DefaultBioRepository(
     executor = executor,
     blobStore = blobStore,
     locker = locker,
-    codec = codec,
+    codecRouter = codec,
     ioContext = ioContext,
     logger = logger.withTags(
         layer = LogTags.Layer.INFRA,

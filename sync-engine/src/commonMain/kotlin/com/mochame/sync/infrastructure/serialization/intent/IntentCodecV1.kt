@@ -1,4 +1,4 @@
-package com.mochame.sync.infrastructure.codec.intent
+package com.mochame.sync.infrastructure.serialization.intent
 
 import co.touchlab.kermit.Logger
 import com.mochame.contract.metadata.MochaModule

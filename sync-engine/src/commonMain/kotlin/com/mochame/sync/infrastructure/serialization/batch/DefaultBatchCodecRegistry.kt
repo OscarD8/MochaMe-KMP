@@ -1,19 +1,19 @@
-package com.mochame.sync.infrastructure.codec.batch
+package com.mochame.sync.infrastructure.serialization.batch
 
 import co.touchlab.kermit.Logger
 import com.mochame.contract.exceptions.MochaException
-import com.mochame.sync.domain.components.SyncBatchCodecRegistry
+import com.mochame.sync.domain.components.BatchCodecRegistry
 import com.mochame.sync.domain.model.SyncIntent
 import kotlinx.serialization.ExperimentalSerializationApi
 import org.koin.core.annotation.Single
 
 @ExperimentalSerializationApi
-@Single(binds = [SyncBatchCodecRegistry::class])
-class DefaultSyncBatchCodecRegistry(
-    private val v1: SyncBatchCodecV1,
+@Single(binds = [BatchCodecRegistry::class])
+class DefaultBatchCodecRegistry(
+    private val v1: BatchCodecV1,
     // private val v2: SyncBatchCodecV2
     private val logger: Logger
-) : SyncBatchCodecRegistry {
+) : BatchCodecRegistry {
 
     override fun encode(intents: List<SyncIntent>): ByteArray {
         // Outbound packaging always uses the absolute latest protocol version
