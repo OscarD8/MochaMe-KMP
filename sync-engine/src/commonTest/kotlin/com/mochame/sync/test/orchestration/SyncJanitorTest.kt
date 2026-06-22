@@ -7,7 +7,7 @@ import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Severity
 import com.mochame.contract.boot.BootState
 import com.mochame.contract.exceptions.MochaException
-import com.mochame.contract.metadata.MochaModule
+import com.mochame.contract.metadata.MochaModuleContext
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runPersistenceEnvironment
 import com.mochame.sync.data.entities.SyncModuleStateEntity
@@ -50,7 +50,7 @@ class SyncJanitorTest : MochaPlatformTest() {
 
         scope.advanceUntilIdle()
 
-        assertEquals(MochaModule.all.size, metadataStore.getMetadataCount())
+        assertEquals(MochaModuleContext.allModules.size, metadataStore.getMetadataCount())
     }
 
     // -----------------------------------------------------------
@@ -65,7 +65,7 @@ class SyncJanitorTest : MochaPlatformTest() {
 
             metadataDao.upsertMetadata(
                 SyncModuleStateEntity(
-                    module = MochaModule.Bio.DailyContext,
+                    module = MochaModuleContext.Type.UNRECOGNIZED_FALLBACK.moduleName,
                     moduleMaxHlc = futureHlc,
                     lastServerSyncTime = 1000L,
                     lastLocalMutationTime = 1000L
@@ -156,7 +156,7 @@ class SyncJanitorTest : MochaPlatformTest() {
     // -----------------------------------------------------------
     @Test
     fun should_log_correct_seeding_count_when_new_install() = runEnv { scope ->
-        val count = MochaModule.all.size
+        val count = MochaModuleContext.allModules.size
 
         janitor.startupChecks()
         scope.advanceUntilIdle()

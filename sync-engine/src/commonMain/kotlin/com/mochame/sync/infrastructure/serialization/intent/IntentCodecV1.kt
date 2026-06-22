@@ -1,7 +1,7 @@
 package com.mochame.sync.infrastructure.serialization.intent
 
 import co.touchlab.kermit.Logger
-import com.mochame.contract.metadata.MochaModule
+import com.mochame.contract.metadata.MochaModuleContext
 import com.mochame.contract.metadata.MutationOp
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
@@ -31,7 +31,7 @@ internal data class SyncIntentDeltaV1(
 
 @OptIn(ExperimentalSerializationApi::class)
 @Single
-class IntentCodecV1(logger: Logger) : IntentCodec(
+class IntentCodecV1(logger: Logger) : VersionedIntentCodec(
     version = 0x01,
     logger = logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.SYNC, "SyncCodecV1")
 ) {
@@ -40,7 +40,7 @@ class IntentCodecV1(logger: Logger) : IntentCodec(
         val delta = SyncIntentDeltaV1(
             hlc = intent.hlc.toString(),
             candidateKey = intent.candidateKey,
-            module = intent.module.moduleName,
+            module = intent.module,
             model = intent.model,
             operation = intent.operation.name,
             payloadBlob = intent.payload,
@@ -56,7 +56,7 @@ class IntentCodecV1(logger: Logger) : IntentCodec(
         return SyncIntent(
             hlc = HLC.parse(envelope.hlc),
             candidateKey = envelope.candidateKey,
-            module = MochaModule.modelFromString(envelope.module),
+            module = envelope.module,
             model = envelope.model,
             operation = MutationOp.valueOf(envelope.operation),
             syncStatus = SyncStatus.RECEIVED,

@@ -1,6 +1,5 @@
 package com.mochame.sync.data
 
-import com.mochame.contract.metadata.MochaModule
 import com.mochame.sync.contract.HLC
 import com.mochame.sync.data.entities.SyncIntentEntity
 import com.mochame.sync.data.entities.SyncModuleStateEntity

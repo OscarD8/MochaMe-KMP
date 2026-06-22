@@ -4,7 +4,7 @@ import co.touchlab.kermit.Logger
 import com.mochame.sync.domain.model.SyncIntent
 import com.mochame.sync.infrastructure.serialization.VersionedCodec
 
-abstract class IntentCodec(
+abstract class VersionedIntentCodec(
     version: Byte,
     logger: Logger
 ) : VersionedCodec(version,logger) {

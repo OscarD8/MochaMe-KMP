@@ -5,7 +5,7 @@ import com.mochame.bio.domain.DailyContext
 import com.mochame.sync.domain.components.FeatureCodecRegistry
 import com.mochame.sync.domain.model.DecodeContext
 import com.mochame.sync.infrastructure.serialization.feature.FeatureCodec
-import com.mochame.sync.infrastructure.serialization.feature.BaseFeatureCodecRegistry
+import com.mochame.sync.infrastructure.serialization.feature.OverflowAwareCodecRegistry
 import org.koin.core.annotation.Single
 
 /**
@@ -17,7 +17,7 @@ class BioCodecRegistry(
     v1: BioCodecV1,
     // private val v2: BioPayloadEncoderV2 - demonstration
     logger: Logger
-) : BaseFeatureCodecRegistry<DailyContext, FeatureCodec<DailyContext>>(
+) : OverflowAwareCodecRegistry<DailyContext, FeatureCodec<DailyContext>>(
     codecMap = mapOf(0x01.toByte() to v1),
     latestVersion = 0x01,
     logger = logger,
@@ -32,18 +32,11 @@ class BioCodecRegistry(
     override fun reconstructSummary(data: ByteArray): String =
         routePayload(data) { codec, bytes -> codec.reconstructSummary(bytes) }
 
-    override fun summarize(new: DailyContext, old: DailyContext?): String {
-        if (new.isDeleted) return "OP:DELETE"
-
-        val tags = buildList {
-            if (old == null || new.sleepHours != old.sleepHours) add(2)
-            if (old == null || new.readinessScore != old.readinessScore) add(3)
-            if (old == null || new.isNapped != old.isNapped) add(4)
-        }
-
-        return "OP:UPSERT_V1 ${
-            tags.joinToString(prefix = "[", postfix = "]", separator = ",")
-        }"
-    }
+    /**
+     * I don't know to route the right codec on a decode intent that needs summarizing.
+     * I don't know if that is even needed. For now routing the most recent codec.
+     */
+    override fun summarize(new: DailyContext, old: DailyContext?): String =
+        latestCodec.summarize(new, old)
 
 }

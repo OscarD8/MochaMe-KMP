@@ -5,7 +5,7 @@ import com.mochame.contract.policy.ExecutionPolicy
 import com.mochame.platform.providers.TransactionProvider
 import com.mochame.contract.di.IoContext
 import com.mochame.contract.boot.BootState
-import com.mochame.contract.metadata.MochaModule
+import com.mochame.contract.metadata.MochaModuleContext
 import com.mochame.contract.metadata.MutationOp
 import com.mochame.sync.data.entities.SyncIntentEntity
 import com.mochame.contract.boot.BootStatusProvider
@@ -47,7 +47,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     protected val transactor: TransactionProvider,
     protected val blobStore: BlobStager,
     protected val syncIntentStore: SyncIntentStore,
-    override val module: MochaModule,
+    override val moduleContext: MochaModuleContext,
     private val provider: BootStatusProvider,
     private val syncModuleStateStore: SyncModuleStateStore
 ) : SyncReceiver {
@@ -81,7 +81,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         val isRemoteIntent = incomingHlc != null
 
         locker.withLock(candidateKey) {
-            executor.execute("[${module}_$op]") {
+            executor.execute("[${moduleContext}_$op]") {
                 val existingState = fetchExistingState()
 
                 // 1. Initial state verification & LWW Checks
@@ -163,7 +163,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
 //                syncIntentStore.discardIntent(it.hlc)
 //            }
 
-            updateHlcFloor(module, hlc)
+            updateHlcFloor(moduleContext.moduleName, hlc)
             val localResult = persistAction()
 
             localResult
@@ -230,7 +230,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                     blobId,
                     summary
                 )
-                updateHlcFloor(module, hlc)
+                updateHlcFloor(moduleContext.moduleName, hlc)
                 localResult
             }.also {
                 dbCommitted = true
@@ -270,7 +270,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         diagnosticSummary: String
     ) {
         // Look for existing work that hasn't been synced yet
-        val pending = syncIntentStore.getPendingByPrimaryKey(candidateKey, module)
+        val pending = syncIntentStore.getPendingByPrimaryKey(candidateKey, moduleContext.moduleName)
 
         val effectiveCreatedAt = resolvePruningTimestamp(pending, op, hlc.ts)
 
@@ -284,8 +284,8 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             SyncIntentEntity(
                 hlc = hlc.toString(),
                 candidateKey = candidateKey,
-                module = module,
-                model = module.modelName,
+                module = moduleContext.moduleName,
+                model = moduleContext.modelName,
                 operation = op,
                 syncStatus = SyncStatus.PENDING,
                 createdAt = effectiveCreatedAt,
@@ -312,7 +312,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     }
 
 
-    protected suspend fun updateHlcFloor(module: MochaModule, hlc: HLC) {
+    protected suspend fun updateHlcFloor(module: String, hlc: HLC) {
         syncModuleStateStore.updateHlcFloor(module, hlc)
     }
 

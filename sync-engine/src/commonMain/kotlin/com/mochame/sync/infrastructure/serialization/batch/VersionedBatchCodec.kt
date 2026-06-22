@@ -3,13 +3,13 @@ package com.mochame.sync.infrastructure.serialization.batch
 import co.touchlab.kermit.Logger
 import com.mochame.sync.domain.model.SyncIntent
 import com.mochame.sync.infrastructure.serialization.VersionedCodec
-import com.mochame.sync.infrastructure.serialization.intent.IntentCodec
+import com.mochame.sync.infrastructure.serialization.intent.VersionedIntentCodec
 
 
-abstract class BatchCodec(
+abstract class VersionedBatchCodec(
     version: Byte,
     logger: Logger,
-    protected val intentCodec: IntentCodec
+    protected val intentCodec: VersionedIntentCodec
 ) : VersionedCodec(version, logger) {
 
     /**

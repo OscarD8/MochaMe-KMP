@@ -12,7 +12,7 @@ import org.koin.core.annotation.Single
 class DefaultBatchCodecRegistry(
     v1: BatchCodecV1,
     logger: Logger
-) : CodecRegistry<BatchCodec>(
+) : CodecRegistry<VersionedBatchCodec>(
     codecMap = mapOf(0x01.toByte() to v1),
     latestVersion = 0x01,
     logger = logger

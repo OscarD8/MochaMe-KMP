@@ -1,13 +1,13 @@
 package com.mochame.sync.domain.components
 
-import com.mochame.contract.metadata.MochaModule
+import com.mochame.contract.metadata.MochaModuleContext
 import com.mochame.sync.domain.model.DecodeContext
 
 /**
  *
  */
 interface SyncReceiver {
-    val module: MochaModule
+    val moduleContext: MochaModuleContext
 
     /**
      * Expects the synced intent to have had its relevant metadata extracted that the feature

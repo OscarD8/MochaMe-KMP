@@ -10,7 +10,7 @@ import org.koin.core.annotation.Single
 class DefaultIntentCodecRegistry(
     v1: IntentCodecV1,
     logger: Logger
-) : CodecRegistry<IntentCodec>(
+) : CodecRegistry<VersionedIntentCodec>(
     codecMap = mapOf(0x01.toByte() to v1),
     latestVersion = 0x01,
     logger = logger,

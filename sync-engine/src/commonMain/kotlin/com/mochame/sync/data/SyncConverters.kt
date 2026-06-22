@@ -1,7 +1,7 @@
 package com.mochame.sync.data
 
 import androidx.room.TypeConverter
-import com.mochame.contract.metadata.MochaModule
+import com.mochame.contract.metadata.MochaModuleContext
 import com.mochame.contract.metadata.MutationOp
 import com.mochame.sync.contract.HLC
 import com.mochame.sync.domain.state.SyncStatus
@@ -46,8 +46,18 @@ class SyncConverters {
     fun toStatus(id: Int): SyncStatus = SyncStatus.fromId(id)
 
     @TypeConverter
-    fun fromMochaModule(module: MochaModule): String = module.modelName
+    fun fromContextType(type: MochaModuleContext.Type?): String? {
+        return type?.name
+    }
 
     @TypeConverter
-    fun toMochaModule(tag: String): MochaModule = MochaModule.modelFromString(tag)
+    fun toContextType(databaseValue: String?): MochaModuleContext.Type {
+        if (databaseValue == null) return MochaModuleContext.Type.UNRECOGNIZED_FALLBACK
+
+        return try {
+            MochaModuleContext.Type.valueOf(databaseValue)
+        } catch (e: IllegalArgumentException) {
+            MochaModuleContext.Type.UNRECOGNIZED_FALLBACK
+        }
+    }
 }

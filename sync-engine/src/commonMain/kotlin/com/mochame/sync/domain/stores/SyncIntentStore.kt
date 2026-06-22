@@ -1,20 +1,19 @@
 package com.mochame.sync.domain.stores
 
 
-import com.mochame.contract.metadata.MochaModule
 import com.mochame.sync.data.entities.SyncIntentEntity
 import com.mochame.sync.domain.model.QuarantinedModuleSummary
-import kotlinx.coroutines.flow.Flow
 import com.mochame.sync.orchestration.SyncCoordinator
+import kotlinx.coroutines.flow.Flow
 
 interface SyncIntentStore {
     suspend fun getPendingByPrimaryKey(
         candidateKey: String,
-        entityType: MochaModule
+        module: String
     ): SyncIntentEntity?
 
     suspend fun recordIntent(entry: SyncIntentEntity)
-    suspend fun getPendingByModule(module: MochaModule): List<SyncIntentEntity?>
+    suspend fun getPendingByModule(module: String): List<SyncIntentEntity?>
     suspend fun discardIntent(hlc: String)
     suspend fun observePendingCount(): Flow<Int>
     suspend fun claimBatch(sessionId: String, limit: Int = 50): Int

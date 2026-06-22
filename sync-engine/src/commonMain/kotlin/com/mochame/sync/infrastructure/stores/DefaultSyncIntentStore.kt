@@ -1,7 +1,7 @@
 package com.mochame.sync.infrastructure.stores
 
 
-import com.mochame.contract.metadata.MochaModule
+import com.mochame.contract.metadata.MochaModuleContext
 import com.mochame.sync.contract.HLC
 import com.mochame.sync.data.daos.SyncIntentDao
 import com.mochame.sync.data.entities.SyncIntentEntity
@@ -19,12 +19,12 @@ class DefaultSyncIntentStore(
 
     override suspend fun getPendingByPrimaryKey(
         candidateKey: String,
-        entityType: MochaModule
+        module: String
     ): SyncIntentEntity? {
-        return dao.getPendingByKey(candidateKey, entityType)
+        return dao.getPendingByKey(candidateKey, module)
     }
 
-    override suspend fun getPendingByModule(module: MochaModule): List<SyncIntentEntity?> {
+    override suspend fun getPendingByModule(module: String): List<SyncIntentEntity?> {
         return dao.getPendingByModule(module)
     }
 

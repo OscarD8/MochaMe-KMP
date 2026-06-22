@@ -16,8 +16,11 @@ interface FeatureCodecRegistry<T : LocalFirstEntity<T>> {
 
     fun decode(data: ByteArray, context: DecodeContext): T
 
-    fun decode(data: ByteArray?, blobId: String?, context: DecodeContext): T  // overflow-aware
-
+    fun decode(
+        data: ByteArray?,
+        blobId: String?,
+        context: DecodeContext
+    ): T  // overflow-aware
 
     /**
      * Mutation-Time Summary: Used during dispatch for the unencrypted ledger.
@@ -29,6 +32,5 @@ interface FeatureCodecRegistry<T : LocalFirstEntity<T>> {
      * Generates a manifest from raw bits when domain objects are unavailable.
      */
     fun reconstructSummary(data: ByteArray): String
-
 
 }

@@ -53,14 +53,13 @@ class SyncJanitor(
     private val logger = logger.withTags(
         layer = LogTags.Layer.INFRA,
         domain = LogTags.Domain.SYNC,
-        className = "Janitor"
+        className = "SJanit"
     )
 
     companion object {
         const val LEASE_TIMEOUT_MS = 30_000L
         const val RETRY_THRESHOLD = 5
     }
-
 
     /**
      * The single entry point for app initialization.

@@ -30,7 +30,7 @@ class EngineHlcFactory(
     private val logger = logger.withTags(
         layer = LogTags.Layer.INFRA,
         domain = LogTags.Domain.SYNC,
-        className = "HLC"
+        className = "HLCFac"
     )
 
     private data class FactoryState(

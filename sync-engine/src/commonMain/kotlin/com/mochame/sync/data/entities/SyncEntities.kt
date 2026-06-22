@@ -3,7 +3,7 @@ package com.mochame.sync.data.entities
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.mochame.contract.metadata.MochaModule
+import com.mochame.contract.metadata.MochaModuleContext
 import com.mochame.contract.metadata.MutationOp
 import com.mochame.sync.domain.state.SyncStatus
 import kotlin.time.Clock
@@ -18,7 +18,7 @@ import com.mochame.sync.domain.model.DecodeContext
 @Entity
 data class SyncModuleStateEntity(
     @PrimaryKey
-    val module: MochaModule,
+    val module: String,
     val serverWatermark: String? = null,
     val moduleMaxHlc: String? = null,
     val syncId: String? = null,
@@ -44,7 +44,7 @@ data class SyncModuleStateEntity(
 data class SyncIntentEntity(
     @PrimaryKey val hlc: String,
     val candidateKey: String,
-    val module: MochaModule,
+    val module: String,
     val model: String,
     val operation: MutationOp,
     val payload: ByteArray?,

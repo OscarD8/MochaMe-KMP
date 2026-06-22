@@ -37,14 +37,13 @@ class SyncCoordinator(
     private val logger = logger.withTags(
         layer = LogTags.Layer.ORCH,
         domain = LogTags.Domain.SYNC,
-        className = "SyncCoord"
+        className = "SCoord"
     )
 
     private val receiverRoutingMap: Map<String, SyncReceiver> =
-        receivers.associateBy { it.module.modelName }
+        receivers.associateBy { it.moduleContext.modelName }
 
     // awaiting implementation of the server
-
     // Called by the app's lifecycle owner on startup
     @OptIn(FlowPreview::class)
     suspend fun startOutboundPipeline() {

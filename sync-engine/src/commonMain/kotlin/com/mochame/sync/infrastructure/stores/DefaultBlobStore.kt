@@ -46,7 +46,7 @@ class DefaultBlobStore(
     private val logger = logger.withTags(
         layer = LogTags.Layer.INFRA,
         domain = LogTags.Domain.SYNC,
-        className = "BlobStore"
+        className = "BlobSt"
     )
 
     private var chambersVerified = false

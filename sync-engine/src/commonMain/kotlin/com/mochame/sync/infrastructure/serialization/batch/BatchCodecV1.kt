@@ -22,13 +22,13 @@ private data class SyncBatchPayloadV1(
 class BatchCodecV1(
     intentCodec: IntentCodecV1,
     logger: Logger
-) : BatchCodec(
+) : VersionedBatchCodec(
     version = 0x01,
     intentCodec = intentCodec,
     logger = logger.withTags(
         layer = LogTags.Layer.INFRA,
         domain = LogTags.Domain.SYNC,
-        className = "SyncBatchCodecV1"
+        className = "BatchCodecV1"
     )
 ) {
 

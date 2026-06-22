@@ -1,7 +1,7 @@
 package com.mochame.sync.domain.model
 
 
-import com.mochame.contract.metadata.MochaModule
+import com.mochame.contract.metadata.MochaModuleContext
 import com.mochame.contract.metadata.MutationOp
 import com.mochame.sync.contract.HLC
 import com.mochame.sync.domain.state.SyncStatus
@@ -9,7 +9,7 @@ import com.mochame.sync.infrastructure.LocalFirstRepository
 import com.mochame.sync.data.daos.SyncIntentDao
 
 data class SyncModuleState(
-    val module: MochaModule,
+    val module: String,
     val serverWatermark: String?,
     val localMaxHlc: String?,
     val activeSyncId: String?,
@@ -20,18 +20,18 @@ data class SyncModuleState(
 data class SyncIntent(
     val hlc: HLC,
     val candidateKey: String,
-    val module: MochaModule,
+    val module: String,
     val model: String,
     val operation: MutationOp,
     val syncStatus: SyncStatus,
-    val syncId: String?,
-    val payload: ByteArray?,
-    val diagnosticSummary: String?,
-    val overflowBlobId: String?,
-    val leasedAt: Long?,
     val retryCount: Int,
     val createdAt: Long,
-    val lastErrorMessage: String?
+    val syncId: String? = null,
+    val payload: ByteArray? = null,
+    val diagnosticSummary: String? = null,
+    val overflowBlobId: String? = null,
+    val leasedAt: Long? = null,
+    val lastErrorMessage: String? = null
 )
 
 /**
@@ -52,7 +52,7 @@ data class DecodeContext(
  * count of failed local intents.
  */
 data class QuarantinedModuleSummary(
-    val module: MochaModule,
+    val module: MochaModuleContext,
     val count: Int
 )
 

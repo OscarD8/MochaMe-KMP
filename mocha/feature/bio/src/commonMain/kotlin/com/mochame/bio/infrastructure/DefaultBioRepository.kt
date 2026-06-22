@@ -8,7 +8,7 @@ import com.mochame.bio.domain.BioRepository
 import com.mochame.bio.domain.DailyContext
 import com.mochame.contract.boot.BootStatusProvider
 import com.mochame.contract.di.IoContext
-import com.mochame.contract.metadata.MochaModule
+import com.mochame.contract.metadata.MochaModuleContext
 import com.mochame.contract.metadata.MutationOp
 import com.mochame.contract.policy.ExecutionPolicy
 import com.mochame.contract.providers.DateTimeProvider
@@ -44,7 +44,7 @@ class DefaultBioRepository(
     locker: KeyedLocker,
 ) : LocalFirstRepository<DailyContext>(
     hlcFactory = hlcFactory,
-    module = MochaModule.Bio.DailyContext,
+    moduleContext = MochaModuleContext.Type.BIO_DAILY_CONTEXT,
     provider = bootStatusProvider,
     syncIntentStore = syncIntentStore,
     transactor = transactor,

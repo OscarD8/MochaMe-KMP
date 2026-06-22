@@ -1,6 +1,7 @@
 package com.mochame.sync.test.di.persistence
 
 import androidx.sqlite.SQLiteDriver
+import com.mochame.contract.metadata.MochaModuleContext
 import com.mochame.platform.providers.PlatformContext
 import com.mochame.platform.providers.TransactionProvider
 import com.mochame.sync.data.daos.SyncIntentDao
@@ -36,6 +37,7 @@ class SyncPersistenceTestModule {
     @Single
     fun provideTransactionProvider(): TransactionProvider =
         error("Blueprint Slot Only: Overridden at runtime in WrapperPersistence.kt")
+
 }
 
 

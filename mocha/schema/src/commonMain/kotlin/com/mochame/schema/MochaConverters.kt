@@ -1,7 +1,7 @@
 package com.mochame.schema
 
 import androidx.room.TypeConverter
-import com.mochame.contract.metadata.MochaModule
+import com.mochame.contract.metadata.MochaModuleContext
 import com.mochame.contract.metadata.MutationOp
 import com.mochame.resonance.domain.Resonance
 import com.mochame.sync.domain.state.SyncStatus
@@ -79,8 +79,8 @@ class MochaConverters {
     fun toStatus(id: Int): SyncStatus = SyncStatus.fromId(id)
 
     @TypeConverter
-    fun fromMochaModule(module: MochaModule): String = module.moduleName
+    fun fromMochaModule(module: MochaModuleContext): String = module.moduleName
 
     @TypeConverter
-    fun toMochaModule(model: String): MochaModule = MochaModule.modelFromString(model)
+    fun toMochaModule(model: String): MochaModuleContext = MochaModuleContext.contextFromString(model)
 }

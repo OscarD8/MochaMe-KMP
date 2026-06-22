@@ -29,7 +29,7 @@ class SqliteResiliencePolicy(
     private val logger = logger.withTags(
         layer = LogTags.Layer.INFRA,
         domain = LogTags.Domain.SYNC,
-        className = "SQLiteExecutor"
+        className = "Exectr"
     )
 
     override suspend fun <R> execute(operationTag: String, block: suspend () -> R): R {
@@ -59,6 +59,7 @@ class SqliteResiliencePolicy(
                     delay(currentDelay + jitter)
                     currentDelay *= 2
                 } else {
+                    logger.e(e) { "Aborted database interaction. ${e.message}" }
                     throw mochaError
                 }
             }

@@ -5,7 +5,6 @@ import com.mochame.contract.exceptions.MochaException
 import com.mochame.sync.contract.LocalFirstEntity
 import com.mochame.sync.domain.components.FeatureCodecRegistry
 import com.mochame.sync.domain.model.DecodeContext
-import com.mochame.sync.infrastructure.serialization.feature.FeatureCodec
 import com.mochame.sync.infrastructure.serialization.CodecRegistry
 
 /**
@@ -18,7 +17,7 @@ import com.mochame.sync.infrastructure.serialization.CodecRegistry
  *
  * Class is expected to be called by the SyncReceiver.
  */
-abstract class BaseFeatureCodecRegistry<T : LocalFirstEntity<T>, TCodec : FeatureCodec<T>>(
+abstract class OverflowAwareCodecRegistry<T : LocalFirstEntity<T>, TCodec : FeatureCodec<T>>(
     logger: Logger,
     codecMap: Map<Byte, TCodec>,
     latestVersion: Byte
@@ -50,4 +49,5 @@ abstract class BaseFeatureCodecRegistry<T : LocalFirstEntity<T>, TCodec : Featur
             }
         }
     }
+
 }

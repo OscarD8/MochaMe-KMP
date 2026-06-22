@@ -6,7 +6,6 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
-import com.mochame.contract.metadata.MochaModule
 import com.mochame.sync.data.entities.SyncModuleStateEntity
 
 @Dao
@@ -20,7 +19,7 @@ interface SyncModuleStateDao {
     suspend fun getMetadataCount(): Int
 
     @Query("SELECT * FROM SyncModuleStateEntity WHERE module = :module")
-    suspend fun getMetadataForModule(module: MochaModule): SyncModuleStateEntity?
+    suspend fun getMetadataForModule(module: String): SyncModuleStateEntity?
 
     @Query("SELECT * FROM SyncModuleStateEntity")
     suspend fun getAllMetadata(): List<SyncModuleStateEntity>
@@ -41,7 +40,7 @@ interface SyncModuleStateDao {
     """
     )
     suspend fun stampMetadata(
-        module: MochaModule,
+        module: String,
         watermark: String?,
         timestamp: Long,
     )
@@ -51,7 +50,7 @@ interface SyncModuleStateDao {
     // -----------------------------------------------------------
 
     @Query("SELECT moduleMaxHlc FROM SyncModuleStateEntity WHERE module = :module")
-    suspend fun getModuleMaxHlc(module: MochaModule): String?
+    suspend fun getModuleMaxHlc(module: String): String?
 
     @Query("SELECT moduleMaxHlc FROM SyncModuleStateEntity")
     suspend fun getAllLocalMaxHlcs(): List<String>
@@ -67,7 +66,7 @@ interface SyncModuleStateDao {
     AND (moduleMaxHlc < :newHlcFloor OR moduleMaxHlc IS NULL)
     """
     )
-    suspend fun updateHlcFloor(module: MochaModule, newHlcFloor: String)
+    suspend fun updateHlcFloor(module: String, newHlcFloor: String)
 
 
     // -----------------------------------------------------------
@@ -78,7 +77,7 @@ interface SyncModuleStateDao {
     suspend fun seedDefaultMetadata(metadata: List<SyncModuleStateEntity>): List<Long>
 
     @Transaction
-    suspend fun ensureSeeded(expectedModules: List<MochaModule>): Int {
+    suspend fun ensureSeeded(expectedModules: List<String>): Int {
         val existingCount = getMetadataCount()
         if (existingCount >= expectedModules.size) return 0
 
@@ -103,7 +102,7 @@ interface SyncModuleStateDao {
     """
     )
     suspend fun rewindWatermark(
-        module: MochaModule,
+        module: String,
         newWatermark: String?,
     )
 

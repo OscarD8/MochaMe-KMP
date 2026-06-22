@@ -1,15 +1,15 @@
 package com.mochame.sync.domain.stores
 
-import com.mochame.contract.metadata.MochaModule
+import com.mochame.contract.metadata.MochaModuleContext
 import com.mochame.sync.contract.HLC
 
 
 interface SyncModuleStateStore {
 
-    suspend fun updateHlcFloor(module: MochaModule, hlc: HLC)
+    suspend fun updateHlcFloor(module: String, hlc: HLC)
 
     suspend fun stampModuleMetadata(
-        module: MochaModule,
+        module: String,
         watermark: String?,
         timestamp: Long,
     )

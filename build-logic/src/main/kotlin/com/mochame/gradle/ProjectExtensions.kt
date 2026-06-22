@@ -19,7 +19,7 @@ fun Project.standardConfigurations() {
     pluginManager.withPlugin("io.insert-koin.compiler.plugin") {
         mochaKoin {
             userLogs.set(true)
-            debugLogs.set(true)
+            debugLogs.set(false)
             unsafeDslChecks.set(true)
             skipDefaultValues.set(true)
         }
@@ -27,7 +27,8 @@ fun Project.standardConfigurations() {
 
     tasks.withType<AbstractTestTask>().configureEach {
         testLogging {
-            showStandardStreams = false
+            outputs.upToDateWhen { false }
+            showStandardStreams = true
             showExceptions = false
             events(TestLogEvent.FAILED)
         }
