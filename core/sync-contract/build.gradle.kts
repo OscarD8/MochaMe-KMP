@@ -8,7 +8,9 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            implementation(project(":core:contract"))
             implementation(libs.kotlinx.serialization.protobuf)
+            implementation(libs.kotlinx.io.core)
         }
     }
 }

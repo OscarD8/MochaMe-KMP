@@ -1,13 +1,12 @@
 package com.mochame.sync.infrastructure.serialization.intent
 
-import co.touchlab.kermit.Logger
-import com.mochame.contract.metadata.MochaModuleContext
 import com.mochame.contract.metadata.MutationOp
-import com.mochame.logger.LogTags
-import com.mochame.logger.withTags
-import com.mochame.sync.contract.HLC
-import com.mochame.sync.domain.model.SyncIntent
-import com.mochame.sync.domain.state.SyncStatus
+import com.mochame.sync.contract.SyncStatus
+import com.mochame.sync.contract.models.HLC
+import com.mochame.sync.contract.models.SyncIntent
+import com.mochame.sync.domain.serialization.IntentCodec
+import kotlinx.io.Source
+import kotlinx.io.readByteArray
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoBuf
@@ -15,10 +14,9 @@ import kotlinx.serialization.protobuf.ProtoNumber
 import org.koin.core.annotation.Single
 import kotlin.time.Clock
 
-
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
-internal data class SyncIntentDeltaV1(
+private data class SyncIntentDeltaV1(
     @ProtoNumber(1) val hlc: String,
     @ProtoNumber(2) val candidateKey: String,
     @ProtoNumber(3) val module: String,
@@ -28,15 +26,11 @@ internal data class SyncIntentDeltaV1(
     @ProtoNumber(7) val overflowBlobId: String? = null
 )
 
-
 @OptIn(ExperimentalSerializationApi::class)
 @Single
-class IntentCodecV1(logger: Logger) : VersionedIntentCodec(
-    version = 0x01,
-    logger = logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.SYNC, "SyncCodecV1")
-) {
+internal class IntentCodecV1 : IntentCodec {
 
-    override fun encodePayload(intent: SyncIntent): ByteArray {
+    override fun encode(intent: SyncIntent): ByteArray {
         val delta = SyncIntentDeltaV1(
             hlc = intent.hlc.toString(),
             candidateKey = intent.candidateKey,
@@ -49,9 +43,8 @@ class IntentCodecV1(logger: Logger) : VersionedIntentCodec(
         return ProtoBuf.encodeToByteArray(SyncIntentDeltaV1.serializer(), delta)
     }
 
-    override fun decodePayload(bits: ByteArray): SyncIntent {
-        val envelope =
-            ProtoBuf.decodeFromByteArray(SyncIntentDeltaV1.serializer(), bits)
+    override fun decode(bytes: ByteArray): SyncIntent {
+        val envelope = ProtoBuf.decodeFromByteArray(SyncIntentDeltaV1.serializer(), bytes)
 
         return SyncIntent(
             hlc = HLC.parse(envelope.hlc),
@@ -60,15 +53,10 @@ class IntentCodecV1(logger: Logger) : VersionedIntentCodec(
             model = envelope.model,
             operation = MutationOp.valueOf(envelope.operation),
             syncStatus = SyncStatus.RECEIVED,
-            syncId = null,
             payload = envelope.payloadBlob,
-            diagnosticSummary = null,
             overflowBlobId = envelope.overflowBlobId,
             retryCount = 0,
             createdAt = Clock.System.now().toEpochMilliseconds(),
-            leasedAt = null,
-            lastErrorMessage = null
         )
     }
-
 }

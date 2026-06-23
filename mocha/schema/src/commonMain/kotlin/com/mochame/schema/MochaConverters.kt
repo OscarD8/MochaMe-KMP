@@ -4,9 +4,9 @@ import androidx.room.TypeConverter
 import com.mochame.contract.metadata.MochaModuleContext
 import com.mochame.contract.metadata.MutationOp
 import com.mochame.resonance.domain.Resonance
-import com.mochame.sync.domain.state.SyncStatus
+import com.mochame.sync.contract.SyncStatus
 import com.mochame.telemetry.domain.Mood
-import com.mochame.sync.contract.HLC
+import com.mochame.sync.contract.models.HLC
 import kotlin.time.Instant
 
 class MochaConverters {

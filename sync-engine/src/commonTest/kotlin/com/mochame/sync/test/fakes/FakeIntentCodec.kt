@@ -1,8 +1,8 @@
 package com.mochame.sync.test.fakes
 
 import co.touchlab.kermit.Logger
-import com.mochame.sync.domain.model.SyncIntent
-import com.mochame.sync.infrastructure.serialization.intent.VersionedIntentCodec
+import com.mochame.sync.contract.models.SyncIntent
+import com.mochame.sync.infrastructure.serialization.deprecated.VersionedIntentCodec
 
 // Preliminary example
 private class FakeIntentCodec(

@@ -1,12 +1,11 @@
 package com.mochame.sync.infrastructure.stores
 
 
-import com.mochame.contract.metadata.MochaModuleContext
-import com.mochame.sync.contract.HLC
+import com.mochame.sync.contract.models.HLC
 import com.mochame.sync.data.daos.SyncIntentDao
 import com.mochame.sync.data.entities.SyncIntentEntity
 import com.mochame.sync.domain.model.QuarantinedModuleSummary
-import com.mochame.sync.domain.state.SyncStatus
+import com.mochame.sync.contract.SyncStatus
 import com.mochame.sync.domain.stores.SyncIntentStore
 import com.mochame.sync.domain.stores.SyncIntentMaintenanceStore
 import kotlinx.coroutines.flow.Flow

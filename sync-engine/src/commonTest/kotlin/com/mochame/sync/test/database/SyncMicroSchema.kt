@@ -10,12 +10,11 @@ import com.mochame.sync.data.daos.SyncIntentDao
 import com.mochame.sync.data.daos.SyncModuleStateDao
 import com.mochame.sync.data.entities.SyncIntentEntity
 import com.mochame.sync.data.entities.SyncModuleStateEntity
-import com.mochame.system.infra.data.NodeContextDao
-import com.mochame.system.infra.data.NodeIdentityEntity
+
 
 @ConstructedBy(SyncMicroSchemaConstructor::class)
 @Database(
-    entities = [SyncModuleStateEntity::class, SyncIntentEntity::class, NodeIdentityEntity::class],
+    entities = [SyncModuleStateEntity::class, SyncIntentEntity::class],
     version = 1,
     exportSchema = false
 )
@@ -23,7 +22,6 @@ import com.mochame.system.infra.data.NodeIdentityEntity
 abstract class SyncMicroSchema : RoomDatabase() {
     abstract fun syncMetadataDao(): SyncModuleStateDao
     abstract fun mutationLedgerDao(): SyncIntentDao
-    abstract fun nodeContextDao(): NodeContextDao
 
     companion object {
         const val NAME = "sync_micro_schema.db"

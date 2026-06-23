@@ -1,25 +1,37 @@
 package com.mochame.sync.infrastructure.serialization.batch
 
 import co.touchlab.kermit.Logger
-import com.mochame.sync.domain.components.BatchCodecRegistry
-import com.mochame.sync.domain.model.SyncIntent
-import com.mochame.sync.infrastructure.serialization.CodecRegistry
+import com.mochame.logger.LogTags
+import com.mochame.logger.withTags
+import com.mochame.sync.domain.serialization.BatchCodecRegistry
+import com.mochame.sync.domain.serialization.BatchCodec
+import com.mochame.sync.contract.models.SyncIntent
+import com.mochame.sync.contract.serialization.VersionRoutingCodec
+import com.mochame.sync.contract.serialization.contextualByteDecoding
+import com.mochame.sync.contract.serialization.prependVersionTo
 import kotlinx.serialization.ExperimentalSerializationApi
 import org.koin.core.annotation.Single
 
 @ExperimentalSerializationApi
 @Single(binds = [BatchCodecRegistry::class])
-class DefaultBatchCodecRegistry(
+internal class DefaultBatchCodecRegistry(
     v1: BatchCodecV1,
     logger: Logger
-) : CodecRegistry<VersionedBatchCodec>(
+) : VersionRoutingCodec<BatchCodec>(
     codecMap = mapOf(0x01.toByte() to v1),
     latestVersion = 0x01,
-    logger = logger
+    logger = logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.SYNC, "BatchCodecReg")
 ), BatchCodecRegistry {
 
-    override fun encode(intents: List<SyncIntent>) = latestCodec.encode(intents)
+    override fun encode(intents: List<SyncIntent>): ByteArray {
+        return prependVersionTo(latestVersion, logger) {
+            latestCodec.encode(intents)
+        }
+    }
 
-    override fun decode(bytes: ByteArray): List<SyncIntent> =
-        routePayload(bytes) { codec, bytes -> codec.decode(bytes) }
+    override fun decode(bytes: ByteArray): List<SyncIntent> {
+        return contextualByteDecoding(bytes, codecMap, logger) { codec, cleanBytes ->
+            codec.decode(cleanBytes)
+        }
+    }
 }

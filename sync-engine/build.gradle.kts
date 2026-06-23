@@ -8,9 +8,9 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            implementation(project(":core:sync-contract"))
             implementation(project(":core:platform"))
             implementation(project(":core:utils"))
-            implementation(project(":system:infra"))
 
             implementation(libs.kotlinx.serialization.protobuf)
             implementation(libs.kotlinx.datetime)
@@ -21,7 +21,6 @@ kotlin {
 
         commonTest.dependencies {
             implementation(project(":core:test:fixtures-contract"))
-            implementation(project(":core:test:fixtures-system-infra"))
             implementation(project(":core:test:fixtures-utils"))
             implementation(project(":core:test:fixtures-platform"))
         }

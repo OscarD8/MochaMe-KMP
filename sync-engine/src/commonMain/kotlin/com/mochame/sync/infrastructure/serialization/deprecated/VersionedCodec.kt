@@ -1,4 +1,4 @@
-package com.mochame.sync.infrastructure.serialization
+package com.mochame.sync.infrastructure.serialization.deprecated
 
 import co.touchlab.kermit.Logger
 

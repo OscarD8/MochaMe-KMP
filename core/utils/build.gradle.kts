@@ -9,6 +9,7 @@ kotlin {
         commonMain.dependencies {
             implementation(libs.kotlinx.datetime)
             implementation(libs.uuid)
+            implementation(libs.kotlinx.coroutines.core)
         }
     }
 }

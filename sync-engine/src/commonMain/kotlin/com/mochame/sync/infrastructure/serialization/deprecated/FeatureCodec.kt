@@ -1,11 +1,10 @@
-package com.mochame.sync.infrastructure.serialization.feature
+package com.mochame.sync.infrastructure.serialization.deprecated
 
 import co.touchlab.kermit.Logger
 import com.mochame.contract.exceptions.MochaException
 import com.mochame.platform.providers.BufferProvider
-import com.mochame.sync.contract.LocalFirstEntity
-import com.mochame.sync.domain.model.DecodeContext
-import com.mochame.sync.infrastructure.serialization.VersionedCodec
+import com.mochame.sync.contract.models.LocalFirstEntity
+import com.mochame.sync.contract.models.DecodeContext
 import kotlinx.io.Source
 
 abstract class FeatureCodec<T : LocalFirstEntity<T>>(

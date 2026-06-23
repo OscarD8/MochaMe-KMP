@@ -1,4 +1,4 @@
-package com.mochame.sync.contract
+package com.mochame.sync.contract.models
 
 /**
  * When a concrete class implements this contract, it must declare itself as the

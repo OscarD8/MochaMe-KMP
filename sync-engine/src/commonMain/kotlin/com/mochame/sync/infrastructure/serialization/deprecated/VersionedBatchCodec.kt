@@ -1,9 +1,7 @@
-package com.mochame.sync.infrastructure.serialization.batch
+package com.mochame.sync.infrastructure.serialization.deprecated
 
 import co.touchlab.kermit.Logger
-import com.mochame.sync.domain.model.SyncIntent
-import com.mochame.sync.infrastructure.serialization.VersionedCodec
-import com.mochame.sync.infrastructure.serialization.intent.VersionedIntentCodec
+import com.mochame.sync.contract.models.SyncIntent
 
 
 abstract class VersionedBatchCodec(

@@ -7,7 +7,6 @@ import com.mochame.contract.node.NodeContextStore
 import com.mochame.contract.fixtures.FakeNodeContextStore
 import com.mochame.contract.fixtures.FakeIdGenerator
 import com.mochame.contract.fixtures.FakeNodeContextManager
-import com.mochame.contract.metadata.MochaModuleContext
 import com.mochame.contract.node.IdGenerator
 import com.mochame.contract.node.NodeContextManager
 import org.koin.core.annotation.Module
@@ -46,5 +45,5 @@ class FakeBootManagerModule {
 @Module
 class FakeIdentityManagerModule {
     @Single(binds = [NodeContextManager::class, FakeNodeContextManager::class])
-    fun provideFakeIdentityManager(): FakeNodeContextManager = FakeNodeContextManager()
+    fun provideFakeNodeContextManager(): FakeNodeContextManager = FakeNodeContextManager()
 }

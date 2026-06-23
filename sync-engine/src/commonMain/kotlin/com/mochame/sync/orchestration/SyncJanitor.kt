@@ -13,11 +13,11 @@ import com.mochame.logger.withTags
 import com.mochame.logger.withTimer
 import com.mochame.platform.providers.TransactionProvider
 import com.mochame.platform.utils.toFullMochaCheck
+import com.mochame.sync.contract.BlobStager
 import com.mochame.sync.contract.HlcFactory
 import com.mochame.sync.domain.providers.SyncUserProvider
-import com.mochame.sync.domain.stores.BlobStager
-import com.mochame.sync.domain.stores.SyncModuleStateMaintenanceStore
 import com.mochame.sync.domain.stores.SyncIntentMaintenanceStore
+import com.mochame.sync.domain.stores.SyncModuleStateMaintenanceStore
 import com.mochame.sync.domain.usecase.PruneOldEntriesUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.NonCancellable

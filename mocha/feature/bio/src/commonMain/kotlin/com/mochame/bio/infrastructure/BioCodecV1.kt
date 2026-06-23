@@ -4,9 +4,12 @@ import co.touchlab.kermit.Logger
 import com.mochame.bio.domain.DailyContext
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
-import com.mochame.platform.providers.BufferProvider
-import com.mochame.sync.domain.model.DecodeContext
-import com.mochame.sync.infrastructure.serialization.feature.FeatureCodec
+import com.mochame.sync.contract.models.DecodeContext
+import com.mochame.sync.contract.serialization.FeatureCodec
+import com.mochame.sync.infrastructure.serialization.readProtobufVarint
+import com.mochame.sync.infrastructure.serialization.skipProtobufValue
+import kotlinx.io.Source
+import kotlinx.io.readByteArray
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoBuf
@@ -23,23 +26,19 @@ internal data class BioDeltaV1(
     @ProtoNumber(5) val isDeleted: Boolean = false
 )
 
-
 /**
  * V1 of the DailyContext codec.
  */
 @Single
-class BioCodecV1(logger: Logger, bufferProvider: BufferProvider) :
-    FeatureCodec<DailyContext>(
-        version = 0x01,
-        logger = logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.BIO, "BioCodecV1"),
-        bufferProvider = bufferProvider,
-    ) {
+class BioCodecV1(logger: Logger) : FeatureCodec<DailyContext> {
+
+    private val log = logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.BIO, "BioCodecV1")
 
     /**
      * Returns null if no fields have changed, aborting write.
      */
     @OptIn(ExperimentalSerializationApi::class)
-    override fun generateDelta(new: DailyContext, old: DailyContext?): ByteArray? {
+    override fun encode(new: DailyContext, old: DailyContext?): ByteArray? {
         return when {
             new.isDeleted -> encodeDelta(BioDeltaV1(id = new.id, isDeleted = true))
 
@@ -75,37 +74,26 @@ class BioCodecV1(logger: Logger, bufferProvider: BufferProvider) :
     /**
      * Peek (Objects no longer in memory).
      * Extracts tags from raw bits without full value decoding.
+     * Uses source.peek() to ensure it is completely non-destructive.
      */
-    override fun reconstructSummary(data: ByteArray): String {
-        if (!validate(data)) {
-            logger.w { "Summary Failed: Protocol Version Mismatch. Got ${data.getOrNull(0)}" }
-            return "OP:INVALID_VERSION"
-        }
-
-        val buffer = bufferProvider.get().apply {
-            this.clear()
-            this.write(data)
-        }
-
+    override fun reconstructSummary(source: Source): String {
         return try {
-            val peekSource = buffer.peek()
-            peekSource.readByte() // Skip version header
-
+            val peekSource = source.peek()
             var isTombstone = false
             val tags = buildList {
                 while (!peekSource.exhausted()) {
-                    val key = readVarint(peekSource)
+                    val key = peekSource.readProtobufVarint(log)
                     val tag = key shr 3
                     if (tag == 5) isTombstone = true
                     if (tag in 1..5) add(tag)
-                    skipValue(key and 0x07, peekSource)
+                    peekSource.skipProtobufValue(key and 0x07, log)
                 }
             }
 
             val opCode = if (isTombstone) "DELETE" else "UPSERT"
             "OP:${opCode}_V1 [${tags.distinct().sorted().joinToString(",")}]"
         } catch (e: Exception) {
-            logger.e(e) { "Packet reconstruction failed (${data.size} bytes)" }
+            log.e(e) { "Packet reconstruction failed" }
             "OP:CORRUPT_PACKET"
         }
     }
@@ -131,10 +119,11 @@ class BioCodecV1(logger: Logger, bufferProvider: BufferProvider) :
      * Reconstructs a DailyContext from passed bytes.
      */
     @OptIn(ExperimentalSerializationApi::class)
-    override fun internalDecode(
-        payloadBits: ByteArray,
+    override fun decode(
+        source: Source,
         context: DecodeContext
     ): DailyContext {
+        val payloadBits = source.readByteArray()
         val delta = ProtoBuf.decodeFromByteArray(BioDeltaV1.serializer(), payloadBits)
 
         return DailyContext(

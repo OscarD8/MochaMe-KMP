@@ -1,11 +1,10 @@
-package com.mochame.sync.infrastructure.serialization.feature
+package com.mochame.sync.infrastructure.serialization.deprecated
 
 import co.touchlab.kermit.Logger
 import com.mochame.contract.exceptions.MochaException
-import com.mochame.sync.contract.LocalFirstEntity
-import com.mochame.sync.domain.components.FeatureCodecRegistry
-import com.mochame.sync.domain.model.DecodeContext
-import com.mochame.sync.infrastructure.serialization.CodecRegistry
+import com.mochame.sync.contract.models.LocalFirstEntity
+import com.mochame.sync.contract.serialization.FeatureCodecRegistry
+import com.mochame.sync.contract.models.DecodeContext
 
 /**
  * Base class for feature registries to extend.
@@ -30,7 +29,7 @@ abstract class OverflowAwareCodecRegistry<T : LocalFirstEntity<T>, TCodec : Feat
      * a typed exception — the actual blob fetch is a future concern.
      * If payload is present, delegates to the concrete registry's version-routing decode.
      */
-    override fun decode(data: ByteArray?, blobId: String?, context: DecodeContext): T {
+    fun decode(data: ByteArray?, blobId: String?, context: DecodeContext): T {
         return when {
             data != null -> {
                 decode(data, context)

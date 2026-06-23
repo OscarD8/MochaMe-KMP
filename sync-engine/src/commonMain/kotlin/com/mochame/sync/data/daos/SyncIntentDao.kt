@@ -3,10 +3,10 @@ package com.mochame.sync.data.daos
 import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Upsert
-import com.mochame.sync.contract.HLC
+import com.mochame.sync.contract.models.HLC
 import com.mochame.sync.data.entities.SyncIntentEntity
 import com.mochame.sync.domain.model.QuarantinedModuleSummary
-import com.mochame.sync.domain.state.SyncStatus
+import com.mochame.sync.contract.SyncStatus
 import kotlinx.coroutines.flow.Flow
 
 @Dao

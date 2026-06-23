@@ -5,9 +5,8 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.mochame.contract.metadata.MochaModuleContext
 import com.mochame.contract.metadata.MutationOp
-import com.mochame.sync.domain.state.SyncStatus
+import com.mochame.sync.contract.SyncStatus
 import kotlin.time.Clock
-import com.mochame.sync.domain.model.DecodeContext
 
 /**
  * For quick lookups of max HLC values as boot and server watermarks.

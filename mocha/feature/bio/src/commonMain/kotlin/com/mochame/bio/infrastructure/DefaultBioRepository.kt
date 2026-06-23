@@ -15,13 +15,10 @@ import com.mochame.contract.providers.DateTimeProvider
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.platform.providers.TransactionProvider
+import com.mochame.sync.contract.BlobStager
 import com.mochame.sync.contract.HlcFactory
-import com.mochame.sync.domain.components.FeatureCodecRegistry
-import com.mochame.sync.domain.stores.BlobStager
-import com.mochame.sync.domain.stores.SyncModuleStateStore
-import com.mochame.sync.domain.stores.SyncIntentStore
-import com.mochame.sync.infrastructure.KeyedLocker
-import com.mochame.sync.infrastructure.LocalFirstRepository
+import com.mochame.sync.contract.serialization.FeatureCodecRegistry
+import com.mochame.utils.KeyedLocker
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.koin.core.annotation.Single
@@ -35,9 +32,7 @@ class DefaultBioRepository(
     logger: Logger,
     bootStatusProvider: BootStatusProvider,
     hlcFactory: HlcFactory,
-    syncModuleStateStore: SyncModuleStateStore,
     transactor: TransactionProvider,
-    syncIntentStore: SyncIntentStore,
     executor: ExecutionPolicy,
     codec: FeatureCodecRegistry<DailyContext>,
     blobStore: BlobStager,
@@ -46,9 +41,7 @@ class DefaultBioRepository(
     hlcFactory = hlcFactory,
     moduleContext = MochaModuleContext.Type.BIO_DAILY_CONTEXT,
     provider = bootStatusProvider,
-    syncIntentStore = syncIntentStore,
     transactor = transactor,
-    syncModuleStateStore = syncModuleStateStore,
     executor = executor,
     blobStore = blobStore,
     locker = locker,

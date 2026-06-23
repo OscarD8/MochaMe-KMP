@@ -10,22 +10,25 @@ import com.mochame.contract.metadata.MutationOp
 import com.mochame.sync.data.entities.SyncIntentEntity
 import com.mochame.contract.boot.BootStatusProvider
 import com.mochame.contract.exceptions.MochaException
-import com.mochame.sync.domain.components.FeatureCodecRegistry
-import com.mochame.sync.domain.components.SyncReceiver
-import com.mochame.sync.domain.state.SyncStatus
-import com.mochame.sync.domain.model.DecodeContext
-import com.mochame.sync.contract.LocalFirstEntity
-import com.mochame.sync.domain.stores.BlobStager
+import com.mochame.sync.contract.serialization.FeatureCodecRegistry
+import com.mochame.sync.contract.SyncReceiver
+import com.mochame.sync.contract.SyncStatus
+import com.mochame.sync.contract.models.DecodeContext
+import com.mochame.sync.contract.models.LocalFirstEntity
 import com.mochame.sync.domain.stores.SyncModuleStateStore
 import com.mochame.sync.domain.stores.SyncIntentStore
 import com.mochame.logger.withTimer
 import com.mochame.platform.utils.toFullMochaCheck
-import com.mochame.sync.contract.HLC
+import com.mochame.sync.contract.BlobStager
+import com.mochame.sync.contract.models.HLC
 import com.mochame.sync.contract.HlcFactory
+import com.mochame.utils.KeyedLocker
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.io.Buffer
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import kotlin.coroutines.CoroutineContext
 import kotlin.time.TimeSource
 
@@ -46,11 +49,13 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     @IoContext protected val ioContext: CoroutineContext,
     protected val transactor: TransactionProvider,
     protected val blobStore: BlobStager,
-    protected val syncIntentStore: SyncIntentStore,
     override val moduleContext: MochaModuleContext,
     private val provider: BootStatusProvider,
-    private val syncModuleStateStore: SyncModuleStateStore
-) : SyncReceiver {
+) : SyncReceiver, KoinComponent {
+
+    private val syncIntentStore: SyncIntentStore by inject()
+    private val syncModuleStateStore: SyncModuleStateStore by inject()
+
 
     /**
      * The anchor to wrap around all local persistence performed by any feature's repository, whether that
@@ -131,18 +136,17 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     }
 
     override suspend fun processRemoteIntent(
-        decodeContext: DecodeContext,
-        payload: ByteArray?,
-        blobId: String?
+        context: DecodeContext,
+        payload: ByteArray
     ) {
         // Use the repository's specific encoder to turn bytes into T
-        val remoteEntity = codecRouter.decode(payload, blobId, decodeContext)
+        val remoteEntity = codecRouter.decode(payload, context)
 
         processIntent(
             candidateKey = remoteEntity.id,
-            incomingHlc = decodeContext.hlc,
-            op = decodeContext.op,
-            fetchExistingState = { fetch(decodeContext.id) },
+            incomingHlc = context.hlc,
+            op = context.op,
+            fetchExistingState = { fetch(context.id) },
             computeChange = { remoteEntity }, // The "change" is just the remote state
             persist = { stamped -> save(stamped) },
             onSkip = { old -> logger.v { "Remote intent skipped: $old." } }

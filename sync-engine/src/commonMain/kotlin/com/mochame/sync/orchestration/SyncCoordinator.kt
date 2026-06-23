@@ -9,11 +9,11 @@ import com.mochame.logger.withTags
 import com.mochame.platform.providers.TransactionProvider
 import com.mochame.sync.data.toDomain
 import com.mochame.sync.data.toEntity
-import com.mochame.sync.domain.components.BatchCodecRegistry
-import com.mochame.sync.domain.components.IntentCodecRegistry
-import com.mochame.sync.domain.components.SyncReceiver
-import com.mochame.sync.domain.model.DecodeContext
-import com.mochame.sync.domain.model.SyncIntent
+import com.mochame.sync.domain.serialization.BatchCodecRegistry
+import com.mochame.sync.domain.serialization.IntentCodecRegistry
+import com.mochame.sync.contract.SyncReceiver
+import com.mochame.sync.contract.models.DecodeContext
+import com.mochame.sync.contract.models.SyncIntent
 import com.mochame.sync.domain.providers.tryWithLock
 import com.mochame.sync.domain.stores.SyncIntentMaintenanceStore
 import kotlinx.coroutines.FlowPreview
@@ -82,9 +82,10 @@ class SyncCoordinator(
 //                                )
 //                            }
                         } catch (e: Exception) {
-                            logger.w(e) { "Transmission failed for session: $sessionId" }
+                            logger.w(e) { "Transmission failed for session: $sessionId. ${e.message}" }
 
-                            break // Break loop; Janitor repairs stranded lease rows later
+                            break // Break loop; Janitor repairs stranded lease rows later.
+                            // This is currently where all failed encoding/network attempts propagate, and then get silenced.
                         }
                     }
                 }
@@ -113,11 +114,8 @@ class SyncCoordinator(
     internal suspend fun onInboundBytes(raw: ByteArray) {
         val intents = try {
             batchCodecRegistry.decode(raw)
-        } catch (e: MochaException.Persistent) {
-            logger.e(e) { "Transport batch package completely corrupted or invalid" }
-            return
         } catch (e: Exception) {
-            logger.e(e) { "Unexpected parsing failure during batch processing" }
+            logger.e(e) { "Unexpected parsing failure during batch processing. ${e.message}" }
             return
         }
 
@@ -125,6 +123,8 @@ class SyncCoordinator(
     }
 
     private suspend fun processIntent(intent: SyncIntent) {
+        val payload = intent.payload
+
         val receiver = receiverRoutingMap[intent.model] ?: run {
             logger.e { "Routing failure for model '${intent.model}'" }
             throw MochaException.Persistent.Internal(
@@ -132,12 +132,15 @@ class SyncCoordinator(
             )
         }
 
-        // Claude: only necessary to persist in case of overflow.
-        // If debugging is a nightmare change this?
-        if (intent.payload == null && intent.overflowBlobId != null) {
-            intentStore.recordIntent(intent.toEntity())
-            logger.w { "Overflow intent staged: ${intent.candidateKey}" }
-            return
+        if (payload == null) {
+            if (intent.overflowBlobId != null) {
+                intentStore.recordIntent(intent.toEntity())
+                logger.w { "Overflow intent staged: ${intent.candidateKey}" }
+                return
+            } else {
+                logger.e { "Received null payload with no overflow reference for ${intent.candidateKey}" }
+                throw MochaException.Persistent.CorruptionDetected("Null payload with no blobId for ${intent.candidateKey}")
+            }
         }
 
         try {
@@ -148,7 +151,7 @@ class SyncCoordinator(
                 op = intent.operation
             )
 
-            receiver.processRemoteIntent(intentContext, intent.payload, intent.overflowBlobId)
+            receiver.processRemoteIntent(intentContext, payload)
         } catch (e: Exception) {
             logger.w(e) { "Processing failed for ${intent.candidateKey}. Error : ${e.message}" }
         }

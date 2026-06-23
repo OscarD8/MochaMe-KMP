@@ -1,7 +1,6 @@
 package com.mochame.sync.domain.stores
 
-import com.mochame.contract.metadata.MochaModuleContext
-import com.mochame.sync.contract.HLC
+import com.mochame.sync.contract.models.HLC
 
 
 interface SyncModuleStateStore {

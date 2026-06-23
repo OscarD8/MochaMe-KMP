@@ -1,4 +1,4 @@
-package com.mochame.sync.contract
+package com.mochame.sync.contract.models
 
 import com.mochame.contract.exceptions.MochaException
 import kotlinx.serialization.Serializable

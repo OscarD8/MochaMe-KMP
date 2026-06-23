@@ -1,9 +1,9 @@
 package com.mochame.sync.data
 
-import com.mochame.sync.contract.HLC
+import com.mochame.sync.contract.models.HLC
 import com.mochame.sync.data.entities.SyncIntentEntity
 import com.mochame.sync.data.entities.SyncModuleStateEntity
-import com.mochame.sync.domain.model.SyncIntent
+import com.mochame.sync.contract.models.SyncIntent
 import com.mochame.sync.domain.model.SyncModuleState
 
 

@@ -2,9 +2,9 @@ package com.mochame.sync.test.fakes
 
 import com.mochame.contract.metadata.MochaModuleContext
 import com.mochame.contract.metadata.MutationOp
-import com.mochame.sync.contract.HLC
-import com.mochame.sync.domain.model.SyncIntent
-import com.mochame.sync.domain.state.SyncStatus
+import com.mochame.sync.contract.models.HLC
+import com.mochame.sync.contract.models.SyncIntent
+import com.mochame.sync.contract.SyncStatus
 
 fun createTestSyncIntent(
     hlc: HLC = HLC.parse("2026-06-22T12:00:00.000Z-0000-0000000000000000"),

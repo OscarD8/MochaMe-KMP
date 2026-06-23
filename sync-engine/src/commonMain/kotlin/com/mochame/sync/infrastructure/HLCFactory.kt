@@ -5,11 +5,11 @@ import com.mochame.contract.exceptions.MochaException
 import com.mochame.contract.providers.DateTimeProvider
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
-import com.mochame.sync.contract.HLC
-import com.mochame.sync.contract.HLC.Companion.APP_RELEASE_MS
-import com.mochame.sync.contract.HLC.Companion.MAX_COUNTER
-import com.mochame.sync.contract.HLC.Companion.MAX_DRIFT_MS
-import com.mochame.sync.contract.HLC.Companion.ONE_DAY_MS
+import com.mochame.sync.contract.models.HLC
+import com.mochame.sync.contract.models.HLC.Companion.APP_RELEASE_MS
+import com.mochame.sync.contract.models.HLC.Companion.MAX_COUNTER
+import com.mochame.sync.contract.models.HLC.Companion.MAX_DRIFT_MS
+import com.mochame.sync.contract.models.HLC.Companion.ONE_DAY_MS
 import com.mochame.sync.contract.HlcFactory
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock

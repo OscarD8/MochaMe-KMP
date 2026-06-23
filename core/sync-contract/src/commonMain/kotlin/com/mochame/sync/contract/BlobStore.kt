@@ -1,4 +1,4 @@
-package com.mochame.sync.domain.stores
+package com.mochame.sync.contract
 
 import kotlinx.io.Source
 

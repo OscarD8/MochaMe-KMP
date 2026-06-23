@@ -1,0 +1,10 @@
+package com.mochame.sync.domain.model
+
+data class SyncModuleState(
+    val module: String,
+    val serverWatermark: String?,
+    val localMaxHlc: String?,
+    val activeSyncId: String?,
+    val lastServerSyncTime: Long,
+    val lastLocalMutationTime: Long
+)

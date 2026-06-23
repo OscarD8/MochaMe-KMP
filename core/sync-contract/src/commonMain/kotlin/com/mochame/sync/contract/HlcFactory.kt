@@ -1,5 +1,7 @@
 package com.mochame.sync.contract
 
+import com.mochame.sync.contract.models.HLC
+
 
 interface HlcFactory {
     suspend fun hydrate(lastKnownHlc: String?, currentNodeId: String): HLC
