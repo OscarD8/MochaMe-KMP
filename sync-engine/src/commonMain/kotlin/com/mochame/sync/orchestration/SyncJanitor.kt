@@ -53,7 +53,7 @@ class SyncJanitor(
     private val logger = logger.withTags(
         layer = LogTags.Layer.INFRA,
         domain = LogTags.Domain.SYNC,
-        className = "SJanit"
+        className = "Janitr"
     )
 
     companion object {

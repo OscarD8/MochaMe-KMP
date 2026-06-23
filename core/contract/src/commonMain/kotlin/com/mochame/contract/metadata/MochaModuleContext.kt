@@ -24,12 +24,20 @@ interface MochaModuleContext {
 
         // Used for testing or as fall back
         UNRECOGNIZED_FALLBACK(0, "UNKNOWN", "UNKNOWN");
+
     }
 
     companion object {
         val allMochaModuleContext: List<MochaModuleContext> = Type.entries
 
-        val allModules: List<String> = Type.entries.map { it.moduleName }.distinct()
+        val allFeatureModules: List<String> by lazy {
+            Type.entries
+                .asSequence()
+                .filter { it != Type.UNRECOGNIZED_FALLBACK }
+                .map { it.moduleName }
+                .distinct()
+                .toList()
+        }
 
         fun contextFromString(model: String): MochaModuleContext {
             try {

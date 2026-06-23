@@ -50,7 +50,7 @@ class SyncJanitorTest : MochaPlatformTest() {
 
         scope.advanceUntilIdle()
 
-        assertEquals(MochaModuleContext.allModules.size, metadataStore.getMetadataCount())
+        assertEquals(MochaModuleContext.allFeatureModules.size, metadataStore.getMetadataCount())
     }
 
     // -----------------------------------------------------------
@@ -156,7 +156,7 @@ class SyncJanitorTest : MochaPlatformTest() {
     // -----------------------------------------------------------
     @Test
     fun should_log_correct_seeding_count_when_new_install() = runEnv { scope ->
-        val count = MochaModuleContext.allModules.size
+        val count = MochaModuleContext.allFeatureModules.size
 
         janitor.startupChecks()
         scope.advanceUntilIdle()

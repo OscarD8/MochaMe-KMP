@@ -24,7 +24,7 @@ class DefaultSyncModuleStateStore(
     }
 
     override suspend fun ensureSeeded(): Int {
-        return dao.ensureSeeded(MochaModuleContext.allModules)
+        return dao.ensureSeeded(MochaModuleContext.allFeatureModules)
     }
 
     override suspend fun getGlobalMaxHlc(): String? {

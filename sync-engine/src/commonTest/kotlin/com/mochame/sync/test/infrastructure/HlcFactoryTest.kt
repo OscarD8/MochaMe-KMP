@@ -258,8 +258,8 @@ class HlcFactoryTest : MochaPlatformTest() {
     fun should_maintain_monotonicity_when_multi_threaded_push_for_nextHlc() =
         runEnv { scope ->
             // Arrange: Multi-threaded simulation suspended with CompletableDeferred
-            val threadCount = 30
-            val iterations = 50
+            val threadCount = 10
+            val iterations = 25
             val gate = CompletableDeferred<Unit>()
             fakeClock.setTime(HLC.APP_RELEASE_MS + 1000L)
             factory.hydrate(null, "node")

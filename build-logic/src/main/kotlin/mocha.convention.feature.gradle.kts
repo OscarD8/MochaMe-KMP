@@ -1,4 +1,3 @@
-import com.android.build.gradle.internal.lint.AndroidLintAnalysisTask
 import com.mochame.gradle.applyStandardDependencies
 import com.mochame.gradle.configureTargets
 import com.mochame.gradle.getLibrary
@@ -76,28 +75,17 @@ dependencies {
 // KSP-generated source directories but declare no dependency on the KSP tasks that
 // produce them. Neither AGP nor KSP expose a stable public API to wire this edge
 // directly.
-//
-// Approach: mustRunAfter enforces ordering when both tasks are scheduled without
-// forcing KSP to run on lint-only build invocations. String-based task name matching
-// is used in preference to internal AGP class references (e.g. AndroidLintAnalysisTask,
-// LintModelWriterTask) which live under .internal. packages with no stability contract.
-//
-// Fragility surface: AGP task naming conventions. If AGP renames these tasks in a
-// future version, the mustRunAfter registration silently becomes a no-op rather than
-// failing the build. Verify after any AGP version bump by running:
-//   ./gradlew :mocha:feature:bio:testAndroidHost --rerun-tasks
-// and checking for implicit dependency warnings in the build output.
 plugins.withId("com.google.devtools.ksp") {
-    val kspHostTest = tasks.matching { it.name == "kspAndroidHostTest" }
-    val kspDeviceTest = tasks.matching { it.name == "kspAndroidDeviceTest" }
+    val allKspTasks = tasks.matching {
+        it.name.startsWith("ksp") && !it.name.contains("Metadata")
+    }
 
     tasks.configureEach {
-        when (name) {
-            "generateAndroidHostTestLintModel",
-            "lintAnalyzeAndroidHostTest" -> mustRunAfter(kspHostTest)
+        val isLintTask = name.startsWith("lintAnalyze") ||
+                name.startsWith("generate") && name.contains("LintModel")
 
-            "generateAndroidDeviceTestLintModel",
-            "lintAnalyzeAndroidDeviceTest" -> mustRunAfter(kspDeviceTest)
+        if (isLintTask) {
+            dependsOn(allKspTasks)
         }
     }
 }
