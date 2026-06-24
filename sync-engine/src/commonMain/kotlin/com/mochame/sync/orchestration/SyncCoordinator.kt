@@ -12,7 +12,6 @@ import com.mochame.sync.contract.models.DecodeContext
 import com.mochame.sync.contract.models.SyncIntent
 import com.mochame.sync.domain.providers.tryWithLock
 import com.mochame.sync.domain.serialization.BatchCodecRouter
-import com.mochame.sync.domain.serialization.IntentCodecRouter
 import com.mochame.sync.domain.stores.SyncIntentMaintenanceStore
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
@@ -28,7 +27,6 @@ internal class SyncCoordinator(
     private val transactor: TransactionProvider,
 //    private val moduleStateStore: SyncModuleStateStore,
     private val batchCodecRouter: BatchCodecRouter,
-    private val intentCodecRouter: IntentCodecRouter,
     private val idGenerator: IdGenerator,
     @CoordinatorMutex private val coordinatorMutex: Mutex,
     logger: Logger

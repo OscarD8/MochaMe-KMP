@@ -9,8 +9,6 @@ import com.mochame.sync.contract.models.DecodeContext
 import com.mochame.sync.contract.serialization.FeatureCodec
 import com.mochame.utils.readProtobufVarint
 import com.mochame.utils.skipProtobufValue
-import kotlinx.io.Source
-import kotlinx.io.readByteArray
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoBuf

@@ -20,7 +20,7 @@ internal class DefaultIntentCodecRouter(
 
     override val versionMap: Map<Byte, IntentCodec> = mapOf(0x01.toByte() to v1)
     override val latestVersion: Byte = 0x01
-    private val logger = logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.SYNC, "IntentCodecRouter")
+    private val logger = logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.SYNC, "IntRtr")
 
 
     override fun versionedEncode(intent: SyncIntent): ByteArray {

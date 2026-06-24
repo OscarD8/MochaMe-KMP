@@ -15,7 +15,7 @@ import com.mochame.sync.contract.models.DecodeContext
 import com.mochame.sync.contract.models.HLC
 import com.mochame.sync.contract.models.LocalFirstEntity
 import com.mochame.sync.contract.models.SyncIntent
-import com.mochame.sync.contract.serialization.FeatureCodecRegistry
+import com.mochame.sync.contract.serialization.FeatureCodecRouter
 import com.mochame.sync.contract.stores.BlobStager
 import com.mochame.sync.contract.stores.SyncIntentStore
 import com.mochame.sync.contract.stores.SyncModuleStateStore
@@ -26,6 +26,7 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.io.Buffer
 import org.koin.core.annotation.Single
 import kotlin.coroutines.CoroutineContext
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.TimeSource
 
 /**
@@ -40,7 +41,7 @@ import kotlin.time.TimeSource
 abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     protected val hlcFactory: HlcFactory,
     protected val executor: ExecutionPolicy,
-    protected val codecRouter: FeatureCodecRegistry<T>,
+    protected val codecRouter: FeatureCodecRouter<T>,
     protected val locker: KeyedLocker,
     protected val syncIntentStore: SyncIntentStore,
     protected val syncModuleStateStore: SyncModuleStateStore,
@@ -65,7 +66,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
      * @param computeChange requires the feature to assert the state change they wish to make. T is nullable in the case of deletions where a remote intent is made to delete state that does not exist locally.
      * @param persist after verifying and stamping the feature state change, the finalized state is persisted atomically alongside sync payloads/metadata.
      * @param onSkip offers a type-safe way to return R. Potential case of multiple concurrent requests to processing the same intent -
-     * these will fail when accessing the database write lock, causing duplicate intents to [FeatureCodecRegistry.encode] a state that already exists, triggering onSkip.
+     * these will fail when accessing the database write lock, causing duplicate intents to [FeatureCodecRouter.encode] a state that already exists, triggering onSkip.
      */
     protected suspend inline fun <R> processIntent(
         candidateKey: String,
@@ -322,7 +323,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
      * Centralizes the timeout and error handling for the Janitor's boot sequence.
      */
     protected suspend fun ensureReady() {
-        withTimeout(5_000L) {
+        withTimeout(5_000L.milliseconds) {
             val state =
                 provider.bootState.first { it !is BootState.Initializing && it !is BootState.Idle }
 

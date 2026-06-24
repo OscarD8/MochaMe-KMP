@@ -23,7 +23,7 @@ internal class DefaultBatchCodecRouter(
     override val versionMap = mapOf(0x01.toByte() to v1)
     override val latestVersion: Byte = 0x01
     private val logger =
-        logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.SYNC, "BatchCodecRouter")
+        logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.SYNC, "BtcRtr")
 
     override fun versionEncode(intents: List<SyncIntent>): ByteArray {
         return prependVersionTo(latestVersion, logger) {
