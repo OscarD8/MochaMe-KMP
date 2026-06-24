@@ -22,7 +22,7 @@ import org.koin.core.annotation.Single
  * Implements Non-Blocking Busy-Wait and NodeID Re-stamping.
  */
 @Single(binds = [HlcFactory::class])
-class EngineHlcFactory(
+internal class EngineHlcFactory(
     @Provided private val dateTimeUtils: DateTimeProvider,
     logger: Logger
 ) : HlcFactory {

@@ -13,8 +13,8 @@ import com.mochame.platform.providers.digestHex
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.logger.withTimer
-import com.mochame.sync.domain.stores.BlobReader
-import com.mochame.sync.domain.stores.BlobStager
+import com.mochame.sync.contract.stores.BlobReader
+import com.mochame.sync.contract.stores.BlobStager
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -32,7 +32,7 @@ import kotlin.time.TimeSource
  * BlobStore using kotlinx-io.
  */
 @Single(binds = [BlobStager::class, BlobReader::class])
-class DefaultBlobStore(
+internal class DefaultBlobStore(
     private val dateTimeUtils: DateTimeProvider,
     private val hashProvider: Hasher,
     private val fileSystem: FileSystem,

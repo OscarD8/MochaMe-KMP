@@ -10,4 +10,4 @@ import org.koin.core.annotation.Module
         FixturesPlatformModule::class,
     ]
 )
-class SyncBlobStoreTestModule
+internal class SyncBlobStoreTestModule

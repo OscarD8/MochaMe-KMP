@@ -8,6 +8,7 @@ object LogTags {
 
     object Domain {
         const val METADATA = "Metadata"
+        const val NODE = "Node"
         const val SYNC = "Sync"
         const val AUTH = "Auth"
         const val BIO = "Bio"

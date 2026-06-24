@@ -1,6 +1,7 @@
 package com.mochame.platform.fixtures
 
-import com.mochame.platform.providers.TransactionProvider
+import com.mochame.contract.providers.TransactionProvider
+
 
 /**
  * No database link, just runs the block.

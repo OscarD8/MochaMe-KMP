@@ -2,15 +2,15 @@ package com.mochame.sync.infrastructure.stores
 
 
 import com.mochame.contract.metadata.MochaModuleContext
+import com.mochame.sync.contract.stores.SyncModuleStateStore
 import com.mochame.sync.contract.models.HLC
 import com.mochame.sync.data.daos.SyncModuleStateDao
 import com.mochame.sync.data.entities.SyncModuleStateEntity
-import com.mochame.sync.domain.stores.SyncModuleStateStore
 import com.mochame.sync.domain.stores.SyncModuleStateMaintenanceStore
 import org.koin.core.annotation.Single
 
 @Single(binds = [SyncModuleStateStore::class, SyncModuleStateMaintenanceStore::class])
-class DefaultSyncModuleStateStore(
+internal class DefaultSyncModuleStateStore(
     private val dao: SyncModuleStateDao
 ) : SyncModuleStateStore, SyncModuleStateMaintenanceStore {
 

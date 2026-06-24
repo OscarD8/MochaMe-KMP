@@ -7,13 +7,13 @@ import com.mochame.contract.di.AppScope
 import com.mochame.contract.di.IoContext
 import com.mochame.contract.di.JanitorMutex
 import com.mochame.contract.exceptions.MochaException
+import com.mochame.contract.exceptions.toMochaException
 import com.mochame.contract.policy.ExecutionPolicy
+import com.mochame.contract.providers.TransactionProvider
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.logger.withTimer
-import com.mochame.platform.providers.TransactionProvider
-import com.mochame.platform.utils.toFullMochaCheck
-import com.mochame.sync.contract.BlobStager
+import com.mochame.sync.contract.stores.BlobStager
 import com.mochame.sync.contract.HlcFactory
 import com.mochame.sync.domain.providers.SyncUserProvider
 import com.mochame.sync.domain.stores.SyncIntentMaintenanceStore
@@ -32,10 +32,11 @@ import kotlinx.coroutines.yield
 import org.koin.core.annotation.Single
 import kotlin.coroutines.CoroutineContext
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.TimeSource
 
 @Single(createdAtStart = true)
-class SyncJanitor(
+internal class SyncJanitor(
     private val bootUpdater: BootStatusUpdater,
     private val transactor: TransactionProvider,
     private val moduleStore: SyncModuleStateMaintenanceStore,
@@ -67,7 +68,7 @@ class SyncJanitor(
     fun startupChecks() {
         appScope.launch(ioContext) {
             try {
-                withTimeout(10_000L) {
+                withTimeout(10_000L.milliseconds) {
                     executor.execute("[Startup Checks]") {
                         mutex.withLock {
                             bootUpdater.bootState.takeIf { !isValidBootState() }?.run {
@@ -93,7 +94,7 @@ class SyncJanitor(
 
             } catch (e: Exception) {
                 if (e is MochaException.Transient.BootTimeout) return@launch
-                handleBootFailure(e.toFullMochaCheck())
+                handleBootFailure(e.toMochaException(e.message))
             }
         }
     }

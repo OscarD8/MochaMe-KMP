@@ -4,32 +4,31 @@ import co.touchlab.kermit.Logger
 import com.mochame.contract.di.CoordinatorMutex
 import com.mochame.contract.exceptions.MochaException
 import com.mochame.contract.node.IdGenerator
+import com.mochame.contract.providers.TransactionProvider
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
-import com.mochame.platform.providers.TransactionProvider
-import com.mochame.sync.data.toDomain
-import com.mochame.sync.data.toEntity
-import com.mochame.sync.domain.serialization.BatchCodecRegistry
-import com.mochame.sync.domain.serialization.IntentCodecRegistry
 import com.mochame.sync.contract.SyncReceiver
 import com.mochame.sync.contract.models.DecodeContext
 import com.mochame.sync.contract.models.SyncIntent
 import com.mochame.sync.domain.providers.tryWithLock
+import com.mochame.sync.domain.serialization.BatchCodecRouter
+import com.mochame.sync.domain.serialization.IntentCodecRouter
 import com.mochame.sync.domain.stores.SyncIntentMaintenanceStore
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.sync.Mutex
 import org.koin.core.annotation.Single
+import kotlin.time.Duration.Companion.milliseconds
 
 
 @Single
-class SyncCoordinator(
+internal class SyncCoordinator(
     receivers: List<SyncReceiver>, // koin handles as long as classes are bound
     private val intentStore: SyncIntentMaintenanceStore,
     private val transactor: TransactionProvider,
 //    private val moduleStateStore: SyncModuleStateStore,
-    private val batchCodecRegistry: BatchCodecRegistry,
-    private val intentCodecRegistry: IntentCodecRegistry,
+    private val batchCodecRouter: BatchCodecRouter,
+    private val intentCodecRouter: IntentCodecRouter,
     private val idGenerator: IdGenerator,
     @CoordinatorMutex private val coordinatorMutex: Mutex,
     logger: Logger
@@ -48,7 +47,7 @@ class SyncCoordinator(
     @OptIn(FlowPreview::class)
     suspend fun startOutboundPipeline() {
         intentStore.observePendingCount()
-            .debounce(200) // due to potential overhead of Rooms invalidation trackers
+            .debounce(200.milliseconds) // due to potential overhead of Rooms invalidation trackers
             .collect { pendingCount ->
                 if (pendingCount == 0) return@collect
 
@@ -66,8 +65,8 @@ class SyncCoordinator(
                         if (batch.isEmpty()) break
 
                         try {
-                            val payload = batchCodecRegistry.encode(
-                                batch.map { it.toDomain() }
+                            val payload = batchCodecRouter.versionEncode(
+                                batch.map { it }
                             )
 //                            val response = networkApi.push(payload)
 //                            val accepted = response.results.filter { it.accepted }.map { it.hlc }
@@ -98,7 +97,7 @@ class SyncCoordinator(
 //
 //        pending.filterNotNull().forEach { entity ->
 //            val domain = entity.toDomain()
-//            val bytes = syncCodec.encode(domain)
+//            val bytes = syncCodec.versionedEncode(domain)
 //            try {
 //                networkApi.push(bytes)
 //                intentStore.discardIntent(entity.hlc)
@@ -113,7 +112,7 @@ class SyncCoordinator(
     //
     internal suspend fun onInboundBytes(raw: ByteArray) {
         val intents = try {
-            batchCodecRegistry.decode(raw)
+            batchCodecRouter.versionedDecode(raw)
         } catch (e: Exception) {
             logger.e(e) { "Unexpected parsing failure during batch processing. ${e.message}" }
             return
@@ -134,7 +133,7 @@ class SyncCoordinator(
 
         if (payload == null) {
             if (intent.overflowBlobId != null) {
-                intentStore.recordIntent(intent.toEntity())
+                intentStore.recordIntent(intent)
                 logger.w { "Overflow intent staged: ${intent.candidateKey}" }
                 return
             } else {

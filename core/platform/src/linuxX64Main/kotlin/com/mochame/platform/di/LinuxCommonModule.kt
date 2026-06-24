@@ -4,7 +4,7 @@ import com.mochame.contract.di.CommittedDir
 import com.mochame.contract.di.PendingDir
 import com.mochame.logger.LogTags
 import com.mochame.platform.providers.AppPathsProvider
-import com.mochame.platform.providers.BufferProvider
+import com.mochame.contract.providers.BufferProvider
 import com.mochame.platform.providers.DatabaseLocation
 import com.mochame.platform.providers.LinuxBufferProvider
 import kotlinx.cinterop.ExperimentalForeignApi

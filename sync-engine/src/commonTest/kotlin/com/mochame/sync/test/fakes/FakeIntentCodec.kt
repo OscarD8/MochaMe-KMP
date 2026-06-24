@@ -1,25 +1,23 @@
 package com.mochame.sync.test.fakes
 
-import co.touchlab.kermit.Logger
 import com.mochame.sync.contract.models.SyncIntent
-import com.mochame.sync.infrastructure.serialization.deprecated.VersionedIntentCodec
+import com.mochame.sync.domain.serialization.IntentCodec
 
 // Preliminary example
 private class FakeIntentCodec(
-    logger: Logger,
     private val stubbedBytes: ByteArray = byteArrayOf(0x99.toByte())
-) : VersionedIntentCodec(0x01, logger) {
+) : IntentCodec {
 
     var encodeCalled = false
     var decodeCalledWith: ByteArray? = null
 
-    override fun encodePayload(intent: SyncIntent): ByteArray {
+    override fun encode(intent: SyncIntent): ByteArray {
         encodeCalled = true
         return stubbedBytes
     }
 
-    override fun decodePayload(bits: ByteArray): SyncIntent {
-        decodeCalledWith = bits
+    override fun decode(bytes: ByteArray): SyncIntent {
+        decodeCalledWith = bytes
         return createTestSyncIntent()
     }
 }

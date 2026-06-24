@@ -40,7 +40,7 @@ include(":app:entry:jvmApp")
 include(":app:assembly")
 
 include(":core:contract")
-include(":core:sync-contract")
+include(":core:sync-api")
 include(":core:logger")
 include(":core:utils")
 include(":core:platform")

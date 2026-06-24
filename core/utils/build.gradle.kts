@@ -10,6 +10,7 @@ kotlin {
             implementation(libs.kotlinx.datetime)
             implementation(libs.uuid)
             implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.kotlinx.io.core)
         }
     }
 }

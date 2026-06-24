@@ -37,7 +37,7 @@ sealed class MochaException(
      */
     sealed class Persistent(message: String, cause: Throwable? = null) :
         MochaException(message, cause) {
-        class VaultFatal(message: String? = null, cause: Throwable? = null) :
+        class StateIssue(message: String? = null, cause: Throwable? = null) :
             Persistent(message ?: "The database appears permanently locked.", cause)
 
         class DiskFull(message: String? = null, cause: Throwable) :

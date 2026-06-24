@@ -27,8 +27,8 @@ class DefaultNodeContextManager(
 ) : NodeContextManager {
     private val logger = logger.withTags(
         layer = LogTags.Layer.ORCH,
-        domain = LogTags.Domain.METADATA,
-        className = "IdentityManager"
+        domain = LogTags.Domain.NODE,
+        className = "NodeMr"
     )
 
     override suspend fun getOrCreateNodeId(): String = withContext(ioContext) {

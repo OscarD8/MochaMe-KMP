@@ -1,8 +1,8 @@
 package com.mochame.sync.test.di.persistence
 
 import androidx.sqlite.SQLiteDriver
+import com.mochame.contract.providers.TransactionProvider
 import com.mochame.platform.providers.PlatformContext
-import com.mochame.platform.providers.TransactionProvider
 import com.mochame.sync.data.daos.SyncIntentDao
 import com.mochame.sync.data.daos.SyncModuleStateDao
 import com.mochame.sync.test.database.SyncMicroSchema
@@ -11,7 +11,7 @@ import org.koin.core.annotation.Single
 
 
 @Module
-class SyncPersistenceTestModule {
+internal class SyncPersistenceTestModule {
     @Single
     fun provideDatabase(
         context: PlatformContext,

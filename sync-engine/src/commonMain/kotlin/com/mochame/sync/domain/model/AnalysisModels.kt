@@ -10,7 +10,7 @@ import com.mochame.sync.data.daos.SyncIntentDao
  * the UI can observe the flow defined in SyncIntentStore, and display a simple
  * count of failed local intents.
  */
-data class QuarantinedModuleSummary(
+internal data class QuarantinedModuleSummary(
     val module: MochaModuleContext,
     val count: Int
 )
@@ -20,7 +20,7 @@ data class QuarantinedModuleSummary(
  * diagnosis of individual intents of a passed batch, meanwhile allowing
  * the server to accept valid intents.
  */
-data class SyncBatchResponse(
+internal data class SyncBatchResponse(
     val results: List<SyncIntentResult>
 )
 
@@ -29,7 +29,7 @@ data class SyncBatchResponse(
  * Holds whether an individual intent (identified by the HLC) was accepted
  * on the server side and any error message if not.
  */
-data class SyncIntentResult(
+internal data class SyncIntentResult(
     val hlc: String,
     val accepted: Boolean,
     val errorMessage: String? = null

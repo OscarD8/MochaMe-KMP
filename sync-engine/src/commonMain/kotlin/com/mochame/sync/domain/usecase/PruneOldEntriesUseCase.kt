@@ -11,7 +11,7 @@ import org.koin.core.annotation.Single
 import kotlin.time.TimeSource
 
 @Single
-class PruneOldEntriesUseCase(
+internal class PruneOldEntriesUseCase(
     private val ledgerMaintenance: SyncIntentMaintenanceStore,
     private val dateTimeUtils: DateTimeProvider,
     logger: Logger

@@ -3,7 +3,6 @@ package com.mochame.platform.policies
 import co.touchlab.kermit.Logger
 import com.mochame.contract.exceptions.MochaException
 import com.mochame.contract.exceptions.toMochaException
-import com.mochame.platform.utils.toFullMochaCheck
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.logger.withTimer
@@ -11,6 +10,7 @@ import com.mochame.contract.policy.ExecutionPolicy
 import kotlinx.coroutines.delay
 import org.koin.core.annotation.Single
 import kotlin.random.Random
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.TimeSource
 
 /**
@@ -48,18 +48,18 @@ class SqliteResiliencePolicy(
                 }
             } catch (e: Exception) {
 
-                val mochaError = e.toFullMochaCheck(message = operationTag)
+                val mochaError = e.toMochaException(message = operationTag)
 
                 if (mochaError is MochaException.Transient.VaultBusy) {
                     if (attempt == 0) logger.w {
                         "Database busy, initiating retry loop".withTimer(mark)
                     }
 
-                    val jitter = Random.Default.nextLong(0, currentDelay / 2)
-                    delay(currentDelay + jitter)
+                    val jitter = Random.nextLong(0, currentDelay / 2)
+                    delay((currentDelay + jitter).milliseconds)
                     currentDelay *= 2
                 } else {
-                    logger.e(e) { "Aborted database interaction. ${e.message}" }
+                    logger.e(e) { "$operationTag Aborted database interaction. ${e.message}" }
                     throw mochaError
                 }
             }

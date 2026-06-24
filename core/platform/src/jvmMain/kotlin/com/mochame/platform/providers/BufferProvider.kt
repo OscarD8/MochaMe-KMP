@@ -1,8 +1,8 @@
 package com.mochame.platform.providers
 
 import co.touchlab.kermit.Logger
+import com.mochame.contract.providers.BufferProvider
 import kotlinx.io.Buffer
-import org.koin.core.annotation.Single
 
 class JvmBufferProvider(private val logger: Logger) : BufferProvider {
     private val threadLocal = ThreadLocal.withInitial { Buffer() }

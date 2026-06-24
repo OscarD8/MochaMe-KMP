@@ -30,7 +30,7 @@ kotlin {
             dependencies {
                 implementation(libs.getLibrary("room-runtime"))
                 implementation(project(":core:contract"))
-                implementation(project(":core:sync-contract"))
+                implementation(project(":core:sync-api"))
             }
         }
     }

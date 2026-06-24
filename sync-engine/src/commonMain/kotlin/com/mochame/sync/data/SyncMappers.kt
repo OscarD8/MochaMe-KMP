@@ -10,7 +10,7 @@ import com.mochame.sync.domain.model.SyncModuleState
 /**
  * Database Entity -> Domain Model
  */
-fun SyncModuleStateEntity.toDomain(): SyncModuleState {
+internal fun SyncModuleStateEntity.toDomain(): SyncModuleState {
     return SyncModuleState(
         module = module,
         serverWatermark = serverWatermark,
@@ -24,7 +24,7 @@ fun SyncModuleStateEntity.toDomain(): SyncModuleState {
 /**
  * Domain Model -> Database Entity
  */
-fun SyncModuleState.toEntity(): SyncModuleStateEntity {
+internal fun SyncModuleState.toEntity(): SyncModuleStateEntity {
     return SyncModuleStateEntity(
         module = module,
         serverWatermark = serverWatermark,
@@ -37,9 +37,9 @@ fun SyncModuleState.toEntity(): SyncModuleStateEntity {
 
 
 
-fun SyncIntentEntity.toDomain(): SyncIntent {
+internal fun SyncIntentEntity.toDomain(): SyncIntent {
     return SyncIntent(
-        hlc = HLC.parse(hlc),
+        hlc = hlc,
         candidateKey = candidateKey,
         module = module,
         model = model,
@@ -56,9 +56,9 @@ fun SyncIntentEntity.toDomain(): SyncIntent {
     )
 }
 
-fun SyncIntent.toEntity(): SyncIntentEntity {
+internal fun SyncIntent.toEntity(): SyncIntentEntity {
         return SyncIntentEntity(
-            hlc = hlc.toString(),
+            hlc = hlc,
             candidateKey = candidateKey,
             module = module,
             model = model,

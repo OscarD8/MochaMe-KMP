@@ -19,15 +19,15 @@ import com.mochame.sync.data.entities.SyncModuleStateEntity
     exportSchema = false
 )
 @TypeConverters(SyncConverters::class)
-abstract class SyncMicroSchema : RoomDatabase() {
-    abstract fun syncMetadataDao(): SyncModuleStateDao
-    abstract fun mutationLedgerDao(): SyncIntentDao
+internal abstract class SyncMicroSchema : RoomDatabase() {
+    internal abstract fun syncMetadataDao(): SyncModuleStateDao
+    internal abstract fun mutationLedgerDao(): SyncIntentDao
 
-    companion object {
+    internal companion object {
         const val NAME = "sync_micro_schema.db"
     }
 }
 
-expect object SyncMicroSchemaConstructor : RoomDatabaseConstructor<SyncMicroSchema> {
+internal expect object SyncMicroSchemaConstructor : RoomDatabaseConstructor<SyncMicroSchema> {
     override fun initialize(): SyncMicroSchema
 }

@@ -16,7 +16,7 @@ import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
 
 @KoinApplication(modules = [SyncHlcUnitTestModule::class])
-object HlcTestApp
+internal object HlcTestApp
 
 
 @Module(
@@ -27,11 +27,11 @@ object HlcTestApp
     ]
 )
 @ComponentScan("com.mochame.sync.test.di.hlc")
-class SyncHlcUnitTestModule
+internal class SyncHlcUnitTestModule
 
 
 @Module(includes = [FakeClockModule::class, TestLoggerModule::class])
-class FakeHlcFactoryModule {
+internal class FakeHlcFactoryModule {
 
     @Single
     internal fun provideFakeHlcFactory(
@@ -42,7 +42,7 @@ class FakeHlcFactoryModule {
 
 @ExperimentalKermitApi
 @Factory
-data class HLCTestEnvironment(
+internal data class HLCTestEnvironment(
     val factory: EngineHlcFactory,
     val fakeClock: FakeDateTimeUtils,
     val writer: TestLogWriter

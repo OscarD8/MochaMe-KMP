@@ -1,6 +1,6 @@
 package com.mochame.sync.domain.model
 
-data class SyncModuleState(
+internal data class SyncModuleState(
     val module: String,
     val serverWatermark: String?,
     val localMaxHlc: String?,

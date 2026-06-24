@@ -1,37 +1,39 @@
 package com.mochame.sync.infrastructure.stores
 
 
-import com.mochame.sync.contract.models.HLC
-import com.mochame.sync.data.daos.SyncIntentDao
-import com.mochame.sync.data.entities.SyncIntentEntity
-import com.mochame.sync.domain.model.QuarantinedModuleSummary
+import com.mochame.sync.contract.stores.SyncIntentStore
 import com.mochame.sync.contract.SyncStatus
-import com.mochame.sync.domain.stores.SyncIntentStore
+import com.mochame.sync.contract.models.HLC
+import com.mochame.sync.contract.models.SyncIntent
+import com.mochame.sync.data.daos.SyncIntentDao
+import com.mochame.sync.data.toDomain
+import com.mochame.sync.data.toEntity
+import com.mochame.sync.domain.model.QuarantinedModuleSummary
 import com.mochame.sync.domain.stores.SyncIntentMaintenanceStore
 import kotlinx.coroutines.flow.Flow
 import org.koin.core.annotation.Single
 
 @Single(binds = [SyncIntentStore::class, SyncIntentMaintenanceStore::class])
-class DefaultSyncIntentStore(
+internal class DefaultSyncIntentStore(
     private val dao: SyncIntentDao
 ) : SyncIntentStore, SyncIntentMaintenanceStore {
 
     override suspend fun getPendingByPrimaryKey(
         candidateKey: String,
         module: String
-    ): SyncIntentEntity? {
-        return dao.getPendingByKey(candidateKey, module)
+    ): SyncIntent? {
+        return dao.getPendingByKey(candidateKey, module)?.toDomain()
     }
 
-    override suspend fun getPendingByModule(module: String): List<SyncIntentEntity?> {
-        return dao.getPendingByModule(module)
+    override suspend fun getPendingByModule(module: String): List<SyncIntent?> {
+        return dao.getPendingByModule(module).map { it.toDomain() }
     }
 
-    override suspend fun recordIntent(entry: SyncIntentEntity) {
-        return dao.upsert(entry)
+    override suspend fun recordIntent(entry: SyncIntent) {
+        return dao.upsert(entry.toEntity())
     }
 
-    override suspend fun discardIntent(hlc: String) {
+    override suspend fun discardIntent(hlc: HLC) {
         return dao.deleteByHlc(hlc)
     }
 
@@ -63,8 +65,8 @@ class DefaultSyncIntentStore(
     override suspend fun claimBatch(sessionId: String, limit: Int): Int =
         dao.claimBatch(sessionId, limit)
 
-    override suspend fun getClaimedBatch(sessionId: String): List<SyncIntentEntity> =
-        dao.getClaimedBatch(sessionId)
+    override suspend fun getClaimedBatch(sessionId: String): List<SyncIntent> =
+        dao.getClaimedBatch(sessionId).map { it.toDomain() }
 
     override suspend fun acknowledgeSuccess(hlcList: List<String>) {
         hlcList.forEach { hlc ->
@@ -72,14 +74,14 @@ class DefaultSyncIntentStore(
         }
     }
 
-    override suspend fun getStaleLeasedIntents(olderThan: Long): List<SyncIntentEntity> =
-        dao.getStaleLeasedIntents(olderThan)
+    override suspend fun getStaleLeasedIntents(olderThan: Long): List<SyncIntent> =
+        dao.getStaleLeasedIntents(olderThan).map { it.toDomain() }
 
-    override suspend fun resetLease(hlc: String, retryCount: Int) =
+    override suspend fun resetLease(hlc: HLC, retryCount: Int) =
         dao.resetLease(hlc, retryCount)
 
     override suspend fun quarantine(
-        hlc: String,
+        hlc: HLC,
         retryCount: Int
     ) = dao.quarantineIntent(hlc, retryCount)
 

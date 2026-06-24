@@ -15,7 +15,6 @@ import org.koin.compiler.plugin.KoinGradleExtension
  * test logging for tasks.
  */
 fun Project.standardConfigurations() {
-
     pluginManager.withPlugin("io.insert-koin.compiler.plugin") {
         mochaKoin {
             userLogs.set(true)

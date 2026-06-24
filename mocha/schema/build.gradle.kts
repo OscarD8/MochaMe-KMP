@@ -37,7 +37,7 @@ kotlin {
             api(libs.room.runtime)
             implementation(libs.koin.core)
 
-            implementation(project(":core:sync-contract"))
+            implementation(project(":core:sync-api"))
             implementation(project(":core:platform"))
             implementation(project(":system:infra"))
             implementation(project(":sync-engine"))

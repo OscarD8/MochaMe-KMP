@@ -1,7 +1,6 @@
 package com.mochame.assembly
 
 import com.mochame.system.orchestrator.DefaultNodeContextManager
-import com.mochame.sync.domain.providers.SyncUserProvider
 import org.koin.core.annotation.Single
 
 /**
@@ -16,11 +15,11 @@ import org.koin.core.annotation.Single
  *
  * Keeping this here as a known alternative.
  */
-@Single(binds = [SyncUserProvider::class])
-class NodeBridge(
-    private val nodeContextManager: DefaultNodeContextManager
-) : SyncUserProvider {
-    override suspend fun getOrCreateNodeId(): String {
-        return nodeContextManager.getOrCreateNodeId()
-    }
-}
+//@Single(binds = [SyncUserProvider::class])
+//class NodeBridge(
+//    private val nodeContextManager: DefaultNodeContextManager
+//) : SyncUserProvider {
+//    override suspend fun getOrCreateNodeId(): String {
+//        return nodeContextManager.getOrCreateNodeId()
+//    }
+//}

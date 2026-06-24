@@ -7,8 +7,8 @@ import com.mochame.contract.di.JanitorMutex
 import com.mochame.contract.fixtures.FakeNodeContextManager
 import com.mochame.contract.fixtures.di.FixturesContractModule
 import com.mochame.contract.node.NodeContextManager
+import com.mochame.contract.providers.TransactionProvider
 import com.mochame.platform.fixtures.di.FixturesPlatformModule
-import com.mochame.platform.providers.TransactionProvider
 import com.mochame.support.TestSupportModule
 import com.mochame.sync.SyncConcurrencyModule
 import com.mochame.sync.SyncDomainModule
@@ -33,7 +33,7 @@ import org.koin.core.annotation.Single
 
 
 @KoinApplication(modules = [SyncJanitorTestModule::class])
-object JanitorTestApp
+internal object JanitorTestApp
 
 
 @Module(
@@ -53,7 +53,7 @@ object JanitorTestApp
     ]
 )
 @ComponentScan("com.mochame.sync.test.di.janitor")
-class SyncJanitorTestModule {
+internal class SyncJanitorTestModule {
     @Single
     fun provideSyncUserProvider(nodeContextManager: NodeContextManager)
             : SyncUserProvider = object : SyncUserProvider {
@@ -66,7 +66,7 @@ class SyncJanitorTestModule {
 
 @Factory
 @ExperimentalKermitApi
-data class JanitorTestEnv(
+internal data class JanitorTestEnv(
     val janitor: SyncJanitor,
     val writer: TestLogWriter,
     val bootUpdater: BootStatusUpdater,

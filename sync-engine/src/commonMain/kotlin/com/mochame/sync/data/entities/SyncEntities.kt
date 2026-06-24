@@ -6,6 +6,7 @@ import androidx.room.PrimaryKey
 import com.mochame.contract.metadata.MochaModuleContext
 import com.mochame.contract.metadata.MutationOp
 import com.mochame.sync.contract.SyncStatus
+import com.mochame.sync.contract.models.HLC
 import kotlin.time.Clock
 
 /**
@@ -41,7 +42,7 @@ data class SyncModuleStateEntity(
     ]
 )
 data class SyncIntentEntity(
-    @PrimaryKey val hlc: String,
+    @PrimaryKey val hlc: HLC,
     val candidateKey: String,
     val module: String,
     val model: String,

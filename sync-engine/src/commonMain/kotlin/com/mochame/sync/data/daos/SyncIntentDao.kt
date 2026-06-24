@@ -10,7 +10,7 @@ import com.mochame.sync.contract.SyncStatus
 import kotlinx.coroutines.flow.Flow
 
 @Dao
-interface SyncIntentDao {
+internal interface SyncIntentDao {
 
     /**
      * The Global Watermark: Hydrates the HlcFactory.
@@ -139,7 +139,7 @@ interface SyncIntentDao {
     suspend fun upsert(entry: SyncIntentEntity)
 
     @Query("DELETE FROM SyncIntentEntity WHERE hlc = :hlc")
-    suspend fun deleteByHlc(hlc: String)
+    suspend fun deleteByHlc(hlc: HLC)
 
     @Query("SELECT COUNT(*) FROM SyncIntentEntity WHERE syncStatus = :status")
     fun observePendingCount(status: SyncStatus = SyncStatus.PENDING): Flow<Int>
@@ -177,7 +177,7 @@ interface SyncIntentDao {
         """
     )
     suspend fun quarantineIntent(
-        hlc: String,
+        hlc: HLC,
         retryCount: Int,
         status: SyncStatus = SyncStatus.QUARANTINED
     )
@@ -201,7 +201,7 @@ interface SyncIntentDao {
     """
     )
     suspend fun resetLease(
-        hlc: String,
+        hlc: HLC,
         retryCount: Int,
         resetStatus: SyncStatus = SyncStatus.PENDING
     )
