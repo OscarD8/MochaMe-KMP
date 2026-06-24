@@ -15,6 +15,7 @@ import com.mochame.sync.contract.models.DecodeContext
 import com.mochame.sync.contract.models.HLC
 import com.mochame.sync.contract.models.LocalFirstEntity
 import com.mochame.sync.contract.models.SyncIntent
+import com.mochame.sync.contract.serialization.FeatureCodec
 import com.mochame.sync.contract.serialization.FeatureCodecRouter
 import com.mochame.sync.contract.stores.BlobStager
 import com.mochame.sync.contract.stores.SyncIntentStore
@@ -41,7 +42,7 @@ import kotlin.time.TimeSource
 abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     protected val hlcFactory: HlcFactory,
     protected val executor: ExecutionPolicy,
-    protected val codecRouter: FeatureCodecRouter<T>,
+    protected val codecRouter: FeatureCodecRouter<T, FeatureCodec<T>>,
     protected val locker: KeyedLocker,
     protected val syncIntentStore: SyncIntentStore,
     protected val syncModuleStateStore: SyncModuleStateStore,
