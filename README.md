@@ -130,8 +130,6 @@ Needs Updating but general idea:
 
 ---
 
----
-
 <details>
 <summary><b> Serialization Architecture </b></summary>
 
