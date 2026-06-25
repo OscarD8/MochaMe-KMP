@@ -4,12 +4,29 @@ import co.touchlab.kermit.Logger
 import com.mochame.contract.exceptions.MochaException
 import kotlinx.io.Source
 
-
+/**
+ * Basic contract for all version control functionality.
+ *
+ * @param T Type of object assigned to a version on the [versionMap]
+ * @property latestVersion used on [latestCodec] as the key.
+ * @property versionMap maps a byte value representing a version to whatever Type is provided.
+ */
 interface VersionRouter<T : Any> {
     val latestVersion: Byte
+    // Know that this is creating overhead by boxing the Byte type
     val versionMap: Map<Byte, T>
 }
 
+/**
+ * Property initializers in interfaces are prohibited. Interfaces are just contracts.
+ * Therefore, Classes that want basic version routing mapping dont need to extend a
+ * base class that implements an interface. They simply implement the interface directly, become
+ * the type, and as this extension property has a receiver type of that type
+ * , the class gets implicit uniform access to the latest codec without having
+ * to repeat logic, or depend on a tool such as VersionRoutingUtils.getLatestCodec().
+ *
+ * @param T The Type for the object that is being version controlled and fetched.
+ */
 val <T : Any> VersionRouter<T>.latestCodec: T
     get() = versionMap[latestVersion] ?: throw MochaException.Persistent.CorruptionDetected(
         "No component registered for version $latestVersion"
@@ -17,7 +34,14 @@ val <T : Any> VersionRouter<T>.latestCodec: T
 
 
 /**
- * Universal framing for outbound data.
+ * Establishes a new ByteArray, appending the version before utilizing [ByteArray.copyInto] on the
+ * result from [block]. Note that any lambda parameter (like [block]) is implicitly
+ * inline as well.
+ *
+ * @return ByteArray the result of the execution performed, appended with the version
+ * at index 0.
+ * @throws MochaException.Persistent.CorruptionDetected if [block] failed to compute a
+ * returning ByteArray
  */
 inline fun prependVersionTo(
     version: Byte,
@@ -38,18 +62,23 @@ inline fun prependVersionTo(
 }
 
 /**
- * Strips the version from the provided bytes, and passes back the stripped bytes
- * alongside the corresponding codec version from the provided map.
+ * Strips the version from [bytes] index 0, utilizing [versionMap] to provide [block]
+ * as an anonymous lambda expression passing through [T] alongside the stripped [bytes].
  *
- * In the intended use case, all routers paste this
- * into their versioned method call, and therefore check bytes exist,
- * strip the version, map the codec, and proceed with their own codec handling.
+ * In the intended use case, all version routing methods call this method, and
+ * therefore check bytes exist, strip the version, map the codec, and proceed
+ * with their own codec usage via [block]. Block is implicitely inline.
  *
  * Future me start here for time and space complexity.
+ *
+ * @param T The type of versioned component to be passed back to the callers [block].
+ * @param R The return result of [block], allowing the caller to capture this defined
+ * return result after utilizing the provided [T] and stripped [bytes].
+ * @param bytes the payload to be processed - must hold its version at index 0.
  */
-inline fun <T, R> stripAndVersionCodec(
+inline fun <T, R> stripAndVersion(
     bytes: ByteArray,
-    codecMap: Map<Byte, T>,
+    versionMap: Map<Byte, T>,
     logger: Logger,
     block: (T, ByteArray) -> R
 ): R {
@@ -58,7 +87,7 @@ inline fun <T, R> stripAndVersionCodec(
     }
 
     val version = bytes[0]
-    val codec = codecMap[version] ?: run {
+    val codec = versionMap[version] ?: run {
         logger.e { "Unable to fetch codec. Unknown protocol version byte: $version" }
         throw MochaException.Persistent.UnknownProtocolVersion(version)
     }
@@ -69,11 +98,11 @@ inline fun <T, R> stripAndVersionCodec(
 }
 
 /**
- * Universal de-multiplexing for inbound data (directly from Source).
+ * Version stripping and codec versioning through [Source.readByte].
  */
-inline fun <T, R> stripAndVersionCodec(
+inline fun <T, R> stripAndVersion(
     source: Source,
-    codecMap: Map<Byte, T>,
+    versionMap: Map<Byte, T>,
     logger: Logger,
     block: (T, Source) -> R
 ): R {
@@ -82,7 +111,7 @@ inline fun <T, R> stripAndVersionCodec(
     }
 
     val version = source.readByte()
-    val codec = codecMap[version] ?: run {
+    val codec = versionMap[version] ?: run {
         logger.e { "Unable to fetch codec. Unknown protocol version byte: $version" }
         throw MochaException.Persistent.UnknownProtocolVersion(version)
     }

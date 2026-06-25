@@ -5,7 +5,7 @@ import com.mochame.sync.contract.latestCodec
 import com.mochame.sync.contract.models.DecodeContext
 import com.mochame.sync.contract.models.LocalFirstEntity
 import com.mochame.sync.contract.prependVersionTo
-import com.mochame.sync.contract.stripAndVersionCodec
+import com.mochame.sync.contract.stripAndVersion
 
 abstract class BaseFeatureCodecRouter<T : LocalFirstEntity<T>>(
     override val latestVersion: Byte,
@@ -20,13 +20,13 @@ abstract class BaseFeatureCodecRouter<T : LocalFirstEntity<T>>(
     }
 
     override fun versionedDecode(data: ByteArray, context: DecodeContext): T {
-        return stripAndVersionCodec(data, versionMap, logger) { codec, cleanBytes ->
+        return stripAndVersion(data, versionMap, logger) { codec, cleanBytes ->
             codec.decode(cleanBytes, context)
         }
     }
 
     override fun versionedSummaryReconstruction(data: ByteArray): String {
-        return stripAndVersionCodec(data, versionMap, logger) { codec, cleanBytes ->
+        return stripAndVersion(data, versionMap, logger) { codec, cleanBytes ->
             codec.reconstructSummary(cleanBytes)
         }
     }

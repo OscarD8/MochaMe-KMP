@@ -63,9 +63,8 @@ internal class SyncCoordinator(
                         if (batch.isEmpty()) break
 
                         try {
-                            val payload = batchCodecRouter.versionEncode(
-                                batch.map { it }
-                            )
+                            val payload = batchCodecRouter.versionEncode(batch)
+
 //                            val response = networkApi.push(payload)
 //                            val accepted = response.results.filter { it.accepted }.map { it.hlc }
 //                            val rejected = response.results.filter { !it.accepted }

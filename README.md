@@ -130,6 +130,25 @@ Needs Updating but general idea:
 
 ---
 
+---
+
+<details>
+<summary><b> Serialization Architecture </b></summary>
+
+<br>
+
+## Outbound
+
+<img src="docs/images/outbound-mermaid.webp" alt="mermaid diagram of outbound data flow">
+
+## Inbound
+
+<img src="docs/images/inbound-mermaid.webp" alt="mermaid diagram of inbound data flow">
+
+</details>
+
+---
+
 <details>
 <summary><b> AI Approach for Development </b></summary>
 

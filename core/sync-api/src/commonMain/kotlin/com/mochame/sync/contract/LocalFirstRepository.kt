@@ -34,7 +34,7 @@ import kotlin.time.TimeSource
  * The default logic for local-first data mutations.
  *
  * This chassis ensures that any change to local state is atomically bound
- * to a [SyncIntentEntity].
+ * to a [SyncIntent].
  *
  * @param T The entity type, adhering to the [LocalFirstEntity] contract.
  */

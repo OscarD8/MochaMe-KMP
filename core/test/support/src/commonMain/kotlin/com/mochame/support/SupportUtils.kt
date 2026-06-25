@@ -53,7 +53,7 @@ class TestSupportModule {
  * Generates the test context bindings dynamically.
  */
 fun TestScope.scopeKoinModule(): Module {
-    val dispatcher = this.coroutineContext[ContinuationInterceptor.Key]
+    val dispatcher = this.coroutineContext[ContinuationInterceptor]
         ?: throw IllegalStateException("Error fetching the dispatcher of an established test scope.")
 
     return module {
@@ -68,11 +68,8 @@ fun TestScope.scopeKoinModule(): Module {
 
 
 
-/**
- * Forgive the format. It's really helpful.
- */
 fun Exception.reportAndThrowDiFailure(): Nothing {
-    println("\n🚨 === DI REGISTRY FAILURE === 🚨")
+    println("\n === DI REGISTRY FAILURE === ")
     println("Crash: ${this.message}")
 
     var currentCause = this.cause
@@ -81,6 +78,6 @@ fun Exception.reportAndThrowDiFailure(): Nothing {
         currentCause = currentCause.cause
     }
 
-    println("🚨 =========================== 🚨\n")
+    println(" =========================== \n")
     throw this
 }

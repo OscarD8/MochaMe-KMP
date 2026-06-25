@@ -7,7 +7,7 @@ import com.mochame.sync.domain.serialization.BatchCodecRouter
 import com.mochame.sync.domain.serialization.BatchCodec
 import com.mochame.sync.contract.models.SyncIntent
 import com.mochame.sync.contract.VersionRouter
-import com.mochame.sync.contract.stripAndVersionCodec
+import com.mochame.sync.contract.stripAndVersion
 import com.mochame.sync.contract.latestCodec
 import com.mochame.sync.contract.prependVersionTo
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -21,6 +21,11 @@ internal class DefaultBatchCodecRouter(
 ) : VersionRouter<BatchCodec>, BatchCodecRouter {
 
     override val versionMap = mapOf(0x01.toByte() to v1)
+
+    /*
+     question: The Java Virtual Machine maintains a permanent, pre-allocated internal array of java.lang.Byte objects on the heap for every single value from -128 to 127.
+     */
+
     override val latestVersion: Byte = 0x01
     private val logger =
         logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.SYNC, "BtcRtr")
@@ -32,7 +37,7 @@ internal class DefaultBatchCodecRouter(
     }
 
     override fun versionedDecode(bytes: ByteArray): List<SyncIntent> {
-        return stripAndVersionCodec(bytes, versionMap, logger) { codec, cleanBytes ->
+        return stripAndVersion(bytes, versionMap, logger) { codec, cleanBytes ->
             codec.decode(cleanBytes)
         }
     }

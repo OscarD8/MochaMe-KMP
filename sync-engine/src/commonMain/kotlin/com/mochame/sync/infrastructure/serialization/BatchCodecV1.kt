@@ -20,6 +20,8 @@ internal class BatchCodecV1(
     private val intentCodecRouter: IntentCodecRouter,
 ) : BatchCodec {
 
+    // It may be better to make latestVersion on intentCodecRouter not private, and pass it through here
+    // as otherwise the map look-up happens per encoded intent in its own methods?
     override fun encode(intents: List<SyncIntent>): ByteArray {
         require(intents.isNotEmpty()) { "Cannot serialise an empty batch" }
 
