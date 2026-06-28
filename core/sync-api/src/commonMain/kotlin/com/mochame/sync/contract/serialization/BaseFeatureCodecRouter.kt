@@ -9,7 +9,7 @@ import com.mochame.sync.contract.stripAndVersion
 
 abstract class BaseFeatureCodecRouter<T : LocalFirstEntity<T>>(
     override val latestVersion: Byte,
-    override val versionMap: Map<Byte, FeatureCodec<T>>,
+    override val versionRegistry: Array<FeatureCodec<T>?>,
     private val logger: Logger
 ) : FeatureCodecRouter<T, FeatureCodec<T>> {
 
@@ -20,13 +20,13 @@ abstract class BaseFeatureCodecRouter<T : LocalFirstEntity<T>>(
     }
 
     override fun versionedDecode(data: ByteArray, context: DecodeContext): T {
-        return stripAndVersion(data, versionMap, logger) { codec, cleanBytes ->
+        return stripAndVersion(data, data[0], logger) { codec, cleanBytes ->
             codec.decode(cleanBytes, context)
         }
     }
 
     override fun versionedSummaryReconstruction(data: ByteArray): String {
-        return stripAndVersion(data, versionMap, logger) { codec, cleanBytes ->
+        return stripAndVersion(data, data[0], logger) { codec, cleanBytes ->
             codec.reconstructSummary(cleanBytes)
         }
     }

@@ -13,7 +13,7 @@ internal class DailyContextCodecRouter(
     v1: DailyContextCodecV1,
     logger: Logger
 ) : BaseFeatureCodecRouter<DailyContext>(
-    versionMap = mapOf(0x01.toByte() to v1),
+    versionRegistry = arrayOf(null, v1),
     latestVersion = 0x01,
     logger = logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.BIO, "DayRtr")
 )

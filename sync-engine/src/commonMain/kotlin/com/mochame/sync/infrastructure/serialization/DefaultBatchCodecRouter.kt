@@ -20,12 +20,18 @@ internal class DefaultBatchCodecRouter(
     logger: Logger
 ) : VersionRouter<BatchCodec>, BatchCodecRouter {
 
-    override val versionMap = mapOf(0x01.toByte() to v1)
+    override val versionRegistry = arrayOf<BatchCodec?>(null, v1)
 
     /*
      question: The Java Virtual Machine maintains a permanent, pre-allocated internal array of java.lang.Byte objects on the heap for every single value from -128 to 127.
      */
-
+    /**
+     * Byte remains a primitive sitting inside this object's memory block on the heap as raw bytes, not a boxed object
+     * pointer as was previously the case when using a map of <Byte, Codec>.
+     * This means the CPU copies the 8 bits straight into their registers to perform operations.
+     * Using a Byte means a max value of 255 (due to bit masking on the versionRegistry lookup), an Int would
+     * mean a 4-byte version system on each payload component, which is not necessary.
+     */
     override val latestVersion: Byte = 0x01
     private val logger =
         logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.SYNC, "BtcRtr")
@@ -37,7 +43,7 @@ internal class DefaultBatchCodecRouter(
     }
 
     override fun versionedDecode(bytes: ByteArray): List<SyncIntent> {
-        return stripAndVersion(bytes, versionMap, logger) { codec, cleanBytes ->
+        return stripAndVersion(bytes, bytes[0], logger) { codec, cleanBytes ->
             codec.decode(cleanBytes)
         }
     }

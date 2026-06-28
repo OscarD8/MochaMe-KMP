@@ -26,7 +26,7 @@ data class HLC(
      */
     override fun toString(): String {
         val paddedTs = ts.toString().padStart(15, '0')
-        val paddedCount = count.toString().padStart(5, '0')
+        val paddedCount = count.toString(16).uppercase().padStart(4, '0')
         return "$paddedTs:$paddedCount:$nodeId"
     }
 
@@ -50,7 +50,7 @@ data class HLC(
             val ts = parts[0].toLongOrNull()
                 ?: throw MochaException.Persistent.HlcParseException("Invalid timestamp: ${parts[0]}")
 
-            val count = parts[1].toIntOrNull()
+            val count = parts[1].takeIf { it.length == 4 }?.toIntOrNull(radix = 16)
                 ?: throw MochaException.Persistent.HlcParseException("Invalid counter: ${parts[1]}")
 
             val nodeId = parts[2].takeIf { it.isNotBlank() }
@@ -69,7 +69,8 @@ data class HLC(
          */
         const val TS_PAD = 15
         const val COUNT_PAD = 5
-        const val MAX_COUNTER = 65535
+        const val MAX_COUNTER_INT = 65535
+        const val MAX_COUNTER_STRING = "FFFF"
         const val ONE_DAY_MS = 86_400_000L
         const val APP_RELEASE_MS = 1740787200000L
         const val MAX_DRIFT_MS = 60_000L

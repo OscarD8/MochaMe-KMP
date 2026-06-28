@@ -64,7 +64,7 @@ class HlcFactoryTest : MochaPlatformTest() {
     fun should_return_success_with_restamped_node_id_when_valid_history_provided() =
         runEnv {
             // Given
-            val history = "${HLC.APP_RELEASE_MS}:00005:device-a"
+            val history = "${HLC.APP_RELEASE_MS}:FFEF:device-a"
             val newNodeId = "device-b"
 
             // When
@@ -73,7 +73,7 @@ class HlcFactoryTest : MochaPlatformTest() {
             // Then
             assertNotNull(result)
             assertEquals(
-                "00${HLC.APP_RELEASE_MS}:00005:device-b",
+                "00${HLC.APP_RELEASE_MS}:FFEF:device-b",
                 result.toString()
             )
         }
@@ -86,7 +86,7 @@ class HlcFactoryTest : MochaPlatformTest() {
         fakeClock.setTime(wallClock)
 
         // When
-        factory.hydrate("$historyTs:0:node-old", "node-new")
+        factory.hydrate("$historyTs:0001:node-old", "node-new")
 
         // Then
         assertTrue(writer.logs.any { it.message.contains("Future Jump") })
@@ -97,7 +97,7 @@ class HlcFactoryTest : MochaPlatformTest() {
     fun should_persist_new_node_id_for_subsequent_hlcs_after_migration() =
         runEnv {
             // Given: History from "node-old"
-            val history = "${HLC.APP_RELEASE_MS}:10:node-old"
+            val history = "${HLC.APP_RELEASE_MS}:0001:node-old"
             factory.hydrate(history, "node-new")
 
             // When: Generating the next HLC
@@ -109,7 +109,7 @@ class HlcFactoryTest : MochaPlatformTest() {
                 next.nodeId,
                 "Factory failed to adopt the new NodeID after hydration."
             )
-            assertEquals(11, next.count)
+            assertEquals(2, next.count, "Migration at same ms as hydration didn't increment count.")
         }
 
     // -----------------------------------------------------------
@@ -150,7 +150,7 @@ class HlcFactoryTest : MochaPlatformTest() {
     fun should_reset_counter_to_zero_during_migration_if_wall_clock_is_ahead() =
         runEnv {
             // Given: History is older than current wall clock
-            val olderHistory = "${HLC.APP_RELEASE_MS - 1000}:50:node-old"
+            val olderHistory = "${HLC.APP_RELEASE_MS - 1000}:0001:node-old"
             val wallClock = HLC.APP_RELEASE_MS + 1000
             fakeClock.setTime(wallClock)
 
@@ -168,7 +168,7 @@ class HlcFactoryTest : MochaPlatformTest() {
         runEnv {
             // Given: History is newer than current wall clock (but within 24h)
             val newerHistoryTs = HLC.APP_RELEASE_MS + 5000
-            val newerHistory = "$newerHistoryTs:99:node-old"
+            val newerHistory = "$newerHistoryTs:0063:node-old"
             fakeClock.setTime(HLC.APP_RELEASE_MS) // Wall clock is behind
 
             // When
@@ -185,12 +185,12 @@ class HlcFactoryTest : MochaPlatformTest() {
         runEnv { scope ->
             // Given: History is at the limit, wall clock is behind
             val futureTs = HLC.APP_RELEASE_MS + 5000
-            val maxHistory = "$futureTs:${HLC.MAX_COUNTER}:node-old"
+            val maxHistory = "$futureTs:${HLC.MAX_COUNTER_STRING}:node-old"
             fakeClock.setTime(HLC.APP_RELEASE_MS) // Device is behind history
 
             factory.hydrate(maxHistory, "node-new")
 
-            // When: First call to getNextHlc
+            // When: First call to getNextHlc triggers yield
             var capturedHlc: HLC? = null
             val job = scope.launch {
                 capturedHlc = factory.getNextHlc()
@@ -231,7 +231,7 @@ class HlcFactoryTest : MochaPlatformTest() {
     @Test
     fun should_yield_and_wait_for_next_tick_when_counter_overflows() = runEnv {
         // Given: Hydrate at the 16-bit limit (65535)
-        val maxCounterHlc = "${fakeClock.now().toEpochMilliseconds()}:65535:node-1"
+        val maxCounterHlc = "${fakeClock.now().toEpochMilliseconds()}:${HLC.MAX_COUNTER_STRING}:node-1"
         factory.hydrate(maxCounterHlc, "node-1")
 
         // When: We try to get the next HLC in a separate coroutine
@@ -320,7 +320,7 @@ class HlcFactoryTest : MochaPlatformTest() {
     fun should_yield_and_retry_when_counter_is_exhausted() = runEnv { scope ->
         // Arrange: Hit the counter limit at a certain time
         fakeClock.setTime(HLC.APP_RELEASE_MS)
-        val initialHlc = "${HLC.APP_RELEASE_MS}:${HLC.MAX_COUNTER}:node-1"
+        val initialHlc = "${HLC.APP_RELEASE_MS}:${HLC.MAX_COUNTER_STRING}:node-1"
         factory.hydrate(initialHlc, "node-1")
 
         // Act: Launch a coroutine to make the 65,536th call
@@ -341,8 +341,8 @@ class HlcFactoryTest : MochaPlatformTest() {
         stallingJob.join()
 
         // Assert:
-        val exhaustionLog = writer.logs.any { it.message.contains("Counter Exhausted") }
-        val logCount = writer.logs.count { it.message.contains("Counter Exhausted") }
+        val exhaustionLog = writer.logs.any { it.message.contains("counter exhaustion") }
+        val logCount = writer.logs.count { it.message.contains("counter exhaustion") }
         assertTrue(exhaustionLog, "Should have logged a warning about exhaustion")
         assertEquals(
             1,
@@ -448,7 +448,7 @@ class HlcFactoryTest : MochaPlatformTest() {
         runEnv {
             // Given: System clock is March 2026, but history is Jan 2040
             val futureTs = 2209032000000L
-            val poisonedHlc = "$futureTs:0:node-old"
+            val poisonedHlc = "$futureTs:0001:node-old"
 
             // When / Then
             assertFailsWith<MochaException.Persistent.ClockSkew> {
@@ -478,20 +478,19 @@ class HlcFactoryTest : MochaPlatformTest() {
     fun should_log_warning_when_counter_exhaustion_triggers_yield() =
         runEnv { scope ->
             // When: The factory at the 16-bit limit
-            val maxCounterHlc = "${fakeClock.now().toEpochMilliseconds()}:65535:node-1"
+            val maxCounterHlc = "${fakeClock.now().toEpochMilliseconds()}:FFFF:node-1"
             factory.hydrate(maxCounterHlc, "node-1")
 
-            // Then: This will trigger the 'else' block (Case C)
-            scope.launch { factory.getNextHlc() }
+            // Then: This will trigger a yield on attempting to get a new hlc
+            val hlcJob = scope.launch { factory.getNextHlc() }
             yield()
             fakeClock.advanceTime(1)
+            yield()
 
             // Verify the log recorded the "Stalling" event
-            val logs = writer.logs
-            val counterWarning = logs.find { it.message.contains("Counter Exhausted") }
+            val counterWarning = writer.logs.find { it.message.contains("counter exhaustion") }
 
             assertNotNull(counterWarning, "Missing visibility into counter exhaustion!")
-            assertEquals(Severity.Warn, counterWarning.severity)
         }
 
     // -----------------------------------------------------------

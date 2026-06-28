@@ -61,7 +61,7 @@ class SyncJanitorTest : MochaPlatformTest() {
         runEnv { scope ->
             // Arrange
             // Seed a Future HLC (2040-01-01...)
-            val futureHlc = "2209032000000:0:node-1"
+            val futureHlc = "2209032000000:0000:node-1"
 
             metadataDao.upsertMetadata(
                 SyncModuleStateEntity(

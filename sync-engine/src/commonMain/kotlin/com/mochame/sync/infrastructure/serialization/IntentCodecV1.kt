@@ -21,7 +21,8 @@ private data class SyncIntentDeltaV1(
     @ProtoNumber(4) val model: String,
     @ProtoNumber(5) val operation: String,
     @ProtoNumber(6) val payloadBlob: ByteArray?,
-    @ProtoNumber(7) val overflowBlobId: String? = null
+    @ProtoNumber(7) val overflowBlobId: String? = null,
+    @ProtoNumber(8) val createdAt: Long
 )
 
 @OptIn(ExperimentalSerializationApi::class)
@@ -36,7 +37,8 @@ internal class IntentCodecV1 : IntentCodec {
             model = intent.model,
             operation = intent.operation.name,
             payloadBlob = intent.payload,
-            overflowBlobId = intent.overflowBlobId
+            overflowBlobId = intent.overflowBlobId,
+            createdAt = Clock.System.now().toEpochMilliseconds()
         )
         return ProtoBuf.encodeToByteArray(SyncIntentDeltaV1.serializer(), delta)
     }
@@ -54,7 +56,7 @@ internal class IntentCodecV1 : IntentCodec {
             payload = envelope.payloadBlob,
             overflowBlobId = envelope.overflowBlobId,
             retryCount = 0,
-            createdAt = Clock.System.now().toEpochMilliseconds(),
+            createdAt = envelope.createdAt
         )
     }
 }

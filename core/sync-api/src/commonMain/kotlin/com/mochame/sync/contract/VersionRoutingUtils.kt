@@ -4,17 +4,21 @@ import co.touchlab.kermit.Logger
 import com.mochame.contract.exceptions.MochaException
 import kotlinx.io.Source
 
+
 /**
  * Basic contract for all version control functionality.
  *
- * @param T Type of object assigned to a version on the [versionMap]
- * @property latestVersion used on [latestCodec] as the key.
- * @property versionMap maps a byte value representing a version to whatever Type is provided.
+ * @param T Type of object assigned to a version on the [versionRegistry]
+ * @property latestVersion assigned to a [latestCodec] as its key.
+ * @property versionRegistry maps a byte value representing a version to whatever Type is provided.
  */
 interface VersionRouter<T : Any> {
     val latestVersion: Byte
-    // Know that this is creating overhead by boxing the Byte type
-    val versionMap: Map<Byte, T>
+
+    /**
+     * Nullable in case version 1 is the starting point, in which case index 0 is to be null.
+     */
+    val versionRegistry: Array<T?>
 }
 
 /**
@@ -26,12 +30,20 @@ interface VersionRouter<T : Any> {
  * to repeat logic, or depend on a tool such as VersionRoutingUtils.getLatestCodec().
  *
  * @param T The Type for the object that is being version controlled and fetched.
+ * @throws MochaException.Persistent.CorruptionDetected If the version is not an index
  */
 val <T : Any> VersionRouter<T>.latestCodec: T
-    get() = versionMap[latestVersion] ?: throw MochaException.Persistent.CorruptionDetected(
-        "No component registered for version $latestVersion"
-    )
+    get() {
+        val index = (latestVersion.toInt() and 0xFF)
+        return versionRegistry.getOrNull(index)
+            ?: throw MochaException.Persistent.UnknownProtocolVersion(latestVersion)
+    }
 
+fun <T : Any> VersionRouter<T>.getCodec(version: Byte): T {
+    val index = (version.toInt() and 0xFF)
+    return versionRegistry.getOrNull(index)
+        ?: throw MochaException.Persistent.UnknownProtocolVersion(latestVersion)
+}
 
 /**
  * Establishes a new ByteArray, appending the version before utilizing [ByteArray.copyInto] on the
@@ -62,7 +74,7 @@ inline fun prependVersionTo(
 }
 
 /**
- * Strips the version from [bytes] index 0, utilizing [versionMap] to provide [block]
+ * Utilizes [versionRegistry] to provide [block]
  * as an anonymous lambda expression passing through [T] alongside the stripped [bytes].
  *
  * In the intended use case, all version routing methods call this method, and
@@ -76,22 +88,18 @@ inline fun prependVersionTo(
  * return result after utilizing the provided [T] and stripped [bytes].
  * @param bytes the payload to be processed - must hold its version at index 0.
  */
-inline fun <T, R> stripAndVersion(
+inline fun <T : Any, R> VersionRouter<T>.stripAndVersion(
     bytes: ByteArray,
-    versionMap: Map<Byte, T>,
+    version: Byte,
     logger: Logger,
     block: (T, ByteArray) -> R
 ): R {
     if (bytes.isEmpty()) {
-        throw MochaException.Persistent.CorruptionDetected("Empty payload envelope received.")
+        logger.e { "Attempt to strip a version made against a null ByteArray." }
+        throw MochaException.Persistent.CorruptionDetected("Empty payload received.")
     }
 
-    val version = bytes[0]
-    val codec = versionMap[version] ?: run {
-        logger.e { "Unable to fetch codec. Unknown protocol version byte: $version" }
-        throw MochaException.Persistent.UnknownProtocolVersion(version)
-    }
-
+    val codec = getCodec(version)
     val strippedPayload = bytes.copyOfRange(1, bytes.size)
 
     return block(codec, strippedPayload)

@@ -5,12 +5,12 @@ import com.mochame.contract.exceptions.MochaException
 import com.mochame.contract.providers.DateTimeProvider
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
+import com.mochame.sync.contract.HlcFactory
 import com.mochame.sync.contract.models.HLC
 import com.mochame.sync.contract.models.HLC.Companion.APP_RELEASE_MS
-import com.mochame.sync.contract.models.HLC.Companion.MAX_COUNTER
+import com.mochame.sync.contract.models.HLC.Companion.MAX_COUNTER_INT
 import com.mochame.sync.contract.models.HLC.Companion.MAX_DRIFT_MS
 import com.mochame.sync.contract.models.HLC.Companion.ONE_DAY_MS
-import com.mochame.sync.contract.HlcFactory
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.yield
@@ -26,7 +26,7 @@ internal class EngineHlcFactory(
     @Provided private val dateTimeUtils: DateTimeProvider,
     logger: Logger
 ) : HlcFactory {
-    
+
     private val logger = logger.withTags(
         layer = LogTags.Layer.INFRA,
         domain = LogTags.Domain.SYNC,
@@ -60,41 +60,42 @@ internal class EngineHlcFactory(
 
     /**
      * Generates the next monotonic HLC.
-     * Replaces Exception-on-Overflow with a Busy-Wait yield.
+     * Replaces Exception-on-Overflow with a Yield.
      */
     override suspend fun getNextHlc(): HLC {
         var yieldCount = 0
 
-        // Phase 1: Orchestration Loop
         while (true) {
             val result = stateMutex.withLock {
-                val currentState =
-                    state ?: throw MochaException.Policy.CausalityViolation(
-                        "Unable to provide a timestamp. Potential boot issue."
-                    ).also { logger.e { it.message } }
+                val currentState = state ?: run {
+                    logger.e { "Attempt to getNextHlc() made during null FactoryState. Check boot logs?" }
+                    throw MochaException.Policy.CausalityViolation("Cannot fetch a timestamp with no pre-existing state.")
+                }
 
                 val wallClock = dateTimeUtils.now().toEpochMilliseconds()
 
-                // Phase 2: Compute the next tick logically
+                // Compute the next tick logically
                 val nextHlc = calculateNextTick(
                     wallClock,
                     currentState.lastHlc,
                     currentState.nodeId
                 )
 
-                // Phase 3: Local State Update
+                // Local State Update
                 nextHlc?.also {
                     state = currentState.copy(lastHlc = it)
                     logger.v { "HLC tick: $it" }
                 }
             }
 
-            if (result != null) return result
-
-            // Phase 4: Handle Exhaustion
-            if (yieldCount++ == 0) {
-                logger.w { "Counter Exhausted at ${dateTimeUtils.now()}. Stalling until clock ticks." }
+            if (result != null) {
+                if (yieldCount > 0) {
+                    logger.w { "Recovered from counter exhaustion. Spun $yieldCount times waiting for clock." }
+                }
+                return result
             }
+
+            yieldCount++
             yield()
         }
     }
@@ -156,8 +157,8 @@ internal class EngineHlcFactory(
      * HLC can be used to hydrate the factory, ensuring all local operations use it as a baseline.
      *
      * @return Verified [HLC] that has acceptable/no clock skew. If the current clock matches the
-     * historic HLC, it takes the historic counter, and assigns the reconciled HLC the [com.mochame.contract.GlobalSettingsEntity.id] of the current device.
-     * @throws [com.mochame.app.domain.exceptions.MochaException.Persistent.ClockSkew] Local device has drifted below the floor. Or history is more than one minute into the future of the local clock.
+     * historic HLC, it takes the historic counter, and assigns the reconciled HLC the [NodeContext.nodeId] of the current device.
+     * @throws [MochaException.Persistent.ClockSkew] Local device has drifted below the floor. Or history is more than one minute into the future of the local clock.
      */
     private fun reconcileHlc(
         wallClock: Long,
@@ -178,7 +179,7 @@ internal class EngineHlcFactory(
                 HLC(wallClock, 0, currentNodeId)
             }
 
-            // Case 3: Poisoned History creating future drift (DB is > 1 minute in the future)
+            // Case 3: History creating future drift (DB is > 1 minute in the future)
             history.ts - wallClock > MAX_DRIFT_MS -> {
                 val driftSec = (history.ts - wallClock) / 1000
                 logger.e { "Clock Skew: History is $driftSec seconds in the future against local [$wallClock]." }
@@ -207,13 +208,10 @@ internal class EngineHlcFactory(
      */
     private fun calculateNextTick(wallClock: Long, last: HLC, nodeId: String): HLC? {
         return when {
-            // Case A: Physical time has progressed
             wallClock > last.ts -> HLC(wallClock, 0, nodeId)
 
-            // Case B: Same millisecond, space remains in the 16-bit counter
-            last.count < MAX_COUNTER -> HLC(last.ts, last.count + 1, nodeId)
+            last.count < MAX_COUNTER_INT -> HLC(last.ts, last.count + 1, nodeId)
 
-            // Case C: Counter exhaustion; requires a physical clock tick
             else -> null
         }
     }
@@ -229,14 +227,14 @@ internal class EngineHlcFactory(
     ): Pair<Long, Int> {
         val newTs = maxOf(maxOf(wallClock, local.ts), remote.ts)
 
-        val newCount = when {
-            newTs == local.ts && newTs == remote.ts -> maxOf(
+        val newCount = when (newTs) {
+            local.ts if newTs == remote.ts -> maxOf(
                 local.count,
                 remote.count
             ) + 1
 
-            newTs == remote.ts -> remote.count + 1
-            newTs == local.ts -> local.count + 1
+            remote.ts -> remote.count + 1
+            local.ts -> local.count + 1
             else -> 0 // Physical wall clock is strictly ahead
         }
 
@@ -248,7 +246,7 @@ internal class EngineHlcFactory(
      * it increments the timestamp by 1ms.
      */
     private fun applyOverflow(ts: Long, count: Int): Pair<Long, Int> {
-        return if (count > MAX_COUNTER) {
+        return if (count > MAX_COUNTER_INT) {
             (ts + 1) to 0
         } else {
             ts to count
