@@ -20,7 +20,7 @@ private data class SyncIntentDeltaV1(
     @ProtoNumber(3) val module: String,
     @ProtoNumber(4) val model: String,
     @ProtoNumber(5) val operation: String,
-    @ProtoNumber(6) val payloadBlob: ByteArray?,
+    @ProtoNumber(6) val payloadBlob: ByteArray? = null,
     @ProtoNumber(7) val overflowBlobId: String? = null,
     @ProtoNumber(8) val createdAt: Long
 )

@@ -34,7 +34,7 @@ internal class SyncCoordinator(
     private val logger = logger.withTags(
         layer = LogTags.Layer.ORCH,
         domain = LogTags.Domain.SYNC,
-        className = "Coordt"
+        className = "MsCord"
     )
 
     private val receiverRoutingMap: Map<String, SyncReceiver> =

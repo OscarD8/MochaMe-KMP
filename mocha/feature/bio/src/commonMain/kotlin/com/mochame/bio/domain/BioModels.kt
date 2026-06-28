@@ -18,15 +18,6 @@ data class DailyContext(
     val lastModified: Long = 0L
 ) : LocalFirstEntity<DailyContext> {
 
-    /**
-     * The Contract Implementation:
-     * Returns a NEW instance with the updated HLC pulse.
-     */
     override fun withHlc(hlc: HLC): DailyContext = copy(hlc = hlc)
-
-    /**
-     * UI Refinement:
-     * Anchors the 'Human' timestamp to the 'Logical' HLC timestamp.
-     */
     override fun withPhysicalTime(time: Long): DailyContext = copy(lastModified = time)
 }

@@ -82,7 +82,7 @@ class DailyContextCodecV1(
     /**
      * Peek (Objects no longer in memory).
      * Extracts tags from raw bits without full value decoding.
-     * Uses source.peek() to ensure it is completely non-destructive.
+     * Uses source.peek().
      */
     override fun reconstructSummary(bytes: ByteArray): String {
         if (bytes.isEmpty()) {

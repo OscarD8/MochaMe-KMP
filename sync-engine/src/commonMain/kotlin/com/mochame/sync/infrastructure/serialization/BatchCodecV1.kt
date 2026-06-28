@@ -6,12 +6,14 @@ import com.mochame.sync.domain.serialization.IntentCodecRouter
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoBuf
+import kotlinx.serialization.protobuf.ProtoNumber
 import org.koin.core.annotation.Single
 
+@ExperimentalSerializationApi
 @Serializable
 private data class SyncBatchPayloadV1(
-    val size: Int,
-    val envelopes: List<ByteArray>
+    @ProtoNumber(1) val size: Int,
+    @ProtoNumber(2) val envelopes: List<ByteArray> = emptyList()
 )
 
 @OptIn(ExperimentalSerializationApi::class)

@@ -86,7 +86,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             executor.execute("[${moduleContext}_$op]") {
                 val existingState = fetchExistingState()
 
-                // 1. Initial state verification & LWW Checks
+                // Initial state verification & LWW Checks
                 if (existingState != null && !hlcFactory.isValid(existingState.hlc)) {
                     throw MochaException.Persistent.CorruptionDetected("Invalid HLC [${existingState.hlc}] for $candidateKey")
                 }
@@ -96,18 +96,18 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                     return@execute onSkip(existingState)
                 }
 
-                // 2. Transformation & State Validation
+                // Transformation & State Validation
                 val provisionalState = computeChange(existingState)
                 val validatedState =
                     validateMutationOrAbort(op, provisionalState, candidateKey)
                         ?: return@execute onSkip(existingState)
 
-                // 3. HLC Advancement
+                // HLC Advancement
                 incomingHlc?.let { hlcFactory.witness(it) }
                 val hlc = incomingHlc ?: hlcFactory.getNextHlc()
                 val stampedState = validatedState.withHlc(hlc)
 
-                // 4. Fork depending on commit strategy (encoding/staging/ledgering)
+                // Fork depending on commit strategy (encoding/staging/ledgering)
                 return@execute if (isRemoteIntent) {
                     handleRemoteCommit(
                         candidateKey = candidateKey,
@@ -117,7 +117,8 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                 } else {
                     val payload = codecRouter.versionedEncode(stampedState, existingState)
                         ?: return@execute onSkip(existingState)
-                    val summary = codecRouter.versionedSummarize(stampedState, existingState)
+                    val summary =
+                        codecRouter.versionedSummarize(stampedState, existingState)
 
                     handleStagingAndLocalCommit(
                         candidateKey = candidateKey,
@@ -213,13 +214,13 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         var dbCommitted = false
 
         try {
-            // 1: Check if External IO needed (bigger blob)
+            // Check if External IO needed (bigger blob)
             if (payload.size > 64_000) {
                 blobId = blobStore.stage(Buffer().also { it.write(payload) })
                 logger.i { "Required staged payload: blobId $blobId [${payload.size / 1024}KB | Key: $candidateKey." }
             }
 
-            // 2: Atomic DB Commit for sync intent & local persistence
+            // Atomic DB Commit for sync intent & local persistence
             val mark = TimeSource.Monotonic.markNow()
             val result = transactor.runImmediateTransaction {
                 val localResult = persistAction()
@@ -238,7 +239,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                 logger.v { "Local DB Transaction Committed".withTimer(mark) }
             }
 
-            // 3. Commit the blob (sync intent commit means it cannot be orphaned)
+            // Commit the blob (sync intent commit means it cannot be orphaned)
             blobId?.also {
                 blobStore.commit(it)
                 logger.i {
@@ -249,12 +250,15 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             return result
         } catch (e: Exception) {
             if (blobId != null) {
+                // if an exception happened and we have an overflow
                 if (!dbCommitted) {
                     blobStore.abort(blobId).also {
                         logger.e { "Mutation Failed: Blob Aborted | HLC: $hlc | BlobID: $it | Reason: ${e.message}" }
                     }
                 } else {
                     logger.w(e) { "Post-Commit IO Failure: Blob $blobId stranded in /pending. Janitor will reconcile [${e.message}]." }
+                    // do we need to not throw the exception here as this is a recoverable state... the UI might get confusing here?
+                    throw MochaException.Transient.BlobResolutionPending(blobId)
                 }
             } else {
                 logger.e { "Local persistence failed: ${e.message}" }
