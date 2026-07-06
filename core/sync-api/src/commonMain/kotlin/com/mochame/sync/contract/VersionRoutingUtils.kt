@@ -32,7 +32,7 @@ import kotlinx.io.Source
  * @property versionRegistry maps a byte value representing a version to whatever Type is provided.
  */
 interface VersionRouter<T : Any> {
-    val latestVersion: Byte
+    val latestVersion: Int
 
     /**
      * Nullable in case version 1 is the starting point, in which case index 0 is to be null.
@@ -53,14 +53,18 @@ interface VersionRouter<T : Any> {
  */
 val <T : Any> VersionRouter<T>.latestCodec: T
     get() {
-        val index = (latestVersion.toInt() and 0xFF)
-        return versionRegistry.getOrNull(index)
+        return versionRegistry.getOrNull(latestVersion)
             ?: throw MochaException.Persistent.UnknownProtocolVersion(latestVersion)
     }
 
 fun <T : Any> VersionRouter<T>.getCodec(version: Byte): T {
     val index = (version.toInt() and 0xFF)
     return versionRegistry.getOrNull(index)
+        ?: throw MochaException.Persistent.UnknownProtocolVersion(latestVersion)
+}
+
+fun <T : Any> VersionRouter<T>.getCodec(version: Int): T {
+    return versionRegistry.getOrNull(version)
         ?: throw MochaException.Persistent.UnknownProtocolVersion(latestVersion)
 }
 
@@ -127,22 +131,22 @@ inline fun <T : Any, R> VersionRouter<T>.stripAndVersion(
 /**
  * Version stripping and codec versioning through [Source.readByte].
  */
-inline fun <T, R> stripAndVersion(
-    source: Source,
-    versionMap: Map<Byte, T>,
-    logger: Logger,
-    block: (T, Source) -> R
-): R {
-    if (source.exhausted()) {
-        throw MochaException.Persistent.CorruptionDetected("Empty payload envelope received.")
-    }
-
-    val version = source.readByte()
-    val codec = versionMap[version] ?: run {
-        logger.e { "Unable to fetch codec. Unknown protocol version byte: $version" }
-        throw MochaException.Persistent.UnknownProtocolVersion(version)
-    }
-
-    return block(codec, source)
-}
+//inline fun <T, R> stripAndVersion(
+//    source: Source,
+//    versionMap: Map<Byte, T>,
+//    logger: Logger,
+//    block: (T, Source) -> R
+//): R {
+//    if (source.exhausted()) {
+//        throw MochaException.Persistent.CorruptionDetected("Empty payload envelope received.")
+//    }
+//
+//    val version = source.readByte()
+//    val codec = versionMap[version] ?: run {
+//        logger.e { "Unable to fetch codec. Unknown protocol version byte: $version" }
+//        throw MochaException.Persistent.UnknownProtocolVersion(version)
+//    }
+//
+//    return block(codec, source)
+//}
 

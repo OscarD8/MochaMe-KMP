@@ -11,7 +11,7 @@ import com.mochame.sync.contract.SyncReceiver
 import com.mochame.sync.contract.models.DecodeContext
 import com.mochame.sync.contract.models.SyncIntent
 import com.mochame.sync.domain.providers.tryWithLock
-import com.mochame.sync.domain.serialization.BatchCodecRouter
+import com.mochame.sync.domain.serialization.PayloadCodec
 import com.mochame.sync.domain.stores.SyncIntentMaintenanceStore
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
@@ -26,7 +26,7 @@ internal class SyncCoordinator(
     private val intentStore: SyncIntentMaintenanceStore,
     private val transactor: TransactionProvider,
 //    private val moduleStateStore: SyncModuleStateStore,
-    private val batchCodecRouter: BatchCodecRouter,
+    private val payloadCodec: PayloadCodec,
     private val idGenerator: IdGenerator,
     @CoordinatorMutex private val coordinatorMutex: Mutex,
     logger: Logger
@@ -63,7 +63,7 @@ internal class SyncCoordinator(
                         if (batch.isEmpty()) break
 
                         try {
-                            val payload = batchCodecRouter.versionEncode(batch)
+                            val payload = payloadCodec.encode(batch)
 
 //                            val response = networkApi.push(payload)
 //                            val accepted = response.results.filter { it.accepted }.map { it.hlc }
@@ -94,7 +94,7 @@ internal class SyncCoordinator(
 //
 //        pending.filterNotNull().forEach { entity ->
 //            val domain = entity.toDomain()
-//            val bytes = syncCodec.versionedEncode(domain)
+//            val bytes = syncCodec.routedEncode(domain)
 //            try {
 //                networkApi.push(bytes)
 //                intentStore.discardIntent(entity.hlc)
@@ -107,9 +107,9 @@ internal class SyncCoordinator(
 //    }
 
     //
-    internal suspend fun onInboundBytes(raw: ByteArray) {
+    internal suspend fun onInboundBytes(inbound: ByteArray) {
         val intents = try {
-            batchCodecRouter.versionedDecode(raw)
+            payloadCodec.decode(inbound)
         } catch (e: Exception) {
             logger.e(e) { "Unexpected parsing failure during batch processing. ${e.message}" }
             return
@@ -141,6 +141,7 @@ internal class SyncCoordinator(
 
         try {
             val intentContext = DecodeContext(
+                featureSchemaVersion = intent.featureSchemaVersion,
                 id = intent.candidateKey,
                 hlc = intent.hlc,
                 lastModified = intent.createdAt,

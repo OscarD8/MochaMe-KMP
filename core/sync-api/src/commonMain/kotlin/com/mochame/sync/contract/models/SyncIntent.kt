@@ -4,6 +4,7 @@ import com.mochame.contract.metadata.MutationOp
 import com.mochame.sync.contract.SyncStatus
 
 data class SyncIntent(
+    val featureSchemaVersion: Int,
     val hlc: HLC,
     val candidateKey: String,
     val module: String,

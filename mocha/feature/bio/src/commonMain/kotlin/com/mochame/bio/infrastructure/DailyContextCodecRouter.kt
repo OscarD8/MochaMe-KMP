@@ -14,6 +14,6 @@ internal class DailyContextCodecRouter(
     logger: Logger
 ) : BaseFeatureCodecRouter<DailyContext>(
     versionRegistry = arrayOf(null, v1),
-    latestVersion = 0x01,
+    latestVersion = 1,
     logger = logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.BIO, "DayRtr")
 )

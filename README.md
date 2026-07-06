@@ -137,11 +137,11 @@ Needs Updating but general idea:
 
 ## Outbound
 
-<img src="docs/images/outbound-mermaid.webp" alt="mermaid diagram of outbound data flow">
+<img src="docs/images/outbound2.webp" alt="mermaid diagram of outbound data flow">
 
 ## Inbound
 
-<img src="docs/images/inbound-mermaid.webp" alt="mermaid diagram of inbound data flow">
+<img src="docs/images/inbound2.webp" alt="mermaid diagram of inbound data flow">
 
 </details>
 

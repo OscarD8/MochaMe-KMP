@@ -54,7 +54,7 @@ internal class DefaultDailyContextRepository(
     syncIntentStore = syncIntentStore,
     syncModuleStateStore = syncModuleStateStore,
     logger = logger.withTags(
-        layer = LogTags.Layer.INFRA,
+        layer = LogTags.Layer.REPO,
         domain = LogTags.Domain.BIO,
         className = "BioRepo"
     )

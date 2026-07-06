@@ -40,6 +40,7 @@ internal fun SyncModuleState.toEntity(): SyncModuleStateEntity {
 internal fun SyncIntentEntity.toDomain(): SyncIntent {
     return SyncIntent(
         hlc = hlc,
+        featureSchemaVersion = featureSchemaVersion,
         candidateKey = candidateKey,
         module = module,
         model = model,
@@ -59,6 +60,7 @@ internal fun SyncIntentEntity.toDomain(): SyncIntent {
 internal fun SyncIntent.toEntity(): SyncIntentEntity {
         return SyncIntentEntity(
             hlc = hlc,
+            featureSchemaVersion = featureSchemaVersion,
             candidateKey = candidateKey,
             module = module,
             model = model,

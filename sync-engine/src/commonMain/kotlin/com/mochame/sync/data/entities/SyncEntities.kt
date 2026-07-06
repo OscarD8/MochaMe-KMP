@@ -43,6 +43,7 @@ data class SyncModuleStateEntity(
 )
 data class SyncIntentEntity(
     @PrimaryKey val hlc: HLC,
+    val featureSchemaVersion: Int,
     val candidateKey: String,
     val module: String,
     val model: String,

@@ -15,14 +15,15 @@ import kotlin.time.Clock
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
 private data class SyncIntentDeltaV1(
-    @ProtoNumber(1) val hlc: String,
-    @ProtoNumber(2) val candidateKey: String,
-    @ProtoNumber(3) val module: String,
-    @ProtoNumber(4) val model: String,
-    @ProtoNumber(5) val operation: String,
-    @ProtoNumber(6) val payloadBlob: ByteArray? = null,
-    @ProtoNumber(7) val overflowBlobId: String? = null,
-    @ProtoNumber(8) val createdAt: Long
+    @ProtoNumber(1) val featureSchemaVersion: Int,
+    @ProtoNumber(2) val hlc: String,
+    @ProtoNumber(3) val candidateKey: String,
+    @ProtoNumber(4) val module: String,
+    @ProtoNumber(5) val model: String,
+    @ProtoNumber(6) val operation: String,
+    @ProtoNumber(7) val payloadBlob: ByteArray? = null,
+    @ProtoNumber(8) val overflowBlobId: String? = null,
+    @ProtoNumber(9) val createdAt: Long
 )
 
 @OptIn(ExperimentalSerializationApi::class)
@@ -31,6 +32,7 @@ internal class IntentCodecV1 : IntentCodec {
 
     override fun encode(intent: SyncIntent): ByteArray {
         val delta = SyncIntentDeltaV1(
+            featureSchemaVersion = intent.featureSchemaVersion,
             hlc = intent.hlc.toString(),
             candidateKey = intent.candidateKey,
             module = intent.module,
@@ -47,6 +49,7 @@ internal class IntentCodecV1 : IntentCodec {
         val envelope = ProtoBuf.decodeFromByteArray(SyncIntentDeltaV1.serializer(), bytes)
 
         return SyncIntent(
+            featureSchemaVersion = envelope.featureSchemaVersion,
             hlc = HLC.parse(envelope.hlc),
             candidateKey = envelope.candidateKey,
             module = envelope.module,

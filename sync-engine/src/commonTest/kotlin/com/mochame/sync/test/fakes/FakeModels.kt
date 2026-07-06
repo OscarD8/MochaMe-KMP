@@ -13,6 +13,7 @@ fun createTestSyncIntent(
     payload: ByteArray? = byteArrayOf(0x00)
 ): SyncIntent {
     return SyncIntent(
+        featureSchemaVersion = 1,
         hlc = hlc,
         candidateKey = candidateKey,
         module = context.moduleName,

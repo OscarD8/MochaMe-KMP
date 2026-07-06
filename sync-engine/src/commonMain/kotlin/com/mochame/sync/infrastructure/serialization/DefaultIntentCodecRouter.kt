@@ -3,35 +3,28 @@ package com.mochame.sync.infrastructure.serialization
 import co.touchlab.kermit.Logger
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
-import com.mochame.sync.domain.serialization.IntentCodecRouter
-import com.mochame.sync.contract.models.SyncIntent
 import com.mochame.sync.contract.VersionRouter
-import com.mochame.sync.contract.stripAndVersion
+import com.mochame.sync.contract.getCodec
 import com.mochame.sync.contract.latestCodec
-import com.mochame.sync.contract.prependVersionTo
+import com.mochame.sync.contract.models.SyncIntent
+import com.mochame.sync.contract.stripAndVersion
 import com.mochame.sync.domain.serialization.IntentCodec
+import com.mochame.sync.domain.serialization.IntentCodecRouter
 import org.koin.core.annotation.Single
 
 @Single(binds = [IntentCodecRouter::class])
 internal class DefaultIntentCodecRouter(
     v1: IntentCodecV1,
-    logger: Logger
 ) : VersionRouter<IntentCodec>, IntentCodecRouter {
 
     override val versionRegistry = arrayOf<IntentCodec?>(null, v1)
-    override val latestVersion: Byte = 0x01
-    private val logger = logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.SYNC, "IntRtr")
+    override val latestVersion = 1
 
-
-    override fun versionedEncode(intent: SyncIntent): ByteArray {
-        return prependVersionTo(latestVersion, logger) {
-            latestCodec.encode(intent)
-        }
+    override fun routedEncode(intent: SyncIntent): ByteArray {
+        return latestCodec.encode(intent)
     }
 
-    override fun versionedDecode(bytes: ByteArray): SyncIntent {
-        return stripAndVersion(bytes, bytes[0], logger) { codec, cleanBytes ->
-            codec.decode(cleanBytes)
-        }
+    override fun routedDecode(bytes: ByteArray, version: Int): SyncIntent {
+        return getCodec(version).decode(bytes)
     }
 }

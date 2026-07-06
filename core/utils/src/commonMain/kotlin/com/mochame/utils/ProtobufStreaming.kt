@@ -4,6 +4,8 @@ import co.touchlab.kermit.Logger
 import com.mochame.contract.exceptions.MochaException
 import kotlinx.io.Source
 
+
+
 fun Source.readProtobufVarint(logger: Logger): Int {
     var value = 0
     var shift = 0

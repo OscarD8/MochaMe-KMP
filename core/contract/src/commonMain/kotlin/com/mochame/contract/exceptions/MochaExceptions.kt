@@ -61,7 +61,7 @@ sealed class MochaException(
         class Uncategorized(message: String? = null, cause: Throwable? = null) :
             Persistent(message ?: "Unexpected failure.", cause)
 
-        class UnknownProtocolVersion(version: Byte) :
+        class UnknownProtocolVersion(version: Int) :
             Persistent("Unknown protocol version: $version")
 
         class FileNotFound(blobId: String) :

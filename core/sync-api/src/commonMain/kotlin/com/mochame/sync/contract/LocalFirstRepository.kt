@@ -115,7 +115,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                         persistAction = { persist(stampedState) }
                     )
                 } else {
-                    val payload = codecRouter.versionedEncode(stampedState, existingState)
+                    val payload = codecRouter.routedEncode(stampedState, existingState)
                         ?: return@execute onSkip(existingState)
                     val summary =
                         codecRouter.versionedSummarize(stampedState, existingState)
@@ -135,10 +135,10 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
 
     override suspend fun processRemoteIntent(
         context: DecodeContext,
-        payload: ByteArray
+        payload: ByteArray,
     ) {
         // Use the repository's specific encoder to turn bytes into T
-        val remoteEntity = codecRouter.versionedDecode(payload, context)
+        val remoteEntity = codecRouter.routedDecode(payload, context)
 
         processIntent(
             candidateKey = remoteEntity.id,
@@ -257,7 +257,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                     }
                 } else {
                     logger.w(e) { "Post-Commit IO Failure: Blob $blobId stranded in /pending. Janitor will reconcile [${e.message}]." }
-                    // do we need to not throw the exception here as this is a recoverable state... the UI might get confusing here?
+                    // Update the status of the SyncIntent? New status?
                     throw MochaException.Transient.BlobResolutionPending(blobId)
                 }
             } else {
@@ -290,6 +290,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
 
         syncIntentStore.recordIntent(
             SyncIntent(
+                featureSchemaVersion = codecRouter.latestVersion, // guaranteed to not have changed
                 hlc = hlc,
                 candidateKey = candidateKey,
                 module = moduleContext.moduleName,
