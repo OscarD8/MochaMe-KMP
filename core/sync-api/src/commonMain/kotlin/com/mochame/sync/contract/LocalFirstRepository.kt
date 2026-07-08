@@ -47,11 +47,12 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     protected val syncIntentStore: SyncIntentStore,
     protected val syncModuleStateStore: SyncModuleStateStore,
     protected val logger: Logger,
-    @IoContext protected val ioContext: CoroutineContext,
     protected val transactor: TransactionProvider,
     protected val blobStore: BlobStager,
+    protected val invalidationHook: SyncInvalidationHook,
     override val moduleContext: MochaModuleContext,
     private val provider: BootStatusProvider,
+    @IoContext protected val ioContext: CoroutineContext
 ) : SyncReceiver {
 
     /**
@@ -236,6 +237,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                 localResult
             }.also {
                 dbCommitted = true
+                invalidationHook.invalidate()
                 logger.v { "Local DB Transaction Committed".withTimer(mark) }
             }
 

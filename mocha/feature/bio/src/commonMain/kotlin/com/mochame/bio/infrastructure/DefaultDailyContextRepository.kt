@@ -18,6 +18,7 @@ import com.mochame.logger.withTags
 import com.mochame.sync.contract.stores.BlobStager
 import com.mochame.sync.contract.HlcFactory
 import com.mochame.sync.contract.LocalFirstRepository
+import com.mochame.sync.contract.SyncInvalidationHook
 import com.mochame.sync.contract.stores.SyncIntentStore
 import com.mochame.sync.contract.stores.SyncModuleStateStore
 import com.mochame.utils.KeyedLocker
@@ -40,6 +41,7 @@ internal class DefaultDailyContextRepository(
     blobStore: BlobStager,
     syncIntentStore: SyncIntentStore,
     syncModuleStateStore: SyncModuleStateStore,
+    invalidationHook: SyncInvalidationHook,
     locker: KeyedLocker,
 ) : LocalFirstRepository<DailyContext>(
     hlcFactory = hlcFactory,
@@ -53,6 +55,7 @@ internal class DefaultDailyContextRepository(
     ioContext = ioContext,
     syncIntentStore = syncIntentStore,
     syncModuleStateStore = syncModuleStateStore,
+    invalidationHook = invalidationHook,
     logger = logger.withTags(
         layer = LogTags.Layer.REPO,
         domain = LogTags.Domain.BIO,

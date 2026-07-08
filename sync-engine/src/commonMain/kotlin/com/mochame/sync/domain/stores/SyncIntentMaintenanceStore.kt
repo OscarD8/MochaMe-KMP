@@ -17,7 +17,7 @@ internal interface SyncIntentMaintenanceStore : SyncIntentStore {
 
     /**
      * Sets status to pending, applying the retry attempts whilst nullifying the syncId,
-     * freeing the entity for a new batch, applied by [SyncCoordinator.startOutboundPipeline].
+     * freeing the entity for a new batch, applied by the [SyncCoordinator].
      */
     suspend fun resetLease(hlc: HLC, retryCount: Int)
     suspend fun observeQuarantinedCountByModule(): Flow<List<QuarantinedModuleSummary>>

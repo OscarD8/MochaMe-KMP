@@ -12,8 +12,8 @@ import org.koin.core.annotation.Single
 private data class VersionedPayload(
     @ProtoNumber(1) val batchVersion: Int,
     @ProtoNumber(2) val payload: ByteArray
-) {
-}
+)
+
 
 @Single(binds = [PayloadCodec::class])
 internal class DefaultPayloadCodec(

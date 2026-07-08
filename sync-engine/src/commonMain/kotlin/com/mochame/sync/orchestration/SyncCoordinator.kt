@@ -1,34 +1,38 @@
 package com.mochame.sync.orchestration
 
 import co.touchlab.kermit.Logger
+import com.mochame.contract.di.AppScope
 import com.mochame.contract.di.CoordinatorMutex
 import com.mochame.contract.exceptions.MochaException
 import com.mochame.contract.node.IdGenerator
 import com.mochame.contract.providers.TransactionProvider
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
+import com.mochame.sync.contract.SyncInvalidationHook
 import com.mochame.sync.contract.SyncReceiver
 import com.mochame.sync.contract.models.DecodeContext
 import com.mochame.sync.contract.models.SyncIntent
-import com.mochame.sync.domain.providers.tryWithLock
+import com.mochame.sync.domain.tryWithLock
 import com.mochame.sync.domain.serialization.PayloadCodec
 import com.mochame.sync.domain.stores.SyncIntentMaintenanceStore
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import org.koin.core.annotation.Single
-import kotlin.time.Duration.Companion.milliseconds
 
 
 @Single
 internal class SyncCoordinator(
-    receivers: List<SyncReceiver>, // koin handles as long as classes are bound
     private val intentStore: SyncIntentMaintenanceStore,
     private val transactor: TransactionProvider,
 //    private val moduleStateStore: SyncModuleStateStore,
     private val payloadCodec: PayloadCodec,
     private val idGenerator: IdGenerator,
+    private val invalidationHook: SyncInvalidationHook,
     @CoordinatorMutex private val coordinatorMutex: Mutex,
+    @AppScope private val appScope: CoroutineScope,
+    receivers: List<SyncReceiver>, // koin handles as long as classes are bound
     logger: Logger
 ) {
     private val logger = logger.withTags(
@@ -40,30 +44,46 @@ internal class SyncCoordinator(
     private val receiverRoutingMap: Map<String, SyncReceiver> =
         receivers.associateBy { it.moduleContext.modelName }
 
+    fun start() {
+        appScope.launch {
+            invalidationHook.signals.collect {
+                try {
+                    processQueueUntilExhausted()
+                } catch (e: Exception) {
+                    logger.e(e) {
+                        "Failure inside outbound orchestration worker step. " +
+                                "Isolating error to preserve background stream lifecycle."
+                    }
+                }
+            }
+        }
+    }
+
     // awaiting implementation of the server
     // Called by the app's lifecycle owner on startup
+    /**
+     * Intended behavior should ensure regular batches are made when feature repositories
+     * perform local changes, these batches being small. The UI design must be considered
+     * in relation to this behavior, as it will directly relate to how repositories trigger
+     * invalidation and the batch process.
+     */
     @OptIn(FlowPreview::class)
-    suspend fun startOutboundPipeline() {
-        intentStore.observePendingCount()
-            .debounce(200.milliseconds) // due to potential overhead of Rooms invalidation trackers
-            .collect { pendingCount ->
-                if (pendingCount == 0) return@collect
+    suspend fun processQueueUntilExhausted() {
 
-                coordinatorMutex.tryWithLock {
-                    val sessionId = idGenerator.nextId()
+        coordinatorMutex.tryWithLock {
+            while (true) {
+                val batchId = idGenerator.nextId()
 
-                    while (true) {
-                        val batch = transactor.runImmediateTransaction {
-                            val claimedRows = intentStore.claimBatch(sessionId)
-                            if (claimedRows == 0) return@runImmediateTransaction emptyList() // necessary in case Janitor just performed manual sweep
+                val batch = transactor.runImmediateTransaction {
+                    val claimedRows = intentStore.claimBatch(batchId)
+                    if (claimedRows == 0) return@runImmediateTransaction emptyList() // necessary in case Janitor just performed manual sweep
+                    intentStore.getClaimedBatch(batchId)
+                }
 
-                            intentStore.getClaimedBatch(sessionId)
-                        }
+                if (batch.isEmpty()) break
 
-                        if (batch.isEmpty()) break
-
-                        try {
-                            val payload = payloadCodec.encode(batch)
+                try {
+                    val payload = payloadCodec.encode(batch)
 
 //                            val response = networkApi.push(payload)
 //                            val accepted = response.results.filter { it.accepted }.map { it.hlc }
@@ -77,15 +97,15 @@ internal class SyncCoordinator(
 //                                    message = result.errorMessage ?: "Server rejected intent"
 //                                )
 //                            }
-                        } catch (e: Exception) {
-                            logger.w(e) { "Transmission failed for session: $sessionId. ${e.message}" }
+                } catch (e: Exception) {
+                    logger.w(e) { "Transmission failed for session: $batchId. ${e.message}" }
 
-                            break // Break loop; Janitor repairs stranded lease rows later.
-                            // This is currently where all failed encoding/network attempts propagate, and then get silenced.
-                        }
-                    }
+                    break // Break loop; Janitor repairs stranded lease rows later.
+                    // This is currently where all failed encoding/network attempts propagate, and then get silenced.
                 }
             }
+        }
+
     }
 
 //    private suspend fun packageAndShip(module: MochaModule) {
