@@ -1,6 +1,6 @@
 # MochaMe-KMP
 
-This project is a proof-of-concept exploration into Kotlin Multiplatform. The goal is to build an isolated, privacy-centric, local-first sync engine deployable across platforms using minimal platform-specific boilerplate, with the application incorporating swappable edge AI inference. The centerpiece of this architecture is platform testability - utilizing Gradle and Koin.
+This project is an exploration into Kotlin Multiplatform. The goal is to build a decoupled, privacy-centric, local-first synchronization system capable of being deployed across platforms using minimal platform-specific boilerplate, exposing a lightweight module of contracts for any implementing features, with the application incorporating swappable edge AI inference. The centerpiece of this architecture is platform testability - utilizing Gradle and Koin.
 
 ---
 
