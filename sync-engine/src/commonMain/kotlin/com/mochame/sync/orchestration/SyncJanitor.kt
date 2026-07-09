@@ -200,7 +200,7 @@ internal class SyncJanitor(
         val cutoff = Clock.System.now().toEpochMilliseconds() - LEASE_TIMEOUT_MS
 
         transactor.runImmediateTransaction {
-            val staleLeases = intentStore.getStaleLeasedIntents(olderThan = cutoff)
+            val staleLeases = intentStore.getStaleLeasedIntents(cutoff)
 
             staleLeases.forEach { intent ->
                 val newRetryCount = intent.retryCount + 1

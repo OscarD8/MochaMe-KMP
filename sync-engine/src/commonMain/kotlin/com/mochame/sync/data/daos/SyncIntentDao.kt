@@ -9,18 +9,26 @@ import com.mochame.sync.domain.model.QuarantinedModuleSummary
 import com.mochame.sync.contract.SyncStatus
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * The purpose of this DAO is to ensure the system can maintain a reliable, predictable
+ * record of what individual changes must leave the device and what states they are currently in. (With
+ * the additional case where external intents will be stored if they hold an overflowBlobId).
+ * Responsibilities involve:
+ * - Ingestion & Ordering, Leasing & Batching, State Management & Recovery.
+ *
+ *  On ingestion, it must accept local modifications from features, and order those mutations in
+ * way that ensures outbound batching reaches the longest pending intents first.
+ * This component must ensure an atomic claim phase where no two sessions should ever grab
+ * overlapping intents. It must ensure Success states clear the sessionID and updates the status.
+ * On failure, it allows a quarantining protocol and makes transparent the failure state.
+ * The design should allow the synchronization system to recover from unexpected
+ * application terminations, whilst managing the footprint of intent records themselves.
+ */
 @Dao
 internal interface SyncIntentDao {
 
     /**
-     * The Global Watermark: Hydrates the HlcFactory.
-     * Room uses the HLC TypeConverter to return the object directly.
-     */
-    @Query("SELECT MAX(hlc) FROM SyncIntentEntity")
-    suspend fun getLedgerGlobalMaxHlc(): String?
-
-    /**
-     * Compaction Lookup: Finds an unsynced mutation for a specific record.
+     * Compaction Lookup. Finds an unsynced mutation for a specific record.
      */
     @Query(
         """
@@ -52,7 +60,7 @@ internal interface SyncIntentDao {
     @Query(
         """
         UPDATE SyncIntentEntity 
-        SET syncId = :sessionId, syncStatus = :syncingStatus
+        SET syncId = :id, syncStatus = :syncingStatus
         WHERE hlc IN (
             SELECT hlc FROM SyncIntentEntity
             WHERE syncId IS NULL 
@@ -63,17 +71,14 @@ internal interface SyncIntentDao {
     """
     )
     suspend fun claimBatch(
-        sessionId: String,
+        id: String,
         limit: Int,
         pendingStatus: SyncStatus = SyncStatus.PENDING,
         syncingStatus: SyncStatus = SyncStatus.SYNCING
     ): Int
 
-    /**
-     * Batch Collector: Grabs changes to ship to the Cloud Vault.
-     */
-    @Query("SELECT * FROM SyncIntentEntity WHERE syncId = :sessionId")
-    suspend fun getClaimedBatch(sessionId: String): List<SyncIntentEntity>
+    @Query("SELECT * FROM SyncIntentEntity WHERE syncId = :id ORDER BY hlc ASC")
+    suspend fun getClaimedBatch(id: String): List<SyncIntentEntity>
 
     // using transaction provider instead
 //    @Transaction
@@ -88,9 +93,6 @@ internal interface SyncIntentDao {
 //        return getClaimedBatch(sessionId)
 //    }
 
-    /**
-     * Final ACK: Marks a batch of mutations as successfully synced.
-     */
     @Query(
         """
         UPDATE SyncIntentEntity 
@@ -115,9 +117,6 @@ internal interface SyncIntentDao {
     @Query("SELECT EXISTS(SELECT 1 FROM SyncIntentEntity WHERE overflowBlobId = :blobId)")
     suspend fun existsByBlobId(blobId: String): Boolean
 
-    /**
-     * Pruning Task: Removes old tombstones and synced history.
-     */
     @Query(
         """
     DELETE FROM SyncIntentEntity 
@@ -141,9 +140,6 @@ internal interface SyncIntentDao {
     @Query("DELETE FROM SyncIntentEntity WHERE hlc = :hlc")
     suspend fun deleteByHlc(hlc: HLC)
 
-    @Query("SELECT COUNT(*) FROM SyncIntentEntity WHERE syncStatus = :status")
-    fun observePendingCount(status: SyncStatus = SyncStatus.PENDING): Flow<Int>
-
     // ----- CLEAN UP (Janitor Support) ------
     /**
      * If any row in the entire ledger has a syncId, its stale and the result of a crash.
@@ -156,7 +152,7 @@ internal interface SyncIntentDao {
         WHERE syncId IS NOT NULL
     """
     )
-    suspend fun clearAllLocksAndResetStatus(
+    suspend fun clearAllLocksAndResetToPending(
         desiredStatus: SyncStatus = SyncStatus.PENDING
     ): Int
 
@@ -182,10 +178,16 @@ internal interface SyncIntentDao {
         status: SyncStatus = SyncStatus.QUARANTINED
     )
 
+    /**
+     * Useful for targeting intents that may have switched to a syncing status but
+     * never shipped due to an application crash for example. The cutoff is
+     * what determines whether the intent is still perceived to be part of an active
+     * process, or is now recognized as stale.
+     */
     @Query(
         """
         SELECT * FROM SyncIntentEntity
-        WHERE syncId != NULL AND syncStatus = :targetStatus AND leasedAt > :cutOff
+        WHERE syncId IS NOT NULL AND syncStatus = :targetStatus AND leasedAt < :cutOff
         """
     )
     suspend fun getStaleLeasedIntents(
@@ -193,6 +195,10 @@ internal interface SyncIntentDao {
         targetStatus: SyncStatus = SyncStatus.SYNCING,
     ): List<SyncIntentEntity>
 
+    /**
+     * Updates the retry count as requested, and defaults to setting the status back to
+     * [SyncStatus.PENDING].
+     */
     @Query(
         """
         UPDATE SyncIntentEntity

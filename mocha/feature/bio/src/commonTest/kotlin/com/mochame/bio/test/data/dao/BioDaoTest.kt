@@ -31,18 +31,7 @@ private inline fun runEnv(crossinline block: suspend BioDao.(TestScope) -> Unit)
         block = block
     )
 
-private fun createHlc(
-    offsetMs: Long = 0,
-    count: Int = 0,
-    nodeId: String = "test-node"
-): HLC = HLC(
-    ts = HLC.APP_RELEASE_MS + offsetMs,
-    count = count,
-    nodeId = nodeId
-)
-
 @ExperimentalCoroutinesApi
-@ExperimentalKermitApi
 class BaseBioDaoTest : MochaPlatformTest() {
 
     @Test
@@ -417,7 +406,7 @@ class BaseBioDaoTest : MochaPlatformTest() {
     }
 
     @Test
-    fun should_surviveHlcRaceCondition_withDeterministicWinner() = runEnv { scope ->
+    fun should_copyDataCorrectly_when_multipleEventsOccurOnSameDay() = runEnv { scope ->
         val dayKey = 20500L
         val id = "uuid-global"
 
@@ -427,7 +416,7 @@ class BaseBioDaoTest : MochaPlatformTest() {
                 epochDay = dayKey,
                 sleepHours = i.toDouble(),
                 readinessScore = 9,
-                hlc = createHlc(i.toLong()).toString(), // Refactored
+                hlc = createHlc(i.toLong()).toString(),
                 lastModified = 1000L
             )
         }
@@ -438,12 +427,12 @@ class BaseBioDaoTest : MochaPlatformTest() {
         scope.advanceUntilIdle()
 
         val result = getContextByDay(dayKey)
-        assertEquals(createHlc(1010L).toString(), result?.hlc) // Refactored: Max HLC wins
+        assertEquals(createHlc(1010L).toString(), result?.hlc)
         assertEquals(1010.0, result?.sleepHours)
     }
 
     /**
-     * Factory function for generating deterministic HLCs in tests.[cite: 3]
+     * Factory function for generating deterministic HLCs in tests.
      */
     private fun createHlc(
         offsetMs: Long = 0,

@@ -2,7 +2,6 @@ package com.mochame.sync.infrastructure.stores
 
 
 import com.mochame.sync.contract.stores.SyncIntentStore
-import com.mochame.sync.contract.SyncStatus
 import com.mochame.sync.contract.models.HLC
 import com.mochame.sync.contract.models.SyncIntent
 import com.mochame.sync.data.daos.SyncIntentDao
@@ -47,15 +46,11 @@ internal class DefaultSyncIntentStore(
      * further attempt to sync.
      */
     override suspend fun clearAllLocksAndResetToPending(): Int {
-        return dao.clearAllLocksAndResetStatus()
+        return dao.clearAllLocksAndResetToPending()
     }
 
     override suspend fun pruneOldSynced(olderThan: Long, limit: Int): Int {
         return dao.pruneOldSynced(cutoff = olderThan, limit = limit)
-    }
-
-    override suspend fun observePendingCount(): Flow<Int> {
-        return dao.observePendingCount()
     }
 
     override suspend fun stampLastError(hlcs: List<String>, message: String) {
@@ -68,11 +63,7 @@ internal class DefaultSyncIntentStore(
     override suspend fun getClaimedBatch(sessionId: String): List<SyncIntent> =
         dao.getClaimedBatch(sessionId).map { it.toDomain() }
 
-    override suspend fun acknowledgeSuccess(hlcList: List<String>) {
-        hlcList.forEach { hlc ->
-            dao.setStatus(HLC.parse(hlc), SyncStatus.SUCCESS)
-        }
-    }
+    override suspend fun acknowledgeSuccess(hlcList: List<HLC>) = dao.markAsSynced(hlcList)
 
     override suspend fun getStaleLeasedIntents(olderThan: Long): List<SyncIntent> =
         dao.getStaleLeasedIntents(olderThan).map { it.toDomain() }

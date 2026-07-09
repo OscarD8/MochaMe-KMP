@@ -1,7 +1,6 @@
 package com.mochame.sync.contract
 
 enum class SyncStatus(val id: Int) {
-    IDLE(0),
     PENDING(1),
     SYNCING(2),
     SUCCESS(3),

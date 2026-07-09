@@ -39,7 +39,7 @@ internal fun SyncModuleState.toEntity(): SyncModuleStateEntity {
 
 internal fun SyncIntentEntity.toDomain(): SyncIntent {
     return SyncIntent(
-        hlc = hlc,
+        hlc = HLC.parse(hlc),
         featureSchemaVersion = featureSchemaVersion,
         candidateKey = candidateKey,
         module = module,
@@ -59,7 +59,7 @@ internal fun SyncIntentEntity.toDomain(): SyncIntent {
 
 internal fun SyncIntent.toEntity(): SyncIntentEntity {
         return SyncIntentEntity(
-            hlc = hlc,
+            hlc = hlc.toString(),
             featureSchemaVersion = featureSchemaVersion,
             candidateKey = candidateKey,
             module = module,

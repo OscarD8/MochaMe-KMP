@@ -101,7 +101,7 @@ internal class DefaultBlobStore(
         } catch (e: Exception) {
             if (fileSystem.exists(tempPath)) fileSystem.delete(tempPath)
 
-            throw e.toMochaException("Blob Staging")
+            throw e.toMochaException("Blob Staging: ${e.message}")
         }
     }
 

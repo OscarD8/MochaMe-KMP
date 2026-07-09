@@ -1,4 +1,4 @@
-package com.mochame.sync.test.database
+package com.mochame.sync.test.schema
 
 import androidx.room.ConstructedBy
 import androidx.room.Database
@@ -20,8 +20,8 @@ import com.mochame.sync.data.entities.SyncModuleStateEntity
 )
 @TypeConverters(SyncConverters::class)
 internal abstract class SyncMicroSchema : RoomDatabase() {
-    internal abstract fun syncMetadataDao(): SyncModuleStateDao
-    internal abstract fun mutationLedgerDao(): SyncIntentDao
+    internal abstract fun syncModuleStateDao(): SyncModuleStateDao
+    internal abstract fun syncIntentDao(): SyncIntentDao
 
     internal companion object {
         const val NAME = "sync_micro_schema.db"

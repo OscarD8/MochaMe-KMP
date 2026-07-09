@@ -5,10 +5,13 @@ import com.mochame.contract.providers.TransactionProvider
 import com.mochame.platform.providers.PlatformContext
 import com.mochame.sync.data.daos.SyncIntentDao
 import com.mochame.sync.data.daos.SyncModuleStateDao
-import com.mochame.sync.test.database.SyncMicroSchema
+import com.mochame.sync.test.schema.SyncMicroSchema
+import org.koin.core.annotation.KoinApplication
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
 
+@KoinApplication(modules = [SyncPersistenceTestModule::class])
+internal object SyncPersistenceTestApp
 
 @Module
 internal class SyncPersistenceTestModule {
@@ -21,12 +24,12 @@ internal class SyncPersistenceTestModule {
     }
 
     @Single
-    fun provideMetadataDao(db: SyncMicroSchema): SyncModuleStateDao =
-        db.syncMetadataDao()
+    fun provideModuleStateDao(db: SyncMicroSchema): SyncModuleStateDao =
+        db.syncModuleStateDao()
 
     @Single
-    fun provideLedgerDao(db: SyncMicroSchema): SyncIntentDao =
-        db.mutationLedgerDao()
+    fun provideIntentDao(db: SyncMicroSchema): SyncIntentDao =
+        db.syncIntentDao()
 
     @Single
     fun provideTransactionProvider(): TransactionProvider =

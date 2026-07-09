@@ -148,6 +148,17 @@ internal class SyncCoordinator(
             )
         }
 
+        check(payload != null || intent.overflowBlobId != null) {
+            throw MochaException.Persistent.CorruptionDetected(
+                "Data integrity violation for ${intent.candidateKey}: both payload and blobId are null"
+            )
+        }
+        check(!(payload != null && intent.overflowBlobId != null)) {
+            throw MochaException.Persistent.CorruptionDetected(
+                "Data integrity violation for ${intent.candidateKey}: payload and blobId are mutually exclusive"
+            )
+        }
+
         if (payload == null) {
             if (intent.overflowBlobId != null) {
                 intentStore.recordIntent(intent)

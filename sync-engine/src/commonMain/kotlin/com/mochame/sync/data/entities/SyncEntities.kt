@@ -3,7 +3,6 @@ package com.mochame.sync.data.entities
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.mochame.contract.metadata.MochaModuleContext
 import com.mochame.contract.metadata.MutationOp
 import com.mochame.sync.contract.SyncStatus
 import com.mochame.sync.contract.models.HLC
@@ -42,7 +41,7 @@ data class SyncModuleStateEntity(
     ]
 )
 data class SyncIntentEntity(
-    @PrimaryKey val hlc: HLC,
+    @PrimaryKey val hlc: String,
     val featureSchemaVersion: Int,
     val candidateKey: String,
     val module: String,
@@ -55,7 +54,7 @@ data class SyncIntentEntity(
     val leasedAt: Long? = null,          // enables safe Janitor cutoff queries
     val diagnosticSummary: String?,
     val retryCount: Int = 0,              // Janitor implements threshold logic
-    val lastErrorMessage: String? = null, // works in conjunction with retryCount
+    val lastErrorMessage: String? = null, // works in conjunction with retryCount - is there ever a need to clear this?
     val createdAt: Long = Clock.System.now().toEpochMilliseconds()
     // hasConflict removed — until server conflict protocol is defined
 )

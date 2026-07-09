@@ -13,10 +13,9 @@ interface SyncIntentStore {
     suspend fun recordIntent(entry: SyncIntent)
     suspend fun getPendingByModule(module: String): List<SyncIntent?>
     suspend fun discardIntent(hlc: HLC)
-    suspend fun observePendingCount(): Flow<Int>
     suspend fun claimBatch(sessionId: String, limit: Int = 50): Int
     suspend fun getClaimedBatch(sessionId: String): List<SyncIntent>
 
-    suspend fun acknowledgeSuccess(hlcList: List<String>)
+    suspend fun acknowledgeSuccess(hlcList: List<HLC>)
     suspend fun stampLastError(hlcs: List<String>, message: String)
 }

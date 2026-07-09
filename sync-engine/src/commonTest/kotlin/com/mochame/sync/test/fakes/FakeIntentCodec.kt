@@ -1,5 +1,6 @@
 package com.mochame.sync.test.fakes
 
+import com.mochame.support.TestHlcFactory
 import com.mochame.sync.contract.models.SyncIntent
 import com.mochame.sync.domain.serialization.IntentCodec
 
@@ -18,7 +19,7 @@ private class FakeIntentCodec(
 
     override fun decode(bytes: ByteArray): SyncIntent {
         decodeCalledWith = bytes
-        return createTestSyncIntent()
+        return createTestSyncIntent(TestHlcFactory.create())
     }
 }
 

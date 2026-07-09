@@ -11,8 +11,8 @@ import com.mochame.contract.metadata.MochaModuleContext
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runPersistenceEnvironment
 import com.mochame.sync.data.entities.SyncModuleStateEntity
-import com.mochame.sync.test.database.SyncMicroSchema
-import com.mochame.sync.test.database.SyncMicroSchemaConstructor
+import com.mochame.sync.test.schema.SyncMicroSchema
+import com.mochame.sync.test.schema.SyncMicroSchemaConstructor
 import com.mochame.sync.test.di.janitor.JanitorTestApp
 import com.mochame.sync.test.di.janitor.JanitorTestEnv
 import kotlinx.coroutines.ExperimentalCoroutinesApi

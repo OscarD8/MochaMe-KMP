@@ -12,7 +12,7 @@ import kotlin.time.TimeSource
 
 @Single
 internal class PruneOldEntriesUseCase(
-    private val ledgerMaintenance: SyncIntentMaintenanceStore,
+    private val intentStore: SyncIntentMaintenanceStore,
     private val dateTimeUtils: DateTimeProvider,
     logger: Logger
 ) {
@@ -36,7 +36,7 @@ internal class PruneOldEntriesUseCase(
         var iterations = 0
 
         do {
-            val deleted = ledgerMaintenance.pruneOldSynced(cutoff, LIMIT)
+            val deleted = intentStore.pruneOldSynced(cutoff, LIMIT)
             totalDeleted += deleted
             iterations++
 

@@ -155,7 +155,7 @@ internal class DefaultDailyContextRepository(
         isNapped: Boolean,
         existing: DailyContext?
     ): DailyContext {
-        return (existing?.copy(
+        return existing?.copy(
             sleepHours = sleepHours,
             readinessScore = readinessScore,
             isNapped = isNapped,
@@ -167,7 +167,7 @@ internal class DefaultDailyContextRepository(
             readinessScore = readinessScore,
             isNapped = isNapped,
             isDeleted = false,
-        ))
+        )
     }
 }
 

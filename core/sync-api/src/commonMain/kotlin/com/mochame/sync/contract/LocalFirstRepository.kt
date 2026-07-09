@@ -64,7 +64,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
      * @param candidateKey the item (either fetched remotely, or from a local UI event) to be persisted locally.
      * @param incomingHlc used when the SyncCoordinator is calling to process an intent. Forks how we process the intent.
      * @param op the DML operation for the intent. Required for metadata, logging, and state verification.
-     * @param fetchExistingState used to perform a backup causality check, and possible ghost deleteBlobByHash.
+     * @param fetchExistingState used to perform a backup causality check, and possible ghost deleteBlobByHash (?).
      * @param computeChange requires the feature to assert the state change they wish to make. T is nullable in the case of deletions where a remote intent is made to delete state that does not exist locally.
      * @param persist after verifying and stamping the feature state change, the finalized state is persisted atomically alongside sync payloads/metadata.
      * @param onSkip offers a type-safe way to return R. Potential case of multiple concurrent requests to processing the same intent -
@@ -196,6 +196,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             return null
         }
         if (provisionalState == null) {
+            // when does deleteBlobByHash come into it?
             logger.d { "$candidateKey produced a null state for an intent out of a deleteBlobByHash context?.. Cannot stamp." }
             return null
         }

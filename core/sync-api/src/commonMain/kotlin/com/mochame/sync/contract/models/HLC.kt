@@ -67,8 +67,6 @@ data class HLC(
         /**
          * Internal limits
          */
-        const val TS_PAD = 15
-        const val COUNT_PAD = 5
         const val MAX_COUNTER_INT = 65535
         const val MAX_COUNTER_STRING = "FFFF"
         const val ONE_DAY_MS = 86_400_000L

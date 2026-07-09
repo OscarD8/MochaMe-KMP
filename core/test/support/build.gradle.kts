@@ -13,6 +13,7 @@ kotlin {
             implementation(libs.room.runtime)
 
             implementation(project(":core:platform"))
+            implementation(project(":core:sync-api"))
             api(project(":core:test:test-logger"))
         }
 
