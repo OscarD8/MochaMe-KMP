@@ -1,8 +1,8 @@
 package com.mochame.sync.test.fakes
 
 import co.touchlab.kermit.Logger
-import com.mochame.sync.contract.models.HLC
-import com.mochame.sync.contract.HlcFactory
+import com.mochame.sync.api.models.HLC
+import com.mochame.sync.api.HlcFactory
 import com.mochame.sync.infrastructure.EngineHlcFactory
 import com.mochame.utils.fixtures.FakeDateTimeUtils
 

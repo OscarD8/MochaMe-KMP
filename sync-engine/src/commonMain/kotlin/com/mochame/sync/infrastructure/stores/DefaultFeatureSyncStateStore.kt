@@ -1,10 +1,10 @@
 package com.mochame.sync.infrastructure.stores
 
 
-import com.mochame.sync.contract.FeatureContext
-import com.mochame.sync.contract.models.FeatureSyncState
-import com.mochame.sync.contract.stores.FeatureSyncStateStore
-import com.mochame.sync.contract.models.HLC
+import com.mochame.sync.api.FeatureContext
+import com.mochame.sync.api.models.NodeSyncState
+import com.mochame.sync.api.stores.FeatureSyncStateStore
+import com.mochame.sync.api.models.HLC
 import com.mochame.sync.data.daos.FeatureSyncStateDao
 import com.mochame.sync.data.toDomain
 import com.mochame.sync.domain.stores.FeatureSyncStateMaintenanceStore
@@ -15,7 +15,7 @@ internal class DefaultFeatureSyncStateStore(
     private val dao: FeatureSyncStateDao
 ) : FeatureSyncStateStore, FeatureSyncStateMaintenanceStore {
 
-    override suspend fun getFeatureMetadata(module: String): FeatureSyncState? =
+    override suspend fun getFeatureMetadata(module: String): NodeSyncState? =
         dao.getFeatureMetadata(module)?.toDomain()
 
     override suspend fun updateHlcFloor(module: String, hlc: HLC) =

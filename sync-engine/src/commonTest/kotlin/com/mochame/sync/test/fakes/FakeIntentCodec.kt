@@ -1,7 +1,7 @@
 package com.mochame.sync.test.fakes
 
 import com.mochame.support.TestHlcFactory
-import com.mochame.sync.contract.models.SyncIntent
+import com.mochame.sync.api.models.SyncIntent
 import com.mochame.sync.domain.serialization.IntentCodec
 
 // Preliminary example

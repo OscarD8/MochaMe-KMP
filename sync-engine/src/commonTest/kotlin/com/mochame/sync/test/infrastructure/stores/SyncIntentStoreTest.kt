@@ -1,11 +1,11 @@
 package com.mochame.sync.test.infrastructure.stores
 
 import app.cash.turbine.test
-import com.mochame.sync.contract.FeatureContext
+import com.mochame.sync.api.FeatureContext
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.TestHlcFactory
 import com.mochame.support.runPersistenceEnvironment
-import com.mochame.sync.contract.SyncStatus
+import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.test.di.data.PersistenceEnv
 import com.mochame.sync.test.di.data.SyncPersistenceTestApp
 import com.mochame.sync.test.fakes.createTestIntentEntity

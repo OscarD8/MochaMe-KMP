@@ -1,7 +1,7 @@
 package com.mochame.bio.data
 
 import com.mochame.bio.domain.DailyContext
-import com.mochame.sync.contract.models.HLC
+import com.mochame.sync.api.models.HLC
 
 /**
  * Entity -> Domain

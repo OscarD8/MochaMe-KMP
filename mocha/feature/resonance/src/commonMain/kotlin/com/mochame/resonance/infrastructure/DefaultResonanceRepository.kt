@@ -2,7 +2,7 @@ package com.mochame.resonance.infrastructure
 
 
 import com.mochame.contract.di.IoContext
-import com.mochame.contract.exceptions.MochaException
+import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.contract.providers.DateTimeProvider
 import com.mochame.resonance.data.QuoteEntity
 import com.mochame.resonance.data.ResonanceDao

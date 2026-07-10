@@ -1,9 +1,8 @@
 package com.mochame.sync.domain.stores
 
 
-import com.mochame.sync.contract.stores.SyncIntentStore
-import com.mochame.sync.contract.models.HLC
-import com.mochame.sync.contract.models.SyncIntent
+import com.mochame.sync.api.models.HLC
+import com.mochame.sync.api.models.SyncIntent
 import com.mochame.sync.domain.model.QuarantinedModuleSummary
 import com.mochame.sync.orchestration.SyncCoordinator
 import kotlinx.coroutines.flow.Flow

@@ -3,7 +3,7 @@ package com.mochame.system.infra.di
 import androidx.sqlite.SQLiteDriver
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.TestLogWriter
-import com.mochame.contract.node.NodeContextStore
+import com.mochame.sync.api.node.NodeContextStore
 import com.mochame.contract.providers.TransactionProvider
 import com.mochame.platform.providers.PlatformContext
 import com.mochame.support.TestSupportModule

@@ -6,7 +6,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
-import com.mochame.sync.data.entities.FeatureSyncStateEntity
+import com.mochame.sync.data.entities.NodeSyncStateEntity
 
 @Dao
 interface FeatureSyncStateDao {
@@ -15,34 +15,34 @@ interface FeatureSyncStateDao {
     // METADATA PROCESSING
     // -----------------------------------------------------------
 
-    @Query("SELECT COUNT(*) FROM FeatureSyncStateEntity")
+    @Query("SELECT COUNT(*) FROM NodeSyncStateEntity")
     suspend fun countFeatures(): Int
 
-    @Query("SELECT * FROM FeatureSyncStateEntity WHERE feature = :module")
-    suspend fun getFeatureMetadata(module: String): FeatureSyncStateEntity?
+    @Query("SELECT * FROM NodeSyncStateEntity WHERE feature = :module")
+    suspend fun getFeatureMetadata(module: String): NodeSyncStateEntity?
 
-    @Query("SELECT * FROM FeatureSyncStateEntity")
-    suspend fun getAllMetadata(): List<FeatureSyncStateEntity>
+    @Query("SELECT * FROM NodeSyncStateEntity")
+    suspend fun getAllMetadata(): List<NodeSyncStateEntity>
 
     @Upsert
-    suspend fun upsertMetadata(metadata: FeatureSyncStateEntity)
+    suspend fun upsertMetadata(metadata: NodeSyncStateEntity)
 
     // -----------------------------------------------------------
     // HLC FUNCTIONALITY
     // -----------------------------------------------------------
 
-    @Query("SELECT maxHlc FROM FeatureSyncStateEntity WHERE feature = :module")
+    @Query("SELECT maxHlc FROM NodeSyncStateEntity WHERE feature = :module")
     suspend fun getModuleMaxHlc(module: String): String?
 
-    @Query("SELECT maxHlc FROM FeatureSyncStateEntity")
+    @Query("SELECT maxHlc FROM NodeSyncStateEntity")
     suspend fun getAllFeatureMaxHlcs(): List<String>
 
-    @Query("SELECT MAX(maxHlc) FROM FeatureSyncStateEntity")
+    @Query("SELECT MAX(maxHlc) FROM NodeSyncStateEntity")
     suspend fun getGlobalMaxHlc(): String?
 
     @Query(
         """
-    UPDATE FeatureSyncStateEntity 
+    UPDATE NodeSyncStateEntity 
     SET maxHlc = :newHlcFloor
     WHERE feature = :module 
     AND (maxHlc < :newHlcFloor OR maxHlc IS NULL)
@@ -55,7 +55,7 @@ interface FeatureSyncStateDao {
     // -----------------------------------------------------------
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun seedDefaultMetadata(metadata: List<FeatureSyncStateEntity>): List<Long>
+    suspend fun seedDefaultMetadata(metadata: List<NodeSyncStateEntity>): List<Long>
 
     @Transaction
     suspend fun ensureSeeded(expectedModules: List<String>): Int {
@@ -63,7 +63,7 @@ interface FeatureSyncStateDao {
         if (existingCount >= expectedModules.size) return 0
 
         val entities = expectedModules.map { module ->
-            FeatureSyncStateEntity(
+            NodeSyncStateEntity(
                 feature = module
             )
         }
@@ -77,7 +77,7 @@ interface FeatureSyncStateDao {
 
     @Query(
         """
-    UPDATE FeatureSyncStateEntity 
+    UPDATE NodeSyncStateEntity 
     SET serverWatermark = :newWatermark
     WHERE feature = :module
     """
@@ -89,7 +89,7 @@ interface FeatureSyncStateDao {
 
     @Query(
         """
-        UPDATE FeatureSyncStateEntity 
+        UPDATE NodeSyncStateEntity 
         SET serverWatermark = :watermark, 
             lastServerSyncTime = :timestamp, 
             syncId = NULL

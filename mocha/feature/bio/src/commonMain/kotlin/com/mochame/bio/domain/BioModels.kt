@@ -1,7 +1,7 @@
 package com.mochame.bio.domain
 
-import com.mochame.sync.contract.models.HLC
-import com.mochame.sync.contract.models.LocalFirstEntity
+import com.mochame.sync.api.models.HLC
+import com.mochame.sync.api.models.LocalFirstEntity
 
 /**
  * Represents the biological capacity and readiness for a single day.

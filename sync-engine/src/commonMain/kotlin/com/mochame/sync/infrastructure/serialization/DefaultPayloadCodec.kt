@@ -1,6 +1,6 @@
 package com.mochame.sync.infrastructure.serialization
 
-import com.mochame.sync.contract.models.SyncIntent
+import com.mochame.sync.api.models.SyncIntent
 import com.mochame.sync.domain.serialization.BatchCodecRouter
 import com.mochame.sync.domain.serialization.PayloadCodec
 import kotlinx.serialization.Serializable

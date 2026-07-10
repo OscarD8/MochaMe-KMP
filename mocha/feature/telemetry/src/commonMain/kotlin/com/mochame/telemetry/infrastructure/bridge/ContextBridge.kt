@@ -2,7 +2,7 @@ package com.mochame.telemetry.infrastructure.bridge
 
 import com.benasher44.uuid.uuid4
 import com.mochame.contract.di.IoContext
-import com.mochame.contract.exceptions.MochaException
+import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.telemetry.data.TelemetryDao
 import com.mochame.telemetry.data.toDomain
 import com.mochame.telemetry.data.toEntity

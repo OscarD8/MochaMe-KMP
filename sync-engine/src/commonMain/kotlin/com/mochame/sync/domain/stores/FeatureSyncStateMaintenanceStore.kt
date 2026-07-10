@@ -16,7 +16,7 @@ internal interface FeatureSyncStateMaintenanceStore {
 
     /**
      * This will represent the max HLC of the local device.
-     * The [com.mochame.sync.contract.LocalFirstRepository] is responsible for
+     * The [com.mochame.sync.api.LocalFirstRepository] is responsible for
      * ensuring that any local or remote intents for its own model make
      * a call to witness that intents HLC.
      */

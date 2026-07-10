@@ -3,7 +3,7 @@ package com.mochame.sync.test.data
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.TestHlcFactory
 import com.mochame.support.runPersistenceEnvironment
-import com.mochame.sync.contract.SyncStatus
+import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.data.daos.SyncIntentDao
 import com.mochame.sync.test.di.data.SyncPersistenceTestApp
 import com.mochame.sync.test.fakes.createTestIntentEntity

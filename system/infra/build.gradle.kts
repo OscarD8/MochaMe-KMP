@@ -8,6 +8,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(libs.room.runtime)
+            implementation(project(":core:sync-api"))
         }
         commonTest.dependencies {
             implementation(project(":core:platform"))

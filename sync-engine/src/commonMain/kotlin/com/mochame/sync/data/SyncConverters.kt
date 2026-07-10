@@ -1,10 +1,10 @@
 package com.mochame.sync.data
 
 import androidx.room.TypeConverter
-import com.mochame.sync.contract.FeatureContext
-import com.mochame.contract.metadata.MutationOp
-import com.mochame.sync.contract.models.HLC
-import com.mochame.sync.contract.SyncStatus
+import com.mochame.sync.api.FeatureContext
+import com.mochame.sync.api.metadata.MutationOp
+import com.mochame.sync.api.models.HLC
+import com.mochame.sync.api.metadata.SyncStatus
 import kotlin.time.Instant
 
 

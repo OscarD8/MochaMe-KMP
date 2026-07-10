@@ -4,10 +4,10 @@ package com.mochame.sync.test.infrastructure
 
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Severity
-import com.mochame.contract.exceptions.MochaException
+import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runUnitEnvironment
-import com.mochame.sync.contract.models.HLC
+import com.mochame.sync.api.models.HLC
 import com.mochame.sync.test.di.hlc.HLCTestEnvironment
 import com.mochame.sync.test.di.hlc.HlcTestApp
 import kotlinx.coroutines.CompletableDeferred

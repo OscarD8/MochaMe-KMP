@@ -4,13 +4,12 @@ import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
-import com.mochame.system.infra.data.NodeIdentityEntity
 
 @Dao
 interface NodeContextDao {
 
     @Query("SELECT * FROM node_identity WHERE id = 1 LIMIT 1")
-    suspend fun getContext(): NodeIdentityEntity?
+    suspend fun getContext(): NodeContextEntity?
 
     @Query("SELECT nodeId FROM node_identity WHERE id = 1 LIMIT 1")
     suspend fun getNodeId(): String?
@@ -22,7 +21,7 @@ interface NodeContextDao {
     suspend fun hasIdentity(): Boolean
 
     @Upsert
-    suspend fun upsert(entity: NodeIdentityEntity)
+    suspend fun upsert(entity: NodeContextEntity)
 
     /**
      * Atomic upsert — preserves existing fields when the row already exists.
@@ -32,7 +31,7 @@ interface NodeContextDao {
     @Transaction
     suspend fun upsertNodeId(newId: String) {
         val updated = getContext()?.copy(nodeId = newId)
-            ?: NodeIdentityEntity(id = 1, nodeId = newId, lastBootedAppVersion = 0)
+            ?: NodeContextEntity(id = 1, nodeId = newId, lastBootedAppVersion = 0)
         upsert(updated)
     }
 

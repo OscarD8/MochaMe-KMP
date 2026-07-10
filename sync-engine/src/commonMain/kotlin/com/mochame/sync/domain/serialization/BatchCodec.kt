@@ -1,6 +1,6 @@
 package com.mochame.sync.domain.serialization
 
-import com.mochame.sync.contract.models.SyncIntent
+import com.mochame.sync.api.models.SyncIntent
 
 interface BatchCodec {
     fun encode(intents: List<SyncIntent>): ByteArray

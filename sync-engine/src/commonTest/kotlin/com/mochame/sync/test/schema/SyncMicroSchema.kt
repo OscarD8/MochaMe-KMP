@@ -9,12 +9,12 @@ import com.mochame.sync.data.SyncConverters
 import com.mochame.sync.data.daos.SyncIntentDao
 import com.mochame.sync.data.daos.FeatureSyncStateDao
 import com.mochame.sync.data.entities.SyncIntentEntity
-import com.mochame.sync.data.entities.FeatureSyncStateEntity
+import com.mochame.sync.data.entities.NodeSyncStateEntity
 
 
 @ConstructedBy(SyncMicroSchemaConstructor::class)
 @Database(
-    entities = [FeatureSyncStateEntity::class, SyncIntentEntity::class],
+    entities = [NodeSyncStateEntity::class, SyncIntentEntity::class],
     version = 1,
     exportSchema = false
 )

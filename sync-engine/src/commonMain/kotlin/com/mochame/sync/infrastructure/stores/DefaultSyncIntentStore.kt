@@ -1,9 +1,9 @@
 package com.mochame.sync.infrastructure.stores
 
 
-import com.mochame.sync.contract.stores.SyncIntentStore
-import com.mochame.sync.contract.models.HLC
-import com.mochame.sync.contract.models.SyncIntent
+import com.mochame.sync.api.stores.SyncIntentStore
+import com.mochame.sync.api.models.HLC
+import com.mochame.sync.api.models.SyncIntent
 import com.mochame.sync.data.daos.SyncIntentDao
 import com.mochame.sync.data.toDomain
 import com.mochame.sync.data.toEntity

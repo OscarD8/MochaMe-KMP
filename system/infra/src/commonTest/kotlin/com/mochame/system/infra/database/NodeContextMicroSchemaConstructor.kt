@@ -5,7 +5,7 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
 import com.mochame.system.infra.data.NodeContextDao
-import com.mochame.system.infra.data.NodeIdentityEntity
+import com.mochame.system.infra.data.NodeContextEntity
 
 
 /**
@@ -13,7 +13,7 @@ import com.mochame.system.infra.data.NodeIdentityEntity
  */
 @ConstructedBy(NodeContextMicroSchemaConstructor::class)
 @Database(
-    entities = [NodeIdentityEntity::class],
+    entities = [NodeContextEntity::class],
     version = 1,
     exportSchema = false
 )

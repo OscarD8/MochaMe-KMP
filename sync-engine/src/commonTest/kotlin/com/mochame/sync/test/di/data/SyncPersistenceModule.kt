@@ -3,7 +3,7 @@ package com.mochame.sync.test.di.data
 import androidx.sqlite.SQLiteDriver
 import com.mochame.contract.providers.TransactionProvider
 import com.mochame.platform.providers.PlatformContext
-import com.mochame.sync.contract.stores.FeatureSyncStateStore
+import com.mochame.sync.api.stores.FeatureSyncStateStore
 import com.mochame.sync.data.daos.SyncIntentDao
 import com.mochame.sync.data.daos.FeatureSyncStateDao
 import com.mochame.sync.infrastructure.stores.DefaultSyncIntentStore

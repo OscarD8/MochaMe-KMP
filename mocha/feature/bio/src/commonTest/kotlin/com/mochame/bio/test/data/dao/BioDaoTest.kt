@@ -1,7 +1,6 @@
 package com.mochame.bio.test.data.dao
 
 import app.cash.turbine.test
-import co.touchlab.kermit.ExperimentalKermitApi
 import com.mochame.bio.data.BioDao
 import com.mochame.bio.data.DailyContextEntity
 import com.mochame.bio.test.database.BioMicroSchema
@@ -9,7 +8,7 @@ import com.mochame.bio.test.database.BioMicroSchemaConstructor
 import com.mochame.bio.test.di.BioDaoTestApp
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runPersistenceEnvironment
-import com.mochame.sync.contract.models.HLC
+import com.mochame.sync.api.models.HLC
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope

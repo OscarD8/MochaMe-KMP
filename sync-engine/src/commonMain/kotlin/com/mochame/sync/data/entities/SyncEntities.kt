@@ -3,25 +3,9 @@ package com.mochame.sync.data.entities
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.mochame.contract.metadata.MutationOp
-import com.mochame.sync.contract.SyncStatus
+import com.mochame.sync.api.metadata.MutationOp
+import com.mochame.sync.api.metadata.SyncStatus
 import kotlin.time.Clock
-
-/**
- * For quick lookups of max HLC values as boot and server watermarks.
- * Note - no longer using this as an attempt to perform quick sweep of
- * failing sync intents, in shift to using the SyncIntent states themselves
- * and flows observing statuses.
- */
-@Entity
-data class FeatureSyncStateEntity(
-    @PrimaryKey val feature: String,
-    val serverWatermark: String? = null,
-    val maxHlc: String? = null,
-    val syncId: String? = null,
-    val lastServerSyncTime: Long = 0L,           // Wall-clock of the last successful 200 OK
-    val lastLocalMutationTime: Long = 0L         // Wall-clock of the last local HLC generation
-)
 
 
 /**

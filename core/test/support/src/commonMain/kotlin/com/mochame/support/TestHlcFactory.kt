@@ -1,6 +1,6 @@
 package com.mochame.support
 
-import com.mochame.sync.contract.models.HLC
+import com.mochame.sync.api.models.HLC
 
 
 /**

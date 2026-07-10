@@ -4,7 +4,7 @@ plugins {
 }
 
 kotlin {
-    android { namespace = "com.mochame.sync.contract" }
+    android { namespace = "com.mochame.sync.api" }
 
     sourceSets {
         commonMain.dependencies {

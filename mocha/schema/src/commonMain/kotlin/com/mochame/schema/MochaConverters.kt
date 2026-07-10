@@ -1,12 +1,12 @@
 package com.mochame.schema
 
 import androidx.room.TypeConverter
-import com.mochame.sync.contract.FeatureContext
-import com.mochame.contract.metadata.MutationOp
+import com.mochame.sync.api.FeatureContext
+import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.resonance.domain.Resonance
-import com.mochame.sync.contract.SyncStatus
+import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.telemetry.domain.Mood
-import com.mochame.sync.contract.models.HLC
+import com.mochame.sync.api.models.HLC
 import kotlin.time.Instant
 
 class MochaConverters {

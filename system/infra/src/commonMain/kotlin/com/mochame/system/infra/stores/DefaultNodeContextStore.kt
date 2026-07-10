@@ -1,9 +1,9 @@
 package com.mochame.system.infra.stores
 
-import com.mochame.contract.node.NodeContext
-import com.mochame.contract.node.NodeContextStore
+import com.mochame.sync.api.node.NodeContext
+import com.mochame.sync.api.node.NodeContextStore
 import com.mochame.system.infra.data.NodeContextDao
-import com.mochame.system.infra.data.toNodeContext
+import com.mochame.system.infra.data.toDomain
 import org.koin.core.annotation.Provided
 import org.koin.core.annotation.Single
 
@@ -39,5 +39,5 @@ class DefaultNodeContextStore(
         dao.hasIdentity()
 
     override suspend fun getContext(): NodeContext? =
-        dao.getContext()?.toNodeContext()
+        dao.getContext()?.toDomain()
 }

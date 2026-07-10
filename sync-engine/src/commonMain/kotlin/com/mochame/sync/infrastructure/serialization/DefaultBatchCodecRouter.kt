@@ -1,8 +1,8 @@
 package com.mochame.sync.infrastructure.serialization
 
-import com.mochame.sync.contract.getCodec
-import com.mochame.sync.contract.latestCodec
-import com.mochame.sync.contract.models.SyncIntent
+import com.mochame.sync.api.getCodec
+import com.mochame.sync.api.latestCodec
+import com.mochame.sync.api.models.SyncIntent
 import com.mochame.sync.domain.serialization.BatchCodec
 import com.mochame.sync.domain.serialization.BatchCodecRouter
 import kotlinx.serialization.ExperimentalSerializationApi

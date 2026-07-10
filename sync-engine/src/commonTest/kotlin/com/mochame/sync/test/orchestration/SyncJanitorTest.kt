@@ -5,12 +5,12 @@ package com.mochame.sync.test.orchestration
 import app.cash.turbine.test
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Severity
-import com.mochame.contract.boot.BootState
-import com.mochame.contract.exceptions.MochaException
-import com.mochame.sync.contract.FeatureContext
+import com.mochame.sync.api.boot.BootState
+import com.mochame.sync.api.exceptions.MochaException
+import com.mochame.sync.api.FeatureContext
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runPersistenceEnvironment
-import com.mochame.sync.data.entities.FeatureSyncStateEntity
+import com.mochame.sync.data.entities.NodeSyncStateEntity
 import com.mochame.sync.test.schema.SyncMicroSchema
 import com.mochame.sync.test.schema.SyncMicroSchemaConstructor
 import com.mochame.sync.test.di.janitor.JanitorTestApp
@@ -67,7 +67,7 @@ class SyncJanitorTest : MochaPlatformTest() {
             val futureHlc = "2209032000000:0000:node-1"
 
             metadataDao.upsertMetadata(
-                FeatureSyncStateEntity(
+                NodeSyncStateEntity(
                     feature = FeatureContext.Type.UNRECOGNIZED_FALLBACK.featureName,
                     maxHlc = futureHlc,
                     lastServerSyncTime = 1000L,

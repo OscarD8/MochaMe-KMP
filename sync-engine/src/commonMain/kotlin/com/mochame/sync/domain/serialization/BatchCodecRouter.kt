@@ -1,7 +1,7 @@
 package com.mochame.sync.domain.serialization
 
-import com.mochame.sync.contract.VersionRouter
-import com.mochame.sync.contract.models.SyncIntent
+import com.mochame.sync.api.VersionRouter
+import com.mochame.sync.api.models.SyncIntent
 
 
 interface BatchCodecRouter: VersionRouter<BatchCodec> {

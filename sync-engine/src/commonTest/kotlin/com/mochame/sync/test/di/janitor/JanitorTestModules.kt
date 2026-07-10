@@ -2,11 +2,11 @@ package com.mochame.sync.test.di.janitor
 
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.TestLogWriter
-import com.mochame.contract.boot.BootStatusUpdater
+import com.mochame.sync.api.boot.BootStatusUpdater
 import com.mochame.contract.di.JanitorMutex
 import com.mochame.contract.fixtures.FakeNodeContextManager
 import com.mochame.contract.fixtures.di.FixturesContractModule
-import com.mochame.contract.node.NodeContextManager
+import com.mochame.sync.api.node.NodeContextManager
 import com.mochame.contract.providers.TransactionProvider
 import com.mochame.platform.fixtures.di.FixturesPlatformModule
 import com.mochame.support.TestSupportModule
