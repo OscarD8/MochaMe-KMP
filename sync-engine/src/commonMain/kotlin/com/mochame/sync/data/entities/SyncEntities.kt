@@ -5,7 +5,6 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.mochame.contract.metadata.MutationOp
 import com.mochame.sync.contract.SyncStatus
-import com.mochame.sync.contract.models.HLC
 import kotlin.time.Clock
 
 /**
@@ -15,11 +14,10 @@ import kotlin.time.Clock
  * and flows observing statuses.
  */
 @Entity
-data class SyncModuleStateEntity(
-    @PrimaryKey
-    val module: String,
+data class FeatureSyncStateEntity(
+    @PrimaryKey val feature: String,
     val serverWatermark: String? = null,
-    val moduleMaxHlc: String? = null,
+    val maxHlc: String? = null,
     val syncId: String? = null,
     val lastServerSyncTime: Long = 0L,           // Wall-clock of the last successful 200 OK
     val lastLocalMutationTime: Long = 0L         // Wall-clock of the last local HLC generation

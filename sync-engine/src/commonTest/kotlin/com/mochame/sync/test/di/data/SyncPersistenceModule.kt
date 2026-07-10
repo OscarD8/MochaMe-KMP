@@ -1,11 +1,15 @@
-package com.mochame.sync.test.di.persistence
+package com.mochame.sync.test.di.data
 
 import androidx.sqlite.SQLiteDriver
 import com.mochame.contract.providers.TransactionProvider
 import com.mochame.platform.providers.PlatformContext
+import com.mochame.sync.contract.stores.FeatureSyncStateStore
 import com.mochame.sync.data.daos.SyncIntentDao
-import com.mochame.sync.data.daos.SyncModuleStateDao
+import com.mochame.sync.data.daos.FeatureSyncStateDao
+import com.mochame.sync.infrastructure.stores.DefaultSyncIntentStore
 import com.mochame.sync.test.schema.SyncMicroSchema
+import org.koin.core.annotation.ComponentScan
+import org.koin.core.annotation.Factory
 import org.koin.core.annotation.KoinApplication
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
@@ -14,6 +18,7 @@ import org.koin.core.annotation.Single
 internal object SyncPersistenceTestApp
 
 @Module
+@ComponentScan("com.mochame.sync.test.di.data")
 internal class SyncPersistenceTestModule {
     @Single
     fun provideDatabase(
@@ -24,12 +29,11 @@ internal class SyncPersistenceTestModule {
     }
 
     @Single
-    fun provideModuleStateDao(db: SyncMicroSchema): SyncModuleStateDao =
-        db.syncModuleStateDao()
+    fun provideFeatureSyncStateDao(db: SyncMicroSchema): FeatureSyncStateDao =
+        db.featureSyncStateDao()
 
     @Single
-    fun provideIntentDao(db: SyncMicroSchema): SyncIntentDao =
-        db.syncIntentDao()
+    fun provideIntentDao(db: SyncMicroSchema): SyncIntentDao = db.syncIntentDao()
 
     @Single
     fun provideTransactionProvider(): TransactionProvider =
@@ -37,14 +41,10 @@ internal class SyncPersistenceTestModule {
 
 }
 
-
-//@ExperimentalKermitApi
-//@Factory
-//data class SyncPersistenceTestEnv(
-//    val executor: ExecutionPolicy,
-//    val ledgerDao: MutationLedgerDao,
-//    val metadataDao: SyncMetadataDao,
-//    val writer: TestLogWriter,
-//    val ledgerStore: RealMutationLedger,
-//    val metadataStore: RealMetadataStore
-//)
+@Factory
+internal data class PersistenceEnv(
+    val intentStore: DefaultSyncIntentStore, // concrete class
+    val moduleStore: FeatureSyncStateStore,
+    val intentDao: SyncIntentDao,
+    val moduleDao: FeatureSyncStateDao
+)

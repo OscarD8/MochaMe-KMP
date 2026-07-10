@@ -1,17 +1,17 @@
-package com.mochame.contract.metadata
+package com.mochame.sync.contract
 
 import com.mochame.contract.exceptions.MochaException
 
-interface MochaModuleContext {
+interface FeatureContext {
     val id: Int
-    val moduleName: String
+    val featureName: String
     val modelName: String
 
     enum class Type(
         override val id: Int,
-        override val moduleName: String,
+        override val featureName: String,
         override val modelName: String
-    ) : MochaModuleContext {
+    ) : FeatureContext {
         BIO_DAILY_CONTEXT(1, "BIO", "DAILYCONTEXT"),
 
         TELEMETRY_TOPIC(2, "TELEMETRY", "TOPIC"),
@@ -28,18 +28,18 @@ interface MochaModuleContext {
     }
 
     companion object {
-        val allMochaModuleContext: List<MochaModuleContext> = Type.entries
+        val allFeatureContext: List<FeatureContext> = Type.entries
 
         val allFeatureModules: List<String> by lazy {
             Type.entries
                 .asSequence()
                 .filter { it != Type.UNRECOGNIZED_FALLBACK }
-                .map { it.moduleName }
+                .map { it.featureName }
                 .distinct()
                 .toList()
         }
 
-        fun contextFromString(model: String): MochaModuleContext {
+        fun fromString(model: String): FeatureContext {
             try {
                 return Type.entries.first { it.modelName == model }
             } catch (e: NoSuchElementException) {

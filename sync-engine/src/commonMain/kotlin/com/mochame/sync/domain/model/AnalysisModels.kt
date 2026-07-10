@@ -1,17 +1,16 @@
 package com.mochame.sync.domain.model
 
 
-import com.mochame.contract.metadata.MochaModuleContext
+import com.mochame.sync.contract.FeatureContext
 import com.mochame.sync.data.daos.SyncIntentDao
 
 /**
  * Container designed to hold a module and its count of quarantined records.
- * Passed back by [SyncIntentDao.observeQuarantinedCountByModule] and utilized by
- * the UI can observe the flow defined in SyncIntentStore, and display a simple
- * count of failed local intents.
+ * Passed back by [SyncIntentDao.observeQuarantinedCountByModule]. May be useful for
+ * UI.
  */
 internal data class QuarantinedModuleSummary(
-    val module: MochaModuleContext,
+    val module: FeatureContext,
     val count: Int
 )
 

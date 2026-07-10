@@ -6,7 +6,6 @@ import com.mochame.contract.boot.BootStatusProvider
 import com.mochame.contract.di.IoContext
 import com.mochame.contract.exceptions.MochaException
 import com.mochame.contract.exceptions.toMochaException
-import com.mochame.contract.metadata.MochaModuleContext
 import com.mochame.contract.metadata.MutationOp
 import com.mochame.contract.policy.ExecutionPolicy
 import com.mochame.contract.providers.TransactionProvider
@@ -19,7 +18,7 @@ import com.mochame.sync.contract.serialization.FeatureCodec
 import com.mochame.sync.contract.serialization.FeatureCodecRouter
 import com.mochame.sync.contract.stores.BlobStager
 import com.mochame.sync.contract.stores.SyncIntentStore
-import com.mochame.sync.contract.stores.SyncModuleStateStore
+import com.mochame.sync.contract.stores.FeatureSyncStateStore
 import com.mochame.utils.KeyedLocker
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -44,13 +43,13 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     protected val executor: ExecutionPolicy,
     protected val codecRouter: FeatureCodecRouter<T, FeatureCodec<T>>,
     protected val locker: KeyedLocker,
-    protected val syncIntentStore: SyncIntentStore,
-    protected val syncModuleStateStore: SyncModuleStateStore,
+    protected val intentStore: SyncIntentStore,
+    protected val featureStateStore: FeatureSyncStateStore,
     protected val logger: Logger,
     protected val transactor: TransactionProvider,
     protected val blobStore: BlobStager,
     protected val invalidationHook: SyncInvalidationHook,
-    override val moduleContext: MochaModuleContext,
+    override val featureContext: FeatureContext,
     private val provider: BootStatusProvider,
     @IoContext protected val ioContext: CoroutineContext
 ) : SyncReceiver {
@@ -72,7 +71,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
      */
     protected suspend inline fun <R> processIntent(
         candidateKey: String,
-        incomingHlc: HLC? = null, // does this need to be HLC.EMPTY?
+        incomingHlc: HLC? = null,
         op: MutationOp,
         crossinline fetchExistingState: suspend () -> T?,
         crossinline computeChange: suspend (existing: T?) -> T?,
@@ -84,7 +83,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         val isRemoteIntent = incomingHlc != null
 
         locker.withLock(candidateKey) {
-            executor.execute("[${moduleContext}_$op]") {
+            executor.execute("[${featureContext}_$op]") {
                 val existingState = fetchExistingState()
 
                 // Initial state verification & LWW Checks
@@ -166,7 +165,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
 //                syncIntentStore.discardIntent(it.hlc)
 //            }
 
-            updateHlcFloor(moduleContext.moduleName, hlc)
+            updateHlcFloor(featureContext.featureName, hlc)
             val localResult = persistAction()
 
             localResult
@@ -234,7 +233,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                     blobId,
                     summary
                 )
-                updateHlcFloor(moduleContext.moduleName, hlc)
+                updateHlcFloor(featureContext.featureName, hlc)
                 localResult
             }.also {
                 dbCommitted = true
@@ -281,23 +280,23 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     ) {
         // Look for existing work that hasn't been synced yet
         val pending =
-            syncIntentStore.getPendingByPrimaryKey(candidateKey, moduleContext.moduleName)
+            intentStore.getPendingByPrimaryKey(candidateKey)
 
         val effectiveCreatedAt = resolvePruningTimestamp(pending, op, hlc.ts)
 
         // Compaction: Remove the old intent before writing the new one
         pending?.let {
             logger.i { "Compacting Intent | Replacing HLC [${it.hlc}] with [$hlc] for Key [$candidateKey]" }
-            syncIntentStore.discardIntent(it.hlc)
+            intentStore.discardIntent(it.hlc)
         }
 
-        syncIntentStore.recordIntent(
+        intentStore.recordIntent(
             SyncIntent(
                 featureSchemaVersion = codecRouter.latestVersion, // guaranteed to not have changed
                 hlc = hlc,
                 candidateKey = candidateKey,
-                module = moduleContext.moduleName,
-                model = moduleContext.modelName,
+                module = featureContext.featureName,
+                model = featureContext.modelName,
                 operation = op,
                 syncStatus = SyncStatus.PENDING,
                 createdAt = effectiveCreatedAt,
@@ -323,13 +322,11 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         }
     }
 
-
-    protected suspend fun updateHlcFloor(module: String, hlc: HLC) {
-        syncModuleStateStore.updateHlcFloor(module, hlc)
-    }
+    protected suspend fun updateHlcFloor(module: String, hlc: HLC) =
+        featureStateStore.updateHlcFloor(module, hlc)
 
     /**
-     * Centralizes the timeout and error handling for the Janitor's boot sequence.
+     * Timeout and error handling for the Janitor's boot sequence.
      */
     protected suspend fun ensureReady() {
         withTimeout(5_000L.milliseconds) {

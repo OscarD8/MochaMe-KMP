@@ -1,4 +1,4 @@
-package com.mochame.sync.domain
+package com.mochame.sync
 
 import kotlinx.coroutines.sync.Mutex
 

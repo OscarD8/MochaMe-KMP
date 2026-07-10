@@ -8,7 +8,7 @@ import com.mochame.sync.domain.model.QuarantinedModuleSummary
 import com.mochame.sync.orchestration.SyncCoordinator
 import kotlinx.coroutines.flow.Flow
 
-internal interface SyncIntentMaintenanceStore : SyncIntentStore {
+internal interface SyncIntentMaintenanceStore {
     suspend fun clearAllLocksAndResetToPending(): Int
     suspend fun pruneOldSynced(olderThan: Long, limit: Int): Int
     suspend fun existsForBlob(blobId: String): Boolean

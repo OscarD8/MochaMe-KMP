@@ -32,15 +32,13 @@ expect inline fun <reified T : RoomDatabase> platformBuilder(
 fun <T : RoomDatabase> RoomDatabase.Builder<T>.applyMochaDefaults(
     queryContext: CoroutineContext,
     driver: SQLiteDriver
-): RoomDatabase.Builder<T> {
-    return this
-        .setDriver(driver)
-        .setQueryCoroutineContext(queryContext)
-        .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
-        .fallbackToDestructiveMigration(dropAllTables = true)
-        .addCallback(object : RoomDatabase.Callback() {
-            override fun onOpen(connection: SQLiteConnection) {
-                connection.execSQL("PRAGMA busy_timeout = 500;")
-            }
-        })
-}
+): RoomDatabase.Builder<T> = this
+    .setDriver(driver)
+    .setQueryCoroutineContext(queryContext)
+    .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
+    .fallbackToDestructiveMigration(dropAllTables = true)
+    .addCallback(object : RoomDatabase.Callback() {
+        override fun onOpen(connection: SQLiteConnection) {
+            connection.execSQL("PRAGMA busy_timeout = 500;")
+        }
+    })

@@ -1,10 +1,9 @@
 package com.mochame.sync.contract
 
-import com.mochame.contract.metadata.MochaModuleContext
 import com.mochame.sync.contract.models.DecodeContext
 
 interface SyncReceiver {
-    val moduleContext: MochaModuleContext
+    val featureContext: FeatureContext
 
     /**
      * Accepts a non-null ByteArray payload and decode context.

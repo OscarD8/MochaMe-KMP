@@ -8,7 +8,7 @@ import com.mochame.bio.domain.DailyContextRepository
 import com.mochame.bio.domain.DailyContext
 import com.mochame.contract.boot.BootStatusProvider
 import com.mochame.contract.di.IoContext
-import com.mochame.contract.metadata.MochaModuleContext
+import com.mochame.sync.contract.FeatureContext
 import com.mochame.contract.metadata.MutationOp
 import com.mochame.contract.policy.ExecutionPolicy
 import com.mochame.contract.providers.DateTimeProvider
@@ -20,7 +20,7 @@ import com.mochame.sync.contract.HlcFactory
 import com.mochame.sync.contract.LocalFirstRepository
 import com.mochame.sync.contract.SyncInvalidationHook
 import com.mochame.sync.contract.stores.SyncIntentStore
-import com.mochame.sync.contract.stores.SyncModuleStateStore
+import com.mochame.sync.contract.stores.FeatureSyncStateStore
 import com.mochame.utils.KeyedLocker
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -40,12 +40,12 @@ internal class DefaultDailyContextRepository(
     codec: DailyContextCodecRouter,
     blobStore: BlobStager,
     syncIntentStore: SyncIntentStore,
-    syncModuleStateStore: SyncModuleStateStore,
+    featureSyncStateStore: FeatureSyncStateStore,
     invalidationHook: SyncInvalidationHook,
     locker: KeyedLocker,
 ) : LocalFirstRepository<DailyContext>(
     hlcFactory = hlcFactory,
-    moduleContext = MochaModuleContext.Type.BIO_DAILY_CONTEXT,
+    featureContext = FeatureContext.Type.BIO_DAILY_CONTEXT,
     provider = bootStatusProvider,
     transactor = transactor,
     executor = executor,
@@ -53,8 +53,8 @@ internal class DefaultDailyContextRepository(
     locker = locker,
     codecRouter = codec,
     ioContext = ioContext,
-    syncIntentStore = syncIntentStore,
-    syncModuleStateStore = syncModuleStateStore,
+    intentStore = syncIntentStore,
+    featureStateStore = featureSyncStateStore,
     invalidationHook = invalidationHook,
     logger = logger.withTags(
         layer = LogTags.Layer.REPO,

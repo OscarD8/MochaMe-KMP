@@ -34,14 +34,12 @@ internal interface SyncIntentDao {
         """
         SELECT * FROM SyncIntentEntity 
         WHERE candidateKey = :candidateKey 
-        AND module = :module 
         AND syncStatus = :status 
         LIMIT 1
     """
     )
     suspend fun getPendingByKey(
         candidateKey: String,
-        module: String,
         status: SyncStatus = SyncStatus.PENDING
     ): SyncIntentEntity?
 

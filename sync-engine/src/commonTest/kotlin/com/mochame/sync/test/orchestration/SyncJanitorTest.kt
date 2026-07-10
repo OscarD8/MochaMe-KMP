@@ -7,10 +7,10 @@ import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Severity
 import com.mochame.contract.boot.BootState
 import com.mochame.contract.exceptions.MochaException
-import com.mochame.contract.metadata.MochaModuleContext
+import com.mochame.sync.contract.FeatureContext
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runPersistenceEnvironment
-import com.mochame.sync.data.entities.SyncModuleStateEntity
+import com.mochame.sync.data.entities.FeatureSyncStateEntity
 import com.mochame.sync.test.schema.SyncMicroSchema
 import com.mochame.sync.test.schema.SyncMicroSchemaConstructor
 import com.mochame.sync.test.di.janitor.JanitorTestApp
@@ -50,7 +50,10 @@ class SyncJanitorTest : MochaPlatformTest() {
 
         scope.advanceUntilIdle()
 
-        assertEquals(MochaModuleContext.allFeatureModules.size, metadataStore.getMetadataCount())
+        assertEquals(
+            FeatureContext.allFeatureModules.size,
+            nodeSyncStateStore.getFeatureCount()
+        )
     }
 
     // -----------------------------------------------------------
@@ -64,9 +67,9 @@ class SyncJanitorTest : MochaPlatformTest() {
             val futureHlc = "2209032000000:0000:node-1"
 
             metadataDao.upsertMetadata(
-                SyncModuleStateEntity(
-                    module = MochaModuleContext.Type.UNRECOGNIZED_FALLBACK.moduleName,
-                    moduleMaxHlc = futureHlc,
+                FeatureSyncStateEntity(
+                    feature = FeatureContext.Type.UNRECOGNIZED_FALLBACK.featureName,
+                    maxHlc = futureHlc,
                     lastServerSyncTime = 1000L,
                     lastLocalMutationTime = 1000L
                 )
@@ -156,7 +159,7 @@ class SyncJanitorTest : MochaPlatformTest() {
     // -----------------------------------------------------------
     @Test
     fun should_log_correct_seeding_count_when_new_install() = runEnv { scope ->
-        val count = MochaModuleContext.allFeatureModules.size
+        val count = FeatureContext.allFeatureModules.size
 
         janitor.startupChecks()
         scope.advanceUntilIdle()

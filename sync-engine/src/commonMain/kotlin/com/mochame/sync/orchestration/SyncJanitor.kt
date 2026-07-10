@@ -17,7 +17,7 @@ import com.mochame.sync.contract.stores.BlobStager
 import com.mochame.sync.contract.HlcFactory
 import com.mochame.sync.domain.providers.SyncUserProvider
 import com.mochame.sync.domain.stores.SyncIntentMaintenanceStore
-import com.mochame.sync.domain.stores.SyncModuleStateMaintenanceStore
+import com.mochame.sync.domain.stores.FeatureSyncStateMaintenanceStore
 import com.mochame.sync.domain.usecase.PruneOldEntriesUseCase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.NonCancellable
@@ -39,13 +39,13 @@ import kotlin.time.TimeSource
 internal class SyncJanitor(
     private val bootUpdater: BootStatusUpdater,
     private val transactor: TransactionProvider,
-    private val moduleStore: SyncModuleStateMaintenanceStore,
-    private val intentStore: SyncIntentMaintenanceStore,
     private val pruneUseCase: PruneOldEntriesUseCase,
     private val nodeManager: SyncUserProvider,
     private val hlcFactory: HlcFactory,
     private val executor: ExecutionPolicy,
     private val blobStager: BlobStager,
+    private val moduleStore: FeatureSyncStateMaintenanceStore,
+    private val intentStore: SyncIntentMaintenanceStore,
     @IoContext private val ioContext: CoroutineContext,
     @AppScope private val appScope: CoroutineScope,
     @JanitorMutex private val mutex: Mutex,

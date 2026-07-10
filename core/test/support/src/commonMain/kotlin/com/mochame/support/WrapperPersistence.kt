@@ -38,6 +38,16 @@ import kotlin.coroutines.CoroutineContext
  * include the test code, the environment, and this persistence wrapper. This is then stored
  * on the heap and passed as a single lambda to the testBody of [runTest].
  *
+ * In terms of database lifecycle and isolation assurance per test, each call to this wrapper
+ * enacts a fresh build call with a null database name handled internally by
+ * Room, which should mean that the in-memory database instance is connection-scoped by default.
+ * Each call to build creates a new connection, and a new connection to an unnamed in-memory
+ * database is a new database. This wrapper then wraps the execution of [block] in a try - finally
+ * catch, ensuring the database is closed before the Koin application itself.
+ * If test flakiness starts occurring when using the same Database schemas, come here.
+ *
+ * @param T The Type for the specific Room Database object used for construction.
+ * @param E The receiver type that the caller defines for the scope of their test block.
  * @param constructor Micro schema constructor which is passed to a builder.
  * @param koinSetup Expects a nested inclusion of the SUT koin application, its modules then attached to a test koin application.
  * @param block The actual test block to be run once the test environment is set up.

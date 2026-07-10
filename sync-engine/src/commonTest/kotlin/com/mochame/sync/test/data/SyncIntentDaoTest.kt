@@ -5,7 +5,7 @@ import com.mochame.support.TestHlcFactory
 import com.mochame.support.runPersistenceEnvironment
 import com.mochame.sync.contract.SyncStatus
 import com.mochame.sync.data.daos.SyncIntentDao
-import com.mochame.sync.test.di.persistence.SyncPersistenceTestApp
+import com.mochame.sync.test.di.data.SyncPersistenceTestApp
 import com.mochame.sync.test.fakes.createTestIntentEntity
 import com.mochame.sync.test.schema.SyncMicroSchema
 import com.mochame.sync.test.schema.SyncMicroSchemaConstructor

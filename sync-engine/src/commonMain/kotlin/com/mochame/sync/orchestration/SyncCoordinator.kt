@@ -12,9 +12,9 @@ import com.mochame.sync.contract.SyncInvalidationHook
 import com.mochame.sync.contract.SyncReceiver
 import com.mochame.sync.contract.models.DecodeContext
 import com.mochame.sync.contract.models.SyncIntent
-import com.mochame.sync.domain.tryWithLock
+import com.mochame.sync.contract.stores.SyncIntentStore
+import com.mochame.sync.tryWithLock
 import com.mochame.sync.domain.serialization.PayloadCodec
-import com.mochame.sync.domain.stores.SyncIntentMaintenanceStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.launch
@@ -24,9 +24,9 @@ import org.koin.core.annotation.Single
 
 @Single
 internal class SyncCoordinator(
-    private val intentStore: SyncIntentMaintenanceStore,
+    private val intentStore: SyncIntentStore,
     private val transactor: TransactionProvider,
-//    private val moduleStateStore: SyncModuleStateStore,
+//    private val featureStateStore: FeatureSyncStateStore,
     private val payloadCodec: PayloadCodec,
     private val idGenerator: IdGenerator,
     private val invalidationHook: SyncInvalidationHook,
@@ -42,22 +42,21 @@ internal class SyncCoordinator(
     )
 
     private val receiverRoutingMap: Map<String, SyncReceiver> =
-        receivers.associateBy { it.moduleContext.modelName }
+        receivers.associateBy { it.featureContext.modelName }
 
-    fun start() {
-        appScope.launch {
-            invalidationHook.signals.collect {
-                try {
-                    processQueueUntilExhausted()
-                } catch (e: Exception) {
-                    logger.e(e) {
-                        "Failure inside outbound orchestration worker step. " +
-                                "Isolating error to preserve background stream lifecycle."
-                    }
+    fun start() = appScope.launch {
+        invalidationHook.signals.collect {
+            try {
+                processQueueUntilExhausted()
+            } catch (e: Exception) {
+                logger.e(e) {
+                    "Failure inside outbound orchestration worker step. " +
+                            "Isolating error to preserve background stream lifecycle."
                 }
             }
         }
     }
+
 
     // awaiting implementation of the server
     // Called by the app's lifecycle owner on startup
@@ -108,25 +107,6 @@ internal class SyncCoordinator(
 
     }
 
-//    private suspend fun packageAndShip(module: MochaModule) {
-//        val pending = intentStore.getPendingByModule(module)
-//        if (pending.isEmpty()) return
-//
-//        pending.filterNotNull().forEach { entity ->
-//            val domain = entity.toDomain()
-//            val bytes = syncCodec.routedEncode(domain)
-//            try {
-//                networkApi.push(bytes)
-//                intentStore.discardIntent(entity.hlc)
-//                logger.i { "Shipped intent ${entity.candidateKey} for ${entity.model}" }
-//            } catch (e: Exception) {
-//                logger.w(e) { "Failed to ship ${entity.candidateKey}, will retry" }
-//                // Leave as PENDING — Janitor or next flow emission handles retry
-//            }
-//        }
-//    }
-
-    //
     internal suspend fun onInboundBytes(inbound: ByteArray) {
         val intents = try {
             payloadCodec.decode(inbound)
@@ -139,7 +119,6 @@ internal class SyncCoordinator(
     }
 
     private suspend fun processIntent(intent: SyncIntent) {
-        val payload = intent.payload
 
         val receiver = receiverRoutingMap[intent.model] ?: run {
             logger.e { "Routing failure for model '${intent.model}'" }
@@ -148,18 +127,33 @@ internal class SyncCoordinator(
             )
         }
 
-        check(payload != null || intent.overflowBlobId != null) {
+        try {
+            verifyIntentNullState(intent)
+
+            val intentContext = extractContext(intent)
+
+            receiver.processRemoteIntent(intentContext, intent.payload!!)
+
+        } catch (e: MochaException) {
+            logger.e { "Null field issue. Key: '${intent.candidateKey}. ${e.message}'" }
+        } catch (e: Exception) {
+            logger.w(e) { "Processing failed for ${intent.candidateKey}. Error : ${e.message}" }
+        }
+    }
+
+    private suspend fun verifyIntentNullState(intent: SyncIntent) {
+        check(intent.payload != null || intent.overflowBlobId != null) {
             throw MochaException.Persistent.CorruptionDetected(
                 "Data integrity violation for ${intent.candidateKey}: both payload and blobId are null"
             )
         }
-        check(!(payload != null && intent.overflowBlobId != null)) {
+        check(!(intent.payload != null && intent.overflowBlobId != null)) {
             throw MochaException.Persistent.CorruptionDetected(
                 "Data integrity violation for ${intent.candidateKey}: payload and blobId are mutually exclusive"
             )
         }
 
-        if (payload == null) {
+        if (intent.payload == null) {
             if (intent.overflowBlobId != null) {
                 intentStore.recordIntent(intent)
                 logger.w { "Overflow intent staged: ${intent.candidateKey}" }
@@ -169,20 +163,14 @@ internal class SyncCoordinator(
                 throw MochaException.Persistent.CorruptionDetected("Null payload with no blobId for ${intent.candidateKey}")
             }
         }
-
-        try {
-            val intentContext = DecodeContext(
-                featureSchemaVersion = intent.featureSchemaVersion,
-                id = intent.candidateKey,
-                hlc = intent.hlc,
-                lastModified = intent.createdAt,
-                op = intent.operation
-            )
-
-            receiver.processRemoteIntent(intentContext, payload)
-        } catch (e: Exception) {
-            logger.w(e) { "Processing failed for ${intent.candidateKey}. Error : ${e.message}" }
-        }
     }
+
+    private fun extractContext(intent: SyncIntent) = DecodeContext(
+        featureSchemaVersion = intent.featureSchemaVersion,
+        id = intent.candidateKey,
+        hlc = intent.hlc,
+        lastModified = intent.createdAt,
+        op = intent.operation
+    )
 
 }

@@ -7,20 +7,20 @@ import androidx.room.RoomDatabaseConstructor
 import androidx.room.TypeConverters
 import com.mochame.sync.data.SyncConverters
 import com.mochame.sync.data.daos.SyncIntentDao
-import com.mochame.sync.data.daos.SyncModuleStateDao
+import com.mochame.sync.data.daos.FeatureSyncStateDao
 import com.mochame.sync.data.entities.SyncIntentEntity
-import com.mochame.sync.data.entities.SyncModuleStateEntity
+import com.mochame.sync.data.entities.FeatureSyncStateEntity
 
 
 @ConstructedBy(SyncMicroSchemaConstructor::class)
 @Database(
-    entities = [SyncModuleStateEntity::class, SyncIntentEntity::class],
+    entities = [FeatureSyncStateEntity::class, SyncIntentEntity::class],
     version = 1,
     exportSchema = false
 )
 @TypeConverters(SyncConverters::class)
 internal abstract class SyncMicroSchema : RoomDatabase() {
-    internal abstract fun syncModuleStateDao(): SyncModuleStateDao
+    internal abstract fun featureSyncStateDao(): FeatureSyncStateDao
     internal abstract fun syncIntentDao(): SyncIntentDao
 
     internal companion object {
