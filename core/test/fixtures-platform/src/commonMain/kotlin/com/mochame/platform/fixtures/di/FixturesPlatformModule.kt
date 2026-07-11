@@ -3,13 +3,13 @@ package com.mochame.platform.fixtures.di
 import co.touchlab.kermit.Logger
 import com.mochame.contract.di.CommittedDir
 import com.mochame.contract.di.PendingDir
-import com.mochame.contract.policy.ExecutionPolicy
 import com.mochame.platform.providers.Digest
 import com.mochame.platform.providers.Hasher
 import com.mochame.logger.test.TestLoggerModule
 import com.mochame.platform.policies.SqliteResiliencePolicy
 import com.mochame.platform.fixtures.TestWorkspace
 import com.mochame.platform.fixtures.createTestWorkspace
+import com.mochame.sync.spi.policy.ExecutionPolicy
 import kotlinx.io.Source
 import kotlinx.io.files.FileSystem
 import kotlinx.io.files.Path

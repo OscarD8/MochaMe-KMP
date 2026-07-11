@@ -5,7 +5,7 @@ import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.contract.providers.DateTimeProvider
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
-import com.mochame.sync.api.HlcFactory
+import com.mochame.sync.api.infrastructure.HlcFactory
 import com.mochame.sync.api.models.HLC
 import com.mochame.sync.api.models.HLC.Companion.APP_RELEASE_MS
 import com.mochame.sync.api.models.HLC.Companion.MAX_COUNTER_INT
@@ -41,7 +41,7 @@ internal class EngineHlcFactory(
     private val stateMutex = Mutex()
     private var state: FactoryState? = null
 
-    override suspend fun hydrate(lastKnownHlc: String?, currentNodeId: String): HLC =
+    override suspend fun hydrate(lastKnownHlc: HLC?, currentNodeId: String): HLC =
         stateMutex.withLock {
             state?.let {
                 logger.w { "An attempt was made to rehydrate the HLC from ${it.lastHlc} to $lastKnownHlc." }
@@ -49,8 +49,7 @@ internal class EngineHlcFactory(
             }
 
             val wallClock = dateTimeUtils.now().toEpochMilliseconds()
-            val history = lastKnownHlc?.let { HLC.parse(lastKnownHlc) }
-            val hydrationHlc = reconcileHlc(wallClock, history, currentNodeId)
+            val hydrationHlc = reconcileHlc(wallClock, lastKnownHlc, currentNodeId)
 
             state = FactoryState(hydrationHlc, currentNodeId)
 

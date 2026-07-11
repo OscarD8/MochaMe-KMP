@@ -1,14 +1,14 @@
 package com.mochame.sync.infrastructure.stores
 
 
-import com.mochame.sync.api.stores.SyncIntentStore
 import com.mochame.sync.api.models.HLC
-import com.mochame.sync.api.models.SyncIntent
-import com.mochame.sync.data.daos.SyncIntentDao
+import com.mochame.sync.data.SyncIntentDao
 import com.mochame.sync.data.toDomain
 import com.mochame.sync.data.toEntity
 import com.mochame.sync.domain.model.QuarantinedModuleSummary
 import com.mochame.sync.domain.stores.SyncIntentMaintenanceStore
+import com.mochame.sync.spi.infrastructure.SyncIntentStore
+import com.mochame.sync.spi.models.SyncIntent
 import kotlinx.coroutines.flow.Flow
 import org.koin.core.annotation.Single
 

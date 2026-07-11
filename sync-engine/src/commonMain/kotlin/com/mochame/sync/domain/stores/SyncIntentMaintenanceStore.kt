@@ -2,7 +2,7 @@ package com.mochame.sync.domain.stores
 
 
 import com.mochame.sync.api.models.HLC
-import com.mochame.sync.api.models.SyncIntent
+import com.mochame.sync.spi.models.SyncIntent
 import com.mochame.sync.domain.model.QuarantinedModuleSummary
 import com.mochame.sync.orchestration.SyncCoordinator
 import kotlinx.coroutines.flow.Flow

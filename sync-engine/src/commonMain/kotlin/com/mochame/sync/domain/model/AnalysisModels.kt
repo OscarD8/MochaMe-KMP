@@ -1,8 +1,7 @@
 package com.mochame.sync.domain.model
 
 
-import com.mochame.sync.api.FeatureContext
-import com.mochame.sync.data.daos.SyncIntentDao
+import com.mochame.sync.api.metadata.FeatureContext
 
 /**
  * Container designed to hold a module and its count of quarantined records.

@@ -39,7 +39,7 @@ kotlin {
 
             implementation(project(":core:sync-api"))
             implementation(project(":core:platform"))
-            implementation(project(":system:infra"))
+            implementation(project(":node"))
             implementation(project(":sync-engine"))
             implementation(project(":mocha:feature:bio"))
             implementation(project(":mocha:feature:telemetry"))

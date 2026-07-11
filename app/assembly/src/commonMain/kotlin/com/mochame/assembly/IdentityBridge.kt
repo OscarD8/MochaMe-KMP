@@ -1,8 +1,5 @@
 package com.mochame.assembly
 
-import com.mochame.system.orchestrator.DefaultNodeContextManager
-import org.koin.core.annotation.Single
-
 /**
  * The shift to using :core:contract for interfaces has technically made
  * bridging unnecessary, as the sync-engine is no longer designed to be totally
@@ -19,7 +16,7 @@ import org.koin.core.annotation.Single
 //class NodeBridge(
 //    private val nodeContextManager: DefaultNodeContextManager
 //) : SyncUserProvider {
-//    override suspend fun getOrCreateNodeId(): String {
-//        return nodeContextManager.getOrCreateNodeId()
+//    override suspend fun getOrEstablishContext(): String {
+//        return nodeContextManager.getOrEstablishContext()
 //    }
 //}

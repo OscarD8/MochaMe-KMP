@@ -1,18 +1,13 @@
 package com.mochame.sync.api.exceptions
 
 /**
- * The single source of truth for all application failures.
- * Categorized by 'Actionability' to guide the Orchestrators and UI.
+ * This was meant to make UI error processing clearer to me, but I think I regret this.
  */
 sealed class MochaException(
     override val message: String,
     override val cause: Throwable? = null
 ) : Exception(message, cause) {
 
-    /**
-     * Transient failures: The system is healthy, but the request failed.
-     * Action: Trigger the 'runWithRetry' loop with exponential backoff.
-     */
     sealed class Transient(message: String, cause: Throwable? = null) :
         MochaException(message, cause) {
         class VaultBusy(message: String? = null, cause: Throwable? = null) :
@@ -31,10 +26,6 @@ sealed class MochaException(
             Transient("Payload overflow pending blob resolution: $blobId")
     }
 
-    /**
-     * Persistent failures: The system has a fundamental issue.
-     * Action: Stop execution, log a critical error, and alert the user.
-     */
     sealed class Persistent(message: String, cause: Throwable? = null) :
         MochaException(message, cause) {
         class StateIssue(message: String? = null, cause: Throwable? = null) :
@@ -71,21 +62,12 @@ sealed class MochaException(
             Persistent(message ?: "Internal failure. Dependency issue? ${cause?.message}", cause)
     }
 
-    /**
-     * Policy failures: The request violated domain rules.
-     * Action: Resolve the conflict (e.g., Client Wins / Server Wins).
-     */
     sealed class Policy(message: String, cause: Throwable? = null) :
         MochaException(message, cause) {
         class CausalityViolation(message: String) : Policy(message)
         class IdentityConflict(message: String) : Policy(message)
     }
 
-    /**
-     * Semantic Exceptions: These represent violations of business rules
-     * or domain constraints. Unlike System errors, these are "Expected"
-     * outcomes of user actions or sync conflicts.
-     */
     sealed class SemanticException(message: String, cause: Throwable? = null) :
         MochaException(message, cause) {
 

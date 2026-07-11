@@ -1,7 +1,8 @@
 package com.mochame.utils
 
+
 import co.touchlab.kermit.Logger
-import com.mochame.contract.exceptions.MochaException
+import com.mochame.sync.api.exceptions.MochaException
 import kotlinx.io.Source
 
 

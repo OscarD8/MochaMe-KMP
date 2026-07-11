@@ -1,12 +1,12 @@
 package com.mochame.platform.policies
 
 import co.touchlab.kermit.Logger
-import com.mochame.contract.exceptions.MochaException
-import com.mochame.contract.exceptions.toMochaException
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.logger.withTimer
-import com.mochame.contract.policy.ExecutionPolicy
+import com.mochame.sync.api.exceptions.MochaException
+import com.mochame.sync.api.exceptions.toMochaException
+import com.mochame.sync.spi.policy.ExecutionPolicy
 import kotlinx.coroutines.delay
 import org.koin.core.annotation.Single
 import kotlin.random.Random

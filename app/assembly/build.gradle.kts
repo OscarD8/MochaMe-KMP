@@ -9,8 +9,7 @@ kotlin {
         commonMain.dependencies {
             implementation(project(":sync-engine"))
             implementation(project(":core:platform"))
-            implementation(project(":system:infra"))
-            implementation(project(":system:orchestrator"))
+            implementation(project(":node"))
             implementation(project(":core:contract"))
             implementation(project(":core:utils"))
             implementation(project(":core:logger"))

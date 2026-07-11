@@ -1,24 +1,23 @@
 package com.mochame.sync.orchestration
 
 import co.touchlab.kermit.Logger
-import com.mochame.sync.api.boot.BootState
-import com.mochame.sync.api.boot.BootStatusUpdater
 import com.mochame.contract.di.AppScope
 import com.mochame.contract.di.IoContext
 import com.mochame.contract.di.JanitorMutex
-import com.mochame.sync.api.exceptions.MochaException
-import com.mochame.sync.api.exceptions.toMochaException
-import com.mochame.sync.api.policy.ExecutionPolicy
 import com.mochame.contract.providers.TransactionProvider
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.logger.withTimer
-import com.mochame.sync.api.stores.BlobStager
-import com.mochame.sync.api.HlcFactory
-import com.mochame.sync.domain.providers.SyncUserProvider
+import com.mochame.sync.api.infrastructure.HlcFactory
+import com.mochame.sync.api.boot.BootState
+import com.mochame.sync.api.exceptions.MochaException
+import com.mochame.sync.api.exceptions.toMochaException
+import com.mochame.sync.spi.node.NodeContextManager
+import com.mochame.sync.spi.infrastructure.BlobStager
 import com.mochame.sync.domain.stores.SyncIntentMaintenanceStore
-import com.mochame.sync.domain.stores.FeatureSyncStateMaintenanceStore
 import com.mochame.sync.domain.usecase.PruneOldEntriesUseCase
+import com.mochame.sync.spi.boot.BootStatusUpdater
+import com.mochame.sync.spi.policy.ExecutionPolicy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.TimeoutCancellationException
@@ -40,11 +39,10 @@ internal class SyncJanitor(
     private val bootUpdater: BootStatusUpdater,
     private val transactor: TransactionProvider,
     private val pruneUseCase: PruneOldEntriesUseCase,
-    private val nodeManager: SyncUserProvider,
     private val hlcFactory: HlcFactory,
     private val executor: ExecutionPolicy,
     private val blobStager: BlobStager,
-    private val moduleStore: FeatureSyncStateMaintenanceStore,
+    private val nodeManager: NodeContextManager,
     private val intentStore: SyncIntentMaintenanceStore,
     @IoContext private val ioContext: CoroutineContext,
     @AppScope private val appScope: CoroutineScope,
@@ -110,12 +108,11 @@ internal class SyncJanitor(
 
     private suspend fun initHydration() = withTimeout(5000L) {
         try {
-            val lastHlc = moduleStore.getGlobalMaxHlc()
-            val nodeId = nodeManager.getOrCreateNodeId()
+            val nodeContext = nodeManager.getOrEstablishContext()
 
-            logger.i { "Hydrating HLC Factory | Last Known Local HLC: ${lastHlc ?: "NONE"} | NodeID: $nodeId" }
+            logger.i { "Hydrating HLC Factory | Last Known Local HLC: ${nodeContext.maxHlc ?: "NONE"} | NodeID: ${nodeContext.nodeId}" }
 
-            hlcFactory.hydrate(lastHlc, nodeId)
+            hlcFactory.hydrate(nodeContext.maxHlc, nodeContext.nodeId)
         } catch (e: TimeoutCancellationException) {
             handleBootFailure(
                 MochaException.Transient.BootTimeout("Hydration timed out.", e)
@@ -123,17 +120,10 @@ internal class SyncJanitor(
         }
     }
 
-    /**
-     * Recovery Protocol.
-     */
     private suspend fun metadataMaintenance() = withContext(NonCancellable) {
         val mark = TimeSource.Monotonic.markNow()
 
         transactor.runImmediateTransaction {
-            moduleStore.ensureSeeded().takeIf { it > 0 }?.let {
-                logger.i { "Maintenance: Seeded $it missing metadata entries." }
-            }
-
             intentStore.clearAllLocksAndResetToPending().takeIf { it > 0 }?.let {
                 logger.w { "Maintenance: Cleared $it stale mutation locks." }
             }

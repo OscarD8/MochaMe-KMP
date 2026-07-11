@@ -1,6 +1,7 @@
 package com.mochame.platform.fixtures
 
-import com.mochame.contract.policy.ExecutionPolicy
+import com.mochame.sync.spi.policy.ExecutionPolicy
+
 
 /**
  * Essentially strips all policy and executes a block. Useful if a policy is required but

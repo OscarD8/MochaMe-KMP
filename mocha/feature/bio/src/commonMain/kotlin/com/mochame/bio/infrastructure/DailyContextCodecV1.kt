@@ -5,8 +5,8 @@ import com.mochame.bio.domain.DailyContext
 import com.mochame.contract.providers.BufferProvider
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
-import com.mochame.sync.api.models.DecodeContext
-import com.mochame.sync.api.serialization.FeatureCodec
+import com.mochame.sync.spi.models.DecodeContext
+import com.mochame.sync.spi.serialization.FeatureCodec
 import com.mochame.utils.readProtobufVarint
 import com.mochame.utils.skipProtobufValue
 import kotlinx.serialization.ExperimentalSerializationApi

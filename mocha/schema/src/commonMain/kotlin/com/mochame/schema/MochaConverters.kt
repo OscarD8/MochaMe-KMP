@@ -1,9 +1,9 @@
 package com.mochame.schema
 
 import androidx.room.TypeConverter
-import com.mochame.sync.api.FeatureContext
 import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.resonance.domain.Resonance
+import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.telemetry.domain.Mood
 import com.mochame.sync.api.models.HLC

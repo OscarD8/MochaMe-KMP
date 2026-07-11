@@ -8,7 +8,6 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(project(":core:sync-api"))
             implementation(project(":core:platform"))
             implementation(project(":core:utils"))
 
@@ -20,7 +19,7 @@ kotlin {
         }
 
         commonTest.dependencies {
-            implementation(project(":core:test:fixtures-contract"))
+            implementation(project(":core:test:fixtures-node"))
             implementation(project(":core:test:fixtures-utils"))
             implementation(project(":core:test:fixtures-platform"))
         }

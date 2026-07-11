@@ -3,7 +3,7 @@ package com.mochame.sync.infrastructure.serialization
 import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.api.models.HLC
-import com.mochame.sync.api.models.SyncIntent
+import com.mochame.sync.spi.models.SyncIntent
 import com.mochame.sync.domain.serialization.IntentCodec
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable

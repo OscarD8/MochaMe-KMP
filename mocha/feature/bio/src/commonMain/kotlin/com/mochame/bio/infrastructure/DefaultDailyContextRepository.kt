@@ -4,58 +4,31 @@ import co.touchlab.kermit.Logger
 import com.mochame.bio.data.BioDao
 import com.mochame.bio.data.toDomain
 import com.mochame.bio.data.toEntity
-import com.mochame.bio.domain.DailyContextRepository
 import com.mochame.bio.domain.DailyContext
-import com.mochame.sync.api.boot.BootStatusProvider
-import com.mochame.contract.di.IoContext
-import com.mochame.sync.api.FeatureContext
-import com.mochame.sync.api.metadata.MutationOp
-import com.mochame.sync.api.policy.ExecutionPolicy
+import com.mochame.bio.domain.DailyContextRepository
 import com.mochame.contract.providers.DateTimeProvider
-import com.mochame.contract.providers.TransactionProvider
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
-import com.mochame.sync.api.stores.BlobStager
-import com.mochame.sync.api.HlcFactory
-import com.mochame.sync.api.LocalFirstRepository
-import com.mochame.sync.api.SyncInvalidationHook
-import com.mochame.sync.api.stores.SyncIntentStore
-import com.mochame.sync.api.stores.FeatureSyncStateStore
-import com.mochame.utils.KeyedLocker
+import com.mochame.sync.api.metadata.FeatureContext
+import com.mochame.sync.api.metadata.MutationOp
+import com.mochame.sync.api.repository.LocalFirstDependencies
+import com.mochame.sync.api.repository.LocalFirstRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.koin.core.annotation.Single
-import kotlin.coroutines.CoroutineContext
+
 
 @Single([DailyContextRepository::class])
 internal class DefaultDailyContextRepository(
     private val dateTimeUtils: DateTimeProvider,
     private val bioDao: BioDao,
-    @IoContext ioContext: CoroutineContext,
+    codecRouter: DailyContextCodecRouter,
     logger: Logger,
-    bootStatusProvider: BootStatusProvider,
-    hlcFactory: HlcFactory,
-    transactor: TransactionProvider,
-    executor: ExecutionPolicy,
-    codec: DailyContextCodecRouter,
-    blobStore: BlobStager,
-    syncIntentStore: SyncIntentStore,
-    featureSyncStateStore: FeatureSyncStateStore,
-    invalidationHook: SyncInvalidationHook,
-    locker: KeyedLocker,
-) : LocalFirstRepository<DailyContext>(
-    hlcFactory = hlcFactory,
-    featureContext = FeatureContext.Type.BIO_DAILY_CONTEXT,
-    provider = bootStatusProvider,
-    transactor = transactor,
-    executor = executor,
-    blobStore = blobStore,
-    locker = locker,
-    codecRouter = codec,
-    ioContext = ioContext,
-    intentStore = syncIntentStore,
-    featureStateStore = featureSyncStateStore,
-    invalidationHook = invalidationHook,
+    deps: LocalFirstDependencies
+    ) : LocalFirstRepository<DailyContext>(
+    FeatureContext.Type.BIO_DAILY_CONTEXT,
+    codecRouter,
+    deps,
     logger = logger.withTags(
         layer = LogTags.Layer.REPO,
         domain = LogTags.Domain.BIO,

@@ -4,17 +4,17 @@ import co.touchlab.kermit.Logger
 import com.mochame.contract.di.AppScope
 import com.mochame.contract.di.CoordinatorMutex
 import com.mochame.sync.api.exceptions.MochaException
-import com.mochame.sync.api.node.IdGenerator
+import com.mochame.sync.spi.node.IdGenerator
 import com.mochame.contract.providers.TransactionProvider
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
-import com.mochame.sync.api.SyncInvalidationHook
-import com.mochame.sync.api.SyncReceiver
-import com.mochame.sync.api.models.DecodeContext
-import com.mochame.sync.api.models.SyncIntent
-import com.mochame.sync.api.stores.SyncIntentStore
+import com.mochame.sync.spi.models.DecodeContext
+import com.mochame.sync.spi.models.SyncIntent
 import com.mochame.sync.tryWithLock
 import com.mochame.sync.domain.serialization.PayloadCodec
+import com.mochame.sync.spi.infrastructure.SyncIntentStore
+import com.mochame.sync.spi.infrastructure.SyncReceiver
+import com.mochame.sync.spi.infrastructure.SyncWorkerHook
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.launch
@@ -29,7 +29,7 @@ internal class SyncCoordinator(
 //    private val featureStateStore: FeatureSyncStateStore,
     private val payloadCodec: PayloadCodec,
     private val idGenerator: IdGenerator,
-    private val invalidationHook: SyncInvalidationHook,
+    private val invalidationHook: SyncWorkerHook,
     @CoordinatorMutex private val coordinatorMutex: Mutex,
     @AppScope private val appScope: CoroutineScope,
     receivers: List<SyncReceiver>, // koin handles as long as classes are bound

@@ -40,7 +40,7 @@ annotation class CommittedDir
 @Target(AnnotationTarget.VALUE_PARAMETER, AnnotationTarget.FUNCTION, AnnotationTarget.TYPE)
 @Retention(AnnotationRetention.BINARY)
 @Qualifier
-annotation class IdentityMutex
+annotation class NodeManagerMutex
 @Target(AnnotationTarget.VALUE_PARAMETER, AnnotationTarget.FUNCTION, AnnotationTarget.TYPE)
 @Retention(AnnotationRetention.BINARY)
 @Qualifier

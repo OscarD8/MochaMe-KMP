@@ -45,13 +45,11 @@ include(":core:logger")
 include(":core:utils")
 include(":core:platform")
 
-include("system:infra")
-include("system:orchestrator")
+include(":node")
 
 include(":core:test:support")
 include(":core:test:test-logger")
-include(":core:test:fixtures-contract")
-include(":core:test:fixtures-system-infra")
+include(":core:test:fixtures-node")
 include(":core:test:fixtures-utils")
 include(":core:test:fixtures-platform")
 

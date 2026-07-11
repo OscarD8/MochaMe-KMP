@@ -1,9 +1,9 @@
 package com.mochame.sync.infrastructure.serialization
 
-import com.mochame.sync.api.VersionRouter
-import com.mochame.sync.api.getCodec
-import com.mochame.sync.api.latestCodec
-import com.mochame.sync.api.models.SyncIntent
+import com.mochame.sync.spi.serialization.VersionRouter
+import com.mochame.sync.spi.serialization.getCodec
+import com.mochame.sync.spi.serialization.latestCodec
+import com.mochame.sync.spi.models.SyncIntent
 import com.mochame.sync.domain.serialization.IntentCodec
 import com.mochame.sync.domain.serialization.IntentCodecRouter
 import org.koin.core.annotation.Single

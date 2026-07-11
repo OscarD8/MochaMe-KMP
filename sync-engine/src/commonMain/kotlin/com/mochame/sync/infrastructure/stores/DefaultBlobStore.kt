@@ -13,8 +13,8 @@ import com.mochame.platform.providers.digestHex
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.logger.withTimer
-import com.mochame.sync.api.stores.BlobReader
-import com.mochame.sync.api.stores.BlobStager
+import com.mochame.sync.spi.infrastructure.BlobReader
+import com.mochame.sync.spi.infrastructure.BlobStager
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
