@@ -50,6 +50,7 @@ class SyncConverters {
         return type?.name
     }
 
+    // FeatureContext <-> String
     @TypeConverter
     fun toContextType(databaseValue: String?): FeatureContext.Type {
         if (databaseValue == null) return FeatureContext.Type.UNRECOGNIZED_FALLBACK

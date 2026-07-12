@@ -16,13 +16,14 @@ import com.mochame.sync.spi.node.NodeContextManager
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import org.koin.core.annotation.Provided
 import org.koin.core.annotation.Single
 import kotlin.coroutines.CoroutineContext
 
 
 @Single(binds = [NodeContextManager::class])
 class DefaultNodeContextManager(
-    private val dao: NodeContextDao,
+    @Provided private val dao: NodeContextDao,
     private val idGenerator: IdGenerator,
     @IoContext private val ioContext: CoroutineContext,
     @NodeManagerMutex private val mutex: Mutex,
@@ -48,10 +49,10 @@ class DefaultNodeContextManager(
                     appVersion = baseVersion
                 ).also { newNode ->
                     dao.upsert(newNode)
-                    logger.i { "Established new node context: ${newNode.nodeId}." }
+                    logger.d { "Node Context not found. Established Node [${newNode.nodeId} | Version: ${newNode.appVersion}]" }
                 }
 
-                logger.i { "Node Boot Context: ID=${node.nodeId} | Version: ${node.appVersion}" }
+                logger.i { "Node Context: ID=${node.nodeId} | Version: ${node.appVersion}" }
 
                 node.toDomain()
             }
@@ -74,4 +75,5 @@ class DefaultNodeContextManager(
 
     override suspend fun overwriteContext(nodeContext: NodeContext) =
         dao.insertOrReplaceContext(nodeContext.toEntity())
+
 }

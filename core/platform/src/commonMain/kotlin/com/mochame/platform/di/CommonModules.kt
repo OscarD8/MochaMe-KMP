@@ -1,5 +1,7 @@
 package com.mochame.platform.di
 
+import androidx.sqlite.SQLiteDriver
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import co.touchlab.kermit.Logger
 import com.mochame.contract.di.AppScope
 import com.mochame.contract.di.DefaultContext
@@ -18,6 +20,9 @@ import kotlin.coroutines.CoroutineContext
 
 @Module(includes = [InternalPlatformModule::class])
 class CommonPlatformModule {
+
+    @Single
+    fun provideProductionDriver(): SQLiteDriver = BundledSQLiteDriver()
 
     @Single
     @IoContext

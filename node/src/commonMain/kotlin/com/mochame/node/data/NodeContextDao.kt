@@ -5,7 +5,6 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Upsert
-import com.mochame.sync.spi.node.NodeContext
 
 @Dao
 interface NodeContextDao {
@@ -42,19 +41,5 @@ interface NodeContextDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrReplaceContext(nodeContext: NodeContextEntity)
-
-    /**
-     * Preserves existing fields when the row already exists.
-     * Baseline version is 0, not 1.
-     */
-//    @Transaction
-//    suspend fun upsertNodeId(newId: String) {
-//        val updated = getContext()?.copy(nodeId = newId)
-//            ?: NodeContextEntity(id = 1, nodeId = newId, lastBootedAppVersion = 0)
-//        upsert(updated)
-//    }
-
-//    @Query("SELECT EXISTS(SELECT 1 FROM node_context WHERE id = 1)")
-//    suspend fun hasIdentity(): Boolean
 
 }

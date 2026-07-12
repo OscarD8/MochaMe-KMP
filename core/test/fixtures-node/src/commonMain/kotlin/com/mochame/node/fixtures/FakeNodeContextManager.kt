@@ -7,7 +7,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 class FakeNodeContextManager(
-    private val defaultNodeId: String = "fake-node-static-uuid"
+    private val defaultNodeId: String = "fake-node-uuid"
 ) : NodeContextManager {
 
     // --- State Control (Seeding & Overrides) ---

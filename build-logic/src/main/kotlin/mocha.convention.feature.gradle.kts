@@ -55,7 +55,7 @@ dependencies {
 
             kspNames.forEach { kspName ->
                 configurations.findByName(kspName)?.let { config ->
-                    project.dependencies.add(config.name, roomCompiler)
+                    project.dependencies.addProvider(config.name, roomCompiler)
                 }
             }
         }

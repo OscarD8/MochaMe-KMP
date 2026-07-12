@@ -5,23 +5,6 @@ This project is an exploration into Kotlin Multiplatform. The goal is to build a
 ---
 
 <details>
-<summary><b> [UnderstandAnything] Visual Tour of the Codebase: </b></summary>
-
-<br>
-
-Follow the installation script directly from the repository:
-- [Understand-Anything Installation Guide](https://github.com/Lum1104/Understand-Anything.git)
-
-Open the terminal inside the project root directory and run (**NOTE this last cost me 9p!**):
-```bash
-   understand-dashboard
-```
-
-</details>
-
----
-
-<details>
 <summary><b> Local First Architecture </b></summary>
 
 <br>
@@ -347,7 +330,6 @@ classDiagram
 <summary><b> Testing Architecture & Commands </b></summary>
 
 <br>
-The architecture is unified through a custom Gradle verification system that provides synchronized logging and automated cache invalidation across platforms.
 
 ### Testing Architecture
 
@@ -379,3 +361,18 @@ Needs changing
 </details>
 
 ---
+
+<details>
+<summary><b> [UnderstandAnything] Visual Tour of the Codebase: </b></summary>
+
+<br>
+
+Follow the installation script directly from the repository:
+- [Understand-Anything Installation Guide](https://github.com/Lum1104/Understand-Anything.git)
+
+Open the terminal inside the project root directory and run (**NOTE this last cost me 9p!**):
+```bash
+   understand-dashboard
+```
+
+</details>

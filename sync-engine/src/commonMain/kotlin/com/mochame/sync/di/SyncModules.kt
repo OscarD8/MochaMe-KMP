@@ -1,4 +1,4 @@
-package com.mochame.sync
+package com.mochame.sync.di
 
 import com.mochame.contract.di.BlobMutex
 import com.mochame.contract.di.CoordinatorMutex

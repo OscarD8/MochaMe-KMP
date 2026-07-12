@@ -1,8 +1,6 @@
 package com.mochame.sync.di.data
 
-import androidx.sqlite.SQLiteDriver
 import com.mochame.contract.providers.TransactionProvider
-import com.mochame.platform.providers.PlatformContext
 import com.mochame.sync.data.SyncIntentDao
 import com.mochame.sync.infrastructure.stores.DefaultSyncIntentStore
 import com.mochame.sync.schema.SyncMicroSchema
@@ -16,13 +14,11 @@ import org.koin.core.annotation.Single
 internal object SyncPersistenceTestApp
 
 @Module
-@ComponentScan("com.mochame.sync.test.di.data")
+@ComponentScan("com.mochame.sync.di.data")
 internal class SyncPersistenceTestModule {
+
     @Single
-    fun provideDatabase(
-        context: PlatformContext,
-        driver: SQLiteDriver
-    ): SyncMicroSchema {
+    fun provideDatabase(): SyncMicroSchema {
         throw IllegalStateException("Should be overridden by test wrapper")
     }
 
@@ -37,6 +33,6 @@ internal class SyncPersistenceTestModule {
 
 @Factory
 internal data class PersistenceEnv(
-    val intentStore: DefaultSyncIntentStore, // concrete class
+    val intentStore: DefaultSyncIntentStore,
     val intentDao: SyncIntentDao,
 )

@@ -106,7 +106,7 @@ internal class SyncJanitor(
         return false
     }
 
-    private suspend fun initHydration() = withTimeout(5000L) {
+    private suspend fun initHydration() = withTimeout(5000L.milliseconds) {
         try {
             val nodeContext = nodeManager.getOrEstablishContext()
 

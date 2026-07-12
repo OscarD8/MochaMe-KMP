@@ -3,11 +3,8 @@ package com.mochame.platform.providers
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.sqlite.SQLiteDriver
-import org.koin.core.annotation.Module
+import com.mochame.platform.di.PlatformContext
 import kotlin.coroutines.CoroutineContext
-
-@Module
-actual  class PlatformContext
 
 
 actual inline fun <reified T : RoomDatabase> platformBuilder(

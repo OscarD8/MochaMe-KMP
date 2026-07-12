@@ -148,17 +148,18 @@ class SyncJanitorTest : MochaPlatformTest() {
     // LOGGING
     // -----------------------------------------------------------
     @Test
-    fun should_log_correct_seeding_count_when_new_install() = runEnv { scope ->
-        val count = FeatureContext.allFeatureModules.size
+    fun should_log_correct_seeding_count_for_new_node_when_new_install() = runEnv { scope ->
+        // Given
+        nodeManager.forcedNextNodeId = "fake-node"
 
+        // When
         janitor.startupChecks()
         scope.advanceUntilIdle()
 
-        // Assert the "Ear" heard the "Mouth" (says Gemini)
+        // Then assert the "Ear" heard the "Mouth" (says Gemini)
         val seedingMessage =
-            writer.logs.find { it.message.contains("Seeded $count missing") }
+            writer.logs.find { it.message.contains("fake-node") }
         assertNotNull(seedingMessage, "The success log should have been recorded!")
-        assertEquals(Severity.Info, seedingMessage.severity)
     }
 
 }

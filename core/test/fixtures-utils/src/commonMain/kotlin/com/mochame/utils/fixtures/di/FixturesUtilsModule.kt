@@ -23,7 +23,7 @@ class FakeClockModule {
  * Provides the fakes necessary to test IdentityManager logic.
  */
 @Module
-class FixtureUtilsModule {
+class FakeIdGeneratorModule {
     @Single(binds = [IdGenerator::class, FakeIdGenerator::class])
     fun provideIdGenerator(): IdGenerator = FakeIdGenerator()
 }

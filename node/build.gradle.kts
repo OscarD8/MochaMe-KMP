@@ -8,10 +8,10 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":core:utils"))
+            implementation(project(":core:platform"))
             implementation(libs.kotlinx.coroutines.core)
         }
         commonTest.dependencies {
-            implementation(project(":core:platform"))
             implementation(project(":core:test:fixtures-utils"))
         }
     }

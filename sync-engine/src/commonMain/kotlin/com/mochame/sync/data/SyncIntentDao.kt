@@ -24,7 +24,7 @@ import kotlinx.coroutines.flow.Flow
  * application terminations, whilst managing the footprint of intent records themselves.
  */
 @Dao
-internal interface SyncIntentDao {
+interface SyncIntentDao {
 
     /**
      * Compaction Lookup. Finds an unsynced mutation for a specific record.
@@ -76,19 +76,6 @@ internal interface SyncIntentDao {
 
     @Query("SELECT * FROM SyncIntentEntity WHERE syncId = :id ORDER BY hlc ASC")
     suspend fun getClaimedBatch(id: String): List<SyncIntentEntity>
-
-    // using transaction provider instead
-//    @Transaction
-//    suspend fun claimAndFetchBatch(
-//        sessionId: String,
-//        entityType: MochaModule,
-//        limit: Int
-//    ): List<SyncIntentEntity> {
-//        val rowsAffected = claimBatch(sessionId, entityType, limit)
-//        if (rowsAffected == 0) return emptyList()
-//
-//        return getClaimedBatch(sessionId)
-//    }
 
     @Query(
         """

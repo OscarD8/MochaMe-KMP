@@ -89,7 +89,7 @@ internal class EngineHlcFactory(
 
             if (result != null) {
                 if (yieldCount > 0) {
-                    logger.w { "Recovered from counter exhaustion. Spun $yieldCount times waiting for clock." }
+                    logger.w { "Recovered from counter exhaustion. Yield count: $yieldCount." }
                 }
                 return result
             }

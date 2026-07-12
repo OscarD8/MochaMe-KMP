@@ -28,8 +28,6 @@ private inline fun runEnv(crossinline block: suspend NodeContextTestEnv.(TestSco
         block = block
     )
 
-private const val templateId = "node1"
-
 
 class NodeContextManagerTest : MochaPlatformTest() {
 
@@ -39,17 +37,17 @@ class NodeContextManagerTest : MochaPlatformTest() {
     @Test
     fun yay_or_nay() = runEnv {
         // Given
-        manager.getOrEstablishContext()
-
-        // When
         val context = manager.getOrEstablishContext()
 
+        // When
+        val id = manager.getNodeId()
+
         // Then
-        assertNotNull(context.nodeId)
+        assertNotNull(id)
     }
 
     @Test
-    fun should_preserve_node_id_when_updating_app_version() = runEnv {
+    fun should_preserve_node_id_when_updating_app_version_and_getting_context() = runEnv {
         // Arrange:
         manager.getOrEstablishContext(1)
         val originalId = manager.getNodeId()
@@ -60,7 +58,7 @@ class NodeContextManagerTest : MochaPlatformTest() {
         // Assert:
         val updatedState = manager.getOrEstablishContext()
         assertEquals(
-            templateId,
+            originalId,
             updatedState.nodeId,
             "The Node ID was corrupted during a version update"
         )

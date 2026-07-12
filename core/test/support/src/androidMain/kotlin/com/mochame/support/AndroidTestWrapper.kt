@@ -5,15 +5,14 @@ import androidx.sqlite.driver.AndroidSQLiteDriver
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.mochame.platform.providers.PlatformContext
+import com.mochame.platform.di.PlatformContext
 import org.junit.runner.RunWith
-import org.koin.core.annotation.Configuration
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
 
 
 /**
- * * @RunWith(AndroidJUnit4::class) intelligently delegates:
+ * * @RunWith(AndroidJUnit4::class) delegates:
  * - On JVM (Host): Routes to RobolectricTestRunner.
  * - On Device (ART): Routes to InstrumentationRunner.
  */

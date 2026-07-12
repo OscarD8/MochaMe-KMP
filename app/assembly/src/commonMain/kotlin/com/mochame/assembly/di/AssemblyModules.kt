@@ -1,6 +1,6 @@
 package com.mochame.assembly.di
 
-import com.mochame.sync.SyncProductionModule
+import com.mochame.sync.di.SyncProductionModule
 import org.koin.core.annotation.Module
 
 @Module(

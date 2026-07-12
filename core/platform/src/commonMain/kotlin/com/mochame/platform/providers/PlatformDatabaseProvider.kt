@@ -5,18 +5,8 @@ import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.SQLiteDriver
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
-import org.koin.core.annotation.Module
+import com.mochame.platform.di.PlatformContext
 import kotlin.coroutines.CoroutineContext
-
-
-@Module
-expect class PlatformContext
-
-
-sealed interface DatabaseLocation {
-    data object InMemory : DatabaseLocation
-    data class OnDisk(val path: String) : DatabaseLocation
-}
 
 
 expect inline fun <reified T : RoomDatabase> platformBuilder(

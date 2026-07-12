@@ -8,7 +8,7 @@ import com.mochame.sync.api.metadata.FeatureContext
  * Passed back by [SyncIntentDao.observeQuarantinedCountByModule]. May be useful for
  * UI.
  */
-internal data class QuarantinedModuleSummary(
+data class QuarantinedModuleSummary(
     val module: FeatureContext,
     val count: Int
 )

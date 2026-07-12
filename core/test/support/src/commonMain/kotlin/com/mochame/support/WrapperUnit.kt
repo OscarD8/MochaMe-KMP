@@ -27,7 +27,7 @@ inline fun <reified E : Any> runUnitEnvironment(
         val environment = koin.get<E>()
         environment.block(this)
     } catch (e: Exception) {
-        e.reportAndThrowDiFailure()
+        e.reportAndThrowFailure()
     } finally {
         koinApp.close()
     }

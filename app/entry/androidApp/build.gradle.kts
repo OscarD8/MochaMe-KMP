@@ -8,12 +8,12 @@ plugins {
 configure<ApplicationExtension> {
     namespace = "com.mochame.androidapp"
 
-    compileSdk = 36
+    compileSdk = libs.versions.android.sdk.compile.get().toInt()
 
     defaultConfig {
         applicationId = "com.mochame.androidapp"
-        minSdk = 26
-        targetSdk = 36
+        minSdk = libs.versions.android.sdk.min.get().toInt()
+        targetSdk = libs.versions.android.sdk.target.get().toInt()
         versionCode = 1
         versionName = "1.0"
 
@@ -23,6 +23,7 @@ configure<ApplicationExtension> {
     buildTypes {
         release {
             isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -44,7 +45,6 @@ dependencies {
     implementation(libs.koin.android)
     implementation(libs.koin.compose)
     implementation(libs.koin.compose.viewmodel)
-    implementation(libs.koin.compose)
     implementation(libs.material.v1120)
 
     implementation(libs.androidx.appcompat)

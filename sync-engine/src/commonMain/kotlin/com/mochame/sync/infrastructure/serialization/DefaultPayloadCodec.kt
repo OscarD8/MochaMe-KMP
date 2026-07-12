@@ -22,9 +22,9 @@ internal class DefaultPayloadCodec(
     private val batchCodecRouter: BatchCodecRouter
 ) : PayloadCodec {
 
-    override fun encode(intents: List<SyncIntent>): ByteArray {
-        val payload = batchCodecRouter.routedEncode(intents)
-        val delta = VersionedPayload(batchCodecRouter.latestVersion, payload)
+    override fun encode(payload: List<SyncIntent>): ByteArray {
+        val encodedPayload = batchCodecRouter.routedEncode(payload)
+        val delta = VersionedPayload(batchCodecRouter.latestVersion, encodedPayload)
 
         return ProtoBuf.encodeToByteArray(VersionedPayload.serializer(), delta)
     }

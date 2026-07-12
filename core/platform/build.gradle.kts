@@ -9,7 +9,7 @@ kotlin {
 
     linuxX64 {
         compilations.getByName("main") {
-            val openssl by cinterops.creating {
+            val openssl = cinterops.create("openssl") {
                 definitionFile.set(project.file("src/nativeInterop/cinterop/openssl.def"))
             }
         }

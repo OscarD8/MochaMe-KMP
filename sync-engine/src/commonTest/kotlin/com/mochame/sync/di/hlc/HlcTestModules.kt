@@ -4,7 +4,7 @@ import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Logger
 import co.touchlab.kermit.TestLogWriter
 import com.mochame.logger.test.TestLoggerModule
-import com.mochame.sync.SyncInfraModule
+import com.mochame.sync.di.SyncInfraModule
 import com.mochame.sync.fakes.FakeHlcFactory
 import com.mochame.sync.infrastructure.EngineHlcFactory
 import com.mochame.utils.fixtures.FakeDateTimeUtils
@@ -26,7 +26,7 @@ internal object HlcTestApp
         TestLoggerModule::class
     ]
 )
-@ComponentScan("com.mochame.sync.test.di.hlc")
+@ComponentScan("com.mochame.sync.di.hlc")
 internal class SyncHlcUnitTestModule
 
 

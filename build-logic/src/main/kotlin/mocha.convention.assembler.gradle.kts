@@ -42,14 +42,12 @@ dependencies {
     val roomCompiler = libs.getLibrary("room-compiler")
 
     kotlin.targets.configureEach {
-        val kspConfigName = if (this is KotlinMetadataTarget) {
-            "kspCommonMainMetadata"
-        } else {
-            "ksp${name.replaceFirstChar { it.uppercase() }}"
-        }
+        if (this !is KotlinMetadataTarget) {
+            val kspConfigName = "ksp${name.replaceFirstChar { it.uppercase() }}"
 
-        configurations.matching { it.name == kspConfigName }.configureEach {
-            project.dependencies.add(this.name, roomCompiler)
+            configurations.matching { it.name == kspConfigName }.configureEach {
+                project.dependencies.addProvider(this.name, roomCompiler)
+            }
         }
     }
 }

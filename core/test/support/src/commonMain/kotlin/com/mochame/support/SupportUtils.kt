@@ -5,7 +5,6 @@ import com.mochame.contract.di.DefaultContext
 import com.mochame.contract.di.IoContext
 import com.mochame.contract.di.MainContext
 import com.mochame.logger.test.TestLoggerModule
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.test.TestScope
@@ -36,7 +35,10 @@ expect class TestTargetsProviderModule()
  */
 @Configuration
 @org.koin.core.annotation.Module(
-    includes = [TestLoggerModule::class, TestTargetsProviderModule::class]
+    includes = [
+        TestLoggerModule::class,
+        TestTargetsProviderModule::class
+    ]
 )
 class TestSupportModule {
     @Single
@@ -68,16 +70,17 @@ fun TestScope.scopeKoinModule(): Module {
 
 
 
-fun Exception.reportAndThrowDiFailure(): Nothing {
-    println("\n === DI REGISTRY FAILURE === ")
+fun Exception.reportAndThrowFailure(): Nothing {
+
+    println("\n === POSSIBLE DI REGISTRY ISSUE OR GENERAL FAILURE === ")
     println("Crash: ${this.message}")
 
     var currentCause = this.cause
     while (currentCause != null) {
-        println("Missing Component: ${currentCause.message}")
+        println("If Missing Component Or Error: ${currentCause.message}")
         currentCause = currentCause.cause
     }
 
-    println(" =========================== \n")
+    println(" ====================================================== \n")
     throw this
 }
