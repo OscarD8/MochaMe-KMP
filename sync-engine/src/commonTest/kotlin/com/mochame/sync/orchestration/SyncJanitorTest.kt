@@ -4,17 +4,15 @@ package com.mochame.sync.orchestration
 
 import app.cash.turbine.test
 import co.touchlab.kermit.ExperimentalKermitApi
-import co.touchlab.kermit.Severity
 import com.mochame.sync.api.boot.BootState
 import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runPersistenceEnvironment
-import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.models.HLC
 import com.mochame.sync.di.janitor.JanitorTestApp
 import com.mochame.sync.di.janitor.JanitorTestEnv
-import com.mochame.sync.schema.SyncMicroSchema
-import com.mochame.sync.schema.SyncMicroSchemaConstructor
+import com.mochame.sync.data.SyncMicroSchema
+import com.mochame.sync.data.SyncMicroSchemaConstructor
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy

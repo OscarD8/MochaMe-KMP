@@ -10,8 +10,8 @@ import com.mochame.sync.di.data.PersistenceEnv
 import com.mochame.sync.di.data.SyncPersistenceTestApp
 import com.mochame.sync.fakes.createTestIntentEntity
 import com.mochame.sync.fakes.createTestSyncIntent
-import com.mochame.sync.schema.SyncMicroSchema
-import com.mochame.sync.schema.SyncMicroSchemaConstructor
+import com.mochame.sync.data.SyncMicroSchema
+import com.mochame.sync.data.SyncMicroSchemaConstructor
 import kotlinx.coroutines.test.TestScope
 import org.koin.dsl.includes
 import org.koin.plugin.module.dsl.koinConfiguration

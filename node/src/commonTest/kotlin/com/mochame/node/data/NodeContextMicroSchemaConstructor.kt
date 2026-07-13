@@ -1,11 +1,9 @@
-package com.mochame.node.database
+package com.mochame.node.data
 
 import androidx.room.ConstructedBy
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
-import com.mochame.node.data.NodeContextDao
-import com.mochame.node.data.NodeContextEntity
 
 
 /**

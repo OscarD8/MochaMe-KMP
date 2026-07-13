@@ -96,6 +96,9 @@ internal class SyncCoordinator(
 //                                    message = result.errorMessage ?: "Server rejected intent"
 //                                )
 //                            }
+//                              is this where the outbound flow suspends and waits to get some kind of server
+//                              ack, and then calls node manager to recognizeResponse? Or separate method the server pings?
+
                 } catch (e: Exception) {
                     logger.w(e) { "Transmission failed for session: $batchId. ${e.message}" }
 
@@ -116,8 +119,18 @@ internal class SyncCoordinator(
         }
 
         intents.forEach { processIntent(it) }
+
+        // is this where the server logic should ultimately lead to a call to nodeContextManager
+        // to call its recognizeServerResponse method? When doing this consider if this is the
+        // only place that makes the call, is it possible to provide data that has a lower
+        // timestamp than the database holds at any given moment? I am not implementing any checks
+        // there right now.
     }
 
+    /**
+     * All individual Intent processing from inbound ingestion will have errors propagate
+     * to this boundary.
+     */
     private suspend fun processIntent(intent: SyncIntent) {
 
         val receiver = receiverRoutingMap[intent.model] ?: run {
@@ -129,9 +142,7 @@ internal class SyncCoordinator(
 
         try {
             verifyIntentNullState(intent)
-
             val intentContext = extractContext(intent)
-
             receiver.processRemoteIntent(intentContext, intent.payload!!)
 
         } catch (e: MochaException) {

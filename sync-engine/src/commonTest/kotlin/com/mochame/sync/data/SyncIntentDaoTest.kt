@@ -6,8 +6,6 @@ import com.mochame.support.runPersistenceEnvironment
 import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.di.data.SyncPersistenceTestApp
 import com.mochame.sync.fakes.createTestIntentEntity
-import com.mochame.sync.schema.SyncMicroSchema
-import com.mochame.sync.schema.SyncMicroSchemaConstructor
 import kotlinx.coroutines.test.TestScope
 import org.koin.dsl.includes
 import org.koin.plugin.module.dsl.koinConfiguration

@@ -3,7 +3,7 @@ package com.mochame.sync.di.data
 import com.mochame.contract.providers.TransactionProvider
 import com.mochame.sync.data.SyncIntentDao
 import com.mochame.sync.infrastructure.stores.DefaultSyncIntentStore
-import com.mochame.sync.schema.SyncMicroSchema
+import com.mochame.sync.data.SyncMicroSchema
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Factory
 import org.koin.core.annotation.KoinApplication

@@ -1,5 +1,7 @@
 package com.mochame.support
 
+import androidx.room.RoomDatabase
+import androidx.room.useReaderConnection
 import com.mochame.contract.di.AppScope
 import com.mochame.contract.di.DefaultContext
 import com.mochame.contract.di.IoContext
@@ -16,6 +18,10 @@ import org.koin.dsl.module
 import kotlin.coroutines.ContinuationInterceptor
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
+
+// -----------------------------------------------------------
+// MODULES / PLATFORM BRIDGES
+// -----------------------------------------------------------
 
 /**
  * Central bridge for TestRunners
@@ -50,7 +56,6 @@ class TestSupportModule {
     fun provideTestIoContext(): CoroutineContext = EmptyCoroutineContext
 }
 
-
 /**
  * Generates the test context bindings dynamically.
  */
@@ -68,7 +73,16 @@ fun TestScope.scopeKoinModule(): Module {
     }
 }
 
+// -----------------------------------------------------------
+// EXTENSION FUNCTIONS
+// -----------------------------------------------------------
 
+suspend fun RoomDatabase.getPhysicalRowCount(tableName: String): Int =
+    useReaderConnection { connection ->
+        connection.usePrepared("SELECT COUNT(*) FROM $tableName") { statement ->
+            if (statement.step()) statement.getLong(0).toInt() else 0
+        }
+    }
 
 fun Exception.reportAndThrowFailure(): Nothing {
 

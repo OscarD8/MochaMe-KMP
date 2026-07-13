@@ -80,7 +80,7 @@ class FakeNodeContextManager(
         seededContext = getOrInitialize().copy(maxHlc = hlc)
     }
 
-    override suspend fun overwriteContext(nodeContext: NodeContext) {
+    override suspend fun overwriteNodeContext(nodeContext: NodeContext) {
         getOrInitialize()
     }
 

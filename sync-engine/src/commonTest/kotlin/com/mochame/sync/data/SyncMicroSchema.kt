@@ -1,13 +1,10 @@
-package com.mochame.sync.schema
+package com.mochame.sync.data
 
 import androidx.room.ConstructedBy
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
 import androidx.room.TypeConverters
-import com.mochame.sync.data.SyncConverters
-import com.mochame.sync.data.SyncIntentDao
-import com.mochame.sync.data.SyncIntentEntity
 
 
 @ConstructedBy(SyncMicroSchemaConstructor::class)

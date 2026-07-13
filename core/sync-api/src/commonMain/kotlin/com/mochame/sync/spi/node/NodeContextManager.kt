@@ -7,7 +7,7 @@ interface NodeContextManager {
 
     suspend fun getOrEstablishContext(baseVersion: Int = 0): NodeContext
 
-    suspend fun overwriteContext(nodeContext: NodeContext)
+    suspend fun overwriteNodeContext(nodeContext: NodeContext)
 
     suspend fun setAppVersion(targetVersion: Int)
 

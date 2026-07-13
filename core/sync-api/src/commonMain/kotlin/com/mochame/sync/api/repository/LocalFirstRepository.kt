@@ -129,6 +129,8 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         }
     }
 
+    // If this process fails, we have the intent. It must be ensured that the intent record
+    // is not updated to a status that will prune it until we have confirmation of the below
     override suspend fun processRemoteIntent(
         context: DecodeContext,
         payload: ByteArray,
@@ -167,7 +169,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             localResult
         }
 
-        logger.i { "Sync Applied | Key: $candidateKey | HLC: $hlc".withTimer(mark) }
+        logger.i { "SyncIntent persisted locally | Key: $candidateKey | HLC: $hlc".withTimer(mark) }
         return result
     }
 

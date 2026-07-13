@@ -44,7 +44,7 @@ internal class EngineHlcFactory(
     override suspend fun hydrate(lastKnownHlc: HLC?, currentNodeId: String): HLC =
         stateMutex.withLock {
             state?.let {
-                logger.w { "An attempt was made to rehydrate the HLC from ${it.lastHlc} to $lastKnownHlc." }
+                logger.w { "An attempt was made to rehydrate the HLC, finding an existing state: ${it.lastHlc} to $lastKnownHlc." }
                 return@withLock it.lastHlc
             }
 

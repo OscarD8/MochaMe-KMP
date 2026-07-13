@@ -426,12 +426,12 @@ class HlcFactoryTest : MochaPlatformTest() {
             assertEquals(
                 1,
                 initLogs.size,
-                "Race Condition! Multiple threads triggered 'New Install' logic."
+                "Race Condition. Multiple threads triggered 'New Install' logic."
             )
             assertEquals(
                 threadCount - 1,
                 rehydrateLogs.size,
-                "Race Condition! Multiple threads triggered 'New Install' logic."
+                "Race Condition. Multiple threads triggered 'New Install' logic."
             )
 
         }

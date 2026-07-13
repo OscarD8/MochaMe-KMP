@@ -4,7 +4,7 @@ import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.TestLogWriter
 import com.mochame.contract.di.NodeManagerMutex
 import com.mochame.node.data.NodeContextDao
-import com.mochame.node.database.NodeContextMicroSchema
+import com.mochame.node.data.NodeContextMicroSchema
 import com.mochame.support.TestSupportModule
 import com.mochame.sync.spi.node.NodeContextManager
 import com.mochame.utils.fixtures.FakeIdGenerator
@@ -57,6 +57,7 @@ class NodeTestPersistenceModule {
 @Factory
 data class NodeContextTestEnv(
     val manager: NodeContextManager,
+    val db: NodeContextMicroSchema,
     val dao: NodeContextDao,
     val idGen: FakeIdGenerator,
     val writer: TestLogWriter,

@@ -60,7 +60,8 @@ data class HLC(
         }
 
         /**
-         * Necessary as a DailyContext state comes down from the UI layer.
+         * Necessary as a Feature state comes down from the UI layer, with no stamp.
+         * I'm not sure if this is necessary and may be confusing over null.
          */
         val EMPTY = HLC(0, 0, "init")
 
