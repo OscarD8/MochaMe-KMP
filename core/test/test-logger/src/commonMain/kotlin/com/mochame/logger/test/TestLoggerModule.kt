@@ -5,7 +5,7 @@ import co.touchlab.kermit.Logger
 import co.touchlab.kermit.Severity
 import co.touchlab.kermit.StaticConfig
 import co.touchlab.kermit.TestLogWriter
-import com.mochame.contract.di.PlatformTag
+import com.mochame.annotations.PlatformTag
 import com.mochame.logger.CleanLogWriter
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single

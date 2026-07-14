@@ -1,4 +1,3 @@
-import com.mochame.gradle.applyStandardDependencies
 import com.mochame.gradle.configureTargets
 import com.mochame.gradle.getLibrary
 import com.mochame.gradle.libs
@@ -21,6 +20,10 @@ kotlin {
 
         commonMainProvider.configure {
             dependencies {
+                implementation(project(":core:annotations"))
+                implementation(project(":core:sync-api"))
+                implementation(project(":core:utils"))
+
                 implementation(libs.getLibrary("room-runtime"))
             }
         }
@@ -30,8 +33,6 @@ kotlin {
         project = this@Project,
         libs = libs
     )
-
-    applyStandardDependencies(this@Project)
 }
 
 room {

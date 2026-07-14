@@ -1,4 +1,4 @@
-package com.mochame.node
+package com.mochame.node.managers
 
 import com.mochame.sync.api.boot.BootState
 import com.mochame.sync.api.boot.BootStatusProvider

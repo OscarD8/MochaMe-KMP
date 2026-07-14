@@ -1,7 +1,7 @@
 package com.mochame.sync.domain.usecase
 
 import co.touchlab.kermit.Logger
-import com.mochame.contract.providers.DateTimeProvider
+import com.mochame.utils.interfaces.DateTimeProvider
 import com.mochame.sync.domain.stores.SyncIntentMaintenanceStore
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags

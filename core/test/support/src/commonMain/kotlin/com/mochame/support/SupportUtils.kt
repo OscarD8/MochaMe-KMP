@@ -2,10 +2,10 @@ package com.mochame.support
 
 import androidx.room.RoomDatabase
 import androidx.room.useReaderConnection
-import com.mochame.contract.di.AppScope
-import com.mochame.contract.di.DefaultContext
-import com.mochame.contract.di.IoContext
-import com.mochame.contract.di.MainContext
+import com.mochame.annotations.AppScope
+import com.mochame.annotations.DefaultContext
+import com.mochame.annotations.IoContext
+import com.mochame.annotations.MainContext
 import com.mochame.logger.test.TestLoggerModule
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob

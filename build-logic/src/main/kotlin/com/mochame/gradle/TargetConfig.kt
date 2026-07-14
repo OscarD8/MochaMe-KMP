@@ -85,24 +85,7 @@ fun KotlinMultiplatformExtension.mochaAndroid(
 fun KotlinMultiplatformExtension.applyStandardDependencies(project: Project) {
     sourceSets.named("commonMain") {
         dependencies {
-            val isCore =
-                project.path == ":core:logger" || project.path == ":core:contract"
 
-            if (!isCore) {
-
-                api(project.project(":core:contract"))
-
-                if (project.path != ":core:sync-api") {
-                    api(project.project(":core:sync-api"))
-                }
-
-                implementation(project.project(":core:logger"))
-            }
-
-            val isFixture = project.path.startsWith(":core:test:fixtures-")
-            if (isFixture) {
-                api(project.project(":core:test:support"))
-            }
         }
     }
 }

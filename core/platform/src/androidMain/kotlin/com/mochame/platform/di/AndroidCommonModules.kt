@@ -1,8 +1,8 @@
 package com.mochame.platform.di
 
 import android.content.Context
-import com.mochame.contract.di.CommittedDir
-import com.mochame.contract.di.PendingDir
+import com.mochame.annotations.CommittedDir
+import com.mochame.annotations.PendingDir
 import com.mochame.platform.providers.AppPathsProvider
 import com.mochame.platform.providers.DatabaseLocation
 import kotlinx.io.files.FileSystem

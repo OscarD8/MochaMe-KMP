@@ -1,12 +1,12 @@
 package com.mochame.platform.di
 
-import com.mochame.contract.di.CommittedDir
-import com.mochame.contract.di.PendingDir
+import com.mochame.annotations.CommittedDir
+import com.mochame.annotations.PendingDir
 import com.mochame.logger.LogTags
 import com.mochame.platform.providers.AppPathsProvider
-import com.mochame.contract.providers.BufferProvider
 import com.mochame.platform.providers.DatabaseLocation
 import com.mochame.platform.providers.LinuxBufferProvider
+import com.mochame.sync.spi.infrastructure.BufferProvider
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.toKString
 import kotlinx.io.files.FileSystem

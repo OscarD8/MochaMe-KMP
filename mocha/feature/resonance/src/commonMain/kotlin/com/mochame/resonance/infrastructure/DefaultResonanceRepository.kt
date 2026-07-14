@@ -1,9 +1,8 @@
 package com.mochame.resonance.infrastructure
 
 
-import com.mochame.contract.di.IoContext
+import com.mochame.annotations.IoContext
 import com.mochame.sync.api.exceptions.MochaException
-import com.mochame.contract.providers.DateTimeProvider
 import com.mochame.resonance.data.QuoteEntity
 import com.mochame.resonance.data.ResonanceDao
 import com.mochame.resonance.data.toDomain
@@ -15,6 +14,7 @@ import com.mochame.resonance.domain.Resonance
 import com.mochame.resonance.domain.ResonanceRepository
 import com.mochame.resonance.domain.targetResonance
 import com.mochame.telemetry.domain.Mood
+import com.mochame.utils.interfaces.DateTimeProvider
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex

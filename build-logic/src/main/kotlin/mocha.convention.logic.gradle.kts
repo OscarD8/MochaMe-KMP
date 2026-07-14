@@ -1,4 +1,3 @@
-import com.mochame.gradle.applyStandardDependencies
 import com.mochame.gradle.configureTargets
 import com.mochame.gradle.libs
 import com.mochame.gradle.standardConfigurations
@@ -18,5 +17,13 @@ kotlin {
         includeTestBuilders = true
     )
 
-    applyStandardDependencies(this@Project)
+    sourceSets {
+        val commonMainProvider = named("commonMain")
+        commonMainProvider.configure {
+            dependencies {
+                implementation(project(":core:annotations"))
+                implementation(project(":core:sync-api"))
+            }
+        }
+    }
 }

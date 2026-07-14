@@ -2,8 +2,7 @@ package com.mochame.schema.di
 
 import androidx.sqlite.SQLiteDriver
 import com.mochame.bio.data.BioDao
-import com.mochame.contract.di.IoContext
-import com.mochame.contract.providers.TransactionProvider
+import com.mochame.annotations.IoContext
 import com.mochame.node.data.NodeContextDao
 import com.mochame.platform.di.CommonPlatformModule
 import com.mochame.platform.providers.DatabaseLocation
@@ -14,6 +13,7 @@ import com.mochame.resonance.data.ResonanceDao
 import com.mochame.schema.MochaMeDatabase
 import com.mochame.schema.MochaMeDatabaseConstructor
 import com.mochame.sync.data.SyncIntentDao
+import com.mochame.sync.spi.infrastructure.TransactionProvider
 import com.mochame.telemetry.data.TelemetryDao
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Provided

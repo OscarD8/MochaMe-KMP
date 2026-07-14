@@ -2,8 +2,8 @@ package com.mochame.sync.di.janitor
 
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.TestLogWriter
-import com.mochame.contract.di.JanitorMutex
-import com.mochame.contract.providers.TransactionProvider
+import com.mochame.annotations.JanitorMutex
+import com.mochame.sync.spi.infrastructure.TransactionProvider
 import com.mochame.node.fixtures.FakeBootStatusManager
 import com.mochame.node.fixtures.FakeNodeContextManager
 import com.mochame.node.fixtures.di.FixturesNodeModule

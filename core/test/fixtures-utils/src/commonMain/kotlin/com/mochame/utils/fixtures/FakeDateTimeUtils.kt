@@ -1,7 +1,7 @@
 package com.mochame.utils.fixtures
 
-import com.mochame.contract.providers.DateTimeProvider
-import com.mochame.utils.MochaDateTimeProvider
+import com.mochame.utils.interfaces.DateTimeProvider
+import com.mochame.utils.implementations.MochaDateTimeProvider
 import kotlin.time.Instant
 
 

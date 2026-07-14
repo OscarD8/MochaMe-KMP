@@ -1,8 +1,8 @@
-package com.mochame.node
+package com.mochame.node.managers
 
 import co.touchlab.kermit.Logger
-import com.mochame.contract.di.IoContext
-import com.mochame.contract.di.NodeManagerMutex
+import com.mochame.annotations.IoContext
+import com.mochame.annotations.NodeManagerMutex
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.node.data.NodeContextDao
@@ -24,7 +24,7 @@ import kotlin.time.Clock
  * Manager acts as a pass through from domain layers to the database, expecting domain
  * models and passing back domain models for the [NodeContext]. Atomicity and
  * causal logic for [NodeContext.maxHlc] has been delegated to the [NodeContextDao],
- * but calls to assert a node context and update HLC state are wrapped by the [NodeManagerMutex].
+ * but calls to assert a node context and update HLC state are wrapped by the [com.mochame.annotations.NodeManagerMutex].
  * It is expected that many of the methods provided should be called within transactions
  * that can roll back.
  */

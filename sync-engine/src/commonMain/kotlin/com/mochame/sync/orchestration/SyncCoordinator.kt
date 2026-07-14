@@ -1,11 +1,11 @@
 package com.mochame.sync.orchestration
 
 import co.touchlab.kermit.Logger
-import com.mochame.contract.di.AppScope
-import com.mochame.contract.di.CoordinatorMutex
+import com.mochame.annotations.AppScope
+import com.mochame.annotations.CoordinatorMutex
 import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.sync.spi.node.IdGenerator
-import com.mochame.contract.providers.TransactionProvider
+import com.mochame.sync.spi.infrastructure.TransactionProvider
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.sync.spi.models.DecodeContext

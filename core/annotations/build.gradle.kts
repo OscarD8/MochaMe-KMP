@@ -1,15 +1,12 @@
 plugins {
     id("mocha.convention.provider")
-    alias(libs.plugins.kotlinSerialization)
 }
 
 kotlin {
-    android { namespace = "com.mocha.contract" }
+    android { namespace = "com.mochame.annotations" }
 
     sourceSets {
         commonMain.dependencies {
-            implementation(libs.kotlinx.io.core)
-            implementation(libs.kotlinx.coroutines.core)
             api(libs.koin.core)
             api(libs.koin.annotations)
         }

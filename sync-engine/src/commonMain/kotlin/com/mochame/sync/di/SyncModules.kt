@@ -1,8 +1,8 @@
 package com.mochame.sync.di
 
-import com.mochame.contract.di.BlobMutex
-import com.mochame.contract.di.CoordinatorMutex
-import com.mochame.contract.di.JanitorMutex
+import com.mochame.annotations.BlobMutex
+import com.mochame.annotations.CoordinatorMutex
+import com.mochame.annotations.JanitorMutex
 import kotlinx.coroutines.sync.Mutex
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Module

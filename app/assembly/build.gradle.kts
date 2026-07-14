@@ -10,7 +10,7 @@ kotlin {
             implementation(project(":sync-engine"))
             implementation(project(":core:platform"))
             implementation(project(":node"))
-            implementation(project(":core:contract"))
+            implementation(project(":core:annotations"))
             implementation(project(":core:utils"))
             implementation(project(":core:logger"))
             implementation(libs.kotlinx.coroutines.core)

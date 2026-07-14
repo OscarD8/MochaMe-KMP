@@ -1,14 +1,14 @@
 package com.mochame.sync.api.repository
 
 import co.touchlab.kermit.Logger
-import com.mochame.contract.di.IoContext
-import com.mochame.contract.providers.TransactionProvider
+import com.mochame.annotations.IoContext
 import com.mochame.sync.api.boot.BootStatusProvider
 import com.mochame.sync.api.infrastructure.HlcFactory
 import com.mochame.sync.spi.infrastructure.BlobStager
 import com.mochame.sync.spi.infrastructure.KeyedLocker
 import com.mochame.sync.spi.infrastructure.SyncIntentStore
 import com.mochame.sync.spi.infrastructure.SyncWorkerHook
+import com.mochame.sync.spi.infrastructure.TransactionProvider
 import com.mochame.sync.spi.node.NodeContextManager
 import com.mochame.sync.spi.policy.ExecutionPolicy
 import kotlin.coroutines.CoroutineContext

@@ -3,14 +3,14 @@ plugins {
 }
 
 kotlin {
-    android { namespace = "com.mocha.core.utils" }
+    android { namespace = "com.mochame.core.utils" }
 
     sourceSets {
         commonMain.dependencies {
             implementation(libs.kotlinx.datetime)
-            implementation(libs.uuid)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.io.core)
+            implementation(libs.kermit)
         }
     }
 }

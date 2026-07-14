@@ -1,7 +1,7 @@
 package com.mochame.telemetry.infrastructure.bridge
 
 
-import com.mochame.contract.di.IoContext
+import com.mochame.annotations.IoContext
 import com.mochame.telemetry.data.TelemetryDao
 import com.mochame.telemetry.data.toDomain
 import com.mochame.telemetry.domain.Domain

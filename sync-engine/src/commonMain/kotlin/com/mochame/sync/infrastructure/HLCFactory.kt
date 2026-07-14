@@ -2,7 +2,7 @@ package com.mochame.sync.infrastructure
 
 import co.touchlab.kermit.Logger
 import com.mochame.sync.api.exceptions.MochaException
-import com.mochame.contract.providers.DateTimeProvider
+import com.mochame.utils.interfaces.DateTimeProvider
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.sync.api.infrastructure.HlcFactory

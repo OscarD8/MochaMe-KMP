@@ -2,11 +2,11 @@ package com.mochame.support
 
 import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
-import com.mochame.contract.di.IoContext
-import com.mochame.contract.providers.TransactionProvider
+import com.mochame.annotations.IoContext
 import com.mochame.platform.providers.DatabaseLocation
 import com.mochame.platform.providers.RoomImmediateTransProvider
 import com.mochame.platform.providers.platformBuilder
+import com.mochame.sync.spi.infrastructure.TransactionProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest

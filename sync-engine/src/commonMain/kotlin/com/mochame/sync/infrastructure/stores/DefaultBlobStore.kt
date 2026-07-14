@@ -1,13 +1,13 @@
 package com.mochame.sync.infrastructure.stores
 
 import co.touchlab.kermit.Logger
-import com.mochame.contract.di.BlobMutex
-import com.mochame.contract.di.CommittedDir
-import com.mochame.contract.di.IoContext
-import com.mochame.contract.di.PendingDir
+import com.mochame.annotations.BlobMutex
+import com.mochame.annotations.CommittedDir
+import com.mochame.annotations.IoContext
+import com.mochame.annotations.PendingDir
 import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.sync.api.exceptions.toMochaException
-import com.mochame.contract.providers.DateTimeProvider
+import com.mochame.utils.interfaces.DateTimeProvider
 import com.mochame.platform.providers.Hasher
 import com.mochame.platform.providers.digestHex
 import com.mochame.logger.LogTags

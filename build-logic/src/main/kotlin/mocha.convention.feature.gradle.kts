@@ -1,4 +1,3 @@
-import com.mochame.gradle.applyStandardDependencies
 import com.mochame.gradle.configureTargets
 import com.mochame.gradle.getLibrary
 import com.mochame.gradle.libs
@@ -22,15 +21,16 @@ kotlin {
         includeTestBuilders = true
     )
 
-    applyStandardDependencies(this@Project)
-
     sourceSets {
         val commonMainProvider = named("commonMain")
         commonMainProvider.configure {
             dependencies {
-                implementation(libs.getLibrary("room-runtime"))
-                implementation(project(":core:contract"))
+                implementation(project(":core:annotations"))
                 implementation(project(":core:sync-api"))
+                implementation(project(":core:utils"))
+                implementation(project(":core:logger"))
+
+                implementation(libs.getLibrary("room-runtime"))
             }
         }
     }

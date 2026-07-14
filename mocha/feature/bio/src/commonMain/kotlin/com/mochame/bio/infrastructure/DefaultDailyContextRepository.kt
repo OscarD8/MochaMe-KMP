@@ -6,7 +6,7 @@ import com.mochame.bio.data.toDomain
 import com.mochame.bio.data.toEntity
 import com.mochame.bio.domain.DailyContext
 import com.mochame.bio.domain.DailyContextRepository
-import com.mochame.contract.providers.DateTimeProvider
+import com.mochame.utils.interfaces.DateTimeProvider
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.sync.api.metadata.FeatureContext

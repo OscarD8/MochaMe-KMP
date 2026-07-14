@@ -1,6 +1,6 @@
 package com.mochame.platform.fixtures
 
-import com.mochame.contract.providers.TransactionProvider
+import com.mochame.sync.spi.infrastructure.TransactionProvider
 
 
 /**

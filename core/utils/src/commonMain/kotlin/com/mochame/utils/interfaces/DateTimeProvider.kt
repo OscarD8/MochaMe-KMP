@@ -1,4 +1,4 @@
-package com.mochame.contract.providers
+package com.mochame.utils.interfaces
 
 import kotlin.time.Instant
 

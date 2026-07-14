@@ -1,13 +1,9 @@
-package com.mochame.utils
+package com.mochame.utils.implementations
 
-import com.mochame.contract.providers.DateTimeProvider
+import com.mochame.utils.interfaces.DateTimeProvider
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atTime
-import kotlinx.datetime.format
-import kotlinx.datetime.format.Padding
-import kotlinx.datetime.format.char
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import org.koin.core.annotation.Single
@@ -74,28 +70,3 @@ open class MochaDateTimeProvider : DateTimeProvider {
     }
 }
 
-private val SyncTimestampFormatter = LocalDateTime.Format {
-    day(padding = Padding.ZERO)
-    char('/')
-    monthNumber(Padding.ZERO)
-    char('/')
-    yearTwoDigits(baseYear = 2026)
-    char(' ')
-    hour(Padding.ZERO)
-    char(':')
-    minute(Padding.ZERO)
-    char(':')
-    second(Padding.ZERO)
-}
-
-/**
- * Formats epoch milliseconds into a human-readable string: "DD/MM/YY HH:MM:SS"
- * Safe for commonMain, Kotlin/Native (Linux, iOS, Mac), and JVM targets.
- */
-fun Long.toDateTime(timeZone: TimeZone = TimeZone.UTC): String {
-    val instant = Instant.fromEpochMilliseconds(this)
-
-    val localDateTime = instant.toLocalDateTime(timeZone)
-
-    return localDateTime.format(SyncTimestampFormatter)
-}

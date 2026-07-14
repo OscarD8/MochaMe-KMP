@@ -2,13 +2,11 @@ package com.mochame.node.di
 
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.TestLogWriter
-import com.mochame.contract.di.NodeManagerMutex
+import com.mochame.annotations.NodeManagerMutex
 import com.mochame.node.data.NodeContextDao
 import com.mochame.node.data.NodeContextMicroSchema
 import com.mochame.support.TestSupportModule
 import com.mochame.sync.spi.node.NodeContextManager
-import com.mochame.utils.fixtures.FakeIdGenerator
-import com.mochame.utils.fixtures.di.FakeIdGeneratorModule
 import kotlinx.coroutines.sync.Mutex
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Factory
@@ -33,7 +31,6 @@ object NodeContextTestApp
         NodeProductionModule::class,
         TestSupportModule::class,
         NodeTestPersistenceModule::class,
-        FakeIdGeneratorModule::class
     ]
 )
 class NodeContextTestModule
@@ -59,7 +56,6 @@ data class NodeContextTestEnv(
     val manager: NodeContextManager,
     val db: NodeContextMicroSchema,
     val dao: NodeContextDao,
-    val idGen: FakeIdGenerator,
     val writer: TestLogWriter,
     @NodeManagerMutex val managerMutex: Mutex
 )

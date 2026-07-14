@@ -1,8 +1,7 @@
 package com.mochame.telemetry.infrastructure.bridge
 
 import com.benasher44.uuid.uuid4
-import com.mochame.contract.di.IoContext
-import com.mochame.contract.providers.DateTimeProvider
+import com.mochame.annotations.IoContext
 import com.mochame.telemetry.data.TelemetryDao
 import com.mochame.telemetry.data.toEntity
 import com.mochame.telemetry.domain.Moment
@@ -11,6 +10,7 @@ import com.mochame.telemetry.domain.MomentDetail
 import com.mochame.telemetry.domain.MomentDraft
 import com.mochame.telemetry.domain.MomentMetadata
 import com.mochame.telemetry.domain.repositories.MomentRepository
+import com.mochame.utils.interfaces.DateTimeProvider
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.CoroutineContext
 

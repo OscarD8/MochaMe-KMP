@@ -1,4 +1,4 @@
-package com.mochame.contract.di
+package com.mochame.annotations
 
 import org.koin.core.annotation.Qualifier
 

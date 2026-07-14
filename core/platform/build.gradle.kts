@@ -20,6 +20,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":core:utils"))
+            implementation(project(":core:logger"))
 
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.datetime)

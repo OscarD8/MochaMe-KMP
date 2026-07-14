@@ -1,8 +1,8 @@
 package com.mochame.sync.spi.serialization
 
-import com.mochame.contract.providers.BufferProvider
 import com.mochame.sync.spi.models.DecodeContext
 import com.mochame.sync.api.models.LocalFirstEntity
+import com.mochame.sync.spi.infrastructure.BufferProvider
 
 interface FeatureCodec<T : LocalFirstEntity<T>> {
     val bufferProvider: BufferProvider

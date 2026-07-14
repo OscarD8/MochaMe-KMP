@@ -39,7 +39,7 @@ include(":app:entry:linuxCliApp")
 include(":app:entry:jvmApp")
 include(":app:assembly")
 
-include(":core:contract")
+include(":core:annotations")
 include(":core:sync-api")
 include(":core:logger")
 include(":core:utils")

@@ -1,6 +1,6 @@
 package com.mochame.logger
 
-import com.mochame.contract.di.PlatformTag
+import com.mochame.annotations.PlatformTag
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
 

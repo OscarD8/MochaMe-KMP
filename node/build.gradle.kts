@@ -10,6 +10,7 @@ kotlin {
             implementation(project(":core:utils"))
             implementation(project(":core:platform"))
             implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.uuid)
         }
         commonTest.dependencies {
             implementation(project(":core:test:fixtures-utils"))

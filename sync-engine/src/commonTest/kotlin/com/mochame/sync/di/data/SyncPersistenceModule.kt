@@ -1,6 +1,6 @@
 package com.mochame.sync.di.data
 
-import com.mochame.contract.providers.TransactionProvider
+import com.mochame.sync.spi.infrastructure.TransactionProvider
 import com.mochame.sync.data.SyncIntentDao
 import com.mochame.sync.infrastructure.stores.DefaultSyncIntentStore
 import com.mochame.sync.data.SyncMicroSchema

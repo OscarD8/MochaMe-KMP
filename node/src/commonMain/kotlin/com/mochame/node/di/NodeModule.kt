@@ -1,6 +1,6 @@
 package com.mochame.node.di
 
-import com.mochame.contract.di.NodeManagerMutex
+import com.mochame.annotations.NodeManagerMutex
 import com.mochame.logger.LoggerModule
 import com.mochame.platform.di.CommonPlatformModule
 import com.mochame.utils.di.UtilsModule

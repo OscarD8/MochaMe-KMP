@@ -1,7 +1,6 @@
-package com.mochame.utils.fixtures
+package com.mochame.node.fixtures
 
 import com.mochame.sync.spi.node.IdGenerator
-
 
 class FakeIdGenerator(
     private var nextIdToReturn: String? = null
@@ -14,4 +13,3 @@ class FakeIdGenerator(
         return id
     }
 }
-

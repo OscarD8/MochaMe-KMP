@@ -1,7 +1,7 @@
 package com.mochame.platform.providers
 
 import co.touchlab.kermit.Logger
-import com.mochame.contract.providers.BufferProvider
+import com.mochame.sync.spi.infrastructure.BufferProvider
 import kotlinx.io.Buffer
 import org.koin.core.annotation.Single
 

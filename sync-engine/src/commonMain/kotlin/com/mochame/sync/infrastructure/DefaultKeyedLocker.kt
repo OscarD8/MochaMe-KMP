@@ -1,4 +1,4 @@
-package com.mochame.utils
+package com.mochame.sync.infrastructure
 
 import com.mochame.sync.spi.infrastructure.KeyedLocker
 import kotlinx.coroutines.sync.Mutex

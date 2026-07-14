@@ -1,10 +1,10 @@
 package com.mochame.sync.orchestration
 
 import co.touchlab.kermit.Logger
-import com.mochame.contract.di.AppScope
-import com.mochame.contract.di.IoContext
-import com.mochame.contract.di.JanitorMutex
-import com.mochame.contract.providers.TransactionProvider
+import com.mochame.annotations.AppScope
+import com.mochame.annotations.IoContext
+import com.mochame.annotations.JanitorMutex
+import com.mochame.sync.spi.infrastructure.TransactionProvider
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.logger.withTimer

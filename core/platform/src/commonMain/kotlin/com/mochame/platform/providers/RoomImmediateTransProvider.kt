@@ -3,7 +3,7 @@ package com.mochame.platform.providers
 import androidx.room.RoomDatabase
 import androidx.room.Transactor
 import androidx.room.useWriterConnection
-import com.mochame.contract.providers.TransactionProvider
+import com.mochame.sync.spi.infrastructure.TransactionProvider
 import org.koin.core.annotation.Single
 
 /**

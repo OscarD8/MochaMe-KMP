@@ -1,16 +1,5 @@
 package com.mochame.androidapp.di
 
-import android.content.Context
-import com.mochame.contract.di.DefaultContext
-import com.mochame.contract.di.IoContext
-import com.mochame.contract.di.MainContext
-import com.mochame.platform.providers.AppPathsProvider
-import kotlinx.coroutines.Dispatchers
-import org.koin.core.annotation.ComponentScan
-import org.koin.core.annotation.Module
-import org.koin.core.annotation.Single
-import kotlin.coroutines.CoroutineContext
-
 
 //    @Single
 //    class AndroidAppPathsProvider(private val context: Context) : AppPathsProvider {

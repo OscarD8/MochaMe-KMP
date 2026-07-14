@@ -1,4 +1,3 @@
-import com.mochame.gradle.applyStandardDependencies
 import com.mochame.gradle.configureTargets
 import com.mochame.gradle.libs
 import com.mochame.gradle.standardConfigurations
@@ -17,5 +16,18 @@ kotlin {
         libs = libs
     )
 
-    applyStandardDependencies(this@Project)
+    sourceSets {
+        val commonMainProvider = named("commonMain")
+        val isFixture = project.path.startsWith(":core:test:fixtures-")
+
+        if (isFixture) {
+            commonMainProvider.configure {
+                dependencies {
+                    implementation(project(":core:annotations"))
+                    implementation(project(":core:logger"))
+                    api(project(":core:test:support"))
+                }
+            }
+        }
+    }
 }

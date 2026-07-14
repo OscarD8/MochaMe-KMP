@@ -17,7 +17,7 @@ import kotlin.time.TimeSource
  * Execution policy for the local database.
  */
 @Single(binds = [ExecutionPolicy::class])
-class SqliteResiliencePolicy(
+class SqliteExecutionPolicy(
     logger: Logger
 ) : ExecutionPolicy {
 

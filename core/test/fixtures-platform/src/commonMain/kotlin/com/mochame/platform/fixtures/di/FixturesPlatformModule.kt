@@ -1,12 +1,12 @@
 package com.mochame.platform.fixtures.di
 
 import co.touchlab.kermit.Logger
-import com.mochame.contract.di.CommittedDir
-import com.mochame.contract.di.PendingDir
+import com.mochame.annotations.CommittedDir
+import com.mochame.annotations.PendingDir
 import com.mochame.platform.providers.Digest
 import com.mochame.platform.providers.Hasher
 import com.mochame.logger.test.TestLoggerModule
-import com.mochame.platform.policies.SqliteResiliencePolicy
+import com.mochame.platform.policies.SqliteExecutionPolicy
 import com.mochame.platform.fixtures.TestWorkspace
 import com.mochame.platform.fixtures.createTestWorkspace
 import com.mochame.sync.spi.policy.ExecutionPolicy
@@ -56,5 +56,5 @@ class FixturesPlatformModule {
 
     @Single
     fun provideExecutionPolicy(logger: Logger): ExecutionPolicy =
-        SqliteResiliencePolicy(logger)
+        SqliteExecutionPolicy(logger)
 }

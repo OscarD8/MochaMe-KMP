@@ -1,4 +1,4 @@
-package com.mochame.contract.providers
+package com.mochame.sync.spi.infrastructure
 
 import kotlinx.io.Buffer
 

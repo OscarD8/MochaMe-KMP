@@ -3,10 +3,10 @@ package com.mochame.platform.di
 import androidx.sqlite.SQLiteDriver
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import co.touchlab.kermit.Logger
-import com.mochame.contract.di.AppScope
-import com.mochame.contract.di.DefaultContext
-import com.mochame.contract.di.IoContext
-import com.mochame.contract.di.MainContext
+import com.mochame.annotations.AppScope
+import com.mochame.annotations.DefaultContext
+import com.mochame.annotations.IoContext
+import com.mochame.annotations.MainContext
 import com.mochame.logger.LoggerModule
 import com.mochame.platform.providers.*
 import kotlinx.coroutines.CoroutineScope

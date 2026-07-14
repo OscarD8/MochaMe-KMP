@@ -7,7 +7,6 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(project(":core:contract"))
             implementation(project(":core:sync-api"))
             implementation(project(":core:platform"))
             implementation(project(":node"))
