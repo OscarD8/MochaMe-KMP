@@ -3,7 +3,7 @@ plugins {
 }
 
 kotlin {
-    android { namespace = "com.mocha.logger" }
+    android { namespace = "com.mochame.logger" }
 
     sourceSets {
         commonMain.dependencies {

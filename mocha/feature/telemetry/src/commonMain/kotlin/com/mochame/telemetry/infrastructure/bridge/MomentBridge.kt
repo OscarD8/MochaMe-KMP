@@ -33,7 +33,7 @@ internal class MomentBridge(
         val enrichedDetail = enrichBiophilia(draft.spaceId, draft.detail)
 
         val newMoment = Moment(
-            id = uuid4().toString(),
+            id = uuid4().toString(), // why?
             domainId = validatedDomainId,
             topicId = draft.topicId,
             spaceId = draft.spaceId,

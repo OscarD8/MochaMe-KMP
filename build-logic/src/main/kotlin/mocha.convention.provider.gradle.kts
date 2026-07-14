@@ -24,7 +24,6 @@ kotlin {
             commonMainProvider.configure {
                 dependencies {
                     implementation(project(":core:annotations"))
-                    implementation(project(":core:logger"))
                     api(project(":core:test:support"))
                 }
             }

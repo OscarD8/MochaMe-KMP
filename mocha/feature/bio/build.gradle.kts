@@ -12,8 +12,6 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(project(":core:platform"))
-
             implementation(libs.kotlinx.serialization.protobuf)
             implementation(libs.kotlinx.io.core)
         }

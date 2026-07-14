@@ -7,7 +7,6 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(project(":core:utils"))
             implementation(project(":core:platform"))
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.uuid)

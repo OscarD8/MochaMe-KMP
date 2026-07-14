@@ -5,7 +5,6 @@ plugins {
 
 
 kotlin {
-
     android {
         namespace = "com.mochame.ui"
     }
