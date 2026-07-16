@@ -7,7 +7,7 @@ import org.koin.core.annotation.KoinInternalApi
 import org.koin.dsl.koinApplication
 
 /**
- * Establishes a pure logic environment.
+ * Establishes a pure logic environment, and handles Koin App lifecycle.
  * Ties all CoroutineContexts to the virtual clock of runTest.
  */
 @OptIn(KoinInternalApi::class)

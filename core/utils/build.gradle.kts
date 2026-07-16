@@ -3,7 +3,7 @@ plugins {
 }
 
 kotlin {
-    android { namespace = "com.mochame.core.utils" }
+    android { namespace = "com.mochame.utils" }
 
     sourceSets {
         commonMain.dependencies {

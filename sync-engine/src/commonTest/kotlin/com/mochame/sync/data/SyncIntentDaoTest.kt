@@ -340,7 +340,7 @@ class SyncIntentDaoTest : MochaPlatformTest() {
         assertEquals(2, rowsRecovered)
 
         // Verify a completely fresh session can seamlessly claim the entire backlog now
-        val nextSessionId = "fresh-start-worker"
+        val nextSessionId = "fresh-startOutbound-worker"
         val totalClaimedCount = claimBatch(id = nextSessionId, limit = 10)
         val currentActiveBatch = getClaimedBatch(id = nextSessionId)
 

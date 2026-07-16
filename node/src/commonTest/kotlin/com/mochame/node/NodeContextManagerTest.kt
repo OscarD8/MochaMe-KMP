@@ -4,8 +4,8 @@ import co.touchlab.kermit.ExperimentalKermitApi
 import com.mochame.node.data.NodeContextMicroSchema
 import com.mochame.node.data.NodeContextMicroSchemaConstructor
 import com.mochame.node.data.nodeTableName
-import com.mochame.node.di.NodeContextTestApp
-import com.mochame.node.di.NodeContextTestEnv
+import com.mochame.node.di.NodeContextIntTestApp
+import com.mochame.node.di.NodeContextIntTestEnv
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.TestHlcFactory
 import com.mochame.support.getPhysicalRowCount
@@ -28,10 +28,10 @@ import kotlin.test.assertTrue
 // SUT ENVIRONMENT
 // -----------------------------------------------------------
 
-private inline fun runEnv(crossinline block: suspend NodeContextTestEnv.(TestScope) -> Unit) =
-    runPersistenceEnvironment<NodeContextMicroSchema, NodeContextTestEnv>(
+private inline fun runEnv(crossinline block: suspend NodeContextIntTestEnv.(TestScope) -> Unit) =
+    runPersistenceEnvironment<NodeContextMicroSchema, NodeContextIntTestEnv>(
         constructor = NodeContextMicroSchemaConstructor,
-        koinSetup = { includes(koinConfiguration<NodeContextTestApp>()) },
+        koinSetup = { includes(koinConfiguration<NodeContextIntTestApp>()) },
         block = block
     )
 

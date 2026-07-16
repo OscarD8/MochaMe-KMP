@@ -9,6 +9,7 @@ import com.mochame.annotations.IoContext
 import com.mochame.annotations.MainContext
 import com.mochame.logger.LoggerModule
 import com.mochame.platform.providers.*
+import com.mochame.sync.spi.infrastructure.Hasher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO

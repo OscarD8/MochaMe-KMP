@@ -8,8 +8,8 @@ import com.mochame.annotations.PendingDir
 import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.sync.api.exceptions.toMochaException
 import com.mochame.utils.interfaces.DateTimeProvider
-import com.mochame.platform.providers.Hasher
-import com.mochame.platform.providers.digestHex
+import com.mochame.sync.spi.infrastructure.Hasher
+import com.mochame.sync.spi.infrastructure.digestHex
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.logger.withTimer

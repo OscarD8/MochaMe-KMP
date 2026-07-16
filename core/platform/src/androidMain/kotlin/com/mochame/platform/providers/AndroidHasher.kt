@@ -1,6 +1,7 @@
 package com.mochame.platform.providers
 
 import co.touchlab.kermit.Logger
+import com.mochame.sync.spi.infrastructure.Digest
 import kotlinx.io.Source
 import kotlinx.io.readByteArray
 import org.koin.core.annotation.Single

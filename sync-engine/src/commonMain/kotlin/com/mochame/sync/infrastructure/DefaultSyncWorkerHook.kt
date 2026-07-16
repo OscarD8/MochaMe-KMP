@@ -20,7 +20,7 @@ class DefaultSyncWorkerHook : SyncWorkerHook {
     /**
      * The shared flow is configured to automatically drop the oldest pending
      * emission, replacing it with the latest emission. Consequently, the boolean return value
-     * from [tryEmit] should always return true, though branching logic based on that
+     * from [MutableSharedFlow.tryEmit] should always return true, though branching logic based on that
      * is not necessary here.
      * The UNIT singleton performs no additional boxing of values, and I think is just
      * a performative object necessary for an emission.

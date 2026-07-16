@@ -1,4 +1,4 @@
-package com.mochame.platform.policies
+package com.mochame.node.policies
 
 import co.touchlab.kermit.Logger
 import com.mochame.logger.LogTags
@@ -17,7 +17,7 @@ import kotlin.time.TimeSource
  * Execution policy for the local database.
  */
 @Single(binds = [ExecutionPolicy::class])
-class SqliteExecutionPolicy(
+class JitteredExecutionPolicy(
     logger: Logger
 ) : ExecutionPolicy {
 

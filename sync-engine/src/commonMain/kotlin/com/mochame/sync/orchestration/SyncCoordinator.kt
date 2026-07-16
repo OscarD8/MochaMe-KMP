@@ -44,7 +44,7 @@ internal class SyncCoordinator(
     private val receiverRoutingMap: Map<String, SyncReceiver> =
         receivers.associateBy { it.featureContext.modelName }
 
-    fun start() = appScope.launch {
+    fun startOutbound() = appScope.launch {
         invalidationHook.signals.collect {
             try {
                 processQueueUntilExhausted()
@@ -130,6 +130,9 @@ internal class SyncCoordinator(
     /**
      * All individual Intent processing from inbound ingestion will have errors propagate
      * to this boundary.
+     *
+     * There may be a need to update the intent status here to specifically mark it as a
+     * received intent?
      */
     private suspend fun processIntent(intent: SyncIntent) {
 

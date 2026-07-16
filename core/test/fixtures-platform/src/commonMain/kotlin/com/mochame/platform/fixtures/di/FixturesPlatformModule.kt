@@ -1,15 +1,14 @@
 package com.mochame.platform.fixtures.di
 
-import co.touchlab.kermit.Logger
 import com.mochame.annotations.CommittedDir
 import com.mochame.annotations.PendingDir
-import com.mochame.platform.providers.Digest
-import com.mochame.platform.providers.Hasher
 import com.mochame.logger.test.TestLoggerModule
-import com.mochame.platform.policies.SqliteExecutionPolicy
+import com.mochame.platform.fixtures.FakeTransactionProvider
 import com.mochame.platform.fixtures.TestWorkspace
 import com.mochame.platform.fixtures.createTestWorkspace
-import com.mochame.sync.spi.policy.ExecutionPolicy
+import com.mochame.sync.spi.infrastructure.Digest
+import com.mochame.sync.spi.infrastructure.Hasher
+import com.mochame.sync.spi.infrastructure.TransactionProvider
 import kotlinx.io.Source
 import kotlinx.io.files.FileSystem
 import kotlinx.io.files.Path
@@ -20,7 +19,7 @@ import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
 
 /**
- * Provides a fake Hasher and test file workspace.
+ * Provides a fake platform integration module with no SQLite usage, for Unit testing.
  */
 @Module([TestLoggerModule::class])
 class FixturesPlatformModule {
@@ -54,7 +53,9 @@ class FixturesPlatformModule {
     @CommittedDir
     fun provideCommittedDir(workspace: TestWorkspace): Path = workspace.committed
 
-    @Single
-    fun provideExecutionPolicy(logger: Logger): ExecutionPolicy =
-        SqliteExecutionPolicy(logger)
+    @Single(binds = [TransactionProvider::class, FakeTransactionProvider::class])
+    fun provideFakeTransactionProvider() : TransactionProvider =
+        FakeTransactionProvider()
+
 }
+

@@ -1,10 +1,14 @@
+@file:OptIn(ExperimentalKermitApi::class)
+
 package com.mochame.node.di
 
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.TestLogWriter
 import com.mochame.annotations.NodeManagerMutex
+import com.mochame.logger.test.TestLoggerModule
 import com.mochame.node.data.NodeContextDao
 import com.mochame.node.data.NodeContextMicroSchema
+import com.mochame.node.policies.JitteredExecutionPolicy
 import com.mochame.support.TestSupportModule
 import com.mochame.sync.spi.node.NodeContextManager
 import kotlinx.coroutines.sync.Mutex
@@ -18,8 +22,15 @@ import org.koin.core.annotation.Single
 // Applications
 // -----------------------------------------------------------
 
-@KoinApplication(modules = [NodeContextTestModule::class])
-object NodeContextTestApp
+@KoinApplication(modules = [NodeContextIntTestModule::class])
+object NodeContextIntTestApp
+
+@KoinApplication(modules = [NodeProductionModule::class])
+object BootManagerUnitTestApp
+
+@KoinApplication(modules = [JitteredExecutionPolicyTestModule::class])
+object JitteredExecutionTestApp
+
 
 // -----------------------------------------------------------
 // Modules
@@ -29,11 +40,11 @@ object NodeContextTestApp
 @Module(
     includes = [
         NodeProductionModule::class,
-        TestSupportModule::class,
         NodeTestPersistenceModule::class,
+        TestSupportModule::class,
     ]
 )
-class NodeContextTestModule
+class NodeContextIntTestModule
 
 @Module
 class NodeTestPersistenceModule {
@@ -50,14 +61,24 @@ class NodeTestPersistenceModule {
 
 }
 
-@OptIn(ExperimentalKermitApi::class)
+@Module(includes = [TestLoggerModule::class, NodeProductionModule::class])
+class JitteredExecutionPolicyTestModule
+
+// -----------------------------------------------------------
+// Environments
+// -----------------------------------------------------------
+
 @Factory
-data class NodeContextTestEnv(
-    val manager: NodeContextManager,
+data class NodeContextIntTestEnv(
     val db: NodeContextMicroSchema,
     val dao: NodeContextDao,
+    val manager: NodeContextManager,
     val writer: TestLogWriter,
     @NodeManagerMutex val managerMutex: Mutex
 )
 
-
+@Factory
+data class JitteredExecutionTestEnv(
+    val executor: JitteredExecutionPolicy,
+    val writer: TestLogWriter
+)

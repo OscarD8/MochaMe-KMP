@@ -1,7 +1,7 @@
 package com.mochame.node.data
 
-import com.mochame.node.di.NodeContextTestApp
-import com.mochame.node.di.NodeContextTestEnv
+import com.mochame.node.di.NodeContextIntTestApp
+import com.mochame.node.di.NodeContextIntTestEnv
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.TestHlcFactory
 import com.mochame.support.getPhysicalRowCount
@@ -19,10 +19,10 @@ import kotlin.test.assertEquals
 // -----------------------------------------------------------
 // SUT ENVIRONMENT
 // -----------------------------------------------------------
-private inline fun runEnv(crossinline block: suspend NodeContextTestEnv.(TestScope) -> Unit) =
-    runPersistenceEnvironment<NodeContextMicroSchema, NodeContextTestEnv>(
+private inline fun runEnv(crossinline block: suspend NodeContextIntTestEnv.(TestScope) -> Unit) =
+    runPersistenceEnvironment<NodeContextMicroSchema, NodeContextIntTestEnv>(
         constructor = NodeContextMicroSchemaConstructor,
-        koinSetup = { includes(koinConfiguration<NodeContextTestApp>()) },
+        koinSetup = { includes(koinConfiguration<NodeContextIntTestApp>()) },
         block = block
     )
 

@@ -29,7 +29,7 @@ import kotlin.time.TimeSource
  * This chassis ensures that any change to local state is atomically bound
  * to a [SyncIntent].
  *
- * @param T The entity type, adhering to the [com.mochame.sync.api.models.LocalFirstEntity] contract.
+ * @param T The entity type, adhering to the [LocalFirstEntity] contract.
  */
 @Single(binds = [SyncReceiver::class])
 abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
@@ -316,7 +316,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                 deps.bootStatus.bootState.first { it !is BootState.Initializing && it !is BootState.Idle }
 
             if (state is BootState.CriticalFailure) {
-                throw state.throwable
+                throw state.exception
                     ?: MochaException.Persistent.BootInitializationError(state.error)
             }
         }

@@ -24,6 +24,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 
 // -----------------------------------------------------------
 // SUT ENVIRONMENT
@@ -56,7 +57,7 @@ class SyncJanitorTest : MochaPlatformTest() {
     // -----------------------------------------------------------
     @Test
     fun should_enter_critical_failure_when_last_hlc_is_from_the_future() =
-        runEnv { scope ->
+        runEnv {
             // Arrange
             // Seed a Future HLC (2040-01-01...)
             val futureHlc = HLC.parse("2209032000000:0000:node-1")
@@ -78,7 +79,7 @@ class SyncJanitorTest : MochaPlatformTest() {
                 val finalState = awaitItem()
                 assertTrue(finalState is BootState.CriticalFailure)
 
-                assertTrue(finalState.throwable is MochaException.Persistent.ClockSkew)
+                assertTrue(finalState.exception is MochaException.Persistent.ClockSkew)
 
                 // Verify the logs
                 val log = writer.logs.find { it.message.contains("Clock Skew") }
@@ -105,14 +106,14 @@ class SyncJanitorTest : MochaPlatformTest() {
                 assertEquals(BootState.Idle, awaitItem())
                 expectNoEvents()
 
-                scope.advanceTimeBy(5001L)
+                scope.advanceTimeBy(5001L.milliseconds)
                 expectNoEvents() // -- should not have hit internal timeout
 
-                scope.advanceTimeBy(15_001L)
+                scope.advanceTimeBy(15_001L.milliseconds)
                 val failureState = awaitItem()
 
                 assertTrue(failureState is BootState.CriticalFailure)
-                assertTrue(failureState.throwable is MochaException.Persistent.BootLockout)
+                assertTrue(failureState.exception is MochaException.Persistent.BootLockout)
             }
 
             janitorMutex.unlock()
@@ -121,84 +122,75 @@ class SyncJanitorTest : MochaPlatformTest() {
     @Test
     fun should_report_transient_failure_when_boot_hydration_times_out() =
         runEnv { scope ->
-            // Arrange: lock NodeContextManager mutex
+            // Arrange - lock NodeContextManager mutex
             nodeManager.mutex.lock()
 
-            // Act: launch the janitor
+            // Act
             janitor.startupChecks()
-
-            scope.runCurrent() // -- janitor stalls on hydration, locked from fetching deviceId
+            // janitor stalls on hydration, locked from fetching device context
+            scope.runCurrent()
             assertEquals(BootState.Initializing, bootUpdater.bootState.value)
+            scope.advanceTimeBy(5001.milliseconds)
 
-            // -- Fast-forward virtual time past the 5-second timeout
-            scope.advanceTimeBy(5001)
-
-            // Assert: Verify the Janitor caught the timeout and failed the boot.
+            // Assert
             val finalState = bootUpdater.bootState.value
             assertTrue(
                 finalState is BootState.TransientFailure,
-                "Janitor should have failed on timeout! Got $finalState.."
+                "Janitor should have failed on timeout. Got $finalState.."
             )
-            assertTrue(finalState.throwable is MochaException.Transient.BootTimeout)
+            assertTrue(finalState.exception is MochaException.Transient.BootTimeout)
         }
 
     // -----------------------------------------------------------
     // LOGGING
     // -----------------------------------------------------------
     @Test
-    fun should_log_correct_seeding_count_for_new_node_when_new_install() = runEnv { scope ->
-        // Given
-        nodeManager.forcedNextNodeId = "fake-node"
+    fun should_log_correct_seeding_count_for_new_node_when_new_install() =
+        runEnv { scope ->
+            // Given
+            nodeManager.forcedNextNodeId = "fake-node"
 
-        // When
-        janitor.startupChecks()
-        scope.advanceUntilIdle()
+            // When
+            janitor.startupChecks()
+            scope.advanceUntilIdle()
 
-        // Then assert the "Ear" heard the "Mouth" (says Gemini)
-        val seedingMessage =
-            writer.logs.find { it.message.contains("fake-node") }
-        assertNotNull(seedingMessage, "The success log should have been recorded!")
-    }
+            // Then assert the "Ear" heard the "Mouth" (says Gemini)
+            val seedingMessage =
+                writer.logs.find { it.message.contains("fake-node") }
+            assertNotNull(seedingMessage, "The success log should have been recorded!")
+        }
 
 }
 
-// -----------------------------------------------------------
-// TODO
-// -----------------------------------------------------------
 
-// No longer valid, shifted execution policy to global executors to prevent
-// nested execution policies and improve retry logic of top level functions...
-// will use this logic elsewhere
-//    @Test
-//    fun should_retry_twice_then_successfully_write_to_db() = runTestWrapper {
-//        // Arrange: store provided a mocked DAO and a real executor
-//        val mockDao = mock<SettingsDao>()
-//        val storeWithMock = RoomSettingsStore(mockDao)
-//
-//        everySuspend { mockDao.updateNodeId(any()) } sequentially {
-//            throws(SQLiteException("BUSY"))
-//            throws(SQLiteException("BUSY"))
-//
-//            // Third call: actually call the real database
-//            calls { (newId: String) -> settingsDao.updateNodeId(newId) }
-//        }
-//
-//        // Act:
-//        storeWithMock.saveNodeId("verified")
-//
-//        // Assert
-//        // Verify the mock was poked 3 times
-//        verifySuspend(VerifyMode.order) {
-//            mockDao.updateNodeId("verified")
-//            mockDao.updateNodeId("verified")
-//            mockDao.updateNodeId("verified")
-//        }
-//
-//        // Verify: real database now contains the data
-//        val dbResult = settingsDao.getNodeIdentity()
-//        assertNotNull(dbResult, "The real DB was never reached!")
-//        assertEquals("verified", dbResult.nodeId, "The real DB was never updated!")
-//
-//        val recoveryLog = writer.logs.find { it.message.contains("3 attempts") }
-//        assertNotNull(recoveryLog, "Log expected for three attempts made.")
-//    }
+/*
+        // Arrange: store provided a mocked DAO and a real executor
+
+        everySuspend { mockDao.updateNodeId(any()) } sequentially {
+            throws(SQLiteException("BUSY"))
+            throws(SQLiteException("BUSY"))
+
+            // Third call: actually call the real database
+            calls { (newId: String) -> settingsDao.updateNodeId(newId) }
+        }
+
+        // Act:
+        storeWithMock.saveNodeId("verified")
+
+        // Assert
+        // Verify the mock was poked 3 times
+        verifySuspend(VerifyMode.order) {
+            mockDao.updateNodeId("verified")
+            mockDao.updateNodeId("verified")
+            mockDao.updateNodeId("verified")
+        }
+
+        // Verify: real database now contains the data
+        val dbResult = settingsDao.getNodeIdentity()
+        assertNotNull(dbResult, "The real DB was never reached!")
+        assertEquals("verified", dbResult.nodeId, "The real DB was never updated!")
+
+        val recoveryLog = writer.logs.find { it.message.contains("3 attempts") }
+        assertNotNull(recoveryLog, "Log expected for three attempts made.")
+
+ */

@@ -25,7 +25,7 @@ internal class PruneOldEntriesUseCase(
     private val logger = logger.withTags(
         layer = LogTags.Layer.INFRA,
         domain = LogTags.Domain.SYNC,
-        className = "LedgerPruner"
+        className = "MsPrune"
     )
 
     suspend operator fun invoke(): Int {

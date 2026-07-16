@@ -18,6 +18,10 @@ import com.mochame.sync.domain.stores.SyncIntentMaintenanceStore
 import com.mochame.sync.domain.usecase.PruneOldEntriesUseCase
 import com.mochame.sync.spi.boot.BootStatusUpdater
 import com.mochame.sync.spi.policy.ExecutionPolicy
+import com.mochame.sync.spi.models.SyncIntent
+import com.mochame.sync.spi.node.NodeContext
+import com.mochame.sync.api.models.HLC
+import com.mochame.sync.api.metadata.SyncStatus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.TimeoutCancellationException
@@ -34,6 +38,18 @@ import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.TimeSource
 
+
+/**
+ * Orchestrator of state validity across different application
+ * domains, all required for synchronization logic and metadata integrity.
+ * Responsabilities cover recovery, initialization requirements,
+ * the [SyncStatus] of intents and record pruning, and communicating system
+ * stability with relevant components.
+ * * [BootState]
+ * * [SyncIntent]
+ * * [NodeContext]
+ * * [HLC]
+ */
 @Single(createdAtStart = true)
 internal class SyncJanitor(
     private val bootUpdater: BootStatusUpdater,
@@ -83,7 +99,7 @@ internal class SyncJanitor(
 
                             blobReconciliation()
 
-                            logger.i { "Janitor start up checks finalized..." }
+                            logger.i { "Janitor Start Up checks finalized..." }
                         }
                     }
                 }
@@ -135,7 +151,7 @@ internal class SyncJanitor(
     fun startRuntimeMaintenance() {
         appScope.launch(ioContext) {
             while (true) {
-                delay(LEASE_TIMEOUT_MS)
+                delay(LEASE_TIMEOUT_MS.milliseconds)
                 mutex.withLock {
                     assessStaleLeases()
                     pruneInChunks()

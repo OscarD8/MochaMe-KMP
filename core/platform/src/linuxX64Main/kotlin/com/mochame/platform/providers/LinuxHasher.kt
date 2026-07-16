@@ -9,6 +9,7 @@ import com.mochame.app.infrastructure.native.openssl.EVP_MD_CTX_new
 import com.mochame.app.infrastructure.native.openssl.EVP_MD_size
 import com.mochame.app.infrastructure.native.openssl.EVP_get_digestbyname
 import com.mochame.sync.api.exceptions.MochaException
+import com.mochame.sync.spi.infrastructure.Digest
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.invoke

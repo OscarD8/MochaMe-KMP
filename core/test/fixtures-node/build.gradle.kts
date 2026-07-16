@@ -8,6 +8,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(project(":node"))
+            api(libs.kotlinx.atomicfu)
             implementation(project(":core:sync-api"))
             implementation(libs.kotlinx.coroutines.core)
         }

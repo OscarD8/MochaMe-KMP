@@ -14,19 +14,15 @@ data class TestWorkspace(
 )
 
 fun createTestWorkspace(baseDir: String = "build/mocha-tests"): TestWorkspace {
-    // 1. Generate the unique ID
+    // Generate the unique ID
     val timestamp = Clock.System.now()
         .toLocalDateTime(TimeZone.currentSystemDefault())
         .let { "${it.date}_${it.hour}-${it.minute}" }
     val salt = Random.nextInt(1000, 9999)
     val folderName = "mocha_test_${timestamp}_$salt"
 
-    // 2. Resolve the path
-    // Path(baseDir, folderName) is platform-agnostic in kotlinx-io
     val root = Path(baseDir, folderName)
 
-    // 3. Ensure the parent directory exists
-    // This is the most important part for platform stability
     if (!SystemFileSystem.exists(Path(baseDir))) {
         SystemFileSystem.createDirectories(Path(baseDir))
     }
