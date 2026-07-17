@@ -389,7 +389,7 @@ class SyncIntentDaoTest : MochaPlatformTest() {
 
         // When
         // Business logic telling the DAO to reset the lease and bump retries to 1
-        resetLease(hlc = hlc, retryCount = 1)
+        resetLease(hlc = hlc.toString(), retryCount = 1)
 
         // Then
         // Rows should be claimable by a new batch

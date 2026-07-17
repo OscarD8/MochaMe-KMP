@@ -1,5 +1,6 @@
 package com.mochame.sync.infrastructure.serialization
 
+import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.api.models.HLC
@@ -35,8 +36,8 @@ internal class IntentCodecV1 : IntentCodec {
             featureSchemaVersion = intent.featureSchemaVersion,
             hlc = intent.hlc.toString(),
             candidateKey = intent.candidateKey,
-            module = intent.module,
-            model = intent.model,
+            module = intent.featureContext.featureName,
+            model = intent.featureContext.modelName,
             operation = intent.operation.name,
             payloadBlob = intent.payload,
             overflowBlobId = intent.overflowBlobId,
@@ -52,8 +53,7 @@ internal class IntentCodecV1 : IntentCodec {
             featureSchemaVersion = envelope.featureSchemaVersion,
             hlc = HLC.parse(envelope.hlc),
             candidateKey = envelope.candidateKey,
-            module = envelope.module,
-            model = envelope.model,
+            featureContext = FeatureContext.fromModelString(envelope.model),
             operation = MutationOp.valueOf(envelope.operation),
             syncStatus = SyncStatus.RECEIVED,
             payload = envelope.payloadBlob,

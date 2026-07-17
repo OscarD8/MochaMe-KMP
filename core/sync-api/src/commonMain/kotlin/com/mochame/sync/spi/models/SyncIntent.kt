@@ -1,5 +1,6 @@
 package com.mochame.sync.spi.models
 
+import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.api.models.HLC
@@ -8,8 +9,7 @@ data class SyncIntent(
     val featureSchemaVersion: Int,
     val hlc: HLC,
     val candidateKey: String,
-    val module: String,
-    val model: String,
+    val featureContext: FeatureContext,
     val operation: MutationOp,
     val syncStatus: SyncStatus,
     val retryCount: Int = 0,

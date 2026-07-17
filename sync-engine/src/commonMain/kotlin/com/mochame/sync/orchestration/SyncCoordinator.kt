@@ -136,10 +136,10 @@ internal class SyncCoordinator(
      */
     private suspend fun processIntent(intent: SyncIntent) {
 
-        val receiver = receiverRoutingMap[intent.model] ?: run {
-            logger.e { "Routing failure for model '${intent.model}'" }
+        val receiver = receiverRoutingMap[intent.featureContext.modelName] ?: run {
+            logger.e { "Routing failure for model '${intent.featureContext.modelName}'" }
             throw MochaException.Persistent.Internal(
-                "No SyncReceiver for model string '${intent.model}'"
+                "No SyncReceiver for model string '${intent.featureContext.modelName}'"
             )
         }
 

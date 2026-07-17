@@ -15,6 +15,7 @@ import com.mochame.sync.di.SyncInfraModule
 import com.mochame.sync.di.SyncOrchestrationModule
 import com.mochame.sync.di.blob.SyncBlobStoreTestModule
 import com.mochame.sync.di.data.SyncPersistenceTestModule
+import com.mochame.sync.di.domain.SyncPruneUseCaseModule
 import com.mochame.sync.di.hlc.FakeHlcFactoryModule
 import com.mochame.sync.di.hlc.SyncHlcUnitTestModule
 import com.mochame.sync.domain.stores.SyncIntentMaintenanceStore
@@ -45,6 +46,7 @@ internal object JanitorTestApp
         SyncBlobStoreTestModule::class,
         SyncPersistenceTestModule::class,
         SyncHlcUnitTestModule::class,
+        SyncPruneUseCaseModule::class
     ]
 )
 @ComponentScan("com.mochame.sync.di.janitor")

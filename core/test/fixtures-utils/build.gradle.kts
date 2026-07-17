@@ -8,6 +8,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             api(project(":core:utils"))
+            implementation(libs.kotlinx.atomicfu)
         }
     }
 }

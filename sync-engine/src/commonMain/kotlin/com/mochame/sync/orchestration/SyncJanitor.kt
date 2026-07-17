@@ -74,6 +74,7 @@ internal class SyncJanitor(
     companion object {
         const val LEASE_TIMEOUT_MS = 30_000L
         const val RETRY_THRESHOLD = 5
+        const val STARTUP_TIMEOUT_MS = 10_000L
     }
 
     /**
@@ -82,7 +83,7 @@ internal class SyncJanitor(
     fun startupChecks() {
         appScope.launch(ioContext) {
             try {
-                withTimeout(10_000L.milliseconds) {
+                withTimeout(STARTUP_TIMEOUT_MS.milliseconds) {
                     executor.execute("[Startup Checks]") {
                         mutex.withLock {
                             bootUpdater.bootState.takeIf { !isValidBootState() }?.run {

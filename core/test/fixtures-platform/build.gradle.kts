@@ -13,6 +13,7 @@ kotlin {
 
             api(libs.kotlinx.io.core)
             implementation(libs.kotlinx.datetime)
+            implementation(libs.kotlinx.atomicfu)
         }
     }
 }

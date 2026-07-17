@@ -33,7 +33,7 @@ private inline fun runEnv(crossinline block: suspend PersistenceEnv.(TestScope) 
     )
 
 
-class SyncIntentStoreTest : MochaPlatformTest() {
+internal class SyncIntentStoreTest : MochaPlatformTest() {
 
     // -----------------------------------------------------------
     // INBOUND / OUTBOUND INTEGRITY
@@ -54,7 +54,7 @@ class SyncIntentStoreTest : MochaPlatformTest() {
 
         // When
         intentStore.recordIntent(originalIntent)
-        val retrievedIntent = intentStore.getPendingByPrimaryKey(candidateKey)
+        val retrievedIntent = intentStore.getPendingByCandidateKey(candidateKey)
 
         // Then
         assertNotNull(retrievedIntent)
@@ -65,8 +65,7 @@ class SyncIntentStoreTest : MochaPlatformTest() {
             retrievedIntent.featureSchemaVersion
         )
         assertEquals(originalIntent.candidateKey, retrievedIntent.candidateKey)
-        assertEquals(originalIntent.module, retrievedIntent.module)
-        assertEquals(originalIntent.model, retrievedIntent.model)
+        assertEquals(originalIntent.featureContext, retrievedIntent.featureContext)
         assertEquals(originalIntent.operation, retrievedIntent.operation)
         assertEquals(originalIntent.syncStatus, retrievedIntent.syncStatus)
         assertEquals(originalIntent.createdAt, retrievedIntent.createdAt)
@@ -98,8 +97,8 @@ class SyncIntentStoreTest : MochaPlatformTest() {
         intentDao.upsert(createTestIntentEntity(hlc = hlcs[1], candidateKey = "key-1"))
 
         // When
-        val rowsClaimed = intentStore.claimBatch(id = sessionId, limit = 10)
-        val claimedDomainBatch = intentStore.getClaimedBatch(id = sessionId)
+        val rowsClaimed = intentStore.claimBatch(batchId = sessionId, limit = 10)
+        val claimedDomainBatch = intentStore.getClaimedBatch(batchId = sessionId)
 
         // Then
         assertEquals(3, rowsClaimed)
@@ -118,10 +117,10 @@ class SyncIntentStoreTest : MochaPlatformTest() {
     @Test
     fun should_returnEmptyList_when_noPendingIntentsExistForModule() = runEnv {
         // Given
-        val targetModule = "empty-feature-module"
+        val targetFeature = FeatureContext.Type.UNRECOGNIZED_MODEL
 
         // When
-        val result = intentStore.getPendingByModule(targetModule)
+        val result = intentStore.getPendingByFeature(targetFeature)
 
         // Then
         assertNotNull(result)
@@ -131,7 +130,7 @@ class SyncIntentStoreTest : MochaPlatformTest() {
     @Test
     fun should_emitUpdatedSummary_when_intentIsQuarantined() = runEnv {
         // Given
-        val targetModule = FeatureContext.Type.UNRECOGNIZED_FALLBACK
+        val targetModule = FeatureContext.Type.UNRECOGNIZED_MODEL
         val hlc = TestHlcFactory.create()
 
         // When
@@ -150,7 +149,7 @@ class SyncIntentStoreTest : MochaPlatformTest() {
             assertEquals(1, updatedList.size)
 
             val summary = updatedList.first()
-            assertEquals(targetModule, summary.module)
+            assertEquals(targetModule, summary.feature)
             assertEquals(1, summary.count)
 
             cancelAndIgnoreRemainingEvents()

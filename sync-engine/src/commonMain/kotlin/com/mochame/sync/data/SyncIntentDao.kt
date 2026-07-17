@@ -4,8 +4,7 @@ import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Upsert
 import com.mochame.sync.api.metadata.SyncStatus
-import com.mochame.sync.api.models.HLC
-import com.mochame.sync.domain.model.QuarantinedModuleSummary
+import com.mochame.sync.domain.model.QuarantinedFeatureSummary
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -45,12 +44,12 @@ interface SyncIntentDao {
     @Query(
         """
         SELECT * FROM SyncIntentEntity
-        WHERE module = :module
+        WHERE feature = :featureName
         AND syncStatus = :status
     """
     )
-    suspend fun getPendingByModule(
-        module: String,
+    suspend fun getPendingByFeature(
+        featureName: String,
         status: SyncStatus = SyncStatus.PENDING
     ): List<SyncIntentEntity>
 
@@ -85,7 +84,7 @@ interface SyncIntentDao {
     """
     )
     suspend fun markAsSynced(
-        hlcs: List<HLC>,
+        hlcs: List<String>,
         status: SyncStatus = SyncStatus.SUCCESS
     )
 
@@ -96,7 +95,7 @@ interface SyncIntentDao {
             WHERE hlc = :hlc    
         """
     )
-    suspend fun setStatus(hlc: HLC, status: SyncStatus)
+    suspend fun setStatus(hlc: String, status: SyncStatus)
 
     @Query("SELECT EXISTS(SELECT 1 FROM SyncIntentEntity WHERE overflowBlobId = :blobId)")
     suspend fun existsByBlobId(blobId: String): Boolean
@@ -122,7 +121,7 @@ interface SyncIntentDao {
     suspend fun upsert(entry: SyncIntentEntity)
 
     @Query("DELETE FROM SyncIntentEntity WHERE hlc = :hlc")
-    suspend fun deleteByHlc(hlc: HLC)
+    suspend fun deleteByHlc(hlc: String)
 
     // ----- CLEAN UP (Janitor Support) ------
     /**
@@ -157,7 +156,7 @@ interface SyncIntentDao {
         """
     )
     suspend fun quarantineIntent(
-        hlc: HLC,
+        hlc: String,
         retryCount: Int,
         status: SyncStatus = SyncStatus.QUARANTINED
     )
@@ -191,16 +190,18 @@ interface SyncIntentDao {
     """
     )
     suspend fun resetLease(
-        hlc: HLC,
+        hlc: String,
         retryCount: Int,
         resetStatus: SyncStatus = SyncStatus.PENDING
     )
 
-    @Query("""
-        SELECT module, COUNT(*) AS count
+    @Query(
+        """
+        SELECT feature, COUNT(*) AS count
         FROM SyncIntentEntity
         WHERE syncStatus = :quarantinedStatus 
-        GROUP BY module
-    """)
-    fun observeQuarantinedCountByModule(quarantinedStatus: SyncStatus = SyncStatus.QUARANTINED): Flow<List<QuarantinedModuleSummary>>
+        GROUP BY feature
+    """
+    )
+    fun observeQuarantinedCountByModule(quarantinedStatus: SyncStatus = SyncStatus.QUARANTINED): Flow<List<QuarantinedFeatureSummary>>
 }

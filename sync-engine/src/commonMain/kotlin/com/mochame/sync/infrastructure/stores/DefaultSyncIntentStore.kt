@@ -1,11 +1,12 @@
 package com.mochame.sync.infrastructure.stores
 
 
+import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.models.HLC
 import com.mochame.sync.data.SyncIntentDao
 import com.mochame.sync.data.toDomain
 import com.mochame.sync.data.toEntity
-import com.mochame.sync.domain.model.QuarantinedModuleSummary
+import com.mochame.sync.domain.model.QuarantinedFeatureSummary
 import com.mochame.sync.domain.stores.SyncIntentMaintenanceStore
 import com.mochame.sync.spi.infrastructure.SyncIntentStore
 import com.mochame.sync.spi.models.SyncIntent
@@ -27,28 +28,31 @@ internal class DefaultSyncIntentStore(
     private val dao: SyncIntentDao
 ) : SyncIntentStore, SyncIntentMaintenanceStore {
 
-    override suspend fun getPendingByPrimaryKey(candidateKey: String) =
+    override suspend fun getPendingByCandidateKey(candidateKey: String) =
         dao.getPendingByKey(candidateKey)?.toDomain()
 
-    override suspend fun getPendingByModule(module: String): List<SyncIntent?> =
-        dao.getPendingByModule(module).map { it.toDomain() }
+    override suspend fun getPendingByFeature(feature: FeatureContext): List<SyncIntent?> =
+        dao.getPendingByFeature(feature.featureName).map { it.toDomain() }
 
     override suspend fun recordIntent(entry: SyncIntent) = dao.upsert(entry.toEntity())
 
-    override suspend fun discardIntent(hlc: HLC) = dao.deleteByHlc(hlc)
+    override suspend fun discardIntent(hlc: HLC) = dao.deleteByHlc(hlc.toString())
 
-    override suspend fun stampLastError(hlcs: List<String>, message: String) {
-        if (hlcs.isNotEmpty()) dao.stampLastError(hlcs, message)
+    override suspend fun stampLastError(hlcs: List<HLC>, message: String) {
+        if (hlcs.isNotEmpty()) dao.stampLastError(
+            hlcs.map { it.toString() },
+            message
+        )
     }
 
-    override suspend fun claimBatch(id: String, limit: Int): Int =
-        dao.claimBatch(id, limit)
+    override suspend fun claimBatch(batchId: String, limit: Int): Int =
+        dao.claimBatch(batchId, limit)
 
-    override suspend fun getClaimedBatch(id: String): List<SyncIntent> =
-        dao.getClaimedBatch(id).map { it.toDomain() }
+    override suspend fun getClaimedBatch(batchId: String): List<SyncIntent> =
+        dao.getClaimedBatch(batchId).map { it.toDomain() }
 
     override suspend fun acknowledgeSuccess(hlcList: List<HLC>) =
-        dao.markAsSynced(hlcList)
+        dao.markAsSynced(hlcList.map { it.toString() })
 
 
     // -----------------------------------------------------------
@@ -65,15 +69,15 @@ internal class DefaultSyncIntentStore(
         dao.clearAllLocksAndResetToPending()
 
     override suspend fun resetLease(hlc: HLC, retryCount: Int) =
-        dao.resetLease(hlc, retryCount)
+        dao.resetLease(hlc.toString(), retryCount)
 
     override suspend fun pruneOldSynced(olderThan: Long, limit: Int) =
         dao.pruneOldSynced(cutoff = olderThan, limit = limit)
 
     override suspend fun quarantine(hlc: HLC, retryCount: Int) =
-        dao.quarantineIntent(hlc, retryCount)
+        dao.quarantineIntent(hlc.toString(), retryCount)
 
-    override suspend fun observeQuarantinedCountByModule(): Flow<List<QuarantinedModuleSummary>> =
+    override suspend fun observeQuarantinedCountByModule(): Flow<List<QuarantinedFeatureSummary>> =
         dao.observeQuarantinedCountByModule()
 
     override suspend fun getStaleLeasedIntents(olderThan: Long): List<SyncIntent> =

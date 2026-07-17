@@ -122,8 +122,8 @@ class SyncJanitorTest : MochaPlatformTest() {
     @Test
     fun should_report_transient_failure_when_boot_hydration_times_out() =
         runEnv { scope ->
-            // Arrange - lock NodeContextManager mutex
-            nodeManager.mutex.lock()
+            // Arrange - simulate the manager being locked
+            nodeManager.simulatedDelay = 6000.milliseconds
 
             // Act
             janitor.startupChecks()

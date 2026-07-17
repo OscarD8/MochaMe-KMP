@@ -15,9 +15,9 @@ import kotlin.time.Clock
 @Entity(
     indices = [
         Index(value = ["syncStatus"]),
-        Index(value = ["candidateKey", "module", "syncStatus"]),
+        Index(value = ["candidateKey", "feature", "syncStatus"]),
         Index(value = ["syncStatus", "createdAt"]),
-        Index(value = ["module", "syncStatus"]),
+        Index(value = ["feature", "syncStatus"]),
         Index(value = ["syncId"])
     ]
 )
@@ -25,7 +25,7 @@ data class SyncIntentEntity(
     @PrimaryKey val hlc: String,
     val featureSchemaVersion: Int,
     val candidateKey: String,
-    val module: String,
+    val feature: String,
     val model: String,
     val operation: MutationOp,
     val payload: ByteArray?,

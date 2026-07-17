@@ -1,5 +1,7 @@
 package com.mochame.platform.fixtures
 
+import kotlinx.atomicfu.locks.reentrantLock
+import kotlinx.atomicfu.locks.withLock
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.io.files.Path
@@ -13,13 +15,20 @@ data class TestWorkspace(
     val committed: Path
 )
 
+private val workspaceLock = reentrantLock()
+private var workspaceCounter = 0
+
 fun createTestWorkspace(baseDir: String = "build/mocha-tests"): TestWorkspace {
+
+    val currentCount = workspaceLock.withLock {
+        workspaceCounter++
+    }
+
     // Generate the unique ID
     val timestamp = Clock.System.now()
         .toLocalDateTime(TimeZone.currentSystemDefault())
         .let { "${it.date}_${it.hour}-${it.minute}" }
-    val salt = Random.nextInt(1000, 9999)
-    val folderName = "mocha_test_${timestamp}_$salt"
+    val folderName = "mocha_test_${timestamp}__$currentCount"
 
     val root = Path(baseDir, folderName)
 

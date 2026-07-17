@@ -53,12 +53,12 @@ class SyncConverters {
     // FeatureContext <-> String
     @TypeConverter
     fun toContextType(databaseValue: String?): FeatureContext.Type {
-        if (databaseValue == null) return FeatureContext.Type.UNRECOGNIZED_FALLBACK
+        if (databaseValue == null) return FeatureContext.Type.UNRECOGNIZED_MODEL
 
         return try {
             FeatureContext.Type.valueOf(databaseValue)
         } catch (e: IllegalArgumentException) {
-            FeatureContext.Type.UNRECOGNIZED_FALLBACK
+            FeatureContext.Type.UNRECOGNIZED_MODEL
         }
     }
 }

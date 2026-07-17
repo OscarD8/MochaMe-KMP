@@ -35,7 +35,7 @@ class FixturesPlatformModule {
                 buffer.addAll(snapshot.toList())
             }
 
-            override fun digest(): ByteArray = bytes.toByteArray()
+            override fun digest(): ByteArray = buffer.toByteArray()
         }
     }
 

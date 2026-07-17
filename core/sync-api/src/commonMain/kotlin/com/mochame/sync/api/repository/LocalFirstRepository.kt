@@ -148,7 +148,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             // If a newer remote change arrives, any pending local
             // work for this key is now obsolete.
             // I just don't get why Gemini did the below but leaving here for now
-//            syncIntentStore.getPendingByPrimaryKey(candidateKey, module)?.let {
+//            syncIntentStore.getPendingByCandidateKey(candidateKey, module)?.let {
 //                syncIntentStore.discardIntent(it.hlc)
 //            }
 
@@ -265,7 +265,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         blobId: String?,
         diagnosticSummary: String
     ) {
-        val pending = deps.intentStore.getPendingByPrimaryKey(candidateKey)
+        val pending = deps.intentStore.getPendingByCandidateKey(candidateKey)
 
         val effectiveCreatedAt = resolvePruningTimestamp(pending, op, hlc.ts)
 
@@ -280,8 +280,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                 featureSchemaVersion = codecRouter.latestVersion, // guaranteed to not have changed
                 hlc = hlc,
                 candidateKey = candidateKey,
-                module = featureContext.featureName,
-                model = featureContext.modelName,
+                featureContext = featureContext,
                 operation = op,
                 syncStatus = SyncStatus.PENDING,
                 createdAt = effectiveCreatedAt,

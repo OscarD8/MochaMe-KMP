@@ -2,14 +2,15 @@ package com.mochame.sync.domain.model
 
 
 import com.mochame.sync.api.metadata.FeatureContext
+import com.mochame.sync.data.SyncIntentDao
 
 /**
  * Container designed to hold a module and its count of quarantined records.
  * Passed back by [SyncIntentDao.observeQuarantinedCountByModule]. May be useful for
  * UI.
  */
-data class QuarantinedModuleSummary(
-    val module: FeatureContext,
+data class QuarantinedFeatureSummary(
+    val feature: FeatureContext,
     val count: Int
 )
 

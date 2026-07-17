@@ -62,7 +62,7 @@ open class MochaDateTimeProvider : DateTimeProvider {
     }
 
     /**
-     * Calm-Tech Heuristic for UI/Telemetry.
+     * For UI/Telemetry.
      */
     override fun isDaylight(instant: Instant): Boolean {
         val hour = instant.toLocalDateTime(TimeZone.currentSystemDefault()).hour

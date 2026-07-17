@@ -3,7 +3,7 @@ package com.mochame.sync.domain.stores
 
 import com.mochame.sync.api.models.HLC
 import com.mochame.sync.spi.models.SyncIntent
-import com.mochame.sync.domain.model.QuarantinedModuleSummary
+import com.mochame.sync.domain.model.QuarantinedFeatureSummary
 import com.mochame.sync.orchestration.SyncCoordinator
 import kotlinx.coroutines.flow.Flow
 
@@ -19,5 +19,5 @@ internal interface SyncIntentMaintenanceStore {
      * freeing the entity for a new batch, applied by the [SyncCoordinator].
      */
     suspend fun resetLease(hlc: HLC, retryCount: Int)
-    suspend fun observeQuarantinedCountByModule(): Flow<List<QuarantinedModuleSummary>>
+    suspend fun observeQuarantinedCountByModule(): Flow<List<QuarantinedFeatureSummary>>
 }

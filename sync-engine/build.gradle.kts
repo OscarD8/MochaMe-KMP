@@ -16,6 +16,7 @@ kotlin {
         }
 
         commonTest.dependencies {
+            implementation(libs.kotlinx.atomicfu)
             implementation(project(":core:test:fixtures-node"))
             implementation(project(":core:test:fixtures-utils"))
             implementation(project(":core:test:fixtures-platform"))

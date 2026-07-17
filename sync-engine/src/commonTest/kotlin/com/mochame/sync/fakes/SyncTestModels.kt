@@ -11,14 +11,13 @@ import com.mochame.sync.data.SyncIntentEntity
 internal fun createTestSyncIntent(
     hlc: HLC,
     candidateKey: String = "test-key-123",
-    context: FeatureContext.Type = FeatureContext.Type.UNRECOGNIZED_FALLBACK,
+    context: FeatureContext.Type = FeatureContext.Type.BIO_DAILY_CONTEXT,
     payload: ByteArray? = byteArrayOf(0x00)
 ) = SyncIntent(
     featureSchemaVersion = 1,
     hlc = hlc,
     candidateKey = candidateKey,
-    module = context.featureName,
-    model = context.modelName,
+    featureContext = FeatureContext.fromModelString(context.modelName),
     operation = MutationOp.UPSERT,
     syncStatus = SyncStatus.PENDING,
     retryCount = 0,
@@ -36,13 +35,13 @@ internal fun createTestIntentEntity(
     retryCount: Int = 0,
     leasedAt: Long = TestHlcFactory.BASE_TEST_TIME,
     payload: ByteArray? = byteArrayOf(0x01),
-    module: String = FeatureContext.Type.UNRECOGNIZED_FALLBACK.featureName
+    feature: FeatureContext = FeatureContext.Type.UNRECOGNIZED_MODEL
 ) = SyncIntentEntity(
     hlc = hlc.toString(),
     featureSchemaVersion = 1,
     candidateKey = candidateKey,
-    module = module,
-    model = "BioModel",
+    feature = feature.featureName,
+    model = feature.modelName,
     operation = MutationOp.UPSERT,
     payload = payload,
     overflowBlobId = overflowBlobId,

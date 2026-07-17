@@ -1,6 +1,8 @@
 package com.mochame.platform.fixtures
 
 import com.mochame.sync.spi.infrastructure.TransactionProvider
+import kotlinx.atomicfu.locks.reentrantLock
+import kotlinx.atomicfu.locks.withLock
 
 
 /**
@@ -8,19 +10,29 @@ import com.mochame.sync.spi.infrastructure.TransactionProvider
  */
 class FakeTransactionProvider : TransactionProvider {
 
-    var executionCount = 0
-        private set
+    private val lock = reentrantLock()
 
-    var shouldThrow: Throwable? = null
+    private var _executionCount = 0
+    val executionCount
+        get() = lock.withLock { _executionCount }
+
+    private var _shouldThrow: Exception? = null
+    var shouldThrow: Exception?
+        get() = lock.withLock { _shouldThrow }
+        set(value) = lock.withLock { _shouldThrow = value }
 
     override suspend fun <R> runImmediateTransaction(block: suspend () -> R): R {
-        executionCount++
+        lock.withLock {
+            _executionCount++
+        }
         shouldThrow?.let { throw it }
         return block()
     }
 
     fun reset() {
-        executionCount = 0
-        shouldThrow = null
+        lock.withLock {
+            _executionCount = 0
+            _shouldThrow = null
+        }
     }
 }

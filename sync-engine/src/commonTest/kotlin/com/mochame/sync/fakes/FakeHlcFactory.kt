@@ -5,45 +5,62 @@ import com.mochame.sync.api.infrastructure.HlcFactory
 import com.mochame.sync.api.models.HLC
 import com.mochame.sync.infrastructure.EngineHlcFactory
 import com.mochame.utils.fixtures.FakeDateTimeUtils
+import kotlinx.atomicfu.locks.reentrantLock
+import kotlinx.atomicfu.locks.withLock
 
 class FakeHlcFactory(
     val clock: FakeDateTimeUtils = FakeDateTimeUtils(),
     private val logger: Logger
 ) : HlcFactory {
 
+    private val lock = reentrantLock()
+
     private val realFactory = EngineHlcFactory(
         dateTimeUtils = clock,
         logger = logger
     )
 
-    // --- Time Control ---
-    fun advanceTime(ms: Long) = clock.advanceTime(ms)
-    fun setTime(ms: Long) = clock.setTime(ms)
+    // --- Backing Fields ---
+    private val _generatedHlcs = mutableListOf<HLC>()
+    private val _witnessedHlcs = mutableListOf<HLC>()
+    private var _getNextHlcCallCount = 0
 
-    // --- State Inspection ---
-    val generatedHlcs = mutableListOf<HLC>()
-    val witnessedHlcs = mutableListOf<HLC>()
-    var getNextHlcCallCount = 0
-        private set
+    // -- Read only ---
+    val generatedHlcs: List<HLC>
+        get() = lock.withLock { _generatedHlcs.toList() }
+
+    val witnessedHlcs: List<HLC>
+        get() = lock.withLock { _witnessedHlcs.toList() }
+
+    val getNextHlcCallCount: Int
+        get() = lock.withLock { _getNextHlcCallCount }
+
 
     fun reset() {
-        generatedHlcs.clear()
-        witnessedHlcs.clear()
-        getNextHlcCallCount = 0
+        _generatedHlcs.clear()
+        _witnessedHlcs.clear()
+        _getNextHlcCallCount = 0
     }
 
-    // --- Delegated Production Logic ---
+    // --- Delegated Production Logic - all suspending functionality held outside lock ---
     override suspend fun hydrate(lastKnownHlc: HLC?, currentNodeId: String): HLC =
         realFactory.hydrate(lastKnownHlc, currentNodeId)
 
-    override suspend fun getNextHlc(): HLC =
-        realFactory.getNextHlc().also {
-            generatedHlcs.add(it)
-            getNextHlcCallCount++
+    override suspend fun getNextHlc(): HLC {
+        val nextHlc = realFactory.getNextHlc()
+
+        lock.withLock {
+            _generatedHlcs.add(nextHlc)
+            _getNextHlcCallCount++
         }
+        return nextHlc
+    }
 
     override suspend fun witness(remoteHlc: HLC) {
-        witnessedHlcs.add(remoteHlc)
+        lock.withLock {
+            _witnessedHlcs.add(remoteHlc)
+        }
+
         realFactory.witness(remoteHlc)
     }
 
