@@ -4,6 +4,7 @@ import com.mochame.sync.spi.infrastructure.TransactionProvider
 import com.mochame.sync.data.SyncIntentDao
 import com.mochame.sync.infrastructure.stores.DefaultSyncIntentStore
 import com.mochame.sync.data.SyncMicroSchema
+import com.mochame.sync.di.SyncInfraModule
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Factory
 import org.koin.core.annotation.KoinApplication
@@ -13,7 +14,7 @@ import org.koin.core.annotation.Single
 @KoinApplication(modules = [SyncPersistenceTestModule::class])
 internal object SyncPersistenceTestApp
 
-@Module
+@Module(includes = [SyncInfraModule::class])
 @ComponentScan("com.mochame.sync.di.data")
 internal class SyncPersistenceTestModule {
 
@@ -32,7 +33,7 @@ internal class SyncPersistenceTestModule {
 }
 
 @Factory
-internal data class PersistenceEnv(
+internal data class IntentComponentEnv(
     val intentStore: DefaultSyncIntentStore,
     val intentDao: SyncIntentDao,
 )

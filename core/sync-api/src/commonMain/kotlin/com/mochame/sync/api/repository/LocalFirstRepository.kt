@@ -204,7 +204,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         try {
             // Check if External IO needed (bigger blob)
             if (payload.size > 64_000) {
-                blobId = deps.blobStager.stage(Buffer().also { it.write(payload) })
+                blobId = deps.blobStore.stage(Buffer().also { it.write(payload) })
                 logger.i { "Required staged payload: blobId $blobId [${payload.size / 1024}KB | Key: $candidateKey." }
             }
 
@@ -230,7 +230,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
 
             // Commit the blob (sync intent commit means it cannot be orphaned)
             blobId?.also {
-                deps.blobStager.commit(it)
+                deps.blobStore.commit(it)
                 logger.i {
                     "Intent Dispatched | Op: $op | Key: $candidateKey.".withTimer(tMark)
                 }
@@ -241,7 +241,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             if (blobId != null) {
                 // if an exception happened and we have an overflow
                 if (!dbCommitted) {
-                    deps.blobStager.abort(blobId).also {
+                    deps.blobStore.abort(blobId).also {
                         logger.e { "Mutation Failed: Blob Aborted | HLC: $hlc | BlobID: $it | Reason: ${e.message}" }
                     }
                 } else {

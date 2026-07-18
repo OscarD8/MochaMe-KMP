@@ -10,25 +10,24 @@ import com.mochame.telemetry.domain.MomentDetail
 import com.mochame.telemetry.domain.MomentDraft
 import com.mochame.telemetry.domain.MomentMetadata
 import com.mochame.telemetry.domain.repositories.MomentRepository
-import com.mochame.utils.interfaces.DateTimeProvider
+import com.mochame.utils.interfaces.MochaTimeProvider
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.CoroutineContext
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * ObservationBridge: SQLite-backed implementation of [com.mochame.telemetry.domain.repositories.MomentRepository].
- * * Uses [com.mochame.sync.infrastructure.utils.DateTimeUtils] to calculate biological anchors and
+ * * Uses [MochaTimeProvider] to calculate 4am cutoff for a day, and
  * [com.mochame.telemetry.data.TelemetryDao] for persistent storage.
  */
 internal class MomentBridge(
     private val dao: TelemetryDao,
-    private val dateTimeUtils: DateTimeProvider,
+    private val timeUtils: MochaTimeProvider,
     @IoContext private val ioContext: CoroutineContext
 ) : MomentRepository {
 
     override suspend fun logMoment(draft: MomentDraft) = withContext(ioContext) {
-        val now = dateTimeUtils.now().toEpochMilliseconds()
-
-        val biologicalDay = dateTimeUtils.calculateMochaEpochDay(dateTimeUtils.now())
         val validatedDomainId = resolveDomainId(draft)
         val enrichedDetail = enrichBiophilia(draft.spaceId, draft.detail)
 
@@ -40,7 +39,7 @@ internal class MomentBridge(
             core = draft.core,
             detail = enrichedDetail,
             context = MomentClimate(),
-            metadata = createMetadata(now, biologicalDay),
+            metadata = createMetadata(),
         )
 
         dao.upsertMoment(newMoment.toEntity())
@@ -48,7 +47,7 @@ internal class MomentBridge(
 
     override suspend fun saveMoment(moment: Moment) = withContext(ioContext) {
         val updatedMetaData = moment.metadata.copy(
-            lastModified = dateTimeUtils.now().toEpochMilliseconds()
+            lastModified = timeUtils.now().toEpochMilliseconds()
         )
         val updatedMoment = moment.copy(
             metadata = updatedMetaData
@@ -84,7 +83,10 @@ internal class MomentBridge(
         return currentDetail.copy(biophiliaScale = defaultScale)
     }
 
-    private fun createMetadata(now: Long, day: Long) = MomentMetadata(
+    private fun createMetadata(
+        now: Long = timeUtils.now().toEpochMilliseconds(),
+        day: Long = timeUtils.getMochaDay()
+    ) = MomentMetadata(
         timestamp = now,
         associatedEpochDay = day,
         lastModified = now

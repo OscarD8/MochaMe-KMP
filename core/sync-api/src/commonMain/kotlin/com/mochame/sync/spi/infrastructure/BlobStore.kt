@@ -2,7 +2,7 @@ package com.mochame.sync.spi.infrastructure
 
 import kotlinx.io.Source
 
-interface BlobStager {
+interface BlobStore {
     /**
      * Streams source to /pending while hashing.
      * Returns the contentBlobId.
@@ -30,9 +30,7 @@ interface BlobStager {
      * Safe to call at boot because no active writes can exist yet.
      */
     suspend fun clearIncompleteStaging(): Int
-}
 
-interface BlobReader {
     /** Only allowed to open files from the /committed chamber. */
     suspend fun open(blobId: String): Source
 

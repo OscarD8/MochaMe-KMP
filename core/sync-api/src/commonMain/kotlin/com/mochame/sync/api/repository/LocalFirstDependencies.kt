@@ -4,7 +4,7 @@ import co.touchlab.kermit.Logger
 import com.mochame.annotations.IoContext
 import com.mochame.sync.api.boot.BootStatusProvider
 import com.mochame.sync.api.infrastructure.HlcFactory
-import com.mochame.sync.spi.infrastructure.BlobStager
+import com.mochame.sync.spi.infrastructure.BlobStore
 import com.mochame.sync.spi.infrastructure.KeyedLocker
 import com.mochame.sync.spi.infrastructure.SyncIntentStore
 import com.mochame.sync.spi.infrastructure.SyncWorkerHook
@@ -18,7 +18,7 @@ import org.koin.core.annotation.Single
 class LocalFirstDependencies(
     val hlcFactory: HlcFactory,
     val transactor: TransactionProvider,
-    val blobStager: BlobStager,
+    val blobStore: BlobStore,
     val intentStore: SyncIntentStore,
     val invalidationHook: SyncWorkerHook,
     val executor: ExecutionPolicy,

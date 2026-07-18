@@ -25,6 +25,10 @@ class FakeSyncIntentStore : SyncIntentStore, SyncIntentMaintenanceStore {
         get() = lock.withLock { _intents.values.toList() }
 
     fun seedIntents(vararg entries: SyncIntent) {
+        seedIntents(entries.asList())
+    }
+
+    fun seedIntents(entries: Collection<SyncIntent>) {
         val summaries = lock.withLock {
             entries.forEach { _intents[it.hlc] = it }
             calculateQuarantinedSummariesLocked()

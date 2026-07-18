@@ -14,7 +14,7 @@ import com.mochame.resonance.domain.Resonance
 import com.mochame.resonance.domain.ResonanceRepository
 import com.mochame.resonance.domain.targetResonance
 import com.mochame.telemetry.domain.Mood
-import com.mochame.utils.interfaces.DateTimeProvider
+import com.mochame.utils.interfaces.TimeProvider
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.sync.Mutex
@@ -24,7 +24,7 @@ import kotlin.coroutines.CoroutineContext
 
 class DefaultResonanceRepository(
     private val resonanceDao: ResonanceDao,
-    private val dateTimeUtils: DateTimeProvider,
+    private val dateTimeUtils: TimeProvider,
     @IoContext private val ioContext: CoroutineContext
 ) : ResonanceRepository {
 

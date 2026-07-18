@@ -13,9 +13,9 @@ import com.mochame.sync.api.boot.BootState
 import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.sync.api.exceptions.toMochaException
 import com.mochame.sync.spi.node.NodeContextManager
-import com.mochame.sync.spi.infrastructure.BlobStager
+import com.mochame.sync.spi.infrastructure.BlobStore
 import com.mochame.sync.domain.stores.SyncIntentMaintenanceStore
-import com.mochame.sync.domain.usecase.PruneOldEntriesUseCase
+import com.mochame.sync.domain.usecase.PruneIntentsUseCase
 import com.mochame.sync.spi.boot.BootStatusUpdater
 import com.mochame.sync.spi.policy.ExecutionPolicy
 import com.mochame.sync.spi.models.SyncIntent
@@ -54,10 +54,10 @@ import kotlin.time.TimeSource
 internal class SyncJanitor(
     private val bootUpdater: BootStatusUpdater,
     private val transactor: TransactionProvider,
-    private val pruneUseCase: PruneOldEntriesUseCase,
+    private val pruneUseCase: PruneIntentsUseCase,
     private val hlcFactory: HlcFactory,
     private val executor: ExecutionPolicy,
-    private val blobStager: BlobStager,
+    private val blobStore: BlobStore,
     private val nodeManager: NodeContextManager,
     private val intentStore: SyncIntentMaintenanceStore,
     @IoContext private val ioContext: CoroutineContext,
@@ -163,8 +163,8 @@ internal class SyncJanitor(
 
     /**
      * Prunes in chunks then yields, based off the limit defined
-     * as [PruneOldEntriesUseCase.Companion.LIMIT] and the cutoff period of
-     * [PruneOldEntriesUseCase.Companion.DEFAULT_PRUNE_DAYS].
+     * as [PruneIntentsUseCase.Companion.LIMIT] and the cutoff period of
+     * [PruneIntentsUseCase.Companion.DEFAULT_PRUNE_DAYS].
      */
     private suspend fun pruneInChunks() {
         pruneUseCase()
@@ -180,20 +180,20 @@ internal class SyncJanitor(
         val mark = TimeSource.Monotonic.markNow()
 
         // Try and restore
-        val pendingHashes = blobStager.listPendingHashes()
+        val pendingHashes = blobStore.listPendingHashes()
 
         pendingHashes.forEach { hash ->
             if (intentStore.existsForBlob(hash)) {
                 logger.i { "Maintenance: Recovering stranded blob $hash. Finalizing commit." }
-                blobStager.commit(hash)
+                blobStore.commit(hash)
             } else {
                 logger.w { "Maintenance: Found orphaned pending blob $hash with no metadata. Purging." }
-                blobStager.abort(hash)
+                blobStore.abort(hash)
             }
         }
 
         yield()
-        blobStager.clearIncompleteStaging()
+        blobStore.clearIncompleteStaging()
 
         logger.d { "Blob Reconciliation Complete".withTimer(mark) }
     }

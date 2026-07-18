@@ -90,6 +90,11 @@ inline fun <reified T : RoomDatabase, reified E : Any> runPersistenceEnvironment
         e.reportAndThrowFailure()
     } finally {
         database.close()
+        try {
+            koin.getOrNull<TestTeardownHook>()?.onTeardown()
+        } catch (e: Exception) {
+            println("WARNING: Teardown hook execution failed: ${e.message}")
+        }
         koinApp.close()
     }
 }

@@ -7,35 +7,34 @@ import com.mochame.logger.test.TestLoggerModule
 import com.mochame.sync.di.SyncInfraModule
 import com.mochame.sync.fakes.FakeHlcFactory
 import com.mochame.sync.infrastructure.EngineHlcFactory
-import com.mochame.utils.fixtures.FakeDateTimeUtils
-import com.mochame.utils.fixtures.di.FakeClockModule
+import com.mochame.utils.fixtures.FakeTimeProvider
+import com.mochame.utils.fixtures.di.FakeTimeProviderModule
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Factory
 import org.koin.core.annotation.KoinApplication
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
 
-@KoinApplication(modules = [SyncHlcUnitTestModule::class])
+@KoinApplication(modules = [SyncHlcTestModule::class])
 internal object HlcTestApp
 
 
 @Module(
     includes = [
-        FakeClockModule::class,
+        FakeTimeProviderModule::class,
         SyncInfraModule::class,
         TestLoggerModule::class
     ]
 )
 @ComponentScan("com.mochame.sync.di.hlc")
-internal class SyncHlcUnitTestModule
+internal class SyncHlcTestModule
 
 
-@Module(includes = [FakeClockModule::class, TestLoggerModule::class])
+@Module(includes = [FakeTimeProviderModule::class, TestLoggerModule::class])
 internal class FakeHlcFactoryModule {
-
     @Single
     internal fun provideFakeHlcFactory(
-        clock: FakeDateTimeUtils,
+        clock: FakeTimeProvider,
         logger: Logger
     ): FakeHlcFactory = FakeHlcFactory(clock, logger)
 }
@@ -44,6 +43,6 @@ internal class FakeHlcFactoryModule {
 @Factory
 internal data class HLCTestEnvironment(
     val factory: EngineHlcFactory,
-    val fakeClock: FakeDateTimeUtils,
+    val fakeClock: FakeTimeProvider,
     val writer: TestLogWriter
 )

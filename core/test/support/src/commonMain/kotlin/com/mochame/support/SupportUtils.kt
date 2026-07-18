@@ -74,7 +74,7 @@ fun TestScope.scopeKoinModule(): Module {
 }
 
 // -----------------------------------------------------------
-// EXTENSION FUNCTIONS
+// EXTENSION FUNCTIONS / SETUP UTILITIES
 // -----------------------------------------------------------
 
 suspend fun RoomDatabase.getPhysicalRowCount(tableName: String): Int =
@@ -97,4 +97,8 @@ fun Exception.reportAndThrowFailure(): Nothing {
 
     println(" ====================================================== \n")
     throw this
+}
+
+fun interface TestTeardownHook {
+    fun onTeardown()
 }

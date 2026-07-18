@@ -1,7 +1,7 @@
 package com.mochame.sync.domain.usecase
 
 import co.touchlab.kermit.Logger
-import com.mochame.utils.interfaces.DateTimeProvider
+import com.mochame.utils.interfaces.TimeProvider
 import com.mochame.sync.domain.stores.SyncIntentMaintenanceStore
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
@@ -10,10 +10,20 @@ import kotlinx.coroutines.yield
 import org.koin.core.annotation.Single
 import kotlin.time.TimeSource
 
+/**
+ * On invocation, pruning will chunk based on a [LIMIT], yielding between
+ * chunks. The cut-off is based on the provided [pruneDays] which defaults to
+ * [DEFAULT_PRUNE_DAYS].
+ *
+ * The method responsible for the pruning process is [com.mochame.sync.data.SyncIntentDao.pruneOldSynced] -
+ * defining that the cut-off is based on the [com.mochame.sync.spi.models.SyncIntent.createdAt] field, requiring
+ * a status representing synchronization success provided by the server.
+ */
 @Single
-internal class PruneOldEntriesUseCase(
+internal class PruneIntentsUseCase(
     private val intentStore: SyncIntentMaintenanceStore,
-    private val dateTimeUtils: DateTimeProvider,
+    private val timeUtils: TimeProvider,
+    private val pruneDays: Int = DEFAULT_PRUNE_DAYS,
     logger: Logger
 ) {
     companion object {
@@ -29,7 +39,7 @@ internal class PruneOldEntriesUseCase(
     )
 
     suspend operator fun invoke(): Int {
-        val cutoff = dateTimeUtils.getMillisForDaysAgo(DEFAULT_PRUNE_DAYS)
+        val cutoff = timeUtils.getMillisForDaysAgo(pruneDays)
 
         val mark = TimeSource.Monotonic.markNow()
         var totalDeleted = 0
@@ -44,7 +54,8 @@ internal class PruneOldEntriesUseCase(
                 logger.v { "Pruning in progress... $totalDeleted entries removed." }
             }
 
-            if (deleted > 0) yield()
+            if (deleted != LIMIT) break
+            if (deleted > 0)  yield()
 
         } while (deleted > 0)
 

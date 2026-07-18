@@ -11,6 +11,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runCurrent
 import org.koin.dsl.includes
 import org.koin.plugin.module.dsl.koinConfiguration
 import kotlin.test.Test
@@ -27,6 +28,7 @@ private inline fun runEnv(crossinline block: suspend DefaultBootStatusManager.(T
     )
 
 
+@ExperimentalCoroutinesApi
 class BootStatusManagerTest : MochaPlatformTest() {
 
     // -----------------------------------------------------------
@@ -61,17 +63,17 @@ class BootStatusManagerTest : MochaPlatformTest() {
     @Test
     fun should_conflateBootState_when_rapidSequentialUpdatesOccur() =
         runEnv { testScope ->
-            // Given - standard asynchronous collector
+            // Given - queued asynchronous collector
             val emittedStates = mutableListOf<BootState>()
             val collectionJob = testScope.launch {
                 bootState.collect { emittedStates.add(it) }
             }
-            testScope.testScheduler.runCurrent()
+            testScope.runCurrent()
 
             // When - rapid, distinct updates
             updateBootState(BootState.Initializing)
             updateBootState(BootState.Ready)
-            testScope.testScheduler.runCurrent()
+            testScope.runCurrent()
 
             // Then - the collector collected conflation of initialized and ready status
             val expectedStates = listOf(
@@ -83,11 +85,10 @@ class BootStatusManagerTest : MochaPlatformTest() {
             collectionJob.cancel()
         }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
     @Test
     fun should_notifyActiveCollectorsInstantly_when_bootStateIsUpdated() =
         runEnv { testScope ->
-            // Given - unconfined asynchronous collector
+            // Given - eager asynchronous collector
             val emittedStates = mutableListOf<BootState>()
             testScope.backgroundScope.launch(UnconfinedTestDispatcher(testScope.testScheduler)) {
                 bootState.collect { emittedStates.add(it) }

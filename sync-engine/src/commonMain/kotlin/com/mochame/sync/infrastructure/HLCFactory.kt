@@ -2,7 +2,7 @@ package com.mochame.sync.infrastructure
 
 import co.touchlab.kermit.Logger
 import com.mochame.sync.api.exceptions.MochaException
-import com.mochame.utils.interfaces.DateTimeProvider
+import com.mochame.utils.interfaces.TimeProvider
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.sync.api.infrastructure.HlcFactory
@@ -23,7 +23,7 @@ import org.koin.core.annotation.Single
  */
 @Single(binds = [HlcFactory::class])
 internal class EngineHlcFactory(
-    @Provided private val dateTimeUtils: DateTimeProvider,
+    @Provided private val dateTimeUtils: TimeProvider,
     logger: Logger
 ) : HlcFactory {
 

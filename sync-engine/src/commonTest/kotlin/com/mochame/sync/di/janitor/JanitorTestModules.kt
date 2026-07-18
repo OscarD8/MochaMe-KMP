@@ -3,23 +3,22 @@ package com.mochame.sync.di.janitor
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.TestLogWriter
 import com.mochame.annotations.JanitorMutex
-import com.mochame.sync.spi.infrastructure.TransactionProvider
 import com.mochame.node.fixtures.FakeBootStatusManager
+import com.mochame.node.fixtures.FakeExecutionPolicy
 import com.mochame.node.fixtures.FakeNodeContextManager
 import com.mochame.node.fixtures.di.FixturesNodeModule
+import com.mochame.platform.fixtures.FakeTransactionProvider
 import com.mochame.platform.fixtures.di.FixturesPlatformModule
 import com.mochame.support.TestSupportModule
+import com.mochame.sync.di.FakeSyncStoresModule
 import com.mochame.sync.di.SyncConcurrencyModule
 import com.mochame.sync.di.SyncDomainModule
 import com.mochame.sync.di.SyncInfraModule
 import com.mochame.sync.di.SyncOrchestrationModule
-import com.mochame.sync.di.blob.SyncBlobStoreTestModule
-import com.mochame.sync.di.data.SyncPersistenceTestModule
-import com.mochame.sync.di.domain.SyncPruneUseCaseModule
+import com.mochame.sync.di.domain.SyncPruneUseCaseTestModule
 import com.mochame.sync.di.hlc.FakeHlcFactoryModule
-import com.mochame.sync.di.hlc.SyncHlcUnitTestModule
-import com.mochame.sync.domain.stores.SyncIntentMaintenanceStore
 import com.mochame.sync.fakes.FakeHlcFactory
+import com.mochame.sync.fakes.FakeSyncIntentStore
 import com.mochame.sync.orchestration.SyncJanitor
 import kotlinx.coroutines.sync.Mutex
 import org.koin.core.annotation.ComponentScan
@@ -35,18 +34,17 @@ internal object JanitorTestApp
 @Module(
     includes = [
         TestSupportModule::class,
-        FixturesPlatformModule::class,
         FixturesNodeModule::class,
-        FakeHlcFactoryModule::class,
+        FixturesPlatformModule::class,
 
         SyncOrchestrationModule::class,
         SyncDomainModule::class,
         SyncInfraModule::class,
         SyncConcurrencyModule::class,
-        SyncBlobStoreTestModule::class,
-        SyncPersistenceTestModule::class,
-        SyncHlcUnitTestModule::class,
-        SyncPruneUseCaseModule::class
+        SyncPruneUseCaseTestModule::class,
+
+        FakeHlcFactoryModule::class,
+        FakeSyncStoresModule::class,
     ]
 )
 @ComponentScan("com.mochame.sync.di.janitor")
@@ -60,7 +58,8 @@ internal data class JanitorTestEnv(
     val bootUpdater: FakeBootStatusManager,
     val hlcFactory: FakeHlcFactory,
     val nodeManager: FakeNodeContextManager,
-    val intentStore: SyncIntentMaintenanceStore,
-    val transactor: TransactionProvider,
+    val intentStore: FakeSyncIntentStore,
+    val transactor: FakeTransactionProvider,
+    val executor: FakeExecutionPolicy,
     @JanitorMutex val janitorMutex: Mutex,
 )

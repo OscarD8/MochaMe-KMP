@@ -29,6 +29,11 @@ inline fun <reified E : Any> runUnitEnvironment(
     } catch (e: Exception) {
         e.reportAndThrowFailure()
     } finally {
+        try {
+            koin.getOrNull<TestTeardownHook>()?.onTeardown()
+        } catch (e: Exception) {
+            println("WARNING: Teardown hook execution failed: ${e.message}")
+        }
         koinApp.close()
     }
 }

@@ -4,12 +4,12 @@ import co.touchlab.kermit.Logger
 import com.mochame.sync.api.infrastructure.HlcFactory
 import com.mochame.sync.api.models.HLC
 import com.mochame.sync.infrastructure.EngineHlcFactory
-import com.mochame.utils.fixtures.FakeDateTimeUtils
+import com.mochame.utils.fixtures.FakeTimeProvider
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
 
 class FakeHlcFactory(
-    val clock: FakeDateTimeUtils = FakeDateTimeUtils(),
+    val clock: FakeTimeProvider ,
     private val logger: Logger
 ) : HlcFactory {
 

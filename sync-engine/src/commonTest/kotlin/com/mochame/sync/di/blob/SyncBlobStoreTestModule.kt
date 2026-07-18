@@ -1,12 +1,12 @@
 package com.mochame.sync.di.blob
 
 import com.mochame.platform.fixtures.di.FixturesPlatformModule
-import com.mochame.utils.fixtures.di.FakeClockModule
+import com.mochame.utils.fixtures.di.FakeTimeProviderModule
 import org.koin.core.annotation.Module
 
 @Module(
     includes = [
-        FakeClockModule::class,
+        FakeTimeProviderModule::class,
         FixturesPlatformModule::class,
     ]
 )

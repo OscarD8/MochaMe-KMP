@@ -12,17 +12,21 @@ internal fun createTestSyncIntent(
     hlc: HLC,
     candidateKey: String = "test-key-123",
     context: FeatureContext.Type = FeatureContext.Type.BIO_DAILY_CONTEXT,
-    payload: ByteArray? = byteArrayOf(0x00)
+    payload: ByteArray? = byteArrayOf(0x00),
+    status: SyncStatus = SyncStatus.PENDING,
+    createdAt: Long = 0L,
+    leasedAt: Long? = null
 ) = SyncIntent(
     featureSchemaVersion = 1,
     hlc = hlc,
     candidateKey = candidateKey,
     featureContext = FeatureContext.fromModelString(context.modelName),
     operation = MutationOp.UPSERT,
-    syncStatus = SyncStatus.PENDING,
+    syncStatus = status,
     retryCount = 0,
-    createdAt = 0L,
-    payload = payload
+    createdAt = createdAt,
+    payload = payload,
+    leasedAt = leasedAt
 )
 
 internal fun createTestIntentEntity(

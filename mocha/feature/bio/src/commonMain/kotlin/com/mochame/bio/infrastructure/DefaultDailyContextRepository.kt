@@ -6,13 +6,13 @@ import com.mochame.bio.data.toDomain
 import com.mochame.bio.data.toEntity
 import com.mochame.bio.domain.DailyContext
 import com.mochame.bio.domain.DailyContextRepository
-import com.mochame.utils.interfaces.DateTimeProvider
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.api.repository.LocalFirstDependencies
 import com.mochame.sync.api.repository.LocalFirstRepository
+import com.mochame.utils.interfaces.MochaTimeProvider
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.koin.core.annotation.Single
@@ -20,12 +20,12 @@ import org.koin.core.annotation.Single
 
 @Single([DailyContextRepository::class])
 internal class DefaultDailyContextRepository(
-    private val dateTimeUtils: DateTimeProvider,
+    private val timeUtils: MochaTimeProvider,
     private val bioDao: BioDao,
     codecRouter: DailyContextCodecRouter,
     logger: Logger,
     deps: LocalFirstDependencies
-    ) : LocalFirstRepository<DailyContext>(
+) : LocalFirstRepository<DailyContext>(
     FeatureContext.Type.BIO_DAILY_CONTEXT,
     codecRouter,
     deps,
@@ -41,7 +41,7 @@ internal class DefaultDailyContextRepository(
         readinessScore: Int,
         isNapped: Boolean
     ): DailyContext {
-        val mochaDay = dateTimeUtils.getMochaDay()
+        val mochaDay = timeUtils.getMochaDay()
         val id = mochaDay.toString()
 
         return processIntent(

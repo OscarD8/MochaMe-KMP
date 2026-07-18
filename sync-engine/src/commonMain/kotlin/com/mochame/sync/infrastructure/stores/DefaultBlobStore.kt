@@ -5,16 +5,15 @@ import com.mochame.annotations.BlobMutex
 import com.mochame.annotations.CommittedDir
 import com.mochame.annotations.IoContext
 import com.mochame.annotations.PendingDir
-import com.mochame.sync.api.exceptions.MochaException
-import com.mochame.sync.api.exceptions.toMochaException
-import com.mochame.utils.interfaces.DateTimeProvider
-import com.mochame.sync.spi.infrastructure.Hasher
-import com.mochame.sync.spi.infrastructure.digestHex
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.logger.withTimer
-import com.mochame.sync.spi.infrastructure.BlobReader
-import com.mochame.sync.spi.infrastructure.BlobStager
+import com.mochame.sync.api.exceptions.MochaException
+import com.mochame.sync.api.exceptions.toMochaException
+import com.mochame.sync.spi.infrastructure.BlobStore
+import com.mochame.sync.spi.infrastructure.Hasher
+import com.mochame.sync.spi.infrastructure.digestHex
+import com.mochame.utils.interfaces.TimeProvider
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -31,9 +30,9 @@ import kotlin.time.TimeSource
 /**
  * BlobStore using kotlinx-io.
  */
-@Single(binds = [BlobStager::class, BlobReader::class])
+@Single(binds = [BlobStore::class])
 internal class DefaultBlobStore(
-    private val dateTimeUtils: DateTimeProvider,
+    private val timeUtils: TimeProvider,
     private val hashProvider: Hasher,
     private val fileSystem: FileSystem,
     @IoContext private val ioContext: CoroutineContext,
@@ -41,7 +40,7 @@ internal class DefaultBlobStore(
     @CommittedDir private val committedDir: Path,
     @BlobMutex private val blobMutex: Mutex,
     logger: Logger
-) : BlobStager, BlobReader {
+) : BlobStore {
 
     private val logger = logger.withTags(
         layer = LogTags.Layer.INFRA,
@@ -63,7 +62,7 @@ internal class DefaultBlobStore(
      */
     override suspend fun stage(source: Source): String = withContext(ioContext) {
         val mark = TimeSource.Monotonic.markNow()
-        val now = dateTimeUtils.now().toEpochMilliseconds()
+        val now = timeUtils.now().toEpochMilliseconds()
         val tempPath = Path(pendingDir, "staging_${now}_${Random.nextLong()}")
         val hasher = hashProvider() // expect/actual bridge
         var totalBytes = 0L
@@ -162,7 +161,7 @@ internal class DefaultBlobStore(
     override suspend fun clearIncompleteStaging(): Int = withContext(ioContext) {
         ensureChambersExist()
         var deletedCount = 0
-        val now = dateTimeUtils.now().toEpochMilliseconds()
+        val now = timeUtils.now().toEpochMilliseconds()
         val oneHourInMillis = 3_600_000L
 
         try {

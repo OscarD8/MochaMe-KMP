@@ -6,7 +6,7 @@ import com.mochame.support.TestHlcFactory
 import com.mochame.support.runPersistenceEnvironment
 import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.metadata.SyncStatus
-import com.mochame.sync.di.data.PersistenceEnv
+import com.mochame.sync.di.data.IntentComponentEnv
 import com.mochame.sync.di.data.SyncPersistenceTestApp
 import com.mochame.sync.fakes.createTestIntentEntity
 import com.mochame.sync.fakes.createTestSyncIntent
@@ -25,15 +25,15 @@ import kotlin.test.assertTrue
 // -----------------------------------------------------------
 // SUT ENVIRONMENT
 // -----------------------------------------------------------
-private inline fun runEnv(crossinline block: suspend PersistenceEnv.(TestScope) -> Unit) =
-    runPersistenceEnvironment<SyncMicroSchema, PersistenceEnv>(
+private inline fun runEnv(crossinline block: suspend IntentComponentEnv.(TestScope) -> Unit) =
+    runPersistenceEnvironment<SyncMicroSchema, IntentComponentEnv>(
         constructor = SyncMicroSchemaConstructor,
         koinSetup = { includes(koinConfiguration<SyncPersistenceTestApp>()) },
         block = block
     )
 
 
-internal class SyncIntentStoreTest : MochaPlatformTest() {
+internal class SyncIntentStoreIntegrationTest : MochaPlatformTest() {
 
     // -----------------------------------------------------------
     // INBOUND / OUTBOUND INTEGRITY
