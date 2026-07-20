@@ -17,8 +17,8 @@ inline fun <reified E : Any> runUnitEnvironment(
 ) = runTest {
     val koinApp = koinApplication(createEagerInstances = false) {
         allowOverride(true)
-        modules(scopeKoinModule())
         koinSetup()
+        modules(scopeKoinModule())
     }
 
     val koin = koinApp.koin

@@ -52,7 +52,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
      * @param computeChange requires the feature to assert the state change they wish to make. T is nullable in the case of deletions where a remote intent is made to delete state that does not exist locally.
      * @param persist after verifying and stamping the feature state change, the finalized state is persisted atomically alongside sync payloads/metadata.
      * @param onSkip offers a type-safe way to return R. Potential case of multiple concurrent requests to processing the same intent -
-     * these will fail when accessing the database write lock, causing duplicate intents to [FeatureCodecRouter.encode] a state that already exists, triggering onSkip.
+     * these will fail when accessing the database write lock, causing duplicate intents to [FeatureCodecRouter.encode] a state that already existsInCommitted, triggering onSkip.
      */
     protected suspend inline fun <R> processIntent(
         candidateKey: String,

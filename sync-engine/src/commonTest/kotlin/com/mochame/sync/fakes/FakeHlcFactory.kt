@@ -9,7 +9,7 @@ import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
 
 class FakeHlcFactory(
-    val clock: FakeTimeProvider ,
+    clock: FakeTimeProvider,
     private val logger: Logger
 ) : HlcFactory {
 
@@ -25,7 +25,12 @@ class FakeHlcFactory(
     private val _witnessedHlcs = mutableListOf<HLC>()
     private var _getNextHlcCallCount = 0
 
-    // -- Read only ---
+    // Hydration tracking
+    private var _hydrateCallCount = 0
+    private var _lastHydratedHlc: HLC? = null
+    private var _lastHydratedNodeId: String? = null
+
+    // --- Read-Only Properties ---
     val generatedHlcs: List<HLC>
         get() = lock.withLock { _generatedHlcs.toList() }
 
@@ -35,16 +40,32 @@ class FakeHlcFactory(
     val getNextHlcCallCount: Int
         get() = lock.withLock { _getNextHlcCallCount }
 
+    val hydrateCallCount: Int
+        get() = lock.withLock { _hydrateCallCount }
 
-    fun reset() {
+    val lastHydratedHlc: HLC?
+        get() = lock.withLock { _lastHydratedHlc }
+
+    val lastHydratedNodeId: String?
+        get() = lock.withLock { _lastHydratedNodeId }
+
+    fun reset() = lock.withLock {
         _generatedHlcs.clear()
         _witnessedHlcs.clear()
         _getNextHlcCallCount = 0
+        _hydrateCallCount = 0
+        _lastHydratedHlc = null
+        _lastHydratedNodeId = null
     }
 
-    // --- Delegated Production Logic - all suspending functionality held outside lock ---
-    override suspend fun hydrate(lastKnownHlc: HLC?, currentNodeId: String): HLC =
-        realFactory.hydrate(lastKnownHlc, currentNodeId)
+    override suspend fun hydrate(lastKnownHlc: HLC?, currentNodeId: String): HLC {
+        lock.withLock {
+            _hydrateCallCount++
+            _lastHydratedHlc = lastKnownHlc
+            _lastHydratedNodeId = currentNodeId
+        }
+        return realFactory.hydrate(lastKnownHlc, currentNodeId)
+    }
 
     override suspend fun getNextHlc(): HLC {
         val nextHlc = realFactory.getNextHlc()

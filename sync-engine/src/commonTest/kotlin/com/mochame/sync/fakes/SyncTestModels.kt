@@ -15,7 +15,9 @@ internal fun createTestSyncIntent(
     payload: ByteArray? = byteArrayOf(0x00),
     status: SyncStatus = SyncStatus.PENDING,
     createdAt: Long = 0L,
-    leasedAt: Long? = null
+    syncId: String? = null,
+    leasedAt: Long? = null,
+    overflowBlobId: String? = null
 ) = SyncIntent(
     featureSchemaVersion = 1,
     hlc = hlc,
@@ -26,7 +28,9 @@ internal fun createTestSyncIntent(
     retryCount = 0,
     createdAt = createdAt,
     payload = payload,
-    leasedAt = leasedAt
+    leasedAt = leasedAt,
+    syncId = syncId,
+    overflowBlobId = overflowBlobId
 )
 
 internal fun createTestIntentEntity(

@@ -43,7 +43,7 @@ class DefaultNodeContextManager(
     )
 
     /**
-     * Guarantees a node identity exists and applies the provided app version if a new
+     * Guarantees a node identity existsInCommitted and applies the provided app version if a new
      * node context is triggered.
      *
      * @param baseVersion Defaults to 0.

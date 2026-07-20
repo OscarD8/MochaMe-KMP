@@ -4,6 +4,7 @@ import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Logger
 import co.touchlab.kermit.TestLogWriter
 import com.mochame.logger.test.TestLoggerModule
+import com.mochame.sync.api.infrastructure.HlcFactory
 import com.mochame.sync.di.SyncInfraModule
 import com.mochame.sync.fakes.FakeHlcFactory
 import com.mochame.sync.infrastructure.EngineHlcFactory
@@ -32,7 +33,7 @@ internal class SyncHlcTestModule
 
 @Module(includes = [FakeTimeProviderModule::class, TestLoggerModule::class])
 internal class FakeHlcFactoryModule {
-    @Single
+    @Single(binds = [HlcFactory::class, FakeHlcFactory::class])
     internal fun provideFakeHlcFactory(
         clock: FakeTimeProvider,
         logger: Logger

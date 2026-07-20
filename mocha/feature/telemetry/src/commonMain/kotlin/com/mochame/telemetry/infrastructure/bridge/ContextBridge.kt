@@ -110,7 +110,7 @@ internal class ContextBridge(
         val cleanName = name.trim()
 
         topicMutex.withLock {
-            // We check if this name exists ALREADY in this specific domain
+            // We check if this name existsInCommitted ALREADY in this specific domain
             val existing = telemetryDao.getTopicByNameInDomain(cleanName.lowercase(), domainId)
 
             if (existing != null) {

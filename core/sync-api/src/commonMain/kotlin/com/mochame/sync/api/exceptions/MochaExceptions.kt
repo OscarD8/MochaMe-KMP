@@ -75,7 +75,7 @@ sealed class MochaException(
         sealed class Space(message: String) : SemanticException(message) {
             data class NotFound(val id: String) : Space("Space $id was not found.")
             data class AlreadyExists(val name: String) :
-                Space("Space '$name' already exists.")
+                Space("Space '$name' already existsInCommitted.")
 
             data class InUse(val id: String, val count: Int) : Space(
                 "Cannot deleteBlobByHash space $id: $count moments are still anchored here."
@@ -111,7 +111,7 @@ sealed class MochaException(
             )
 
             data class AlreadyExists(val name: String, val domainId: String) :
-                Domain("Domain '$name' already exists in domain $domainId.")
+                Domain("Domain '$name' already existsInCommitted in domain $domainId.")
 
 
             data class NotFound(val id: String) : Domain("Domain $id not found.")
@@ -120,7 +120,7 @@ sealed class MochaException(
         // TOPICS & CATEGORIES
         sealed class Topic(message: String) : SemanticException(message) {
             data class AlreadyExists(val name: String, val topicId: String) :
-                Topic("Topic '$name' already exists in domain $topicId.")
+                Topic("Topic '$name' already existsInCommitted in domain $topicId.")
 
             data class NotFound(val id: String) : Topic("Topic $id not found.")
 

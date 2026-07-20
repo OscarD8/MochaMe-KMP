@@ -69,7 +69,7 @@ fun TestScope.scopeKoinModule(): Module {
         single<CoroutineContext>(qualifier<MainContext>()) { dispatcher }
         single<CoroutineContext>(qualifier<DefaultContext>()) { dispatcher }
 
-        factory<CoroutineScope>(qualifier<AppScope>()) { this@scopeKoinModule }
+        single<CoroutineScope>(qualifier<AppScope>()) { this@scopeKoinModule }
     }
 }
 

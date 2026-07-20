@@ -34,5 +34,7 @@ interface BlobStore {
     /** Only allowed to open files from the /committed chamber. */
     suspend fun open(blobId: String): Source
 
-    suspend fun exists(blobId: String): Boolean
+    suspend fun existsInCommitted(blobId: String): Boolean
+
+    suspend fun existsInPending(blobId: String): Boolean
 }

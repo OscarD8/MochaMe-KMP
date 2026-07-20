@@ -25,7 +25,7 @@ interface BioDao {
     suspend fun resolveSync(incoming: DailyContextEntity) {
         val local = getContextById(incoming.id)
 
-        // 1. If no local record exists, or the incoming HLC is logically "newer"
+        // 1. If no local record existsInCommitted, or the incoming HLC is logically "newer"
         //    (Alphabetical comparison works perfectly for HLC strings)
         if (local == null || incoming.hlc > local.hlc) {
             upsert(incoming)

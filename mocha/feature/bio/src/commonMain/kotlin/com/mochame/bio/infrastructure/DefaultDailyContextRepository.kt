@@ -174,7 +174,7 @@ Imagine this exact timeline playing out across your system:
 
     if (isRemote && oldState != null && incomingHlc <= oldState.hlc) { ... }
 
-    Because oldState is null, this whole safety block is completely skipped. Your engine has no idea a tombstone even exists, nor what its HLC was.
+    Because oldState is null, this whole safety block is completely skipped. Your engine has no idea a tombstone even existsInCommitted, nor what its HLC was.
 
     Ghost Resurrection: The engine assumes this is a brand-new entity insert. It accepts the old remote update (090), overwrites your local tombstone, and flips isDeleted back to false. Your deleted data has been resurrected by an older update.
 

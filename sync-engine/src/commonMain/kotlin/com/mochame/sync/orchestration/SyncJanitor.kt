@@ -87,7 +87,7 @@ internal class SyncJanitor(
                     executor.execute("[Startup Checks]") {
                         mutex.withLock {
                             bootUpdater.bootState.takeIf { !isValidBootState() }?.run {
-                                logger.d { "Janitor: Skipping startup. Current state ($this) is not valid for boot." }
+                                logger.d { "Janitor: Skipping startup. Current state (${this.value}) is not valid for boot." }
                                 return@withLock
                             }
 
@@ -100,6 +100,7 @@ internal class SyncJanitor(
 
                             blobReconciliation()
 
+                            bootUpdater.updateBootState(BootState.Ready)
                             logger.i { "Janitor Start Up checks finalized..." }
                         }
                     }
@@ -117,10 +118,7 @@ internal class SyncJanitor(
     private fun isValidBootState(): Boolean {
         val currentState = bootUpdater.bootState.value
 
-        if (currentState is BootState.Idle) return true
-
-        logger.i { "Skipping startup. Invalid boot state of $currentState." }
-        return false
+        return currentState is BootState.Idle
     }
 
     private suspend fun initHydration() = withTimeout(5000L.milliseconds) {

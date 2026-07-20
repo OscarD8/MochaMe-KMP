@@ -193,11 +193,17 @@ internal class DefaultBlobStore(
 
     // --- READ ACCESS ---
 
-    override suspend fun exists(blobId: String): Boolean = withContext(ioContext) {
-        val path = Path(committedDir, blobId)
-        // Direct check on the singleton fileSystem
-        fileSystem.exists(path)
-    }
+    override suspend fun existsInCommitted(blobId: String): Boolean =
+        withContext(ioContext) {
+            val path = Path(committedDir, blobId)
+            fileSystem.exists(path)
+        }
+
+    override suspend fun existsInPending(blobId: String): Boolean =
+        withContext(ioContext) {
+            val path = Path(pendingDir, blobId)
+            fileSystem.exists(path)
+        }
 
     override suspend fun open(blobId: String): Source = withContext(ioContext) {
         val path = Path(committedDir, blobId)

@@ -19,6 +19,7 @@ import com.mochame.sync.di.domain.SyncPruneUseCaseTestModule
 import com.mochame.sync.di.hlc.FakeHlcFactoryModule
 import com.mochame.sync.fakes.FakeHlcFactory
 import com.mochame.sync.fakes.FakeSyncIntentStore
+import com.mochame.sync.infrastructure.stores.DefaultBlobStore
 import com.mochame.sync.orchestration.SyncJanitor
 import kotlinx.coroutines.sync.Mutex
 import org.koin.core.annotation.ComponentScan
@@ -58,6 +59,7 @@ internal data class JanitorTestEnv(
     val bootUpdater: FakeBootStatusManager,
     val hlcFactory: FakeHlcFactory,
     val nodeManager: FakeNodeContextManager,
+    val blobStore: DefaultBlobStore,
     val intentStore: FakeSyncIntentStore,
     val transactor: FakeTransactionProvider,
     val executor: FakeExecutionPolicy,
