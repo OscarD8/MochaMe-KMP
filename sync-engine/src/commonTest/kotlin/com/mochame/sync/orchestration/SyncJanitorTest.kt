@@ -246,10 +246,18 @@ class SyncJanitorTest : MochaPlatformTest() {
     @Test
     fun should_pipeNodeContextToHlcFactory_when_hydrating() = runEnv { scope ->
         // Given
+        val baseTestTime = 1740787200000L
+        val nodeId = "node-to-end-all-nodes"
+        fakeClock.setTime(1740787200000L)
+
         val seededHlc =
-            TestHlcFactory.create(ts = 1000L, count = 2, nodeId = "node-to-end-all-nodes")
+            TestHlcFactory.create(
+                ts = 1740787200000L,
+                count = 2,
+                nodeId = nodeId
+            )
         nodeManager.seededContext = NodeContext(
-            nodeId = "node-to-end-all-nodes",
+            nodeId = nodeId,
             appVersion = 1,
             lastServerSyncTime = null,
             maxHlc = seededHlc,
@@ -264,7 +272,7 @@ class SyncJanitorTest : MochaPlatformTest() {
         // Then
         assertEquals(1, hlcFactory.hydrateCallCount)
         assertEquals(seededHlc, hlcFactory.lastHydratedHlc)
-        assertEquals("node-alpha", hlcFactory.lastHydratedNodeId)
+        assertEquals(nodeId, hlcFactory.lastHydratedNodeId)
     }
 
     // -----------------------------------------------------------

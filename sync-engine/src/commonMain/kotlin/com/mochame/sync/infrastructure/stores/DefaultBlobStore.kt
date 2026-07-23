@@ -48,7 +48,7 @@ internal class DefaultBlobStore(
         className = "BlobSt"
     )
 
-    private var chambersVerified = false
+    private var directoriesVerified = false
 
     // --- STAGING ---
 
@@ -67,7 +67,7 @@ internal class DefaultBlobStore(
         val hasher = hashProvider() // expect/actual bridge
         var totalBytes = 0L
 
-        ensureChambersExist()
+        ensureDirectoriesExist()
 
         try {
             // Read the source, write to sink, through a buffer
@@ -142,7 +142,7 @@ internal class DefaultBlobStore(
      * a retry attempt is possible.
      */
     override suspend fun listPendingHashes(): List<String> = withContext(ioContext) {
-        ensureChambersExist()
+        ensureDirectoriesExist()
 
         try {
             fileSystem.list(pendingDir)
@@ -159,7 +159,7 @@ internal class DefaultBlobStore(
      * Enforces a 1-hour restraint to prevent race conditions with active staging.
      */
     override suspend fun clearIncompleteStaging(): Int = withContext(ioContext) {
-        ensureChambersExist()
+        ensureDirectoriesExist()
         var deletedCount = 0
         val now = timeUtils.now().toEpochMilliseconds()
         val oneHourInMillis = 3_600_000L
@@ -217,22 +217,28 @@ internal class DefaultBlobStore(
     }
 
     // --- Helpers ---
-    private suspend fun ensureChambersExist() = withContext(ioContext) {
-        if (chambersVerified) return@withContext
+    private suspend fun ensureDirectoriesExist() = withContext(ioContext) {
+        if (directoriesVerified) return@withContext
 
         blobMutex.withLock {
-            if (chambersVerified) return@withLock
+            if (directoriesVerified) return@withLock
 
             try {
                 if (!fileSystem.exists(pendingDir)) {
                     fileSystem.createDirectories(pendingDir)
-                    logger.i { "Init Pending Chamber at $pendingDir" }
+                    check(fileSystem.exists(pendingDir)) {
+                        "Failed to create pending directory at $pendingDir"
+                    }
+                    logger.i { "Init Pending Dir at $pendingDir" }
                 }
                 if (!fileSystem.exists(committedDir)) {
                     fileSystem.createDirectories(committedDir)
-                    logger.i { "Init Committed Chamber at $committedDir" }
+                    check(fileSystem.exists(committedDir)) {
+                        "Failed to create committed directory at $committedDir"
+                    }
+                    logger.i { "Init Committed Dir at $committedDir" }
                 }
-                chambersVerified = true
+                directoriesVerified = true
             } catch (e: Exception) {
                 throw e.toMochaException("Directory Initialization")
             }

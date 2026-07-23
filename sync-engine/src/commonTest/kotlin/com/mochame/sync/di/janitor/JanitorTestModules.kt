@@ -21,6 +21,8 @@ import com.mochame.sync.fakes.FakeHlcFactory
 import com.mochame.sync.fakes.FakeSyncIntentStore
 import com.mochame.sync.infrastructure.stores.DefaultBlobStore
 import com.mochame.sync.orchestration.SyncJanitor
+import com.mochame.utils.fixtures.FakeTimeProvider
+import com.mochame.utils.fixtures.di.FakeTimeProviderModule
 import kotlinx.coroutines.sync.Mutex
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Factory
@@ -46,6 +48,7 @@ internal object JanitorTestApp
 
         FakeHlcFactoryModule::class,
         FakeSyncStoresModule::class,
+        FakeTimeProviderModule::class
     ]
 )
 @ComponentScan("com.mochame.sync.di.janitor")
@@ -56,6 +59,7 @@ internal class SyncJanitorTestModule
 internal data class JanitorTestEnv(
     val janitor: SyncJanitor,
     val writer: TestLogWriter,
+    val fakeClock: FakeTimeProvider,
     val bootUpdater: FakeBootStatusManager,
     val hlcFactory: FakeHlcFactory,
     val nodeManager: FakeNodeContextManager,

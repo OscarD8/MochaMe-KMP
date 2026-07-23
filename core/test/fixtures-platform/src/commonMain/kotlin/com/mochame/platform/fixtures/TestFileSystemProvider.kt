@@ -6,7 +6,6 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
-import kotlin.random.Random
 import kotlin.time.Clock
 
 data class TestWorkspace(
@@ -15,30 +14,23 @@ data class TestWorkspace(
     val committed: Path
 )
 
+expect fun testWorkspaceBaseDir(): String
+
 private val workspaceLock = reentrantLock()
 private var workspaceCounter = 0
 
-fun createTestWorkspace(baseDir: String = "build/mocha-tests"): TestWorkspace {
+fun createTestWorkspace(): TestWorkspace {
+    val currentCount = workspaceLock.withLock { workspaceCounter++ }
+    val baseDir = Path(testWorkspaceBaseDir())
 
-    val currentCount = workspaceLock.withLock {
-        workspaceCounter++
-    }
-
-    // Generate the unique ID
     val timestamp = Clock.System.now()
         .toLocalDateTime(TimeZone.currentSystemDefault())
         .let { "${it.date}_${it.hour}-${it.minute}" }
-    val folderName = "mocha_test_${timestamp}__$currentCount"
-
-    val root = Path(baseDir, folderName)
-
-    if (!SystemFileSystem.exists(Path(baseDir))) {
-        SystemFileSystem.createDirectories(Path(baseDir))
-    }
+    val uniqueDir = Path(baseDir, "mocha_test_${timestamp}_${currentCount}")
 
     return TestWorkspace(
-        root = root,
-        pending = Path(root, "pending"),
-        committed = Path(root, "committed")
+        root = uniqueDir,
+        pending = Path(uniqueDir, "pending"),
+        committed = Path(uniqueDir, "committed")
     )
 }
