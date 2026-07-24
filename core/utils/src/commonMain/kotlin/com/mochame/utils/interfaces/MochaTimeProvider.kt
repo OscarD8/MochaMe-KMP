@@ -1,5 +1,6 @@
 package com.mochame.utils.interfaces
 
+import kotlin.time.Duration
 import kotlin.time.Instant
 
 /**
@@ -8,5 +9,5 @@ import kotlin.time.Instant
 interface MochaTimeProvider : TimeProvider {
     fun getMochaDay(): Long
     fun calculateMochaEpochDay(instant: Instant): Long
-    override fun getMillisForDaysAgo(days: Int): Long
+    override fun getMillisAgo(duration: Duration): Long
 }

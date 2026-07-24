@@ -17,7 +17,8 @@ internal fun createTestSyncIntent(
     createdAt: Long = 0L,
     syncId: String? = null,
     leasedAt: Long? = null,
-    overflowBlobId: String? = null
+    overflowBlobId: String? = null,
+    retryCount: Int = 0
 ) = SyncIntent(
     featureSchemaVersion = 1,
     hlc = hlc,
@@ -25,7 +26,7 @@ internal fun createTestSyncIntent(
     featureContext = FeatureContext.fromModelString(context.modelName),
     operation = MutationOp.UPSERT,
     syncStatus = status,
-    retryCount = 0,
+    retryCount = retryCount,
     createdAt = createdAt,
     payload = payload,
     leasedAt = leasedAt,

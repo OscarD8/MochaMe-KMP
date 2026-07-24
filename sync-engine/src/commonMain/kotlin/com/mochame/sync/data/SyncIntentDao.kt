@@ -106,13 +106,13 @@ interface SyncIntentDao {
         WHERE hlc IN (
             SELECT hlc FROM SyncIntentEntity
             WHERE syncStatus = :status 
-            AND createdAt < :cutoff
+            AND createdAt < :cutoffMs
             LIMIT :limit
         )
     """
     )
     suspend fun pruneOldSynced(
-        cutoff: Long,
+        cutoffMs: Long,
         status: SyncStatus = SyncStatus.SUCCESS,
         limit: Int
     ): Int
@@ -185,7 +185,7 @@ interface SyncIntentDao {
     @Query(
         """
         UPDATE SyncIntentEntity
-        SET retryCount = :retryCount, syncStatus = :resetStatus, syncId = NULL
+        SET retryCount = :retryCount, syncStatus = :resetStatus, syncId = NULL, leasedAt = null
         WHERE hlc = :hlc
     """
     )

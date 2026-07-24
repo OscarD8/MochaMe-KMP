@@ -8,6 +8,8 @@ import com.mochame.logger.withTags
 import com.mochame.logger.withTimer
 import kotlinx.coroutines.yield
 import org.koin.core.annotation.Single
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
 import kotlin.time.TimeSource
 
 /**
@@ -23,11 +25,11 @@ import kotlin.time.TimeSource
 internal class PruneIntentsUseCase(
     private val intentStore: SyncIntentMaintenanceStore,
     private val timeUtils: TimeProvider,
-    private val pruneDays: Int = DEFAULT_PRUNE_DAYS,
+    private val pruneDays: Duration = DEFAULT_PRUNE_DAYS,
     logger: Logger
 ) {
     companion object {
-        private const val DEFAULT_PRUNE_DAYS = 30
+        private val DEFAULT_PRUNE_DAYS = 30.days
         private const val LIMIT = 100
         private const val LOG_INTERVAL = 50
     }
@@ -39,14 +41,13 @@ internal class PruneIntentsUseCase(
     )
 
     suspend operator fun invoke(): Int {
-        val cutoff = timeUtils.getMillisForDaysAgo(pruneDays)
-
         val mark = TimeSource.Monotonic.markNow()
         var totalDeleted = 0
         var iterations = 0
 
         do {
-            val deleted = intentStore.pruneOldSynced(cutoff, LIMIT)
+            val deleted =
+                intentStore.pruneOldSynced(timeUtils.getMillisAgo(pruneDays), LIMIT)
             totalDeleted += deleted
             iterations++
 
@@ -55,7 +56,7 @@ internal class PruneIntentsUseCase(
             }
 
             if (deleted != LIMIT) break
-            if (deleted > 0)  yield()
+            if (deleted > 0) yield()
 
         } while (deleted > 0)
 

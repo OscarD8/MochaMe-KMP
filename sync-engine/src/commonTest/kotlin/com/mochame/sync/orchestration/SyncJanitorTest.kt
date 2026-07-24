@@ -16,6 +16,7 @@ import com.mochame.sync.di.janitor.JanitorTestEnv
 import com.mochame.sync.fakes.createTestSyncIntent
 import com.mochame.sync.spi.node.NodeContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -27,6 +28,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -39,7 +41,7 @@ private inline fun runEnv(crossinline block: suspend JanitorTestEnv.(TestScope) 
         block = block
     )
 
-private val testPayloadBytes = byteArrayOf(0x53, 0x54, 0x52, 0x41, 0x4E, 0x44, 0x45, 0x44)
+private val testPayload = byteArrayOf(0x53, 0x54, 0x52, 0x41, 0x4E, 0x44, 0x45, 0x44)
 
 
 @ExperimentalCoroutinesApi
@@ -286,21 +288,20 @@ class SyncJanitorTest : MochaPlatformTest() {
             val hlc1 = TestHlcFactory.create(ts = 100L, count = 0)
             val hlc2 = TestHlcFactory.create(ts = 200L, count = 0)
 
-            val lockedIntent1 = createTestSyncIntent(
-                hlc = hlc1,
-                candidateKey = "key-1",
-                status = SyncStatus.SYNCING,
-                syncId = "batch-stranded-1"
+            intentStore.seedIntents(
+                createTestSyncIntent(
+                    hlc = hlc1,
+                    candidateKey = "key-1",
+                    status = SyncStatus.SYNCING,
+                    syncId = "batch-stranded-1"
+                ),
+                createTestSyncIntent(
+                    hlc = hlc2,
+                    candidateKey = "key-2",
+                    status = SyncStatus.SYNCING,
+                    syncId = "batch-stranded-2"
+                )
             )
-
-            val lockedIntent2 = createTestSyncIntent(
-                hlc = hlc2,
-                candidateKey = "key-2",
-                status = SyncStatus.SYNCING,
-                syncId = "batch-stranded-2"
-            )
-
-            intentStore.seedIntents(lockedIntent1, lockedIntent2)
 
             // When
             janitor.startupChecks()
@@ -357,15 +358,16 @@ class SyncJanitorTest : MochaPlatformTest() {
     fun should_commitStrandedBlob_when_matchingMetadataExistsInIntentStore() =
         runEnv { scope ->
             // Given
-            val payload = Buffer().apply { write(testPayloadBytes) }
+            val payload = Buffer().apply { write(testPayload) }
             val blobId = blobStore.stage(payload)
 
-            val intent = createTestSyncIntent(
-                hlc = TestHlcFactory.create(),
-                status = SyncStatus.PENDING,
-                overflowBlobId = blobId
+            intentStore.seedIntents(
+                createTestSyncIntent(
+                    hlc = TestHlcFactory.create(),
+                    status = SyncStatus.PENDING,
+                    overflowBlobId = blobId
+                )
             )
-            intentStore.seedIntents(intent)
 
             // When
             janitor.startupChecks()
@@ -390,19 +392,17 @@ class SyncJanitorTest : MochaPlatformTest() {
             )
         }
 
-
     @Test
     fun should_abortOrphanedBlob_when_noMatchingMetadataExistsInIntentStore() =
         runEnv { scope ->
-            // Given: Stage raw byte payload into pending chamber without seeding intentStore
-            val payload = Buffer().apply { write(testPayloadBytes) }
-            val blobId = blobStore.stage(payload)
+            // Given
+            val blobId = blobStore.stage(Buffer().apply { write(testPayload) })
 
             // When
             janitor.startupChecks()
             scope.advanceUntilIdle()
 
-            // Then: Blob is aborted and purged from disk
+            // Then
             assertFalse(
                 blobStore.existsInPending(blobId),
                 "Orphaned blob with no persisted metadata must not exist in committed chamber."
@@ -415,6 +415,305 @@ class SyncJanitorTest : MochaPlatformTest() {
                 purgeLog,
                 "Janitor must log purging when aborting orphaned blobs."
             )
+        }
+
+    @Test
+    fun should_continueReconciliationAndComplete_when_individualBlobReconciliationThrows() =
+        runEnv { scope ->
+            // Given: Stage two distinct blobs
+            val payloadA = byteArrayOf(0x01, 0x02)
+            val payloadB = byteArrayOf(0x03, 0x04)
+            val blobA = blobStore.stage(Buffer().apply { write(payloadA) })
+            val blobB = blobStore.stage(Buffer().apply { write(payloadB) })
+            // Seed intent metadata only for blobB
+            intentStore.seedIntents(
+                createTestSyncIntent(
+                    hlc = TestHlcFactory.create(),
+                    status = SyncStatus.PENDING,
+                    overflowBlobId = blobB
+                )
+            )
+            // Wire FakeIntentStore to throw when Janitor queries blobA
+            intentStore.failOnBlobCheck(blobA)
+
+            // When
+            janitor.startupChecks()
+            scope.advanceUntilIdle()
+
+            // Then 1: blobA encountered an error, which was caught and logged
+            val blobAFailureLog = writer.logs.find {
+                it.message.contains("Failed to reconcile individual blob: $blobA")
+            }
+            assertNotNull(
+                blobAFailureLog,
+                "Janitor must catch and log exception for blobA instead of crashing."
+            )
+
+            // Then 2: Loop continued and successfully committed blobB
+            assertTrue(
+                blobStore.existsInCommitted(blobB),
+                "Janitor must proceed to reconcile blobB even if blobA threw an exception."
+            )
+
+            // Then 3: Full execution despite prior loop failure
+            val completionLog = writer.logs.find {
+                it.message.contains("Blob Reconciliation Complete")
+            }
+            assertNotNull(
+                completionLog,
+                "Janitor must proceed to clear incomplete staging and finish reconciliation."
+            )
+        }
+
+    // -----------------------------------------------------------
+    // RUNTIME INTENT MAINTENANCE
+    // -----------------------------------------------------------
+
+    @Test
+    fun should_executeMaintenancePeriodically_onConfiguredInterval() = runEnv { scope ->
+        // Given
+        val maintenanceJob = janitor.startRuntimeMaintenance()
+
+        // When: Trigger first cycle
+        scope.advanceTimeBy(config.maintenanceInterval)
+        scope.runCurrent()
+
+        val firstCycleLogs = writer.logs.count { it.message.contains("cycle finished") }
+        assertEquals(
+            1,
+            firstCycleLogs,
+            "Maintenance cycle execution interval not as expected."
+        )
+
+        // When: Trigger second cycle
+        scope.advanceTimeBy(config.maintenanceInterval)
+        scope.runCurrent()
+
+        val secondCycleLogs =
+            writer.logs.count { it.message.contains("cycle finished") }
+        assertEquals(
+            firstCycleLogs + 1,
+            secondCycleLogs,
+            "Maintenance cycle must execute again on the next interval."
+        )
+
+        maintenanceJob.cancel()
+    }
+
+    @Test
+    fun should_resetLeaseAndIncrementRetryCount_when_leaseIsStaleAndBelowThreshold() =
+        runEnv { scope ->
+            // Given: Seed intent with status Syncing and an expired lease
+            val now = fakeClock.now().toEpochMilliseconds()
+            val timeoutMs = config.staleThreshold.inWholeMilliseconds
+            val staleTimestamp = now - (timeoutMs + 1000L)
+            val initialRetryCount = config.retryThreshold - 3
+
+            val intent = createTestSyncIntent(
+                hlc = TestHlcFactory.create(),
+                status = SyncStatus.SYNCING,
+                leasedAt = staleTimestamp,
+                retryCount = initialRetryCount,
+                syncId = "testing"
+            )
+            intentStore.seedIntents(intent)
+
+            // When
+            val maintenanceJob = janitor.startRuntimeMaintenance()
+            scope.advanceTimeBy(config.maintenanceInterval)
+            scope.runCurrent()
+
+            // Then
+            val updatedIntent = intentStore.intents.firstOrNull()
+            assertNotNull(updatedIntent)
+            assertEquals(
+                SyncStatus.PENDING,
+                updatedIntent.syncStatus,
+                "Stale lease must reset to PENDING state."
+            )
+            assertEquals(
+                initialRetryCount + 1,
+                updatedIntent.retryCount,
+                "Retry count must increment by 1."
+            )
+            assertNull(
+                updatedIntent.leasedAt,
+                "leasedAt timestamp must be cleared on reset."
+            )
+            assertNull(
+                updatedIntent.syncId,
+                "syncId should be reset to null on lease reset."
+            )
+
+            maintenanceJob.cancel()
+        }
+
+    @Test
+    fun should_escalateToQuarantine_when_staleLeaseReachesMaxRetries() = runEnv { scope ->
+        // Given: Seed an intent with status syncing, and a retryCount requiring quarantine
+        val now = fakeClock.now().toEpochMilliseconds()
+        val timeoutMs = config.staleThreshold.inWholeMilliseconds
+        val staleTimestamp = now - (timeoutMs + 1000L)
+        val initialRetryCount = config.retryThreshold - 1
+
+        val intent = createTestSyncIntent(
+            hlc = TestHlcFactory.create(),
+            status = SyncStatus.SYNCING,
+            syncId = "test",
+            leasedAt = staleTimestamp,
+            retryCount = initialRetryCount
+        )
+        intentStore.seedIntents(intent)
+
+        // When
+        val maintenanceJob = janitor.startRuntimeMaintenance()
+        scope.advanceTimeBy(config.maintenanceInterval)
+        scope.runCurrent()
+
+        // Then
+        val updatedIntent = intentStore.intents.firstOrNull()
+        assertNotNull(updatedIntent)
+        assertEquals(
+            SyncStatus.QUARANTINED,
+            updatedIntent.syncStatus,
+            "Stale lease reaching max retries must escalate to quarantined."
+        )
+        assertEquals(config.retryThreshold, updatedIntent.retryCount)
+
+        val quarantineLog = writer.logs.find {
+            it.message.startsWith("Quarantined Intent [HLC: ${intent.hlc}]")
+        }
+        assertNotNull(quarantineLog, "Janitor must log quarantine escalation events.")
+
+        maintenanceJob.cancel()
+    }
+
+    @Test
+    fun should_ignoreActiveLeases_when_withinTimeoutWindow() = runEnv { scope ->
+        // Given: Seed an intent within lease window
+        val leaseStamp = fakeClock.now().toEpochMilliseconds()
+
+        val intent = createTestSyncIntent(
+            hlc = TestHlcFactory.create(),
+            status = SyncStatus.SYNCING,
+            syncId = "test",
+            leasedAt = leaseStamp,
+            retryCount = 1
+        )
+        intentStore.seedIntents(intent)
+
+        // When
+        val maintenanceJob = janitor.startRuntimeMaintenance()
+        scope.advanceTimeBy(config.maintenanceInterval)
+        scope.runCurrent()
+
+        // Then
+        val updatedIntent = intentStore.intents.firstOrNull()
+        assertNotNull(updatedIntent)
+        assertEquals(
+            SyncStatus.SYNCING,
+            updatedIntent.syncStatus,
+            "Active lease must remain at a syncing status."
+        )
+        assertEquals(
+            1,
+            updatedIntent.retryCount,
+            "Retry count must not change for active leases."
+        )
+        assertEquals(
+            leaseStamp,
+            updatedIntent.leasedAt,
+            "leasedAt must remain intact for active leases."
+        )
+
+        maintenanceJob.cancel()
+    }
+
+    @Test
+    fun should_processVariousStateValidationsCorrectly_inSingleMaintenancePass() =
+        runEnv { scope ->
+            val now = fakeClock.now().toEpochMilliseconds()
+            val timeoutMs = config.staleThreshold.inWholeMilliseconds
+            val staleTimestamp = now - (timeoutMs + 1000L)
+            val activeTimestamp = now - 1000L
+            val hlcs = TestHlcFactory.concurrentSequence(3)
+
+            val quarantineIntent = createTestSyncIntent(
+                hlc = hlcs[0],
+                status = SyncStatus.SYNCING,
+                syncId = "quarantine-target",
+                leasedAt = staleTimestamp,
+                retryCount = config.retryThreshold - 1
+            )
+            val resetIntent = createTestSyncIntent(
+                hlc = hlcs[1],
+                status = SyncStatus.SYNCING,
+                syncId = "reset-target",
+                leasedAt = staleTimestamp,
+                retryCount = 0
+            )
+            val activeIntent = createTestSyncIntent(
+                hlc = hlcs[2],
+                status = SyncStatus.SYNCING,
+                syncId = "active-target",
+                leasedAt = activeTimestamp,
+                retryCount = 1
+            )
+            intentStore.seedIntents(quarantineIntent, resetIntent, activeIntent)
+
+            // When
+            val maintenanceJob = janitor.startRuntimeMaintenance()
+            scope.advanceTimeBy(config.maintenanceInterval)
+            scope.runCurrent()
+
+            // Then 1
+            val updatedQuarantine = intentStore.intents.find { it.hlc == hlcs[0] }
+            assertNotNull(updatedQuarantine, "Quarantined intent must exist in store.")
+            assertEquals(
+                SyncStatus.QUARANTINED,
+                updatedQuarantine.syncStatus,
+                "Stale intent reaching threshold must transition to QUARANTINED."
+            )
+            assertEquals(config.retryThreshold, updatedQuarantine.retryCount)
+
+            // Then 2
+            val updatedReset = intentStore.intents.find { it.hlc == hlcs[1] }
+            assertNotNull(updatedReset, "Reset intent must exist in store.")
+            assertEquals(
+                SyncStatus.PENDING,
+                updatedReset.syncStatus,
+                "Stale intent below threshold must reset to PENDING state."
+            )
+            assertEquals(
+                1,
+                updatedReset.retryCount,
+                "Retry count must increment by 1."
+            )
+            assertNull(
+                updatedReset.leasedAt,
+                "LeasedAt timestamp must be cleared on reset."
+            )
+
+            // Then 3
+            val updatedActive = intentStore.intents.find { it.hlc == hlcs[2] }
+            assertNotNull(updatedActive, "Active intent must exist in store.")
+            assertEquals(
+                SyncStatus.SYNCING,
+                updatedActive.syncStatus,
+                "Active lease must remain in SYNCING state."
+            )
+            assertEquals(
+                1,
+                updatedActive.retryCount,
+                "Active lease retry count must not change."
+            )
+            assertEquals(
+                activeTimestamp,
+                updatedActive.leasedAt,
+                "Active lease timestamp must remain intact."
+            )
+
+            maintenanceJob.cancel()
         }
 
     // -----------------------------------------------------------

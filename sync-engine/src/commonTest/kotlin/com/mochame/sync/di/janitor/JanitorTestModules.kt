@@ -17,6 +17,7 @@ import com.mochame.sync.di.SyncInfraModule
 import com.mochame.sync.di.SyncOrchestrationModule
 import com.mochame.sync.di.domain.SyncPruneUseCaseTestModule
 import com.mochame.sync.di.hlc.FakeHlcFactoryModule
+import com.mochame.sync.domain.config.JanitorConfig
 import com.mochame.sync.fakes.FakeHlcFactory
 import com.mochame.sync.fakes.FakeSyncIntentStore
 import com.mochame.sync.infrastructure.stores.DefaultBlobStore
@@ -28,6 +29,8 @@ import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Factory
 import org.koin.core.annotation.KoinApplication
 import org.koin.core.annotation.Module
+import org.koin.core.annotation.Single
+import kotlin.time.Duration.Companion.milliseconds
 
 
 @KoinApplication(modules = [SyncJanitorTestModule::class])
@@ -52,12 +55,20 @@ internal object JanitorTestApp
     ]
 )
 @ComponentScan("com.mochame.sync.di.janitor")
-internal class SyncJanitorTestModule
+internal class SyncJanitorTestModule {
+    @Single
+    internal fun provideTestJanitorConfig(): JanitorConfig = JanitorConfig(
+        maintenanceInterval = 5.milliseconds,
+        startupTimeout = 5.milliseconds,
+        retryThreshold = 5
+    )
+}
 
 @Factory
 @ExperimentalKermitApi
 internal data class JanitorTestEnv(
     val janitor: SyncJanitor,
+    val config: JanitorConfig,
     val writer: TestLogWriter,
     val fakeClock: FakeTimeProvider,
     val bootUpdater: FakeBootStatusManager,

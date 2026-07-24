@@ -3,14 +3,14 @@ package com.mochame.utils.interfaces
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Duration
 import kotlin.time.Instant
 
 interface TimeProvider {
     fun now(): Instant
 
-    fun getMillisForDaysAgo(days: Int): Long {
-        val instant = now().minus(kotlin.time.Duration.parse("${days * 24}h"))
-        return instant.toEpochMilliseconds()
+    fun getMillisAgo(duration: Duration): Long {
+        return (now() - duration).toEpochMilliseconds()
     }
 
     fun formatEpochDay(epochDay: Long): String {

@@ -6,10 +6,11 @@ import com.mochame.sync.spi.models.SyncIntent
 import com.mochame.sync.domain.model.QuarantinedFeatureSummary
 import com.mochame.sync.orchestration.SyncCoordinator
 import kotlinx.coroutines.flow.Flow
+import kotlin.time.Duration
 
 internal interface SyncIntentMaintenanceStore {
     suspend fun clearAllLocksAndResetToPending(): Int
-    suspend fun pruneOldSynced(olderThan: Long, limit: Int): Int
+    suspend fun pruneOldSynced(pruneAfter: Long, limit: Int): Int
     suspend fun existsForBlob(blobId: String): Boolean
     suspend fun getStaleLeasedIntents(olderThan: Long): List<SyncIntent>
     suspend fun quarantine(hlc: HLC, retryCount: Int)

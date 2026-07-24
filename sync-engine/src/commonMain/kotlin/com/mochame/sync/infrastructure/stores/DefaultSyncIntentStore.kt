@@ -12,6 +12,8 @@ import com.mochame.sync.spi.infrastructure.SyncIntentStore
 import com.mochame.sync.spi.models.SyncIntent
 import kotlinx.coroutines.flow.Flow
 import org.koin.core.annotation.Single
+import kotlin.time.Clock
+import kotlin.time.Duration
 
 /**
  * An implementation coupled to Jetpack Room, bridging the orchestration layer of synchronization logic
@@ -71,8 +73,11 @@ internal class DefaultSyncIntentStore(
     override suspend fun resetLease(hlc: HLC, retryCount: Int) =
         dao.resetLease(hlc.toString(), retryCount)
 
-    override suspend fun pruneOldSynced(olderThan: Long, limit: Int) =
-        dao.pruneOldSynced(cutoff = olderThan, limit = limit)
+    override suspend fun pruneOldSynced(pruneAfter: Long, limit: Int) =
+        dao.pruneOldSynced(
+            cutoffMs = pruneAfter,
+            limit = limit
+        )
 
     override suspend fun quarantine(hlc: HLC, retryCount: Int) =
         dao.quarantineIntent(hlc.toString(), retryCount)

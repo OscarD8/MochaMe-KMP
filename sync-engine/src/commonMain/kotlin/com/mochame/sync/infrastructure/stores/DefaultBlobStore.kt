@@ -164,30 +164,35 @@ internal class DefaultBlobStore(
         val now = timeUtils.now().toEpochMilliseconds()
         val oneHourInMillis = 3_600_000L
 
-        try {
-            fileSystem.list(pendingDir).forEach { path ->
-                val name = path.name
-                if (!name.startsWith("staging_")) return@forEach
-                // Extraction: "staging_{timestamp}_{random}"
-                val parts = name.split("_")
-                val fileTimestamp = parts.getOrNull(1)?.toLongOrNull() ?: 0L
-                val age = now - fileTimestamp
-
-                if (age > oneHourInMillis) {
-                    fileSystem.delete(path)
-                    deletedCount++
-                    logger.v { "Purged stale staging file [${name}] (Age: ${age / 60000} mins)" }
-                }
-            }
-
-            if (deletedCount > 0) {
-                logger.i { "Maintenance Complete: Purged $deletedCount orphaned staging files." }
-            }
+        val pendingFiles = try {
+            fileSystem.list(pendingDir)
         } catch (e: Exception) {
-            logger.e(e) { "Error during incomplete staging purge: ${e.message}" }
-            throw e.toMochaException("Clearing incomplete staging.")
+            logger.e(e) { "Failed to list pending directory for staging purge." }
+            return@withContext 0
         }
 
+        pendingFiles.forEach { path ->
+            val name = path.name
+            if (!name.startsWith("staging_")) return@forEach
+
+            val parts = name.split("_")
+            val fileTimestamp = parts.getOrNull(1)?.toLongOrNull() ?: 0L
+            val age = now - fileTimestamp
+
+            if (age > oneHourInMillis) {
+                try {
+                    fileSystem.delete(path)
+                    deletedCount++
+                    logger.v { "Purged stale staging file [${name}]" }
+                } catch (e: Exception) {
+                    logger.w(e) { "Failed to purge individual stale file [${name}]: ${e.message}" }
+                }
+            }
+        }
+
+        if (deletedCount > 0) {
+            logger.i { "Maintenance Complete: Purged $deletedCount orphaned staging files." }
+        }
         deletedCount
     }
 

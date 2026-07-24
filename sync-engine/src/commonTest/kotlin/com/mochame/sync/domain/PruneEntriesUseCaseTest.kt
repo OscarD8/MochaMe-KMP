@@ -22,6 +22,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.days
 
 // -----------------------------------------------------------
 // SUT ENVIRONMENT
@@ -32,7 +33,7 @@ private inline fun runEnv(crossinline block: suspend PruneEntriesTestEnv.(TestSc
         block = block
     )
 
-internal const val TEST_PRUNE_DAYS = 30
+internal val TEST_PRUNE_DAYS = 30.days
 
 class PruneEntriesUseCaseTest : MochaPlatformTest() {
 
@@ -160,7 +161,7 @@ class PruneEntriesUseCaseTest : MochaPlatformTest() {
             fakeClock.setTime(baseTestingTime)
 
             // Calculate the exact millisecond cutoff value
-            val cutoffThresholdMs = fakeClock.getMillisForDaysAgo(TEST_PRUNE_DAYS)
+            val cutoffThresholdMs = fakeClock.getMillisAgo(TEST_PRUNE_DAYS)
 
             // Distinct HLC identifiers
             val hlcs = TestHlcFactory.chronologicalSequence(2)

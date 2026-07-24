@@ -22,7 +22,10 @@ import com.mochame.sync.spi.models.SyncIntent
 import com.mochame.sync.spi.node.NodeContext
 import com.mochame.sync.api.models.HLC
 import com.mochame.sync.api.metadata.SyncStatus
+import com.mochame.sync.domain.config.JanitorConfig
+import com.mochame.utils.interfaces.TimeProvider
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
@@ -35,7 +38,7 @@ import kotlinx.coroutines.yield
 import org.koin.core.annotation.Single
 import kotlin.coroutines.CoroutineContext
 import kotlin.time.Clock
-import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 
 
@@ -60,6 +63,8 @@ internal class SyncJanitor(
     private val blobStore: BlobStore,
     private val nodeManager: NodeContextManager,
     private val intentStore: SyncIntentMaintenanceStore,
+    private val config: JanitorConfig,
+    private val timeProvider: TimeProvider,
     @IoContext private val ioContext: CoroutineContext,
     @AppScope private val appScope: CoroutineScope,
     @JanitorMutex private val mutex: Mutex,
@@ -71,19 +76,13 @@ internal class SyncJanitor(
         className = "DrJntr"
     )
 
-    companion object {
-        const val LEASE_TIMEOUT_MS = 30_000L
-        const val RETRY_THRESHOLD = 5
-        const val STARTUP_TIMEOUT_MS = 10_000L
-    }
-
     /**
      * The single entry point for app initialization.
      */
     fun startupChecks() {
         appScope.launch(ioContext) {
             try {
-                withTimeout(STARTUP_TIMEOUT_MS.milliseconds) {
+                withTimeout(config.startupTimeout) {
                     executor.execute("[Startup Checks]") {
                         mutex.withLock {
                             bootUpdater.bootState.takeIf { !isValidBootState() }?.run {
@@ -121,7 +120,7 @@ internal class SyncJanitor(
         return currentState is BootState.Idle
     }
 
-    private suspend fun initHydration() = withTimeout(5000L.milliseconds) {
+    private suspend fun initHydration() = withTimeout(5.seconds) {
         try {
             val nodeContext = nodeManager.getOrEstablishContext()
 
@@ -147,13 +146,18 @@ internal class SyncJanitor(
         logger.d { "Maintenance Cycle Complete".withTimer(mark) }
     }
 
-    fun startRuntimeMaintenance() {
-        appScope.launch(ioContext) {
+    fun startRuntimeMaintenance(): Job {
+        return appScope.launch(ioContext) {
             while (true) {
-                delay(LEASE_TIMEOUT_MS.milliseconds)
+                delay(config.maintenanceInterval)
                 mutex.withLock {
+                    val mark = TimeSource.Monotonic.markNow()
+                    logger.v { "Runtime maintenance cycle starting..." }
+
                     assessStaleLeases()
                     pruneInChunks()
+
+                    logger.v { "Runtime maintenance cycle finished".withTimer(mark) }
                 }
             }
         }
@@ -177,21 +181,34 @@ internal class SyncJanitor(
     private suspend fun blobReconciliation() = withContext(ioContext) {
         val mark = TimeSource.Monotonic.markNow()
 
-        // Try and restore
-        val pendingHashes = blobStore.listPendingHashes()
+        val pendingHashes = try {
+            blobStore.listPendingHashes()
+        } catch (e: Exception) {
+            logger.e(e) { "Unable to locate pending hashes." }
+            emptyList()
+        }
 
         pendingHashes.forEach { hash ->
-            if (intentStore.existsForBlob(hash)) {
-                logger.i { "Maintenance: Recovering stranded blob $hash. Finalizing commit." }
-                blobStore.commit(hash)
-            } else {
-                logger.w { "Maintenance: Found orphaned pending blob $hash with no metadata. Purging." }
-                blobStore.abort(hash)
+            try {
+                if (intentStore.existsForBlob(hash)) {
+                    logger.i { "Recovering stranded blob $hash. Finalizing commit." }
+                    blobStore.commit(hash)
+                } else {
+                    logger.w { "Found orphaned pending blob $hash with no metadata. Purging." }
+                    blobStore.abort(hash)
+                }
+            } catch (e: Exception) {
+                logger.e(e) { "Failed to reconcile individual blob: $hash" }
             }
         }
 
         yield()
-        blobStore.clearIncompleteStaging()
+
+        try {
+            blobStore.clearIncompleteStaging()
+        } catch (e: Exception) {
+            logger.w(e) { "Purging incomplete staged files terminated: ${e.message}" }
+        }
 
         logger.d { "Blob Reconciliation Complete".withTimer(mark) }
     }
@@ -199,10 +216,9 @@ internal class SyncJanitor(
     /**
      * Janitor owns the retry lifecycle of payloads. It is the only component that sees
      * the full history of an intent across multiple sync attempts.
-     * This runtime method runs periodically during active operation, not just on startup.
      */
     private suspend fun assessStaleLeases() {
-        val cutoff = Clock.System.now().toEpochMilliseconds() - LEASE_TIMEOUT_MS
+        val cutoff = timeProvider.getMillisAgo(config.staleThreshold)
 
         transactor.runImmediateTransaction {
             val staleLeases = intentStore.getStaleLeasedIntents(cutoff)
@@ -210,16 +226,18 @@ internal class SyncJanitor(
             staleLeases.forEach { intent ->
                 val newRetryCount = intent.retryCount + 1
 
-                if (newRetryCount >= RETRY_THRESHOLD) {
+                if (newRetryCount >= config.retryThreshold) {
                     intentStore.quarantine(
                         hlc = intent.hlc,
                         retryCount = newRetryCount
                     )
+                    logger.w { "Quarantined Intent [HLC: ${intent.hlc}] [Key: ${intent.candidateKey}]" }
                 } else {
                     intentStore.resetLease(
                         hlc = intent.hlc,
                         retryCount = newRetryCount
                     )
+                    logger.i { "Reset Intent [HLC: ${intent.hlc}] [Key: ${intent.candidateKey}]" }
                 }
             }
         }

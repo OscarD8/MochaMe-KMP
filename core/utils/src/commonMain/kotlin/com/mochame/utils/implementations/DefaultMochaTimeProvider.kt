@@ -8,6 +8,7 @@ import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import org.koin.core.annotation.Single
 import kotlin.time.Clock
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
 
@@ -26,9 +27,10 @@ open class DefaultMochaTimeProvider : MochaTimeProvider {
         return biologicalInstant.toLocalDateTime(timeZone).date.toEpochDays()
     }
 
-    override fun getMillisForDaysAgo(days: Int): Long {
+    override fun getMillisAgo(duration: Duration): Long {
         val timeZone = TimeZone.currentSystemDefault()
-        val targetDate = LocalDate.fromEpochDays((getMochaDay() - days).toInt())
+        val targetMochaDay = getMochaDay() - duration.inWholeDays
+        val targetDate = LocalDate.fromEpochDays(targetMochaDay.toInt())
 
         return targetDate.atTime(hour = 4, minute = 0)
             .toInstant(timeZone)
