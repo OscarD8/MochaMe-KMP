@@ -17,7 +17,7 @@ import com.mochame.sync.di.SyncInfraModule
 import com.mochame.sync.di.SyncOrchestrationModule
 import com.mochame.sync.di.domain.SyncPruneUseCaseTestModule
 import com.mochame.sync.di.hlc.FakeHlcFactoryModule
-import com.mochame.sync.domain.config.JanitorConfig
+import com.mochame.sync.domain.config.JanitorMaintenanceConfig
 import com.mochame.sync.fakes.FakeHlcFactory
 import com.mochame.sync.fakes.FakeSyncIntentStore
 import com.mochame.sync.infrastructure.stores.DefaultBlobStore
@@ -57,7 +57,7 @@ internal object JanitorTestApp
 @ComponentScan("com.mochame.sync.di.janitor")
 internal class SyncJanitorTestModule {
     @Single
-    internal fun provideTestJanitorConfig(): JanitorConfig = JanitorConfig(
+    internal fun provideTestJanitorConfig(): JanitorMaintenanceConfig = JanitorMaintenanceConfig(
         maintenanceInterval = 5.milliseconds,
         startupTimeout = 5.milliseconds,
         retryThreshold = 5
@@ -68,7 +68,7 @@ internal class SyncJanitorTestModule {
 @ExperimentalKermitApi
 internal data class JanitorTestEnv(
     val janitor: SyncJanitor,
-    val config: JanitorConfig,
+    val config: JanitorMaintenanceConfig,
     val writer: TestLogWriter,
     val fakeClock: FakeTimeProvider,
     val bootUpdater: FakeBootStatusManager,

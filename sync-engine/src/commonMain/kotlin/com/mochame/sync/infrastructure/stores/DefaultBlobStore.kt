@@ -11,7 +11,7 @@ import com.mochame.logger.withTimer
 import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.sync.api.exceptions.toMochaException
 import com.mochame.sync.spi.infrastructure.BlobStore
-import com.mochame.sync.spi.infrastructure.Hasher
+import com.mochame.sync.spi.infrastructure.DigestFactory
 import com.mochame.sync.spi.infrastructure.digestHex
 import com.mochame.utils.interfaces.TimeProvider
 import kotlinx.coroutines.sync.Mutex
@@ -25,6 +25,7 @@ import kotlinx.io.files.Path
 import org.koin.core.annotation.Single
 import kotlin.coroutines.CoroutineContext
 import kotlin.random.Random
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.TimeSource
 
 /**
@@ -33,7 +34,7 @@ import kotlin.time.TimeSource
 @Single(binds = [BlobStore::class])
 internal class DefaultBlobStore(
     private val timeUtils: TimeProvider,
-    private val hashProvider: Hasher,
+    private val digestFactory: DigestFactory,
     private val fileSystem: FileSystem,
     @IoContext private val ioContext: CoroutineContext,
     @PendingDir private val pendingDir: Path,
@@ -64,7 +65,7 @@ internal class DefaultBlobStore(
         val mark = TimeSource.Monotonic.markNow()
         val now = timeUtils.now().toEpochMilliseconds()
         val tempPath = Path(pendingDir, "staging_${now}_${Random.nextLong()}")
-        val hasher = hashProvider() // expect/actual bridge
+        val digest = digestFactory() // expect/actual bridge
         var totalBytes = 0L
 
         ensureDirectoriesExist()
@@ -75,14 +76,14 @@ internal class DefaultBlobStore(
                 val buffer = Buffer()
                 while (source.readAtMostTo(buffer, 8192L) != -1L) {
                     val byteCount = buffer.size
-                    hasher.update(buffer.peek())
+                    digest.update(buffer.peek())
                     sink.write(buffer, byteCount)
                     totalBytes += byteCount
                 }
             }
 
             // Create unique identity for this staging
-            val blobId = hasher.digestHex()
+            val blobId = digest.digestHex()
             val finalPendingPath = Path(pendingDir, blobId)
 
             // Deduplication Check
@@ -91,11 +92,13 @@ internal class DefaultBlobStore(
                 fileSystem.delete(tempPath)
             } else {
                 fileSystem.atomicMove(tempPath, finalPendingPath)
+                logger.i {
+                    "Blob Staged | ID: $blobId | Size: ${totalBytes / 1024}KB".withTimer(
+                        mark
+                    )
+                }
             }
 
-            logger.i {
-                "Blob Staged | ID: $blobId | Size: ${totalBytes / 1024}KB".withTimer(mark)
-            }
             blobId
         } catch (e: Exception) {
             if (fileSystem.exists(tempPath)) fileSystem.delete(tempPath)
@@ -121,7 +124,6 @@ internal class DefaultBlobStore(
                     logger.w(e) { "Possible race condition encountered on a commit? ${e.message}" }
                 }
         }
-
     }
 
     override suspend fun abort(blobId: String) = withContext(ioContext) {
@@ -147,7 +149,7 @@ internal class DefaultBlobStore(
         try {
             fileSystem.list(pendingDir)
                 .map { it.name }
-                .filter { it.length == 64 && !it.startsWith("staging_") } //
+                .filter { it.length == 64 && !it.startsWith("staging_") }
         } catch (e: Exception) {
             logger.e(e) { "Failed to scan pending chamber for hashes." }
             emptyList()
@@ -162,7 +164,7 @@ internal class DefaultBlobStore(
         ensureDirectoriesExist()
         var deletedCount = 0
         val now = timeUtils.now().toEpochMilliseconds()
-        val oneHourInMillis = 3_600_000L
+        val oneHourInMillis = 1.hours.inWholeMilliseconds
 
         val pendingFiles = try {
             fileSystem.list(pendingDir)

@@ -1,5 +1,6 @@
 package com.mochame.sync.fakes
 
+import androidx.sqlite.SQLiteException
 import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.api.models.HLC
@@ -21,11 +22,18 @@ class FakeSyncIntentStore : SyncIntentStore, SyncIntentMaintenanceStore {
     private val _intents = linkedMapOf<HLC, SyncIntent>()
     private val _failingBlobIds = mutableSetOf<String>()
 
+    var failWith: Exception?
+        set(value) = lock.withLock { _failWith = value }
+        get() = lock.withLock { _failWith }
+
+    private var _failWith: Exception? = null
+
     private val _quarantinedFlow =
         MutableStateFlow<List<QuarantinedFeatureSummary>>(emptyList())
 
     val intents: List<SyncIntent>
         get() = lock.withLock { _intents.values.toList() }
+
 
     fun seedIntents(vararg entries: SyncIntent) {
         seedIntents(entries.asList())
@@ -121,6 +129,8 @@ class FakeSyncIntentStore : SyncIntentStore, SyncIntentMaintenanceStore {
     }
 
     override suspend fun clearAllLocksAndResetToPending(): Int = lock.withLock {
+        _failWith?.let { throw it }
+
         var alteredCount = 0
         _intents.values.filter { it.syncId != null }.forEach { intent ->
             _intents[intent.hlc] =
@@ -145,6 +155,8 @@ class FakeSyncIntentStore : SyncIntentStore, SyncIntentMaintenanceStore {
 
     override suspend fun pruneOldSynced(pruneAfter: Long, limit: Int): Int =
         lock.withLock {
+            _failWith?.let { throw it }
+
             var pruned = 0
             val keysToRemove = mutableListOf<HLC>()
 

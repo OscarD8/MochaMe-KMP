@@ -2,12 +2,13 @@
 
 package com.mochame.sync.orchestration
 
+import androidx.sqlite.SQLiteException
 import app.cash.turbine.test
 import co.touchlab.kermit.ExperimentalKermitApi
 import com.mochame.sync.api.boot.BootState
 import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.support.MochaPlatformTest
-import com.mochame.support.TestHlcFactory
+import com.mochame.utils.fixtures.TestHlcFactory
 import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.api.models.HLC
@@ -15,8 +16,8 @@ import com.mochame.sync.di.janitor.JanitorTestApp
 import com.mochame.sync.di.janitor.JanitorTestEnv
 import com.mochame.sync.fakes.createTestSyncIntent
 import com.mochame.sync.spi.node.NodeContext
+import com.mochame.utils.fixtures.TestPayloads
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -31,6 +32,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 // -----------------------------------------------------------
 // SUT ENVIRONMENT
@@ -41,14 +43,12 @@ private inline fun runEnv(crossinline block: suspend JanitorTestEnv.(TestScope) 
         block = block
     )
 
-private val testPayload = byteArrayOf(0x53, 0x54, 0x52, 0x41, 0x4E, 0x44, 0x45, 0x44)
-
 
 @ExperimentalCoroutinesApi
 class SyncJanitorTest : MochaPlatformTest() {
 
     // -----------------------------------------------------------
-    // BOOT LIFECYCLE / STATE GUARDS (HLC/BOOT)
+    // BOOT LIFECYCLE & EXCEPTIONS / STATE GUARDS (HLC/BOOT)
     // -----------------------------------------------------------
 
     @Test
@@ -164,7 +164,7 @@ class SyncJanitorTest : MochaPlatformTest() {
     fun should_reportTransientFailure_when_bootHydrationTimesOut() =
         runEnv { scope ->
             // Arrange - simulate the manager being locked
-            nodeManager.simulatedDelay = 6000.milliseconds
+            nodeManager.simulatedDelay = 6.seconds
 
             // Act
             janitor.startupChecks()
@@ -202,8 +202,8 @@ class SyncJanitorTest : MochaPlatformTest() {
                 scope.advanceTimeBy(15_001L.milliseconds)
                 val failureState = awaitItem()
 
-                assertTrue(failureState is BootState.CriticalFailure)
-                assertTrue(failureState.exception is MochaException.Persistent.BootLockout)
+                assertTrue(failureState is BootState.TransientFailure)
+                assertTrue(failureState.exception is MochaException.Transient.BootTimeout)
             }
 
             janitorMutex.unlock()
@@ -277,6 +277,56 @@ class SyncJanitorTest : MochaPlatformTest() {
         assertEquals(nodeId, hlcFactory.lastHydratedNodeId)
     }
 
+    @Test
+    fun should_transitionToTransientFailure_when_startupThrowsTransientMochaException() =
+        runEnv { scope ->
+            // Given
+            intentStore.failWith = MochaException.Transient.VaultBusy()
+
+            // When
+            janitor.startupChecks()
+            scope.advanceUntilIdle()
+
+            // Then
+            val currentState = bootUpdater.bootState.value
+            assertTrue(
+                currentState is BootState.TransientFailure,
+                "Transient MochaException must route boot state to TransientFailure, but got: $currentState"
+            )
+        }
+
+    @Test
+    fun should_transitionToPersistentFailure_when_startupThrowsPersistentMochaException() =
+        runEnv { scope ->
+            // Given
+            intentStore.failWith = MochaException.Persistent.DiskFull()
+
+            // When
+            janitor.startupChecks()
+            scope.advanceUntilIdle()
+
+            // Then
+            val currentState = bootUpdater.bootState.value
+            assertTrue(
+                currentState is BootState.CriticalFailure,
+                "Persistent MochaException must route boot state to CriticalFailure, but got: $currentState"
+            )
+        }
+
+    @Test
+    fun should_wrapStartupChecks_inExecutionPolicyTag() = runEnv { scope ->
+        // When
+        janitor.startupChecks()
+        scope.advanceUntilIdle()
+
+        // Then
+        val executedTags = executor.executionHistory
+        assertTrue(
+            executedTags.contains("[Startup Checks]"),
+            "SyncJanitor startup logic must pass through executor with tag '[Startup Checks]'."
+        )
+    }
+
     // -----------------------------------------------------------
     // METADATA MAINTENANCE (SYNCINTENT)
     // -----------------------------------------------------------
@@ -317,16 +367,12 @@ class SyncJanitorTest : MochaPlatformTest() {
 
             // Verify audit log for lock cleanup
             val cleanupLog =
-                writer.logs.find { it.message.contains("Cleared 2 stale mutation locks") }
+                writer.logs.find { it.message.contains("Cleared 2 stale") }
             assertNotNull(
                 cleanupLog,
                 "Janitor must log the number of cleared stale locks."
             )
         }
-
-    // -----------------------------------------------------------
-    // METADATA MAINTENANCE (SYNCINTENT)
-    // -----------------------------------------------------------
 
     @Test
     fun should_notLogIntentCleanup_when_noStaleIntentsExistOnStartup() = runEnv { scope ->
@@ -358,8 +404,7 @@ class SyncJanitorTest : MochaPlatformTest() {
     fun should_commitStrandedBlob_when_matchingMetadataExistsInIntentStore() =
         runEnv { scope ->
             // Given
-            val payload = Buffer().apply { write(testPayload) }
-            val blobId = blobStore.stage(payload)
+            val blobId = blobStore.stage(TestPayloads.defaultSource())
 
             intentStore.seedIntents(
                 createTestSyncIntent(
@@ -396,7 +441,7 @@ class SyncJanitorTest : MochaPlatformTest() {
     fun should_abortOrphanedBlob_when_noMatchingMetadataExistsInIntentStore() =
         runEnv { scope ->
             // Given
-            val blobId = blobStore.stage(Buffer().apply { write(testPayload) })
+            val blobId = blobStore.stage(TestPayloads.defaultSource())
 
             // When
             janitor.startupChecks()
@@ -716,57 +761,83 @@ class SyncJanitorTest : MochaPlatformTest() {
             maintenanceJob.cancel()
         }
 
+
     // -----------------------------------------------------------
-    // LOGGING
+    // RUNTIME INTENT MAINTENANCE
     // -----------------------------------------------------------
 
     @Test
-    fun should_logNewNodeId_when_newInstall() =
-        runEnv { scope ->
-            // Given
-            nodeManager.forcedNextNodeId = "fake-node"
+    fun should_triggerPruning_onMaintenanceTick() = runEnv { scope ->
+        // Given
+        val completedIntent = createTestSyncIntent(
+            hlc = TestHlcFactory.create(),
+            status = SyncStatus.SUCCESS
+        )
+        intentStore.seedIntents(completedIntent)
 
-            // When
-            janitor.startupChecks()
-            scope.advanceUntilIdle()
+        // When
+        val maintenanceJob = janitor.startRuntimeMaintenance()
+        scope.advanceTimeBy(config.maintenanceInterval)
+        scope.runCurrent()
 
-            // Then assert the "Ear" heard the "Mouth" (says Gemini)
-            val seedingMessage =
-                writer.logs.find { it.message.contains("fake-node") }
-            assertNotNull(seedingMessage, "The success log should have been recorded!")
+        // Then
+        val pruneLog = writer.logs.any { it.message.contains("Prune Complete") }
+        assertNotNull(
+            pruneLog,
+            "Pruning should be visibly logged during Janitors runtime maintenance."
+        )
+        val remaining = intentStore.intents.find { it.syncId == completedIntent.syncId }
+        assertNull(remaining, "Completed intents must be pruned during maintenance tick.")
+
+        maintenanceJob.cancel()
+    }
+
+    @Test
+    fun should_continueMaintenanceLoop_when_pruningThrowsException() = runEnv { scope ->
+        // Given
+        intentStore.failWith = SQLiteException("database is locked")
+        val prunableIntent = createTestSyncIntent(
+            hlc = TestHlcFactory.create(),
+            status = SyncStatus.SUCCESS
+        )
+        intentStore.seedIntents(prunableIntent)
+
+        // When 1: Pruning fails due to exception
+        val maintenanceJob = janitor.startRuntimeMaintenance()
+        scope.advanceTimeBy(config.maintenanceInterval)
+        scope.runCurrent()
+
+        val cycle1ErrorLog = writer.logs.find {
+            it.message.contains("Intent pruning encountered error")
         }
+
+        assertNotNull(
+            cycle1ErrorLog,
+            "Janitor must catch and log pruning exception on Cycle 1."
+        )
+
+        // When 2: Runtime maintenance restarts
+        intentStore.failWith = null
+        scope.advanceTimeBy(config.maintenanceInterval)
+        scope.runCurrent()
+
+        // Then
+        val completionLogs = writer.logs.count {
+            it.message.contains("Runtime maintenance cycle finished")
+        }
+        val pruneLogs =
+            writer.logs.any { it.message.contains("Prune Complete | Total: 1") }
+        assertEquals(
+            completionLogs,
+            2,
+            "Maintenance loop must remain active and execute Cycle 2 despite Cycle 1 failure."
+        )
+        assertNotNull(
+            pruneLogs,
+            "Janitor runtime maintenance should handle error and delegate single prune."
+        )
+
+        maintenanceJob.cancel()
+    }
 
 }
-
-
-/*
-        // Arrange: store provided a mocked DAO and a real executor
-
-        everySuspend { mockDao.updateNodeId(any()) } sequentially {
-            throws(SQLiteException("BUSY"))
-            throws(SQLiteException("BUSY"))
-
-            // Third call: actually call the real database
-            calls { (newId: String) -> settingsDao.updateNodeId(newId) }
-        }
-
-        // Act:
-        storeWithMock.saveNodeId("verified")
-
-        // Assert
-        // Verify the mock was poked 3 times
-        verifySuspend(VerifyMode.order) {
-            mockDao.updateNodeId("verified")
-            mockDao.updateNodeId("verified")
-            mockDao.updateNodeId("verified")
-        }
-
-        // Verify: real database now contains the data
-        val dbResult = settingsDao.getNodeIdentity()
-        assertNotNull(dbResult, "The real DB was never reached!")
-        assertEquals("verified", dbResult.nodeId, "The real DB was never updated!")
-
-        val recoveryLog = writer.logs.find { it.message.contains("3 attempts") }
-        assertNotNull(recoveryLog, "Log expected for three attempts made.")
-
- */

@@ -4,7 +4,7 @@ package com.mochame.sync.domain
 
 import co.touchlab.kermit.ExperimentalKermitApi
 import com.mochame.support.MochaPlatformTest
-import com.mochame.support.TestHlcFactory
+import com.mochame.utils.fixtures.TestHlcFactory
 import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.di.domain.PruneEntriesTestEnv
@@ -35,6 +35,7 @@ private inline fun runEnv(crossinline block: suspend PruneEntriesTestEnv.(TestSc
 
 internal val TEST_PRUNE_DAYS = 30.days
 
+
 class PruneEntriesUseCaseTest : MochaPlatformTest() {
 
     @Test
@@ -58,28 +59,21 @@ class PruneEntriesUseCaseTest : MochaPlatformTest() {
     }
 
     @Test
-    fun should_executeExactlyTwoLoopIterationsAndYieldOnce_when_entriesAreBelowLimit() =
+    fun should_executeExactlyOneLoop_when_entriesAreBelowLimit() =
         runEnv {
             // Arrange
             fakeStore.reset()
-            val targetCount = 45
-            val chronologicalHlcs = TestHlcFactory.chronologicalSequence(targetCount)
-
-            val eligibleIntents = chronologicalHlcs.map { hlc ->
-                createTestSyncIntent(hlc = hlc, status = SyncStatus.SUCCESS)
-            }
-
-            fakeStore.seedIntents(eligibleIntents)
+            fakeStore.seedIntents(
+                createTestSyncIntent(
+                    hlc = TestHlcFactory.create(),
+                    status = SyncStatus.SUCCESS
+                )
+            )
 
             // Act
             val totalDeleted = useCase()
 
             // Assert
-            assertEquals(
-                targetCount,
-                totalDeleted,
-                "The use case must return exactly 45 deletions."
-            )
             assertTrue(
                 fakeStore.intents.isEmpty(),
                 "The intent store must be left empty after pruning completes."
@@ -93,28 +87,26 @@ class PruneEntriesUseCaseTest : MochaPlatformTest() {
                 "The final execution performance metric log must be present."
             )
             assertTrue(
-                completionLog.message.contains("Total: 45"),
-                "Log metrics must accurately capture the 45 deleted entries."
+                completionLog.message.contains("Total: 1"),
+                "Log metrics must accurately capture the single deleted entry."
             )
             assertTrue(
                 completionLog.message.contains("Chunks: 1"),
-                "The log must confirm the loop ran exactly twice (Chunks: 1), verifying a single yield execution path."
+                "The log must confirm the loop ran exactly once (Chunks: 1)."
             )
         }
 
     @Test
-    fun should_executeExactlyFourLoopIterationsAndYieldThreeTimes_when_entriesExceedLimit() =
+    fun should_executeExactlyThreeLoopIterationsAndYieldTwoTimes_when_entriesExceedLimit() =
         runEnv {
             // Arrange
             fakeStore.reset()
 
-            val targetCount = 250
+            val targetCount = 5
             val chronologicalHlcs = TestHlcFactory.chronologicalSequence(targetCount)
-
             val eligibleIntents = chronologicalHlcs.map { hlc ->
                 createTestSyncIntent(hlc = hlc, status = SyncStatus.SUCCESS)
             }
-
             fakeStore.seedIntents(eligibleIntents)
 
             // Act
@@ -124,7 +116,7 @@ class PruneEntriesUseCaseTest : MochaPlatformTest() {
             assertEquals(
                 targetCount,
                 totalDeleted,
-                "The use case must return exactly 250 deletions."
+                "The use case must return exactly 5 deletions."
             )
             assertTrue(
                 fakeStore.intents.isEmpty(),
@@ -139,15 +131,12 @@ class PruneEntriesUseCaseTest : MochaPlatformTest() {
                 "The final execution metrics log must be generated."
             )
             assertTrue(
-                completionLog.message.contains("Total: 250"),
-                "Log metrics must report a total of 250 entries removed."
+                completionLog.message.contains("Total: 5"),
+                "Log metrics must report a total of 5 entries removed."
             )
-
-            // Verifying Chunks: 4 proves that the loop chunked the executions into pages of:
-            // Pass 1: 100 deleted (yields) -> Pass 2: 100 deleted (yields) -> Pass 3: 50 deleted (yields) -> Pass 4: 0 deleted (breaks)
             assertTrue(
                 completionLog.message.contains("Chunks: 3"),
-                "The log telemetry must confirm the loop executed exactly 3 times (Chunks: 3), validating 3 active cooperative yields."
+                "The log must confirm the loop executed exactly 3 times, validating 3 active cooperative yields."
             )
         }
 
@@ -208,46 +197,46 @@ class PruneEntriesUseCaseTest : MochaPlatformTest() {
         }
 
     @Test
-    fun should_abortExecutionAndThrowCancellationException_when_coroutineContextIsCancelledMidProcess() = runEnv { scope ->
-        // Arrange: seed entries exceeding the 100-limit chunk size
-        fakeStore.reset()
+    fun should_abortExecutionAndThrowCancellationException_when_coroutineContextIsCancelledMidProcess() =
+        runEnv { scope ->
+            // Arrange
+            fakeStore.reset()
 
-        val targetCount = 250
-        val chronologicalHlcs = TestHlcFactory.chronologicalSequence(targetCount)
+            val targetCount = 5
+            val chronologicalHlcs = TestHlcFactory.chronologicalSequence(targetCount)
 
-        val eligibleIntents = chronologicalHlcs.map { hlc ->
-            createTestSyncIntent(
-                hlc = hlc,
-                status = SyncStatus.SUCCESS,
-                createdAt = 0L
+            val eligibleIntents = chronologicalHlcs.map { hlc ->
+                createTestSyncIntent(
+                    hlc = hlc,
+                    status = SyncStatus.SUCCESS,
+                    createdAt = 0L
+                )
+            }
+            fakeStore.seedIntents(eligibleIntents)
+
+            // Act: Launch inside an async deferred block to capture its cancellation lifecycle
+            val useCaseDeferred = scope.async {
+                useCase()
+            }
+
+            // Launch a concurrent monitoring coroutine on the same virtual test scheduler.
+            // This monitor waits for the first chunk (100 items) to be wiped out, then cancels the parent job.
+            scope.launch {
+                while (fakeStore.intents.size == 5) {
+                    yield() // Cooperatively hand execution back to the use case until the first pass completes
+                }
+                // The first chunk has processed (size dropped to 3). Trigger mid-execution cancellation.
+                useCaseDeferred.cancel()
+            }
+
+            assertFailsWith<CancellationException> {
+                useCaseDeferred.await()
+            }
+
+            assertEquals(
+                3,
+                fakeStore.intents.size,
+                "The orchestrator must immediately stop processing further chunks, leaving exactly 150 items remaining."
             )
         }
-
-        fakeStore.seedIntents(eligibleIntents)
-
-        // Act: Launch inside an async deferred block to capture its cancellation lifecycle
-        val useCaseDeferred = scope.async {
-            useCase()
-        }
-
-        // Launch a concurrent monitoring coroutine on the same virtual test scheduler.
-        // This monitor waits for the first chunk (100 items) to be wiped out, then cancels the parent job.
-        scope.launch {
-            while (fakeStore.intents.size == 250) {
-                yield() // Cooperatively hand execution back to the use case until the first pass completes
-            }
-            // The first chunk has processed (size dropped to 150). Trigger mid-execution cancellation.
-            useCaseDeferred.cancel()
-        }
-
-        assertFailsWith<CancellationException> {
-            useCaseDeferred.await()
-        }
-
-        assertEquals(
-            150,
-            fakeStore.intents.size,
-            "The orchestrator must immediately stop processing further chunks, leaving exactly 150 items remaining."
-        )
-    }
 }

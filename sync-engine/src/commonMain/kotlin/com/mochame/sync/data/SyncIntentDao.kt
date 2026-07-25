@@ -131,7 +131,7 @@ interface SyncIntentDao {
     @Query(
         """
         UPDATE SyncIntentEntity 
-        SET syncId = NULL, syncStatus = :desiredStatus 
+        SET syncId = NULL, syncStatus = :desiredStatus
         WHERE syncId IS NOT NULL
     """
     )

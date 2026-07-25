@@ -1,6 +1,6 @@
 package com.mochame.sync.fakes
 
-import com.mochame.support.TestHlcFactory
+import com.mochame.utils.fixtures.TestHlcFactory
 import com.mochame.sync.spi.models.SyncIntent
 import com.mochame.sync.domain.serialization.IntentCodec
 

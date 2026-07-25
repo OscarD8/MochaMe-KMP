@@ -100,6 +100,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                         persistAction = { persist(stampedState) }
                     )
                 } else {
+                    // probably need to handle some exceptions around here
                     val payload = codecRouter.routedEncode(stampedState, existingState)
                         ?: return@execute onSkip(existingState)
                     val summary =

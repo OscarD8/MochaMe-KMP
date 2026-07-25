@@ -6,7 +6,7 @@ import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Severity
 import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.support.MochaPlatformTest
-import com.mochame.support.TestHlcFactory
+import com.mochame.utils.fixtures.TestHlcFactory
 import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.api.models.HLC
 import com.mochame.sync.di.hlc.HLCTestEnvironment

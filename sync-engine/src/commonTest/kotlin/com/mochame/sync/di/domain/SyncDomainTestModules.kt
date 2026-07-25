@@ -35,7 +35,7 @@ internal class SyncPruneUseCaseTestModule {
         dateTimeUtils: FakeTimeProvider,
         logger: Logger
     ): PruneIntentsUseCase =
-        PruneIntentsUseCase(intentStore, dateTimeUtils, TEST_PRUNE_DAYS, logger)
+        PruneIntentsUseCase(intentStore, dateTimeUtils, TEST_PRUNE_DAYS, 2, logger)
 }
 
 @Factory

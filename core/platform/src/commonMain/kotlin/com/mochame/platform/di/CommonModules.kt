@@ -9,7 +9,7 @@ import com.mochame.annotations.IoContext
 import com.mochame.annotations.MainContext
 import com.mochame.logger.LoggerModule
 import com.mochame.platform.providers.*
-import com.mochame.sync.spi.infrastructure.Hasher
+import com.mochame.sync.spi.infrastructure.DigestFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
@@ -54,7 +54,7 @@ expect class InternalPlatformModule
 class PlatformDigestModule {
 
     @Single
-    fun provideHasher(logger: Logger): Hasher = Hasher {
+    fun provideHasher(logger: Logger): DigestFactory = DigestFactory {
         createPlatformDigest(logger = logger)
     }
 }

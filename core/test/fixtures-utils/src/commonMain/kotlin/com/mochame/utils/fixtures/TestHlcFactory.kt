@@ -1,4 +1,4 @@
-package com.mochame.support
+package com.mochame.utils.fixtures
 
 import com.mochame.sync.api.models.HLC
 

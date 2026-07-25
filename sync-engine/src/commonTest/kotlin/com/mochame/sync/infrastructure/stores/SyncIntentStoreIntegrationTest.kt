@@ -2,7 +2,7 @@ package com.mochame.sync.infrastructure.stores
 
 import app.cash.turbine.test
 import com.mochame.support.MochaPlatformTest
-import com.mochame.support.TestHlcFactory
+import com.mochame.utils.fixtures.TestHlcFactory
 import com.mochame.support.runPersistenceEnvironment
 import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.metadata.SyncStatus
@@ -12,6 +12,7 @@ import com.mochame.sync.fakes.createTestIntentEntity
 import com.mochame.sync.fakes.createTestSyncIntent
 import com.mochame.sync.data.SyncMicroSchema
 import com.mochame.sync.data.SyncMicroSchemaConstructor
+import com.mochame.utils.fixtures.TestPayloads
 import kotlinx.coroutines.test.TestScope
 import org.koin.dsl.includes
 import org.koin.plugin.module.dsl.koinConfiguration
@@ -42,14 +43,12 @@ internal class SyncIntentStoreIntegrationTest : MochaPlatformTest() {
     fun should_preserveExactDataFields_when_mappingToEntityAndBackToDomain() = runEnv {
         // Given
         val hlc = TestHlcFactory.create()
-        val inlinePayload =
-            byteArrayOf(0xDE.toByte(), 0xAD.toByte(), 0xBE.toByte(), 0xEF.toByte())
         val candidateKey = "test-store-key-123"
 
         val originalIntent = createTestSyncIntent(
             hlc = hlc,
             candidateKey = candidateKey,
-            payload = inlinePayload
+            payload = TestPayloads.DEFAULT_TEST_BYTES
         )
 
         // When
@@ -79,7 +78,7 @@ internal class SyncIntentStoreIntegrationTest : MochaPlatformTest() {
 
         // Verify payload byte consistency
         assertNotNull(retrievedIntent.payload)
-        assertTrue(inlinePayload.contentEquals(retrievedIntent.payload!!))
+        assertTrue(TestPayloads.DEFAULT_TEST_BYTES.contentEquals(retrievedIntent.payload!!))
     }
 
     // -----------------------------------------------------------

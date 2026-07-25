@@ -22,13 +22,14 @@ import com.mochame.sync.spi.models.SyncIntent
 import com.mochame.sync.spi.node.NodeContext
 import com.mochame.sync.api.models.HLC
 import com.mochame.sync.api.metadata.SyncStatus
-import com.mochame.sync.domain.config.JanitorConfig
+import com.mochame.sync.domain.config.JanitorMaintenanceConfig
 import com.mochame.utils.interfaces.TimeProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -37,7 +38,6 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.yield
 import org.koin.core.annotation.Single
 import kotlin.coroutines.CoroutineContext
-import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 
@@ -63,7 +63,7 @@ internal class SyncJanitor(
     private val blobStore: BlobStore,
     private val nodeManager: NodeContextManager,
     private val intentStore: SyncIntentMaintenanceStore,
-    private val config: JanitorConfig,
+    private val config: JanitorMaintenanceConfig,
     private val timeProvider: TimeProvider,
     @IoContext private val ioContext: CoroutineContext,
     @AppScope private val appScope: CoroutineScope,
@@ -71,7 +71,7 @@ internal class SyncJanitor(
     logger: Logger
 ) {
     private val logger = logger.withTags(
-        layer = LogTags.Layer.INFRA,
+        layer = LogTags.Layer.ORCH,
         domain = LogTags.Domain.SYNC,
         className = "DrJntr"
     )
@@ -79,38 +79,32 @@ internal class SyncJanitor(
     /**
      * The single entry point for app initialization.
      */
-    fun startupChecks() {
-        appScope.launch(ioContext) {
-            try {
-                withTimeout(config.startupTimeout) {
-                    executor.execute("[Startup Checks]") {
-                        mutex.withLock {
-                            bootUpdater.bootState.takeIf { !isValidBootState() }?.run {
-                                logger.d { "Janitor: Skipping startup. Current state (${this.value}) is not valid for boot." }
-                                return@withLock
-                            }
-
-                            logger.i { "Initiating boot sequence..." }
-                            bootUpdater.updateBootState(BootState.Initializing)
-
-                            metadataMaintenance()
-
-                            initHydration()
-
-                            blobReconciliation()
-
-                            bootUpdater.updateBootState(BootState.Ready)
-                            logger.i { "Janitor Start Up checks finalized..." }
+    fun startupChecks(): Job = appScope.launch(ioContext) {
+        try {
+            withTimeout(config.startupTimeout) {
+                executor.execute("[Startup Checks]") {
+                    mutex.withLock {
+                        if (!isValidBootState()) {
+                            logger.d { "Janitor: Skipping startup. State invalid." }
+                            return@withLock
                         }
+
+                        logger.i { "Initiating boot sequence..." }
+                        bootUpdater.updateBootState(BootState.Initializing)
+
+                        metadataMaintenance()
+                        initHydration()
+                        blobReconciliation()
+
+                        bootUpdater.updateBootState(BootState.Ready)
+                        logger.i { "Janitor Start Up checks finalized." }
                     }
                 }
-            } catch (e: TimeoutCancellationException) {
-                handleBootFailure(MochaException.Persistent.BootLockout(cause = e))
-
-            } catch (e: Exception) {
-                if (e is MochaException.Transient.BootTimeout) return@launch
-                handleBootFailure(e.toMochaException(e.message))
             }
+        } catch (e: TimeoutCancellationException) {
+            handleBootFailure(MochaException.Transient.BootTimeout(cause = e))
+        } catch (e: Exception) {
+            handleBootFailure(e.toMochaException(e.message))
         }
     }
 
@@ -121,17 +115,12 @@ internal class SyncJanitor(
     }
 
     private suspend fun initHydration() = withTimeout(5.seconds) {
-        try {
-            val nodeContext = nodeManager.getOrEstablishContext()
+        val nodeContext = nodeManager.getOrEstablishContext()
 
-            logger.i { "Hydrating HLC Factory | Last Known Local HLC: ${nodeContext.maxHlc ?: "NONE"} | NodeID: ${nodeContext.nodeId}" }
+        logger.i { "Hydrating HLC Factory | Last Known Local HLC: ${nodeContext.maxHlc ?: "NONE"} | NodeID: ${nodeContext.nodeId}" }
 
-            hlcFactory.hydrate(nodeContext.maxHlc, nodeContext.nodeId)
-        } catch (e: TimeoutCancellationException) {
-            handleBootFailure(
-                MochaException.Transient.BootTimeout("Hydration timed out.", e)
-            ).also { throw it }
-        }
+        hlcFactory.hydrate(nodeContext.maxHlc, nodeContext.nodeId)
+
     }
 
     private suspend fun metadataMaintenance() = withContext(NonCancellable) {
@@ -139,23 +128,32 @@ internal class SyncJanitor(
 
         transactor.runImmediateTransaction {
             intentStore.clearAllLocksAndResetToPending().takeIf { it > 0 }?.let {
-                logger.w { "Maintenance: Cleared $it stale mutation locks." }
+                logger.w { "Cleared $it stale intents on boot." }
             }
         }
 
-        logger.d { "Maintenance Cycle Complete".withTimer(mark) }
+        logger.d { "Boot metadata maintenance complete".withTimer(mark) }
     }
 
     fun startRuntimeMaintenance(): Job {
         return appScope.launch(ioContext) {
-            while (true) {
+            while (isActive) {
                 delay(config.maintenanceInterval)
                 mutex.withLock {
                     val mark = TimeSource.Monotonic.markNow()
                     logger.v { "Runtime maintenance cycle starting..." }
 
-                    assessStaleLeases()
-                    pruneInChunks()
+                    try {
+                        assessStaleLeases()
+                    } catch (e: Exception) {
+                        logger.e(e) { "Stale lease assessment encountered error: ${e.message}" }
+                    }
+
+                    try {
+                        pruneIntents()
+                    } catch (e: Exception) {
+                        logger.e(e) { "Intent pruning encountered error: ${e.message}" }
+                    }
 
                     logger.v { "Runtime maintenance cycle finished".withTimer(mark) }
                 }
@@ -164,11 +162,11 @@ internal class SyncJanitor(
     }
 
     /**
-     * Prunes in chunks then yields, based off the limit defined
-     * as [PruneIntentsUseCase.Companion.LIMIT] and the cutoff period of
+     * Prunes in chunks then yields, based off the limit defaulting to
+     * [PruneIntentsUseCase.Companion.DEFAULT_LIMIT] and the cutoff period of
      * [PruneIntentsUseCase.Companion.DEFAULT_PRUNE_DAYS].
      */
-    private suspend fun pruneInChunks() {
+    private suspend fun pruneIntents() {
         pruneUseCase()
     }
 
@@ -237,7 +235,7 @@ internal class SyncJanitor(
                         hlc = intent.hlc,
                         retryCount = newRetryCount
                     )
-                    logger.i { "Reset Intent [HLC: ${intent.hlc}] [Key: ${intent.candidateKey}]" }
+                    logger.i { "Reset Intent [HLC: ${intent.hlc}] [Key: ${intent.candidateKey}] [Retries: ${intent.retryCount}]" }
                 }
             }
         }

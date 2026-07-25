@@ -9,7 +9,7 @@ import com.mochame.app.infrastructure.native.openssl.EVP_MD_CTX_new
 import com.mochame.app.infrastructure.native.openssl.EVP_MD_size
 import com.mochame.app.infrastructure.native.openssl.EVP_get_digestbyname
 import com.mochame.sync.api.exceptions.MochaException
-import com.mochame.sync.spi.infrastructure.Digest
+import com.mochame.sync.spi.infrastructure.DigestState
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.invoke
@@ -17,7 +17,7 @@ import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.usePinned
 import kotlinx.io.Source
 
-actual fun createPlatformDigest(algorithm: String, logger: Logger): Digest {
+actual fun createPlatformDigest(algorithm: String, logger: Logger): DigestState {
     return LinuxOpenSSLDigest(algorithm, logger)
 }
 
@@ -25,7 +25,7 @@ actual fun createPlatformDigest(algorithm: String, logger: Logger): Digest {
 class LinuxOpenSSLDigest(
     private val algorithm: String,
     logger: Logger
-) : Digest, AutoCloseable {
+) : DigestState, AutoCloseable {
 
     private val log = logger.withTag("OpenSSL-${algorithm}")
 

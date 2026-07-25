@@ -13,7 +13,7 @@ import kotlin.time.Duration.Companion.days
 import kotlin.time.TimeSource
 
 /**
- * On invocation, pruning will chunk based on a [LIMIT], yielding between
+ * On invocation, pruning will chunk based on a [DEFAULT_LIMIT], yielding between
  * chunks. The cut-off is based on the provided [pruneDays] which defaults to
  * [DEFAULT_PRUNE_DAYS].
  *
@@ -26,11 +26,12 @@ internal class PruneIntentsUseCase(
     private val intentStore: SyncIntentMaintenanceStore,
     private val timeUtils: TimeProvider,
     private val pruneDays: Duration = DEFAULT_PRUNE_DAYS,
+    private val limit: Int = DEFAULT_LIMIT,
     logger: Logger
 ) {
     companion object {
         private val DEFAULT_PRUNE_DAYS = 30.days
-        private const val LIMIT = 100
+        private const val DEFAULT_LIMIT = 100
         private const val LOG_INTERVAL = 50
     }
 
@@ -47,7 +48,7 @@ internal class PruneIntentsUseCase(
 
         do {
             val deleted =
-                intentStore.pruneOldSynced(timeUtils.getMillisAgo(pruneDays), LIMIT)
+                intentStore.pruneOldSynced(timeUtils.getMillisAgo(pruneDays), limit)
             totalDeleted += deleted
             iterations++
 
@@ -55,7 +56,7 @@ internal class PruneIntentsUseCase(
                 logger.v { "Pruning in progress... $totalDeleted entries removed." }
             }
 
-            if (deleted != LIMIT) break
+            if (deleted < limit) break
             if (deleted > 0) yield()
 
         } while (deleted > 0)

@@ -3,7 +3,7 @@ package com.mochame.node.data
 import com.mochame.node.di.NodeContextIntTestApp
 import com.mochame.node.di.NodeContextIntTestEnv
 import com.mochame.support.MochaPlatformTest
-import com.mochame.support.TestHlcFactory
+import com.mochame.utils.fixtures.TestHlcFactory
 import com.mochame.support.getPhysicalRowCount
 import com.mochame.support.runPersistenceEnvironment
 import kotlinx.coroutines.CompletableDeferred

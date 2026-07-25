@@ -6,7 +6,7 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 @Single
-class JanitorConfig(
+class JanitorMaintenanceConfig(
     val maintenanceInterval: Duration = DEFAULT_MAINTENANCE_DELAY,
     val startupTimeout: Duration = STARTUP_TIMEOUT,
     val staleThreshold: Duration = DEFAULT_STALE_THRESHOLD,

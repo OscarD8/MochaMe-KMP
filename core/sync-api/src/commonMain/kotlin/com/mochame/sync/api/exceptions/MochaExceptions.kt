@@ -11,7 +11,7 @@ sealed class MochaException(
     sealed class Transient(message: String, cause: Throwable? = null) :
         MochaException(message, cause) {
         class VaultBusy(message: String? = null, cause: Throwable? = null) :
-            Transient(message ?: "The data vault is temporarily locked.", cause)
+            Transient(message ?: "The database is locked.", cause)
 
         class NetworkTimeout(message: String? = null, cause: Throwable? = null) :
             Transient(message ?: "The sync server took too long to respond.", cause)
@@ -31,7 +31,7 @@ sealed class MochaException(
         class StateIssue(message: String? = null, cause: Throwable? = null) :
             Persistent(message ?: "The database appears permanently locked.", cause)
 
-        class DiskFull(message: String? = null, cause: Throwable) :
+        class DiskFull(message: String? = null, cause: Throwable? = null) :
             Persistent(message ?: "Cannot write to disk; storage is full.", cause)
 
         class CorruptionDetected(message: String? = null, cause: Throwable? = null) :

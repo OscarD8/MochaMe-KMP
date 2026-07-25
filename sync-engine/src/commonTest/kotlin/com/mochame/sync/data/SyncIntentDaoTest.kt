@@ -1,7 +1,7 @@
 package com.mochame.sync.data
 
 import com.mochame.support.MochaPlatformTest
-import com.mochame.support.TestHlcFactory
+import com.mochame.utils.fixtures.TestHlcFactory
 import com.mochame.support.runPersistenceEnvironment
 import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.di.data.SyncPersistenceTestApp
