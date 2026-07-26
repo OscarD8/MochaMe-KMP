@@ -8,7 +8,7 @@ import com.mochame.bio.database.BioMicroSchemaConstructor
 import com.mochame.bio.di.BioDaoTestApp
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runPersistenceEnvironment
-import com.mochame.sync.api.models.HLC
+import com.mochame.utils.fixtures.TestHlcFactory
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
@@ -20,9 +20,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
-// -----------------------------------------------------------
-// SUT ENVIRONMENT
-// -----------------------------------------------------------
 private inline fun runEnv(crossinline block: suspend BioDao.(TestScope) -> Unit) =
     runPersistenceEnvironment<BioMicroSchema, BioDao>(
         constructor = BioMicroSchemaConstructor,
@@ -38,30 +35,27 @@ class BaseBioDaoTest : MochaPlatformTest() {
         val dayKey = 20500L
         val id = "uuid-1"
 
-        // Given: An initial entry
         val initialContext = DailyContextEntity(
             id = id,
             epochDay = dayKey,
             sleepHours = 6.0,
             readinessScore = 5,
-            hlc = createHlc(1000L).toString(), // Refactored: Floor + 1000ms
+            hlc = TestHlcFactory.create(1000L).toString(),
             lastModified = 1000L
         )
         resolveSync(initialContext)
 
-        // When: A newer HLC arrives
         val updatedContext = initialContext.copy(
             sleepHours = 8.5,
-            hlc = createHlc(1001L).toString(), // Refactored
+            hlc = TestHlcFactory.create(1001L).toString(),
             lastModified = 1001L
         )
         resolveSync(updatedContext)
 
-        // Then: The higher HLC must win
         val result = getContextByDay(dayKey)
         assertNotNull(result)
         assertEquals(8.5, result.sleepHours)
-        assertEquals(createHlc(1001L).toString(), result.hlc) // Refactored
+        assertEquals(TestHlcFactory.create(1001L).toString(), result.hlc)
 
         val allRecords = getAllContexts()
         assertEquals(1, allRecords.size)
@@ -75,24 +69,22 @@ class BaseBioDaoTest : MochaPlatformTest() {
         val existing = DailyContextEntity(
             id = id,
             epochDay = dayKey,
-            hlc = createHlc(5000L).toString(), // Refactored
+            hlc = TestHlcFactory.create(5000L).toString(),
             sleepHours = 8.0,
             lastModified = 5000L
         )
         resolveSync(existing)
 
-        // When: Stale data arrives
         val staleIncoming = existing.copy(
             sleepHours = 4.0,
             lastModified = 2000L,
-            hlc = createHlc(2000L).toString() // Refactored
+            hlc = TestHlcFactory.create(2000L).toString()
         )
         resolveSync(staleIncoming)
 
-        // Then: Local data remains untouched
         val result = getContextByDay(dayKey)
         assertEquals(8.0, result?.sleepHours)
-        assertEquals(createHlc(5000L).toString(), result?.hlc) // Refactored[cite: 3]
+        assertEquals(TestHlcFactory.create(5000L).toString(), result?.hlc)
     }
 
     @Test
@@ -102,7 +94,7 @@ class BaseBioDaoTest : MochaPlatformTest() {
             isNapped = true,
             epochDay = 1L,
             sleepHours = 6.0,
-            hlc = createHlc(5000L).toString(), // Refactored
+            hlc = TestHlcFactory.create(5000L).toString(),
             lastModified = 0L
         )
         val notNapped = DailyContextEntity(
@@ -110,7 +102,7 @@ class BaseBioDaoTest : MochaPlatformTest() {
             isNapped = false,
             epochDay = 2L,
             sleepHours = 3.0,
-            hlc = createHlc(5001L).toString(), // Refactored
+            hlc = TestHlcFactory.create(5001L).toString(),
             lastModified = 0L
         )
 
@@ -127,7 +119,7 @@ class BaseBioDaoTest : MochaPlatformTest() {
             DailyContextEntity(
                 id = "id-$it",
                 epochDay = it,
-                hlc = createHlc(1000L).toString(), // Refactored
+                hlc = TestHlcFactory.create(1000L).toString(),
                 readinessScore = 8,
                 sleepHours = 9.0,
                 lastModified = 5000L
@@ -135,8 +127,7 @@ class BaseBioDaoTest : MochaPlatformTest() {
         }
         days.forEach { resolveSync(it) }
 
-        // Delete the middle day
-        markAsDeleted("id-2", createHlc(2000L).toString(), 2000L) // Refactored
+        markAsDeleted("id-2", TestHlcFactory.create(2000L).toString(), 2000L)
 
         observeAllContexts().test {
             val list = awaitItem()
@@ -154,7 +145,7 @@ class BaseBioDaoTest : MochaPlatformTest() {
             epochDay = dayKey,
             sleepHours = 5.0,
             lastModified = 1000L,
-            hlc = createHlc(5001L).toString() // Refactored
+            hlc = TestHlcFactory.create(5001L).toString()
         )
 
         observeContext(dayKey).test {
@@ -165,7 +156,7 @@ class BaseBioDaoTest : MochaPlatformTest() {
             val update = initial.copy(
                 sleepHours = 9.0,
                 lastModified = 2000L,
-                hlc = createHlc(5002L).toString() // Refactored
+                hlc = TestHlcFactory.create(5002L).toString()
             )
             resolveSync(update)
 
@@ -183,7 +174,7 @@ class BaseBioDaoTest : MochaPlatformTest() {
             isNapped = true,
             sleepHours = 6.5,
             lastModified = 2000L,
-            hlc = createHlc(5001L).toString() // Refactored
+            hlc = TestHlcFactory.create(5001L).toString()
         )
 
         observeAllContexts().test {
@@ -194,7 +185,7 @@ class BaseBioDaoTest : MochaPlatformTest() {
             val stale = initial.copy(
                 sleepHours = 99.0,
                 lastModified = 1000L,
-                hlc = createHlc(1000L).toString() // Refactored
+                hlc = TestHlcFactory.create(1000L).toString()
             )
             resolveSync(stale)
 
@@ -213,7 +204,7 @@ class BaseBioDaoTest : MochaPlatformTest() {
             readinessScore = 7,
             isNapped = false,
             lastModified = 1000L,
-            hlc = createHlc(5001L).toString() // Refactored
+            hlc = TestHlcFactory.create(5001L).toString()
         )
 
         observeAllNappedContexts().test {
@@ -224,7 +215,7 @@ class BaseBioDaoTest : MochaPlatformTest() {
             val nappedUpdate = notNappedContext.copy(
                 isNapped = true,
                 lastModified = 1001L,
-                hlc = createHlc(5001L, 1).toString() // Refactored: Same TS, higher count
+                hlc = TestHlcFactory.create(5001L, count = 1).toString()
             )
             resolveSync(nappedUpdate)
 
@@ -246,7 +237,7 @@ class BaseBioDaoTest : MochaPlatformTest() {
             isNapped = true,
             sleepHours = 6.0,
             lastModified = 1000L,
-            hlc = createHlc(5001L).toString() // Refactored
+            hlc = TestHlcFactory.create(5001L).toString()
         )
 
         observeAllNappedContexts().test {
@@ -257,7 +248,7 @@ class BaseBioDaoTest : MochaPlatformTest() {
             val collisionItem = initialNapped.copy(
                 sleepHours = 8.0,
                 lastModified = 1001L,
-                hlc = createHlc(5002L).toString() // Refactored
+                hlc = TestHlcFactory.create(5002L).toString()
             )
             resolveSync(collisionItem)
             val collisionEmission = awaitItem()
@@ -272,10 +263,9 @@ class BaseBioDaoTest : MochaPlatformTest() {
     fun should_deterministicallyWin_basedOnNodeId_whenTimestampsMatch() = runEnv {
         val id = "uuid-1"
 
-        // Node B arrives
         val nodeB = DailyContextEntity(
             id = id,
-            hlc = createHlc(5000L, 0, "NodeB").toString(), // Refactored: Deterministic
+            hlc = TestHlcFactory.create(ts = 5000L, count = 0, nodeId = "NodeB").toString(),
             sleepHours = 2.0,
             epochDay = 2000L,
             readinessScore = 5,
@@ -283,13 +273,13 @@ class BaseBioDaoTest : MochaPlatformTest() {
         )
         resolveSync(nodeB)
 
-        // Node A arrives at the exact same time
-        val nodeA = nodeB.copy(hlc = createHlc(5000L, 0, "NodeA").toString()) // Refactored
+        val nodeA = nodeB.copy(
+            hlc = TestHlcFactory.create(ts = 5000L, count = 0, nodeId = "NodeA").toString()
+        )
         resolveSync(nodeA)
 
-        // Then: NodeB wins because "NodeB" > "NodeA"
         val result = getContextById(id)
-        assertEquals(createHlc(5000L, 0, "NodeB").toString(), result?.hlc)
+        assertEquals(TestHlcFactory.create(ts = 5000L, count = 0, nodeId = "NodeB").toString(), result?.hlc)
     }
 
     @Test
@@ -298,7 +288,7 @@ class BaseBioDaoTest : MochaPlatformTest() {
         val entity = DailyContextEntity(
             id = "uuid-1",
             epochDay = dayKey,
-            hlc = createHlc(1000L).toString(), // Refactored
+            hlc = TestHlcFactory.create(1000L).toString(),
             sleepHours = 5.0,
             readinessScore = 0,
             lastModified = 0L,
@@ -309,7 +299,7 @@ class BaseBioDaoTest : MochaPlatformTest() {
 
         observeContext(dayKey).test {
             assertNotNull(awaitItem())
-            markAsDeleted("uuid-1", createHlc(2000L).toString(), 2000L) // Refactored
+            markAsDeleted("uuid-1", TestHlcFactory.create(2000L).toString(), 2000L)
             assertNull(awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
@@ -325,16 +315,16 @@ class BaseBioDaoTest : MochaPlatformTest() {
                 readinessScore = 0,
                 sleepHours = 5.0,
                 lastModified = 2000L,
-                hlc = createHlc(1000L).toString() // Refactored
+                hlc = TestHlcFactory.create(1000L).toString()
             )
         )
 
-        markAsDeleted(id, createHlc(2000L).toString(), 2000L) // Refactored
+        markAsDeleted(id, TestHlcFactory.create(2000L).toString(), 2000L)
 
         val staleSync = DailyContextEntity(
             id,
             epochDay = 20500L,
-            hlc = createHlc(1000L).toString(), // Refactored: Older than Tombstone
+            hlc = TestHlcFactory.create(1000L).toString(),
             isDeleted = false,
             readinessScore = 0,
             sleepHours = 5.0,
@@ -354,7 +344,7 @@ class BaseBioDaoTest : MochaPlatformTest() {
         upsert(
             DailyContextEntity(
                 id = id,
-                hlc = createHlc(1000L).toString(), // Refactored
+                hlc = TestHlcFactory.create(1000L).toString(),
                 epochDay = day,
                 sleepHours = 5.6,
                 readinessScore = 5,
@@ -362,10 +352,10 @@ class BaseBioDaoTest : MochaPlatformTest() {
             )
         )
 
-        markAsDeleted(id, createHlc(2000L).toString(), 2000L) // Deleted at 2000
+        markAsDeleted(id, TestHlcFactory.create(2000L).toString(), 2000L)
 
         val resurrection = DailyContextEntity(
-            id = id, epochDay = day, hlc = createHlc(3000L).toString(), // Refactored: Newer
+            id = id, epochDay = day, hlc = TestHlcFactory.create(3000L).toString(),
             isDeleted = false, sleepHours = 7.0, lastModified = 3000L
         )
         resolveSync(resurrection)
@@ -381,7 +371,7 @@ class BaseBioDaoTest : MochaPlatformTest() {
             DailyContextEntity(
                 id = "old",
                 epochDay = 1L,
-                hlc = createHlc(1000L).toString(), // Refactored
+                hlc = TestHlcFactory.create(1000L).toString(),
                 isDeleted = true,
                 sleepHours = 5.0,
                 lastModified = 1000L
@@ -391,7 +381,7 @@ class BaseBioDaoTest : MochaPlatformTest() {
             DailyContextEntity(
                 id = "new",
                 epochDay = 2L,
-                hlc = createHlc(5000L).toString(), // Refactored
+                hlc = TestHlcFactory.create(5000L).toString(),
                 isDeleted = true,
                 sleepHours = 5.0,
                 lastModified = 5000L
@@ -415,7 +405,7 @@ class BaseBioDaoTest : MochaPlatformTest() {
                 epochDay = dayKey,
                 sleepHours = i.toDouble(),
                 readinessScore = 9,
-                hlc = createHlc(i.toLong()).toString(),
+                hlc = TestHlcFactory.create(i.toLong()).toString(),
                 lastModified = 1000L
             )
         }
@@ -426,20 +416,7 @@ class BaseBioDaoTest : MochaPlatformTest() {
         scope.advanceUntilIdle()
 
         val result = getContextByDay(dayKey)
-        assertEquals(createHlc(1010L).toString(), result?.hlc)
+        assertEquals(TestHlcFactory.create(1010L).toString(), result?.hlc)
         assertEquals(1010.0, result?.sleepHours)
     }
-
-    /**
-     * Factory function for generating deterministic HLCs in tests.
-     */
-    private fun createHlc(
-        offsetMs: Long = 0,
-        count: Int = 0,
-        nodeId: String = "test-node"
-    ): HLC = HLC(
-        ts = HLC.APP_RELEASE_MS + offsetMs,
-        count = count,
-        nodeId = nodeId
-    )
 }

@@ -2,6 +2,9 @@ package com.mochame.sync.api.models
 
 import com.mochame.sync.api.exceptions.MochaException
 import kotlinx.serialization.Serializable
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 
 /**
  * A Hybrid Logical Clock (HLC) timestamp that provides strict ordering across distributed nodes.
@@ -70,8 +73,14 @@ data class HLC(
          */
         const val MAX_COUNTER_INT = 65535
         const val MAX_COUNTER_STRING = "FFFF"
-        const val ONE_DAY_MS = 86_400_000L
-        const val APP_RELEASE_MS = 1740787200000L
-        const val MAX_DRIFT_MS = 60_000L
+        val ONE_DAY = 1.days
+        val APP_RELEASE_TIME = Instant.fromEpochMilliseconds(1740787200000L)
+        val MAX_DRIFT = 60.seconds
     }
 }
+
+val HLC.instant: Instant
+    get() = Instant.fromEpochMilliseconds(ts)
+
+fun HLC(ts: Instant, count: Int, nodeId: String): HLC =
+    HLC(ts.toEpochMilliseconds(), count, nodeId)

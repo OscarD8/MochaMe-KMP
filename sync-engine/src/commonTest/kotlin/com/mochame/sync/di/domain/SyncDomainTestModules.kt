@@ -17,8 +17,8 @@ import org.koin.core.annotation.KoinApplication
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
 
-@KoinApplication(modules = [SyncPruneUseCaseTestModule::class])
-internal class PruneEntriesUseCaseTestApp
+@KoinApplication(modules = [SyncPruneIntentsTestModule::class])
+internal class PruneIntentsUseCaseTestApp
 
 @Module(
     includes = [
@@ -28,7 +28,7 @@ internal class PruneEntriesUseCaseTestApp
     ]
 )
 @ComponentScan("com.mochame.sync.di.domain")
-internal class SyncPruneUseCaseTestModule {
+internal class SyncPruneIntentsTestModule {
     @Single
     fun provideUseCase(
         intentStore: FakeSyncIntentStore,
@@ -39,7 +39,7 @@ internal class SyncPruneUseCaseTestModule {
 }
 
 @Factory
-internal data class PruneEntriesTestEnv(
+internal data class PruneIntentsTestEnv(
     val useCase: PruneIntentsUseCase,
     val fakeStore: FakeSyncIntentStore,
     val fakeClock: FakeTimeProvider,

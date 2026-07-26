@@ -7,15 +7,18 @@ import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.sync.api.infrastructure.HlcFactory
 import com.mochame.sync.api.models.HLC
-import com.mochame.sync.api.models.HLC.Companion.APP_RELEASE_MS
+import com.mochame.sync.api.models.HLC.Companion.APP_RELEASE_TIME
 import com.mochame.sync.api.models.HLC.Companion.MAX_COUNTER_INT
-import com.mochame.sync.api.models.HLC.Companion.MAX_DRIFT_MS
-import com.mochame.sync.api.models.HLC.Companion.ONE_DAY_MS
+import com.mochame.sync.api.models.HLC.Companion.MAX_DRIFT
+import com.mochame.sync.api.models.HLC.Companion.ONE_DAY
+import com.mochame.sync.api.models.instant
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.yield
 import org.koin.core.annotation.Provided
 import org.koin.core.annotation.Single
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Instant
 
 
 /**
@@ -23,7 +26,7 @@ import org.koin.core.annotation.Single
  */
 @Single(binds = [HlcFactory::class])
 internal class EngineHlcFactory(
-    @Provided private val dateTimeUtils: TimeProvider,
+    private val timeUtils: TimeProvider,
     logger: Logger
 ) : HlcFactory {
 
@@ -48,7 +51,7 @@ internal class EngineHlcFactory(
                 return@withLock it.lastHlc
             }
 
-            val wallClock = dateTimeUtils.now().toEpochMilliseconds()
+            val wallClock = timeUtils.now()
             val hydrationHlc = reconcileHlc(wallClock, lastKnownHlc, currentNodeId)
 
             state = FactoryState(hydrationHlc, currentNodeId)
@@ -71,7 +74,7 @@ internal class EngineHlcFactory(
                     throw MochaException.Policy.CausalityViolation("Cannot fetch a timestamp with no pre-existing state.")
                 }
 
-                val wallClock = dateTimeUtils.now().toEpochMilliseconds()
+                val wallClock = timeUtils.now().toEpochMilliseconds()
 
                 // Compute the next tick logically
                 val nextHlc = calculateNextTick(
@@ -109,11 +112,11 @@ internal class EngineHlcFactory(
             logger.w { "Attempt made to witness remote HLC against no internal state." }
             return@withLock
         }
-        val wallClock = dateTimeUtils.now().toEpochMilliseconds()
+        val wallClock = timeUtils.now()
 
         // Phase 1: Determine the base logical time across physical and remote sources
         val (provisionalTs, provisionalCount) = computeCausalTime(
-            wallClock,
+            wallClock.toEpochMilliseconds(),
             remoteHlc,
             currentState.lastHlc
         )
@@ -122,7 +125,7 @@ internal class EngineHlcFactory(
         val (finalTs, finalCount) = applyOverflow(provisionalTs, provisionalCount)
 
         // Phase 3: Ensure the resulting jump is within safety boundaries
-        validateDrift(finalTs, wallClock)
+        validateDrift(Instant.fromEpochMilliseconds(finalTs), wallClock)
 
         state = currentState.copy(
             lastHlc = HLC(finalTs, finalCount, currentState.nodeId)
@@ -139,11 +142,12 @@ internal class EngineHlcFactory(
      * is sitting in local storage as corrupted data.
      */
     override fun isValid(hlc: HLC): Boolean {
-        val wallClock = dateTimeUtils.now().toEpochMilliseconds()
+        val wallClock = timeUtils.now()
+        val hlcInstant = Instant.fromEpochMilliseconds(hlc.ts)
 
         return when {
-            hlc.ts < APP_RELEASE_MS -> false              // Floor violation
-            hlc.ts - wallClock > MAX_DRIFT_MS -> false      // Future drift violation
+            hlcInstant < APP_RELEASE_TIME -> false
+            (hlcInstant - wallClock) > MAX_DRIFT -> false
             else -> true
         }
     }
@@ -160,41 +164,45 @@ internal class EngineHlcFactory(
      * @throws [MochaException.Persistent.ClockSkew] Local device has drifted below the floor. Or history is more than one minute into the future of the local clock.
      */
     private fun reconcileHlc(
-        wallClock: Long,
+        wallClock: Instant,
         history: HLC?,
         currentNodeId: String
     ): HLC {
+        val historyInstant = history?.instant
+
         return when {
             // Case 1: Hard Floor (e.g. System clock is set to 1970)
-            wallClock < APP_RELEASE_MS -> {
-                val driftSec = (APP_RELEASE_MS - wallClock) / 1000
-                logger.e { "Clock Skew: System time ($wallClock) is $driftSec seconds behind floor ($APP_RELEASE_MS)" }
-                throw MochaException.Persistent.ClockSkew(driftSec, "seconds")
+            wallClock < APP_RELEASE_TIME -> {
+                val drift = APP_RELEASE_TIME - wallClock
+                logger.e { "Clock Skew: System time ($wallClock) is ${drift.inWholeSeconds}s behind floor ($APP_RELEASE_TIME)" }
+                throw MochaException.Persistent.ClockSkew(drift)
             }
 
             // Case 2: New Install
-            history == null -> {
+            history == null || historyInstant == null -> {
                 logger.i { "Hydration: New Install detected. Starting at $wallClock" }
                 HLC(wallClock, 0, currentNodeId)
             }
 
             // Case 3: History creating future drift (DB is > 1 minute in the future)
-            history.ts - wallClock > MAX_DRIFT_MS -> {
-                val driftSec = (history.ts - wallClock) / 1000
-                logger.e { "Clock Skew: History is $driftSec seconds in the future against local [$wallClock]." }
-                throw MochaException.Persistent.ClockSkew(driftSec, "seconds")
+            historyInstant - wallClock > MAX_DRIFT -> {
+                val drift = historyInstant - wallClock
+                logger.e { "Clock Skew: History is ${drift.inWholeSeconds}s in the future against local [$wallClock]." }
+                throw MochaException.Persistent.ClockSkew(drift)
             }
 
             // Case 4: Take the latest known time
             else -> {
-                if (wallClock - history.ts > (ONE_DAY_MS * 365)) {
-                    logger.w { "Future Jump: Device is ${(wallClock - history.ts) / ONE_DAY_MS} days ahead of history." }
+                val timeDiff = wallClock - historyInstant
+
+                if (timeDiff > 365.days) {
+                    logger.w { "Future Jump: Device is ${timeDiff.inWholeDays} days ahead of history." }
                 }
 
-                val finalTs = maxOf(wallClock, history.ts)
-                val finalCounter = if (finalTs == history.ts) history.count else 0
+                val finalInstant = maxOf(wallClock, historyInstant)
+                val finalCounter = if (finalInstant == historyInstant) history.count else 0
 
-                HLC(finalTs, finalCounter, currentNodeId).also {
+                HLC(finalInstant, finalCounter, currentNodeId).also {
                     logger.i { "Successfully reconciled new HLC: [$it] with incoming [$history]." }
                 }
             }
@@ -216,7 +224,7 @@ internal class EngineHlcFactory(
     }
 
     /**
-     * Computes the maximum logical time between local physical reality,
+     * Computes the maximum logical time between current device time,
      * local history, and remote truth.
      */
     private fun computeCausalTime(
@@ -224,17 +232,19 @@ internal class EngineHlcFactory(
         remote: HLC,
         local: HLC
     ): Pair<Long, Int> {
-        val newTs = maxOf(maxOf(wallClock, local.ts), remote.ts)
+        val newTs = maxOf(wallClock, local.ts, remote.ts)
 
-        val newCount = when (newTs) {
-            local.ts if newTs == remote.ts -> maxOf(
+        val newCount = when {
+            newTs == local.ts && newTs == remote.ts -> maxOf(
                 local.count,
                 remote.count
             ) + 1
 
-            remote.ts -> remote.count + 1
-            local.ts -> local.count + 1
-            else -> 0 // Physical wall clock is strictly ahead
+            newTs == remote.ts -> remote.count + 1
+
+            newTs == local.ts -> local.count + 1
+
+            else -> 0
         }
 
         return newTs to newCount
@@ -256,15 +266,13 @@ internal class EngineHlcFactory(
      * Validates that the newly calculated logical time does not drift too
      * far into the future compared to physical reality.
      */
-    private fun validateDrift(finalTs: Long, wallClock: Long) {
-        val drift = finalTs - wallClock
+    private fun validateDrift(finalInstant: Instant, wallClock: Instant) {
+        val drift = finalInstant - wallClock
 
-        if (drift > MAX_DRIFT_MS) {
-            throw MochaException.Persistent.ClockSkew(drift / 1000, "seconds")
-        }
+        if (drift > MAX_DRIFT) throw MochaException.Persistent.ClockSkew(drift)
 
-        if (drift > 0) {
-            logger.w { "HLC Drift Detected: ${drift}ms. Advancing local HLC to match remote truth." }
+        if (drift.inWholeMilliseconds > 0) {
+            logger.w { "HLC Drift Detected: ${drift}. Advancing local HLC to match remote truth." }
         }
     }
 

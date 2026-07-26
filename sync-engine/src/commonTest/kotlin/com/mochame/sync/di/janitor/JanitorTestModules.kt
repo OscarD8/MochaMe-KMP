@@ -15,7 +15,7 @@ import com.mochame.sync.di.SyncConcurrencyModule
 import com.mochame.sync.di.SyncDomainModule
 import com.mochame.sync.di.SyncInfraModule
 import com.mochame.sync.di.SyncOrchestrationModule
-import com.mochame.sync.di.domain.SyncPruneUseCaseTestModule
+import com.mochame.sync.di.domain.SyncPruneIntentsTestModule
 import com.mochame.sync.di.hlc.FakeHlcFactoryModule
 import com.mochame.sync.domain.config.JanitorMaintenanceConfig
 import com.mochame.sync.fakes.FakeHlcFactory
@@ -47,7 +47,7 @@ internal object JanitorTestApp
         SyncDomainModule::class,
         SyncInfraModule::class,
         SyncConcurrencyModule::class,
-        SyncPruneUseCaseTestModule::class,
+        SyncPruneIntentsTestModule::class,
 
         FakeHlcFactoryModule::class,
         FakeSyncStoresModule::class,

@@ -15,5 +15,8 @@ kotlin {
             implementation(libs.kotlinx.serialization.protobuf)
             implementation(libs.kotlinx.io.core)
         }
+        commonTest.dependencies {
+            implementation(project(":core:test:fixtures-utils"))
+        }
     }
 }

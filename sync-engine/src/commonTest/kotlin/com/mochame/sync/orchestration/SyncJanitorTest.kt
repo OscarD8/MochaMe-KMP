@@ -115,7 +115,7 @@ class SyncJanitorTest : MochaPlatformTest() {
     @Test
     fun should_abortStartupChecks_when_bootStatIsInCriticalFailure() =
         runEnv { scope ->
-            val failure = MochaException.Persistent.ClockSkew(5000L, "seconds")
+            val failure = MochaException.Persistent.ClockSkew(5.seconds)
             bootUpdater.updateBootState(BootState.CriticalFailure("Failed", failure))
 
             // When
@@ -248,9 +248,7 @@ class SyncJanitorTest : MochaPlatformTest() {
     @Test
     fun should_pipeNodeContextToHlcFactory_when_hydrating() = runEnv { scope ->
         // Given
-        val baseTestTime = 1740787200000L
         val nodeId = "node-to-end-all-nodes"
-        fakeClock.setTime(1740787200000L)
 
         val seededHlc =
             TestHlcFactory.create(

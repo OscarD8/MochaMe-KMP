@@ -1,5 +1,7 @@
 package com.mochame.sync.api.exceptions
 
+import kotlin.time.Duration
+
 /**
  * This was meant to make UI error processing clearer to me, but I think I regret this.
  */
@@ -24,6 +26,10 @@ sealed class MochaException(
 
         class BlobResolutionPending(val blobId: String) :
             Transient("Payload overflow pending blob resolution: $blobId")
+
+        class FileNotFound(blobId: String) :
+            Transient("File not found: $blobId")
+
     }
 
     sealed class Persistent(message: String, cause: Throwable? = null) :
@@ -40,8 +46,8 @@ sealed class MochaException(
         class BootLockout(message: String? = null, cause: Throwable? = null) :
             Persistent(message ?: "Boot lockout.", cause)
 
-        class ClockSkew(val driftDisplay: Long, val unit: String, cause: Throwable? = null) :
-            Persistent("System clock is out of sync by $driftDisplay $unit.", cause)
+        class ClockSkew(val drift: Duration, cause: Throwable? = null) :
+            Persistent("System clock is out of sync by $drift.", cause)
 
         class BootInitializationError(message: String?, cause: Throwable? = null) :
             Persistent(message ?: "Failed to initialize system.", cause)
@@ -54,9 +60,6 @@ sealed class MochaException(
 
         class UnknownProtocolVersion(version: Int) :
             Persistent("Unknown protocol version: $version")
-
-        class FileNotFound(blobId: String) :
-            Persistent("File not found: $blobId")
 
         class Internal(message: String?, cause: Throwable? = null) :
             Persistent(message ?: "Internal failure. Dependency issue? ${cause?.message}", cause)

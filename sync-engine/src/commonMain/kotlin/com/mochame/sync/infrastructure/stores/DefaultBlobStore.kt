@@ -25,6 +25,7 @@ import kotlinx.io.files.Path
 import org.koin.core.annotation.Single
 import kotlin.coroutines.CoroutineContext
 import kotlin.random.Random
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.TimeSource
 
@@ -36,6 +37,7 @@ internal class DefaultBlobStore(
     private val timeUtils: TimeProvider,
     private val digestFactory: DigestFactory,
     private val fileSystem: FileSystem,
+    private val maxStagingAge: Duration = DEFAULT_STALE_AGE,
     @IoContext private val ioContext: CoroutineContext,
     @PendingDir private val pendingDir: Path,
     @CommittedDir private val committedDir: Path,
@@ -48,6 +50,11 @@ internal class DefaultBlobStore(
         domain = LogTags.Domain.SYNC,
         className = "BlobSt"
     )
+
+    companion object {
+        val DEFAULT_STALE_AGE = 1.hours
+        private val BLOB_HASH_REGEX = Regex("^[a-fA-F0-9]{64}$")
+    }
 
     private var directoriesVerified = false
 
@@ -92,7 +99,7 @@ internal class DefaultBlobStore(
                 fileSystem.delete(tempPath)
             } else {
                 fileSystem.atomicMove(tempPath, finalPendingPath)
-                logger.i {
+                logger.d {
                     "Blob Staged | ID: $blobId | Size: ${totalBytes / 1024}KB".withTimer(
                         mark
                     )
@@ -108,6 +115,7 @@ internal class DefaultBlobStore(
     }
 
     override suspend fun commit(blobId: String) = withContext(ioContext) {
+        ensureDirectoriesExist()
         val pendingPath = Path(pendingDir, blobId)
         val committedPath = Path(committedDir, blobId)
 
@@ -127,6 +135,7 @@ internal class DefaultBlobStore(
     }
 
     override suspend fun abort(blobId: String) = withContext(ioContext) {
+        ensureDirectoriesExist()
         val abortPath = Path(pendingDir, blobId)
 
         if (fileSystem.exists(abortPath)) {
@@ -148,8 +157,12 @@ internal class DefaultBlobStore(
 
         try {
             fileSystem.list(pendingDir)
+                .asSequence()
                 .map { it.name }
-                .filter { it.length == 64 && !it.startsWith("staging_") }
+                .filter { name ->
+                    !name.startsWith("staging_") && BLOB_HASH_REGEX.matches(name)
+                }
+                .toList()
         } catch (e: Exception) {
             logger.e(e) { "Failed to scan pending chamber for hashes." }
             emptyList()
@@ -164,7 +177,6 @@ internal class DefaultBlobStore(
         ensureDirectoriesExist()
         var deletedCount = 0
         val now = timeUtils.now().toEpochMilliseconds()
-        val oneHourInMillis = 1.hours.inWholeMilliseconds
 
         val pendingFiles = try {
             fileSystem.list(pendingDir)
@@ -181,7 +193,7 @@ internal class DefaultBlobStore(
             val fileTimestamp = parts.getOrNull(1)?.toLongOrNull() ?: 0L
             val age = now - fileTimestamp
 
-            if (age > oneHourInMillis) {
+            if (age > maxStagingAge.inWholeMilliseconds) {
                 try {
                     fileSystem.delete(path)
                     deletedCount++
@@ -193,7 +205,7 @@ internal class DefaultBlobStore(
         }
 
         if (deletedCount > 0) {
-            logger.i { "Maintenance Complete: Purged $deletedCount orphaned staging files." }
+            logger.i { "Maintenance Complete: Purged $deletedCount stale staging files." }
         }
         deletedCount
     }
@@ -202,21 +214,25 @@ internal class DefaultBlobStore(
 
     override suspend fun existsInCommitted(blobId: String): Boolean =
         withContext(ioContext) {
+            ensureDirectoriesExist()
             val path = Path(committedDir, blobId)
             fileSystem.exists(path)
         }
 
     override suspend fun existsInPending(blobId: String): Boolean =
         withContext(ioContext) {
+            ensureDirectoriesExist()
             val path = Path(pendingDir, blobId)
             fileSystem.exists(path)
         }
 
     override suspend fun open(blobId: String): Source = withContext(ioContext) {
+        ensureDirectoriesExist()
+
         val path = Path(committedDir, blobId)
 
         if (!fileSystem.exists(path)) {
-            throw MochaException.Persistent.FileNotFound(blobId)
+            throw MochaException.Transient.FileNotFound(blobId)
         }
 
         // Returns a RawSource wrapped in a buffered Source.

@@ -16,7 +16,7 @@ class FakeHlcFactory(
     private val lock = reentrantLock()
 
     private val realFactory = EngineHlcFactory(
-        dateTimeUtils = clock,
+        timeUtils = clock,
         logger = logger
     )
 

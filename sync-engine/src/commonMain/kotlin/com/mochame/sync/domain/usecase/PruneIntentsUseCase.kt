@@ -36,9 +36,9 @@ internal class PruneIntentsUseCase(
     }
 
     private val logger = logger.withTags(
-        layer = LogTags.Layer.INFRA,
+        layer = LogTags.Layer.DOMAIN,
         domain = LogTags.Domain.SYNC,
-        className = "MsPrune"
+        className = "MsPrun"
     )
 
     suspend operator fun invoke(): Int {

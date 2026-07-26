@@ -1,6 +1,7 @@
 package com.mochame.utils.fixtures
 
 import com.mochame.sync.api.models.HLC
+import kotlin.time.Instant
 
 
 /**
@@ -20,6 +21,12 @@ object TestHlcFactory {
      */
     fun create(
         ts: Long = BASE_TEST_TIME,
+        count: Int = 0,
+        nodeId: String = DEFAULT_NODE
+    ): HLC = HLC(ts = ts, count = count, nodeId = nodeId)
+
+    fun create(
+        ts: Instant,
         count: Int = 0,
         nodeId: String = DEFAULT_NODE
     ): HLC = HLC(ts = ts, count = count, nodeId = nodeId)

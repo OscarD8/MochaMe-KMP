@@ -11,4 +11,8 @@ object TestPayloads {
     fun defaultSource(): Source = Buffer().apply { write(DEFAULT_TEST_BYTES) }
     fun smallTextSource(): Source = Buffer().apply { write(SMALL_TEXT_BYTES) }
     fun largeBinarySource(): Source = Buffer().apply { write(LARGE_BINARY_BYTES) }
+
+    fun sourceFromString(content: String): Source = Buffer().apply {
+        write(content.encodeToByteArray())
+    }
 }

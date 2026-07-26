@@ -42,7 +42,7 @@ class FixturesPlatformModule {
     ): TestTeardownHook = TestTeardownHook {
         try {
             if (fs.exists(workspace.root)) {
-                deleteRecursively(fs, workspace.root)
+                fs.deleteRecursively( workspace.root)
             }
         } catch (e: Exception) {
             println("WARNING: Workspace cleanup failed for ${workspace.root}: ${e.message}")
@@ -63,10 +63,10 @@ class FixturesPlatformModule {
 
 }
 
-private fun deleteRecursively(fs: FileSystem, path: Path) {
-    val metadata = fs.metadataOrNull(path) ?: return
+fun FileSystem.deleteRecursively(path: Path) {
+    val metadata = this.metadataOrNull(path) ?: return
     if (metadata.isDirectory) {
-        fs.list(path).forEach { child -> deleteRecursively(fs, child) }
+        this.list(path).forEach { child -> deleteRecursively(child) }
     }
-    fs.delete(path)
+    this.delete(path)
 }

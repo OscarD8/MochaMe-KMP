@@ -7,8 +7,8 @@ import com.mochame.support.MochaPlatformTest
 import com.mochame.utils.fixtures.TestHlcFactory
 import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.api.metadata.SyncStatus
-import com.mochame.sync.di.domain.PruneEntriesTestEnv
-import com.mochame.sync.di.domain.PruneEntriesUseCaseTestApp
+import com.mochame.sync.di.domain.PruneIntentsTestEnv
+import com.mochame.sync.di.domain.PruneIntentsUseCaseTestApp
 import com.mochame.sync.fakes.createTestSyncIntent
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
@@ -27,16 +27,16 @@ import kotlin.time.Duration.Companion.days
 // -----------------------------------------------------------
 // SUT ENVIRONMENT
 // -----------------------------------------------------------
-private inline fun runEnv(crossinline block: suspend PruneEntriesTestEnv.(TestScope) -> Unit) =
+private inline fun runEnv(crossinline block: suspend PruneIntentsTestEnv.(TestScope) -> Unit) =
     runUnitEnvironment(
-        koinSetup = { includes(koinConfiguration<PruneEntriesUseCaseTestApp>()) },
+        koinSetup = { includes(koinConfiguration<PruneIntentsUseCaseTestApp>()) },
         block = block
     )
 
 internal val TEST_PRUNE_DAYS = 30.days
 
 
-class PruneEntriesUseCaseTest : MochaPlatformTest() {
+class PruneIntentsUseCaseTest : MochaPlatformTest() {
 
     @Test
     fun should_returnZeroAndLeaveStoreEmpty_when_noEligibleEntriesExist() = runEnv {
@@ -145,9 +145,6 @@ class PruneEntriesUseCaseTest : MochaPlatformTest() {
         runEnv {
             // Arrange
             fakeStore.reset()
-
-            val baseTestingTime = 1740787200000L // Thursday, Feb 27, 2025
-            fakeClock.setTime(baseTestingTime)
 
             // Calculate the exact millisecond cutoff value
             val cutoffThresholdMs = fakeClock.getMillisAgo(TEST_PRUNE_DAYS)
