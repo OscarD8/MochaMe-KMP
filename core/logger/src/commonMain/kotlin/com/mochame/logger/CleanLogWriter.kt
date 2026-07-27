@@ -28,8 +28,8 @@ class CleanLogWriter(
         }
 
         val color = when (severity) {
-            Severity.Verbose -> "\u001B[38;2;138;92;158m" // Plum
-            Severity.Debug -> "\u001B[90m" // Gray
+            Severity.Verbose -> "\u001B[38;2;105;135;175m" // Blue
+            Severity.Debug -> "\u001B[38;2;125;125;125m" // Gray
             Severity.Info -> "\u001B[32m"    // Green
             Severity.Warn -> "\u001B[33m"    // Yellow
             Severity.Error -> "\u001B[31m"   // Red

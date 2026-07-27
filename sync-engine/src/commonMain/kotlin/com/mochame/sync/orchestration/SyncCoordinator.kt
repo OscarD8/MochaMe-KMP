@@ -26,7 +26,6 @@ import org.koin.core.annotation.Single
 internal class SyncCoordinator(
     private val intentStore: SyncIntentStore,
     private val transactor: TransactionProvider,
-//    private val featureStateStore: FeatureSyncStateStore,
     private val payloadCodec: PayloadCodec,
     private val idGenerator: IdGenerator,
     private val invalidationHook: SyncWorkerHook,
@@ -68,7 +67,6 @@ internal class SyncCoordinator(
      */
     @OptIn(FlowPreview::class)
     suspend fun processQueueUntilExhausted() {
-
         coordinatorMutex.tryWithLock {
             while (true) {
                 val batchId = idGenerator.nextId()
@@ -107,7 +105,6 @@ internal class SyncCoordinator(
                 }
             }
         }
-
     }
 
     internal suspend fun onInboundBytes(inbound: ByteArray) {
@@ -135,7 +132,6 @@ internal class SyncCoordinator(
      * received intent?
      */
     private suspend fun processIntent(intent: SyncIntent) {
-
         val receiver = receiverRoutingMap[intent.featureContext.modelName] ?: run {
             logger.e { "Routing failure for model '${intent.featureContext.modelName}'" }
             throw MochaException.Persistent.Internal(

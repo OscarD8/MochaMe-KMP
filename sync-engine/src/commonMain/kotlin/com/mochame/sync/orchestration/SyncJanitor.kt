@@ -208,7 +208,7 @@ internal class SyncJanitor(
             logger.w(e) { "Purging incomplete staged files terminated: ${e.message}" }
         }
 
-        logger.d { "Blob Reconciliation Complete".withTimer(mark) }
+        logger.i { "Blob Reconciliation Complete".withTimer(mark) }
     }
 
     /**

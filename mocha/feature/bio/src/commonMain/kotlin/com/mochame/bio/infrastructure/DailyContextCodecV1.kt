@@ -80,14 +80,36 @@ class DailyContextCodecV1(
     }
 
     /**
+     * Reconstructs a DailyContext from passed bytes.
+     */
+    @OptIn(ExperimentalSerializationApi::class)
+    override fun decode(
+        bytes: ByteArray,
+        context: DecodeContext
+    ): DailyContext {
+        val delta = ProtoBuf.decodeFromByteArray(DailyContextDeltaV1.serializer(), bytes)
+
+        return DailyContext(
+            id = context.id,
+            hlc = context.hlc,
+            lastModified = context.lastModified,
+            epochDay = context.id.toLong(),
+            sleepHours = delta.sleepHours ?: 0.0,
+            readinessScore = delta.readinessScore ?: 0,
+            isNapped = delta.isNapped ?: false,
+            isDeleted = delta.isDeleted
+        )
+    }
+
+    /**
      * Peek (Objects no longer in memory).
      * Extracts tags from raw bits without full value decoding.
      * Uses source.peek().
      */
     override fun reconstructSummary(bytes: ByteArray): String {
         if (bytes.isEmpty()) {
-            logger.w { "Summary Failed: Protocol Version Mismatch. Got ${bytes.getOrNull(0)}" }
-            return "OP:INVALID_VERSION"
+            logger.w { "Summary Reconstruction Failed. Received empty ByteArray." }
+            return "OP:INVALID_EMPTY_BYTES"
         }
 
         val buffer = bufferProvider.get().apply {
@@ -97,7 +119,6 @@ class DailyContextCodecV1(
 
         return try {
             val peekSource = buffer.peek()
-            peekSource.readByte() // Skip version header
 
             var isTombstone = false
             val tags = buildList {
@@ -118,7 +139,6 @@ class DailyContextCodecV1(
         }
     }
 
-
     /**
      * Mutation-Time Summary (The actual objects are in memory).
      */
@@ -134,28 +154,6 @@ class DailyContextCodecV1(
         return "OP:UPSERT_V1 ${
             tags.joinToString(prefix = "[", postfix = "]", separator = ",")
         }"
-    }
-
-    /**
-     * Reconstructs a DailyContext from passed bytes.
-     */
-    @OptIn(ExperimentalSerializationApi::class)
-    override fun decode(
-        bytes: ByteArray,
-        context: DecodeContext
-    ): DailyContext {
-        val delta = ProtoBuf.decodeFromByteArray(DailyContextDeltaV1.serializer(), bytes)
-
-        return DailyContext(
-            id = context.id,
-            hlc = context.hlc,
-            lastModified = context.lastModified,
-            epochDay = context.id.toLong(),
-            sleepHours = delta.sleepHours ?: 0.0,
-            readinessScore = delta.readinessScore ?: 0,
-            isNapped = delta.isNapped ?: false,
-            isDeleted = delta.isDeleted
-        )
     }
 
     @OptIn(ExperimentalSerializationApi::class)

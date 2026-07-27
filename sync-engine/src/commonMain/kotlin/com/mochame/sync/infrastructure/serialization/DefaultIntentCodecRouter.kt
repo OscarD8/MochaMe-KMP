@@ -16,11 +16,9 @@ internal class DefaultIntentCodecRouter(
     override val versionRegistry = arrayOf<IntentCodec?>(null, v1)
     override val latestVersion = 1
 
-    override fun routedEncode(intent: SyncIntent): ByteArray {
-        return latestCodec.encode(intent)
-    }
+    override fun routedEncode(intent: SyncIntent): ByteArray = latestCodec.encode(intent)
 
-    override fun routedDecode(bytes: ByteArray, version: Int): SyncIntent {
-        return getCodec(version).decode(bytes)
-    }
+    override fun routedDecode(bytes: ByteArray, version: Int): SyncIntent =
+        getCodec(version).decode(bytes)
+
 }

@@ -7,6 +7,6 @@ interface FeatureCodecRouter<T : LocalFirstEntity<T>, TCodec : Any> :
     VersionRouter<TCodec> {
     fun routedEncode(new: T, old: T?): ByteArray?
     fun routedDecode(data: ByteArray, context: DecodeContext): T
-    fun versionedSummarize(new: T, old: T?): String
-    fun versionedSummaryReconstruction(data: ByteArray): String
+    fun routedSummarize(new: T, old: T?): String
+    fun routedReconstructSummary(data: ByteArray, context: DecodeContext): String
 }

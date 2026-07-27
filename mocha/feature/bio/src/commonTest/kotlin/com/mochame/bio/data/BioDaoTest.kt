@@ -1,8 +1,6 @@
-package com.mochame.bio.dao
+package com.mochame.bio.data
 
 import app.cash.turbine.test
-import com.mochame.bio.data.BioDao
-import com.mochame.bio.data.DailyContextEntity
 import com.mochame.bio.database.BioMicroSchema
 import com.mochame.bio.database.BioMicroSchemaConstructor
 import com.mochame.bio.di.BioDaoTestApp
@@ -20,12 +18,16 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
+// -----------------------------------------------------------
+// SUT ENVIRONMENT
+// -----------------------------------------------------------
 private inline fun runEnv(crossinline block: suspend BioDao.(TestScope) -> Unit) =
     runPersistenceEnvironment<BioMicroSchema, BioDao>(
         constructor = BioMicroSchemaConstructor,
         koinSetup = { includes(koinConfiguration<BioDaoTestApp>()) },
         block = block
     )
+
 
 @ExperimentalCoroutinesApi
 class BaseBioDaoTest : MochaPlatformTest() {

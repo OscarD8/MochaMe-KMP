@@ -28,11 +28,10 @@ internal class DefaultBatchCodecRouter(
      */
     override val latestVersion = 1
 
-    override fun routedEncode(intents: List<SyncIntent>): ByteArray {
-        return latestCodec.encode(intents)
-    }
+    override fun routedEncode(intents: List<SyncIntent>): ByteArray =
+        latestCodec.encode(intents)
 
-    override fun routedDecode(bytes: ByteArray, version: Int): List<SyncIntent> {
-        return getCodec(version).decode(bytes)
-    }
+    override fun routedDecode(bytes: ByteArray, version: Int): List<SyncIntent> =
+        getCodec(version).decode(bytes)
+
 }

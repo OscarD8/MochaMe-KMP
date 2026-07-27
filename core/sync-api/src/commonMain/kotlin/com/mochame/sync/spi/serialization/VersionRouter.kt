@@ -30,6 +30,10 @@ import com.mochame.sync.api.exceptions.MochaException
  * @property versionRegistry maps a byte value representing a version to whatever Type is provided.
  */
 interface VersionRouter<T : Any> {
+    /**
+     * The array index of the latest item. Assumes that there may need to be the flexibility of
+     * adding a version that is not the latest version.
+     */
     val latestVersion: Int
 
     /**
@@ -63,5 +67,5 @@ fun <T : Any> VersionRouter<T>.getCodec(version: Byte): T {
 
 fun <T : Any> VersionRouter<T>.getCodec(version: Int): T {
     return versionRegistry.getOrNull(version)
-        ?: throw MochaException.Persistent.UnknownProtocolVersion(latestVersion)
+        ?: throw MochaException.Persistent.UnknownProtocolVersion(latestVersion) // Does it need to be Persistent
 }

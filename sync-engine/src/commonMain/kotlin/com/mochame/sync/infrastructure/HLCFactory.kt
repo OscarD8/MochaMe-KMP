@@ -142,12 +142,9 @@ internal class EngineHlcFactory(
      * is sitting in local storage as corrupted data.
      */
     override fun isValid(hlc: HLC): Boolean {
-        val wallClock = timeUtils.now()
-        val hlcInstant = Instant.fromEpochMilliseconds(hlc.ts)
-
         return when {
-            hlcInstant < APP_RELEASE_TIME -> false
-            (hlcInstant - wallClock) > MAX_DRIFT -> false
+            hlc.instant < APP_RELEASE_TIME -> false
+            (hlc.instant - timeUtils.now()) > MAX_DRIFT -> false
             else -> true
         }
     }
@@ -168,8 +165,6 @@ internal class EngineHlcFactory(
         history: HLC?,
         currentNodeId: String
     ): HLC {
-        val historyInstant = history?.instant
-
         return when {
             // Case 1: Hard Floor (e.g. System clock is set to 1970)
             wallClock < APP_RELEASE_TIME -> {
@@ -179,28 +174,28 @@ internal class EngineHlcFactory(
             }
 
             // Case 2: New Install
-            history == null || historyInstant == null -> {
+            history == null  -> {
                 logger.i { "Hydration: New Install detected. Starting at $wallClock" }
                 HLC(wallClock, 0, currentNodeId)
             }
 
             // Case 3: History creating future drift (DB is > 1 minute in the future)
-            historyInstant - wallClock > MAX_DRIFT -> {
-                val drift = historyInstant - wallClock
+            history.instant - wallClock > MAX_DRIFT -> {
+                val drift = history.instant - wallClock
                 logger.e { "Clock Skew: History is ${drift.inWholeSeconds}s in the future against local [$wallClock]." }
                 throw MochaException.Persistent.ClockSkew(drift)
             }
 
             // Case 4: Take the latest known time
             else -> {
-                val timeDiff = wallClock - historyInstant
+                val timeDiff = wallClock - history.instant
 
                 if (timeDiff > 365.days) {
                     logger.w { "Future Jump: Device is ${timeDiff.inWholeDays} days ahead of history." }
                 }
 
-                val finalInstant = maxOf(wallClock, historyInstant)
-                val finalCounter = if (finalInstant == historyInstant) history.count else 0
+                val finalInstant = maxOf(wallClock, history.instant)
+                val finalCounter = if (finalInstant == history.instant) history.count else 0
 
                 HLC(finalInstant, finalCounter, currentNodeId).also {
                     logger.i { "Successfully reconciled new HLC: [$it] with incoming [$history]." }
