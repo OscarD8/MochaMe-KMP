@@ -17,7 +17,7 @@ interface DailyContextRepository {
      * Handles UUID generation and biological anchoring internally.
      * Prevents the UI from accidentally creating "dirty" or duplicate entries.
      */
-    suspend fun establishDay(sleepHours: Double, readinessScore: Int, isNapped: Boolean = false) : DailyContext
+    suspend fun establishDay(sleepHours: Double, readinessScore: Int, isNapped: Boolean?) : DailyContext
 
 //    /**
 //     * Historical record for long-term efficiency analysis.

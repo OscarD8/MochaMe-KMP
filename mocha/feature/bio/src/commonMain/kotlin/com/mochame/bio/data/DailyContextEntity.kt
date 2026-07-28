@@ -18,7 +18,7 @@ data class DailyContextEntity(
     val epochDay: Long,
     val sleepHours: Double,
     val readinessScore: Int = 0,
-    val isNapped: Boolean = false,
+    val isNapped: Boolean? = false,
     val isDeleted: Boolean = false,
     val lastModified: Long
 )

@@ -1,7 +1,7 @@
 package com.mochame.sync.infrastructure.serialization
 
-import com.mochame.sync.spi.serialization.getCodec
-import com.mochame.sync.spi.serialization.latestCodec
+import com.mochame.sync.spi.infrastructure.serialization.getCodec
+import com.mochame.sync.spi.infrastructure.serialization.latestCodec
 import com.mochame.sync.spi.models.SyncIntent
 import com.mochame.sync.domain.serialization.BatchCodec
 import com.mochame.sync.domain.serialization.BatchCodecRouter

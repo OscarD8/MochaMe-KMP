@@ -5,8 +5,8 @@ import com.mochame.bio.domain.DailyContext
 import com.mochame.sync.spi.infrastructure.BufferProvider
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
+import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodec
 import com.mochame.sync.spi.models.DecodeContext
-import com.mochame.sync.spi.serialization.FeatureCodec
 import com.mochame.utils.readProtobufVarint
 import com.mochame.utils.skipProtobufValue
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -17,66 +17,59 @@ import org.koin.core.annotation.Single
 
 @ExperimentalSerializationApi
 @Serializable
-internal data class DailyContextDeltaV1(
+data class DailyContextDeltaV1(
     @ProtoNumber(1) val id: String,
     @ProtoNumber(2) val sleepHours: Double? = null,
     @ProtoNumber(3) val readinessScore: Int? = null,
     @ProtoNumber(4) val isNapped: Boolean? = null,
-    @ProtoNumber(5) val isDeleted: Boolean = false
+    @ProtoNumber(5) val isDeleted: Boolean? = false
 )
 
 /**
  * V1 of the DailyContext codec.
  */
+@OptIn(ExperimentalSerializationApi::class)
 @Single
 class DailyContextCodecV1(
-    override val bufferProvider: BufferProvider,
+    bufferProvider: BufferProvider,
     logger: Logger
-) : FeatureCodec<DailyContext> {
-
+) : BaseFeatureCodec<DailyContext, DailyContextDeltaV1>(
+    bufferProvider = bufferProvider,
+    deltaSerializer = DailyContextDeltaV1.serializer()
+) {
     private val logger =
-        logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.BIO, "BioCodecV1")
+        logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.BIO, "DyCdc1")
 
-    /**
-     * Returns null if no fields have changed, aborting write.
-     */
-    @OptIn(ExperimentalSerializationApi::class)
-    override fun encode(new: DailyContext, old: DailyContext?): ByteArray? {
-        return when {
-            new.isDeleted -> encodeDelta(
-                DailyContextDeltaV1(
-                    id = new.id,
-                    isDeleted = true
-                )
-            )
 
-            old == null -> encodeDelta(
-                DailyContextDeltaV1(
-                    id = new.id,
-                    sleepHours = new.sleepHours,
-                    readinessScore = new.readinessScore,
-                    isNapped = new.isNapped
-                )
-            )
+    override fun buildDeleteDelta(entity: DailyContext) = DailyContextDeltaV1(
+        id = entity.id,
+        isDeleted = true
+    )
 
-            else -> {
-                val sleep = if (new.sleepHours != old.sleepHours) new.sleepHours else null
-                val readiness =
-                    if (new.readinessScore != old.readinessScore) new.readinessScore else null
-                val napped = if (new.isNapped != old.isNapped) new.isNapped else null
+    override fun buildInsertDelta(entity: DailyContext) = DailyContextDeltaV1(
+        id = entity.id,
+        sleepHours = entity.sleepHours,
+        readinessScore = entity.readinessScore,
+        isNapped = entity.isNapped
+    )
 
-                if (sleep == null && readiness == null && napped == null) return null
+    override fun buildUpdateDelta(
+        new: DailyContext,
+        old: DailyContext
+    ): DailyContextDeltaV1? {
+        val sleep = if (new.sleepHours != old.sleepHours) new.sleepHours else null
+        val readiness =
+            if (new.readinessScore != old.readinessScore) new.readinessScore else null
+        val napped = if (new.isNapped != old.isNapped) new.isNapped else null
 
-                encodeDelta(
-                    DailyContextDeltaV1(
-                        id = new.id,
-                        sleepHours = sleep,
-                        readinessScore = readiness,
-                        isNapped = napped
-                    )
-                )
-            }
-        }
+        if (sleep == null && readiness == null && napped == null) return null
+
+        return DailyContextDeltaV1(
+            id = new.id,
+            sleepHours = sleep,
+            readinessScore = readiness,
+            isNapped = napped
+        )
     }
 
     /**
@@ -85,19 +78,21 @@ class DailyContextCodecV1(
     @OptIn(ExperimentalSerializationApi::class)
     override fun decode(
         bytes: ByteArray,
-        context: DecodeContext
+        context: DecodeContext,
+        existing: DailyContext?
     ): DailyContext {
         val delta = ProtoBuf.decodeFromByteArray(DailyContextDeltaV1.serializer(), bytes)
 
         return DailyContext(
-            id = context.id,
+            id = context.candidateKey,
             hlc = context.hlc,
             lastModified = context.lastModified,
-            epochDay = context.id.toLong(),
-            sleepHours = delta.sleepHours ?: 0.0,
-            readinessScore = delta.readinessScore ?: 0,
-            isNapped = delta.isNapped ?: false,
-            isDeleted = delta.isDeleted
+            epochDay = context.candidateKey.toLong(),
+
+            sleepHours = delta.sleepHours ?: existing?.sleepHours ?: 0.0,
+            readinessScore = delta.readinessScore ?: existing?.readinessScore ?: 0,
+            isNapped = delta.isNapped ?: existing?.isNapped,
+            isDeleted = delta.isDeleted ?: existing?.isDeleted ?: false
         )
     }
 
@@ -158,7 +153,7 @@ class DailyContextCodecV1(
 
     @OptIn(ExperimentalSerializationApi::class)
     private fun encodeDelta(delta: DailyContextDeltaV1): ByteArray {
-        return ProtoBuf.encodeToByteArray(DailyContextDeltaV1.serializer(),delta)
+        return ProtoBuf.encodeToByteArray(DailyContextDeltaV1.serializer(), delta)
     }
 
 }

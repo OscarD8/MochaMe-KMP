@@ -29,35 +29,30 @@ internal class DefaultDailyContextRepository(
     FeatureContext.Type.BIO_DAILY_CONTEXT,
     codecRouter,
     deps,
-    logger = logger.withTags(
-        layer = LogTags.Layer.REPO,
-        domain = LogTags.Domain.BIO,
-        className = "BioRepo"
-    )
+    logger = logger.withTags(LogTags.Layer.REPO, LogTags.Domain.BIO, "BioRepo")
 ), DailyContextRepository {
 
     override suspend fun establishDay(
         sleepHours: Double,
         readinessScore: Int,
-        isNapped: Boolean
+        isNapped: Boolean?
     ): DailyContext {
         val mochaDay = timeUtils.getMochaDay()
         val id = mochaDay.toString()
+        val draftContext = DailyContext(
+            id = id,
+            epochDay = mochaDay,
+            sleepHours = sleepHours,
+            readinessScore = readinessScore,
+            isNapped = isNapped,
+            lastModified = timeUtils.now().toEpochMilliseconds()
+        )
 
         return processIntent(
             candidateKey = id,
             op = MutationOp.UPSERT,
             fetchExistingState = { bioDao.getContextById(id)?.toDomain() },
-            computeChange = { existing ->
-                meldState(
-                    id,
-                    mochaDay,
-                    sleepHours,
-                    readinessScore,
-                    isNapped,
-                    existing
-                )
-            },
+            computeChange = { existing -> compactState(draftContext, existing) },
             persist = { stamped ->
                 bioDao.upsert(stamped.toEntity())
                 return@processIntent stamped
@@ -81,9 +76,7 @@ internal class DefaultDailyContextRepository(
                     ?.takeIf { !it.isDeleted }
                     ?.toDomain()
             },
-            computeChange = { existing ->
-                existing?.copy(isDeleted = true)
-            },
+            computeChange = { existing -> existing?.copy(isDeleted = true) },
             persist = { tombstone ->
                 bioDao.markAsDeleted(
                     tombstone.id,
@@ -120,26 +113,22 @@ internal class DefaultDailyContextRepository(
     }
 
     // --- HELPERS ---
-    private fun meldState(
-        newId: String,
-        currentDay: Long,
-        sleepHours: Double,
-        readinessScore: Int,
-        isNapped: Boolean,
+    override suspend fun compactState(
+        newState: DailyContext,
         existing: DailyContext?
     ): DailyContext {
         return existing?.copy(
-            sleepHours = sleepHours,
-            readinessScore = readinessScore,
-            isNapped = isNapped,
-            isDeleted = false
+            sleepHours = newState.sleepHours,
+            readinessScore = newState.readinessScore,
+            isNapped = newState.isNapped,
+            lastModified = newState.lastModified
         ) ?: DailyContext(
-            id = newId,
-            epochDay = currentDay,
-            sleepHours = sleepHours,
-            readinessScore = readinessScore,
-            isNapped = isNapped,
-            isDeleted = false,
+            id = newState.id,
+            epochDay = newState.epochDay,
+            sleepHours = newState.sleepHours,
+            readinessScore = newState.readinessScore,
+            isNapped = newState.isNapped,
+            lastModified = newState.lastModified
         )
     }
 }

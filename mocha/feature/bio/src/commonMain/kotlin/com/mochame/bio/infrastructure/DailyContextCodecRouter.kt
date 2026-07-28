@@ -4,8 +4,8 @@ import co.touchlab.kermit.Logger
 import com.mochame.bio.domain.DailyContext
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
-import com.mochame.sync.spi.serialization.BaseFeatureCodecRouter
-import com.mochame.sync.spi.serialization.FeatureCodecRouter
+import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodecRouter
+import com.mochame.sync.spi.infrastructure.serialization.FeatureCodecRouter
 import org.koin.core.annotation.Single
 
 @Single(binds = [FeatureCodecRouter::class])
@@ -15,5 +15,5 @@ internal class DailyContextCodecRouter(
 ) : BaseFeatureCodecRouter<DailyContext>(
     versionRegistry = arrayOf(null, v1),
     latestVersion = 1,
-    logger = logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.BIO, "DayRtr")
+    logger = logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.BIO, "DyCRtr")
 )

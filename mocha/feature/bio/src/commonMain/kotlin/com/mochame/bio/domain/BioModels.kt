@@ -10,12 +10,12 @@ import com.mochame.sync.api.models.LocalFirstEntity
 data class DailyContext(
     override val id: String,
     override val hlc: HLC = HLC.EMPTY,
+    override val isDeleted: Boolean = false,
     val epochDay: Long,
     val sleepHours: Double,
     val readinessScore: Int,
-    val isNapped: Boolean = false,
-    val isDeleted: Boolean = false,
-    val lastModified: Long = 0L
+    val isNapped: Boolean? = null,
+    val lastModified: Long
 ) : LocalFirstEntity<DailyContext> {
 
     override fun withHlc(hlc: HLC): DailyContext = copy(hlc = hlc)

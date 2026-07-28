@@ -1,4 +1,4 @@
-package com.mochame.sync.spi.serialization
+package com.mochame.sync.spi.infrastructure.serialization
 
 import com.mochame.sync.api.exceptions.MochaException
 

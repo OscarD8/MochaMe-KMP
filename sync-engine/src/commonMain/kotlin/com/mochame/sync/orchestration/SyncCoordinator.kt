@@ -177,7 +177,7 @@ internal class SyncCoordinator(
 
     private fun extractContext(intent: SyncIntent) = DecodeContext(
         featureSchemaVersion = intent.featureSchemaVersion,
-        id = intent.candidateKey,
+        candidateKey = intent.candidateKey,
         hlc = intent.hlc,
         lastModified = intent.createdAt,
         op = intent.operation

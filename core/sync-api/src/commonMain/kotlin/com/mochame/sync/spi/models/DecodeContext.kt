@@ -5,7 +5,7 @@ import com.mochame.sync.api.models.HLC
 
 data class DecodeContext(
     val featureSchemaVersion: Int,
-    val id: String,
+    val candidateKey: String,
     val hlc: HLC,
     val op: MutationOp,
     val lastModified: Long

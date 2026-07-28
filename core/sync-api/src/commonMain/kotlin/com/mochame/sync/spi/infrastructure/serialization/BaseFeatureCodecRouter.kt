@@ -1,4 +1,4 @@
-package com.mochame.sync.spi.serialization
+package com.mochame.sync.spi.infrastructure.serialization
 
 import co.touchlab.kermit.Logger
 import com.mochame.sync.api.models.LocalFirstEntity
@@ -12,8 +12,8 @@ abstract class BaseFeatureCodecRouter<T : LocalFirstEntity<T>>(
 
     override fun routedEncode(new: T, old: T?): ByteArray? = latestCodec.encode(new, old)
 
-    override fun routedDecode(data: ByteArray, context: DecodeContext): T =
-        getCodec(context.featureSchemaVersion).decode(data, context)
+    override fun routedDecode(data: ByteArray, context: DecodeContext, existing: T?): T =
+        getCodec(context.featureSchemaVersion).decode(data, context, existing)
 
     override fun routedReconstructSummary(
         data: ByteArray,

@@ -12,9 +12,9 @@ import com.mochame.sync.spi.models.DecodeContext
 import com.mochame.sync.api.models.HLC
 import com.mochame.sync.api.models.LocalFirstEntity
 import com.mochame.sync.spi.models.SyncIntent
-import com.mochame.sync.spi.serialization.FeatureCodec
+import com.mochame.sync.spi.infrastructure.serialization.FeatureCodec
 import com.mochame.sync.spi.infrastructure.SyncReceiver
-import com.mochame.sync.spi.serialization.FeatureCodecRouter
+import com.mochame.sync.spi.infrastructure.serialization.FeatureCodecRouter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -34,7 +34,7 @@ import kotlin.time.TimeSource
 @Single(binds = [SyncReceiver::class])
 abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     override val featureContext: FeatureContext,
-    protected val codecRouter: FeatureCodecRouter<T, FeatureCodec<T>>,
+    protected val codec: FeatureCodecRouter<T, FeatureCodec<T>>,
     protected val deps: LocalFirstDependencies,
     protected val logger: Logger
 ) : SyncReceiver {
@@ -81,7 +81,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                     return@execute onSkip(existingState)
                 }
 
-                // Transformation & State Validation
+                // Compaction & State Validation
                 val provisionalState = computeChange(existingState)
                 val validatedState =
                     validateMutationOrAbort(op, provisionalState, candidateKey)
@@ -101,10 +101,10 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                     )
                 } else {
                     // probably need to handle some exceptions around here
-                    val payload = codecRouter.routedEncode(stampedState, existingState)
+                    val payload = codec.routedEncode(stampedState, existingState)
                         ?: return@execute onSkip(existingState)
                     val summary =
-                        codecRouter.routedSummarize(stampedState, existingState)
+                        codec.routedSummarize(stampedState, existingState)
 
                     handleStagingAndLocalCommit(
                         candidateKey = candidateKey,
@@ -124,19 +124,16 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     override suspend fun processRemoteIntent(
         context: DecodeContext,
         payload: ByteArray,
-    ) {
-        val remoteEntity = codecRouter.routedDecode(payload, context)
+    ) = processIntent(
+        candidateKey = context.candidateKey,
+        incomingHlc = context.hlc,
+        op = context.op,
+        fetchExistingState = { fetch(context.candidateKey) },
+        computeChange = { existing -> codec.routedDecode(payload, context, existing) },
+        persist = { stamped -> save(stamped) },
+        onSkip = { old -> logger.v { "Remote intent skipped: $old." } }
+    )
 
-        processIntent(
-            candidateKey = remoteEntity.id,
-            incomingHlc = context.hlc,
-            op = context.op,
-            fetchExistingState = { fetch(context.id) },
-            computeChange = { remoteEntity }, // The change is just the remote state
-            persist = { stamped -> save(stamped) },
-            onSkip = { old -> logger.v { "Remote intent skipped: $old." } }
-        )
-    }
 
     protected suspend inline fun <R> handleRemoteCommit(
         candidateKey: String,
@@ -158,13 +155,18 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             localResult
         }
 
-        logger.i { "SyncIntent persisted locally | Key: $candidateKey | HLC: $hlc".withTimer(mark) }
+        logger.i {
+            "SyncIntent persisted locally | Key: $candidateKey | HLC: $hlc".withTimer(
+                mark
+            )
+        }
         return result
     }
 
     // --- Features only required to implement these methods ---
     protected abstract suspend fun fetch(id: String): T?
     protected abstract suspend fun save(entity: T)
+    protected abstract suspend fun compactState(newState: T, existing: T?): T
 
     // --- HELPERS ---
     /**
@@ -277,7 +279,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
 
         deps.intentStore.recordIntent(
             SyncIntent(
-                featureSchemaVersion = codecRouter.latestVersion, // guaranteed to not have changed
+                featureSchemaVersion = codec.latestVersion, // guaranteed to not have changed
                 hlc = hlc,
                 candidateKey = candidateKey,
                 featureContext = featureContext,

@@ -14,6 +14,7 @@ package com.mochame.sync.api.models
  */
 interface LocalFirstEntity<T : LocalFirstEntity<T>> {
     val id: String
+    val isDeleted: Boolean
     val hlc: HLC
     fun withHlc(hlc: HLC): T
     fun withPhysicalTime(time: Long): T
