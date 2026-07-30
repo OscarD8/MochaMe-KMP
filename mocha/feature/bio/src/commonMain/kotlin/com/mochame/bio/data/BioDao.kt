@@ -17,22 +17,6 @@ interface BioDao {
     suspend fun upsert(context: DailyContextEntity)
 
     /**
-     * The Conflict Resolver:
-     * Handles incoming Cloud changes by comparing Hybrid Logical Clocks.
-     * This method handles both remote updates and remote tombstones (deletions).
-     */
-    @Transaction
-    suspend fun resolveSync(incoming: DailyContextEntity) {
-        val local = getContextById(incoming.id)
-
-        // 1. If no local record existsInCommitted, or the incoming HLC is logically "newer"
-        //    (Alphabetical comparison works perfectly for HLC strings)
-        if (local == null || incoming.hlc > local.hlc) {
-            upsert(incoming)
-        }
-    }
-
-    /**
      * Logical Delete:
      * We no longer use 'DELETE FROM'. We flip the bit and update the HLC.
      */

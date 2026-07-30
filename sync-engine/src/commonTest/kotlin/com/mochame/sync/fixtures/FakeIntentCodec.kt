@@ -1,4 +1,4 @@
-package com.mochame.sync.fakes
+package com.mochame.sync.fixtures
 
 import com.mochame.utils.fixtures.TestHlcFactory
 import com.mochame.sync.spi.models.SyncIntent

@@ -16,6 +16,7 @@ interface LocalFirstEntity<T : LocalFirstEntity<T>> {
     val id: String
     val isDeleted: Boolean
     val hlc: HLC
+    val lastModified: Long
     fun withHlc(hlc: HLC): T
-    fun withPhysicalTime(time: Long): T
+    fun markDeleted(): T
 }

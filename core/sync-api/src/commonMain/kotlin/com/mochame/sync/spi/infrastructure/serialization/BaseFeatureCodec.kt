@@ -1,5 +1,6 @@
 package com.mochame.sync.spi.infrastructure.serialization
 
+import co.touchlab.kermit.Logger
 import com.mochame.sync.api.models.LocalFirstEntity
 import com.mochame.sync.spi.infrastructure.BufferProvider
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -14,7 +15,8 @@ import kotlinx.serialization.protobuf.ProtoBuf
  */
 abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : Any>(
     override val bufferProvider: BufferProvider,
-    private val deltaSerializer: KSerializer<D>
+    private val deltaSerializer: KSerializer<D>,
+    protected val logger: Logger
 ) : FeatureCodec<T> {
 
     @OptIn(ExperimentalSerializationApi::class)

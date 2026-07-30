@@ -18,8 +18,8 @@ import com.mochame.sync.di.SyncOrchestrationModule
 import com.mochame.sync.di.domain.SyncPruneIntentsTestModule
 import com.mochame.sync.di.hlc.FakeHlcFactoryModule
 import com.mochame.sync.domain.config.JanitorMaintenanceConfig
-import com.mochame.sync.fakes.FakeHlcFactory
-import com.mochame.sync.fakes.FakeSyncIntentStore
+import com.mochame.sync.fixtures.FakeHlcFactory
+import com.mochame.sync.fixtures.FakeSyncIntentStore
 import com.mochame.sync.infrastructure.stores.DefaultBlobStore
 import com.mochame.sync.orchestration.SyncJanitor
 import com.mochame.utils.fixtures.FakeTimeProvider

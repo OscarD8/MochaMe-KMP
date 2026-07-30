@@ -29,6 +29,6 @@ fun <T : RoomDatabase> RoomDatabase.Builder<T>.applyMochaDefaults(
     .fallbackToDestructiveMigration(dropAllTables = true)
     .addCallback(object : RoomDatabase.Callback() {
         override fun onOpen(connection: SQLiteConnection) {
-            connection.execSQL("PRAGMA busy_timeout = 500;")
+            connection.execSQL("PRAGMA busy_timeout = 4000;")
         }
     })

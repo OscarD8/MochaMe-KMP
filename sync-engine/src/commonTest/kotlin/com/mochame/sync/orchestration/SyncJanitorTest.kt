@@ -14,7 +14,7 @@ import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.api.models.HLC
 import com.mochame.sync.di.janitor.JanitorTestApp
 import com.mochame.sync.di.janitor.JanitorTestEnv
-import com.mochame.sync.fakes.createTestSyncIntent
+import com.mochame.sync.fixtures.createTestSyncIntent
 import com.mochame.sync.spi.node.NodeContext
 import com.mochame.utils.fixtures.TestPayloads
 import kotlinx.coroutines.ExperimentalCoroutinesApi

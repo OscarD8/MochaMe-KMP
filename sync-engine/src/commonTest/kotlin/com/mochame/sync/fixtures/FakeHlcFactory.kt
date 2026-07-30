@@ -1,4 +1,4 @@
-package com.mochame.sync.fakes
+package com.mochame.sync.fixtures
 
 import co.touchlab.kermit.Logger
 import com.mochame.sync.api.infrastructure.HlcFactory

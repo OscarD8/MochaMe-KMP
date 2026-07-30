@@ -3,6 +3,7 @@ package com.mochame.bio.data
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.mochame.sync.common.TriState
 
 @Entity(
     tableName = "daily_context",
@@ -18,7 +19,7 @@ data class DailyContextEntity(
     val epochDay: Long,
     val sleepHours: Double,
     val readinessScore: Int = 0,
-    val isNapped: Boolean? = false,
+    val isNapped: TriState = TriState.UNSET,
     val isDeleted: Boolean = false,
     val lastModified: Long
 )

@@ -20,31 +20,33 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.io.Buffer
 import org.koin.core.annotation.Single
+import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.TimeSource
 
 /**
  * The default logic for local-first data mutations.
- *
- * This chassis ensures that any change to local state is atomically bound
- * to a [SyncIntent].
+ * Ensures any change to local state is atomically bound to a [SyncIntent].
  *
  * @param T The entity type, adhering to the [LocalFirstEntity] contract.
  */
 @Single(binds = [SyncReceiver::class])
 abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     override val featureContext: FeatureContext,
-    protected val codec: FeatureCodecRouter<T, FeatureCodec<T>>,
-    protected val deps: LocalFirstDependencies,
+    @PublishedApi internal val deps: LocalFirstDependencies,
+    @PublishedApi internal val codec: FeatureCodecRouter<T, FeatureCodec<T>>,
     protected val logger: Logger
-) : SyncReceiver {
+) : SyncReceiver { // composition would have been better
 
     /**
      * All local persistence performed by any feature's repository funnels through this method,
      * whether that be as a result of an outbound or an inbound intent.
      * * Ensures database lockouts are handled gracefully.
-     * * A locker is used to ensure that any single candidate key operation can only occur synchronously
-     * in the case that a local operation is processing an intent at the same moment as a sync intent comes in.
+     * * A locker is used to ensure that any single candidate key operation is sequential
+     * in the case that a local operation is processing an intent at the same moment as a remote intent comes in.
+     * The current design holds any potential delay of the executor within the mutex lock.
+     * * Remote processing expects a batch process, and therefore requires the execution policy and
+     * any Transactor declarations to be declared at the batch orchestration level.
      * @param candidateKey the item (either fetched remotely, or from a local UI event) to be persisted locally.
      * @param incomingHlc used when the SyncCoordinator is calling to process an intent. Forks how we process the intent.
      * @param op the DML operation for the intent. Required for metadata, logging, and state verification.
@@ -53,174 +55,262 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
      * @param persist after verifying and stamping the feature state change, the finalized state is persisted atomically alongside sync payloads/metadata.
      * @param onSkip offers a type-safe way to return R. Potential case of multiple concurrent requests to processing the same intent -
      * these will fail when accessing the database write lock, causing duplicate intents to [FeatureCodecRouter.routedEncode] a state that already existsInCommitted, triggering onSkip.
+     *
+     * * [R] Return type of any persistence definition, allowing differentiation between
+     * the type of data being processed and the type to be returned (e.g. a delete count).
+     * * [T] The defined [LocalFirstEntity] involved in processing existing model confirmation, compaction, [HLC] stamping, and local persistence.
      */
-    protected suspend inline fun <R> processIntent(
+    @PublishedApi
+    internal suspend inline fun <R> processIntent(
         candidateKey: String,
         incomingHlc: HLC? = null,
         op: MutationOp,
         crossinline fetchExistingState: suspend () -> T?,
-        crossinline computeChange: suspend (existing: T?) -> T?,
+        crossinline computeChange: suspend (existing: T?) -> T,
         crossinline persist: suspend (stamped: T) -> R,
-        crossinline onSkip: (existing: T?) -> R
+        crossinline onSkip: (fallback: T) -> R
     ): R = withContext(deps.ioContext) {
-
         ensureReady()
-        val isRemoteIntent = incomingHlc != null
 
         deps.locker.withLock(candidateKey) {
-            deps.executor.execute("[${featureContext}_$op]") {
-                val existingState = fetchExistingState()
-
-                // Initial state verification & LWW Checks
-                if (existingState != null && !deps.hlcFactory.isValid(existingState.hlc)) {
-                    throw MochaException.Persistent.CorruptionDetected("Invalid HLC [${existingState.hlc}] for $candidateKey")
-                }
-
-                if (isRemoteIntent && existingState != null && incomingHlc <= existingState.hlc) {
-                    logger.d { "Local item [$candidateKey / ${existingState.hlc}] rejected incoming $op [$incomingHlc]." }
-                    return@execute onSkip(existingState)
-                }
-
-                // Compaction & State Validation
-                val provisionalState = computeChange(existingState)
-                val validatedState =
-                    validateMutationOrAbort(op, provisionalState, candidateKey)
-                        ?: return@execute onSkip(existingState)
-
-                // HLC Advancement
-                incomingHlc?.let { deps.hlcFactory.witness(it) }
-                val hlc = incomingHlc ?: deps.hlcFactory.getNextHlc()
-                val stampedState = validatedState.withHlc(hlc)
-
-                // Fork depending on commit strategy (encoding/staging/ledgering)
-                return@execute if (isRemoteIntent) {
-                    handleRemoteCommit(
+            if (incomingHlc != null) {
+                executeIntentPipeline(
+                    candidateKey = candidateKey,
+                    incomingHlc = incomingHlc,
+                    op = op,
+                    fetchExistingState = fetchExistingState,
+                    computeChange = computeChange,
+                    persist = persist,
+                    onSkip = onSkip
+                )
+            } else {
+                deps.executor.execute("[${featureContext}_$op]") {
+                    executeIntentPipeline(
                         candidateKey = candidateKey,
-                        hlc = hlc,
-                        persistAction = { persist(stampedState) }
-                    )
-                } else {
-                    // probably need to handle some exceptions around here
-                    val payload = codec.routedEncode(stampedState, existingState)
-                        ?: return@execute onSkip(existingState)
-                    val summary =
-                        codec.routedSummarize(stampedState, existingState)
-
-                    handleStagingAndLocalCommit(
-                        candidateKey = candidateKey,
+                        incomingHlc = incomingHlc,
                         op = op,
-                        hlc = hlc,
-                        payload = payload,
-                        summary = summary,
-                        persistAction = { persist(stampedState) }
+                        fetchExistingState = fetchExistingState,
+                        computeChange = computeChange,
+                        persist = persist,
+                        onSkip = onSkip
                     )
                 }
             }
         }
     }
 
-    // If this process fails, we have the intent. It must be ensured that the intent record
-    // is not updated to a status that will prune it until we have confirmation of the below
-    override suspend fun processRemoteIntent(
-        context: DecodeContext,
-        payload: ByteArray,
-    ) = processIntent(
-        candidateKey = context.candidateKey,
-        incomingHlc = context.hlc,
-        op = context.op,
-        fetchExistingState = { fetch(context.candidateKey) },
-        computeChange = { existing -> codec.routedDecode(payload, context, existing) },
-        persist = { stamped -> save(stamped) },
-        onSkip = { old -> logger.v { "Remote intent skipped: $old." } }
-    )
-
-
-    protected suspend inline fun <R> handleRemoteCommit(
+    @PublishedApi
+    internal suspend inline fun <R> executeIntentPipeline(
         candidateKey: String,
-        hlc: HLC,
-        crossinline persistAction: suspend () -> R
+        incomingHlc: HLC?,
+        op: MutationOp,
+        crossinline fetchExistingState: suspend () -> T?,
+        crossinline computeChange: suspend (existing: T?) -> T,
+        crossinline persist: suspend (stamped: T) -> R,
+        crossinline onSkip: (fallback: T) -> R
     ): R {
-        val mark = TimeSource.Monotonic.markNow()
-        val result = deps.transactor.runImmediateTransaction {
-            // If a newer remote change arrives, any pending local
-            // work for this key is now obsolete.
-            // I just don't get why Gemini did the below but leaving here for now
-//            syncIntentStore.getPendingByCandidateKey(candidateKey, module)?.let {
-//                syncIntentStore.discardIntent(it.hlc)
-//            }
+        val existingState = fetchExistingState()
 
-            deps.nodeManager.updateHlcFloor(hlc)
-            val localResult = persistAction()
-
-            localResult
+        // 1. Initial state verification & LWW Checks
+        validateLwwRejection(existingState, incomingHlc, candidateKey)?.let {
+            rejectedState -> return onSkip(rejectedState)
         }
 
-        logger.i {
-            "SyncIntent persisted locally | Key: $candidateKey | HLC: $hlc".withTimer(
-                mark
+        if (op == MutationOp.DELETE && isGhostDelete(existingState, candidateKey)) {
+            return onSkip(existingState!!)
+        }
+
+        val provisionalState = computeChange(existingState)
+        val stampedState = stampWithHlc(provisionalState, incomingHlc)
+
+        return if (incomingHlc != null) {
+            persist(stampedState)
+        } else {
+            handleLocalCommit(
+                candidateKey = candidateKey,
+                op = op,
+                stampedState = stampedState,
+                existingState = existingState,
+                persistAction = { persist(stampedState) },
+                onSkipAction = { onSkip(stampedState) }
             )
         }
-        return result
     }
 
-    // --- Features only required to implement these methods ---
+
+    // -----------------------------------------------------------
+    // ACCESS
+    // -----------------------------------------------------------
+    protected suspend inline fun synchronizedUpsert(
+        candidateKey: String,
+        incomingHlc: HLC? = null,
+        op: MutationOp = MutationOp.UPSERT,
+        crossinline fetchExistingState: suspend () -> T?,
+        crossinline computeChange: suspend (existing: T?) -> T,
+        crossinline persist: suspend (stamped: T) -> T,
+        crossinline onSkip: (fallback: T) -> T = { it }
+    ): T = processIntent(
+        candidateKey,
+        incomingHlc,
+        op,
+        fetchExistingState,
+        computeChange,
+        persist,
+        onSkip
+    )
+
+    /**
+     * Convenience overload providing the default soft-delete logic.
+     * Suspend functional parameters with default values are not yet supported in inline functions.
+     */
+    protected suspend inline fun synchronizedDelete(
+        candidateKey: String,
+        incomingHlc: HLC? = null,
+        crossinline fetchExistingState: suspend () -> T?,
+        crossinline persist: suspend (stamped: T) -> Int,
+        crossinline onSkip: (fallback: T) -> Int = { 0 }
+    ): Int = synchronizedDelete(
+        candidateKey = candidateKey,
+        incomingHlc = incomingHlc,
+        fetchExistingState = fetchExistingState,
+        computeChange = { it!!.markDeleted() },
+        persist = persist,
+        onSkip = onSkip
+    )
+
+    protected suspend inline fun synchronizedDelete(
+        candidateKey: String,
+        incomingHlc: HLC? = null,
+        crossinline fetchExistingState: suspend () -> T?,
+        crossinline computeChange: suspend (existing: T?) -> T,
+        crossinline persist: suspend (stamped: T) -> Int,
+        crossinline onSkip: (fallback: T) -> Int = { 0 }
+    ): Int = processIntent(
+        candidateKey = candidateKey,
+        incomingHlc = incomingHlc,
+        op = MutationOp.DELETE,
+        fetchExistingState = fetchExistingState,
+        computeChange = computeChange,
+        persist = persist,
+        onSkip = onSkip
+    )
+
+    /**
+     * If this process fails, the intent is persisted already. It must be ensured that the intent record
+     * is not updated to a status that marks it for pruning until confirmation of the below.
+     */
+    override suspend fun processRemoteIntent(
+        context: DecodeContext,
+        payload: ByteArray?,
+    ) {
+        if (payload == null) {
+            if (context.overflowBlobId == null) {
+                logger.e { "Should not have received null payload with no overflowId for ${context.candidateKey}." }
+                throw MochaException.Persistent.CorruptionDetected("Should not have received null payload with no overflowId for ${context.candidateKey}")
+            }
+            // Intent is persisted
+            logger.d { "Branching to overflow processing. [Key: ${context.candidateKey}] [blobId: ${context.overflowBlobId}]." }
+        }
+
+        processIntent(
+            candidateKey = context.candidateKey,
+            incomingHlc = context.hlc,
+            op = context.op,
+            fetchExistingState = { fetch(context.candidateKey) },
+            computeChange = { codec.routedDecode(payload!!, context, it) },
+            persist = { stamped -> save(stamped) },
+            onSkip = { logger.v { "Remote intent skipped. ID:${it.id}. HLC: ${it.hlc}" } }
+        )
+    }
+
+    // --- Features required to implement these methods ---
     protected abstract suspend fun fetch(id: String): T?
     protected abstract suspend fun save(entity: T)
     protected abstract suspend fun compactState(newState: T, existing: T?): T
 
-    // --- HELPERS ---
-    /**
-     * Primarily concerned with deletion intents, identifying ghost deletes and
-     * a safety barrier against any other DML action that unexpectedly produces
-     * null. If this is the case, the process execution cannot continue.
-     */
-    protected fun validateMutationOrAbort(
-        op: MutationOp,
-        provisionalState: T?,
-        candidateKey: String,
+
+    // -----------------------------------------------------------
+    // HELPERS
+    // -----------------------------------------------------------
+    @PublishedApi
+    internal fun validateLwwRejection(
+        existingState: T?,
+        incomingHlc: HLC?,
+        candidateKey: String
     ): T? {
-        if (op == MutationOp.DELETE && provisionalState == null) {
-            logger.d { "Ghost Delete detected for $candidateKey. Aborting intent." }
-            return null
+        if (existingState == null) return null
+
+        if (!deps.hlcFactory.isValid(existingState.hlc)) {
+            throw MochaException.Persistent.CorruptionDetected("Invalid HLC [${existingState.hlc}] for $candidateKey")
         }
-        if (provisionalState == null) {
-            // when does deleteBlobByHash come into it?
-            logger.d { "$candidateKey produced a null state for an intent out of a deleteBlobByHash context?.. Cannot stamp." }
-            return null
+
+        if (incomingHlc != null && incomingHlc <= existingState.hlc) {
+            logger.d { "Local item [$candidateKey / ${existingState.hlc}] rejected incoming $incomingHlc." }
+            return existingState
         }
-        return provisionalState
+
+        return null
     }
 
-    protected suspend inline fun <R> handleStagingAndLocalCommit(
+    @PublishedApi
+    internal fun isGhostDelete(existing: T?, candidateKey: String): Boolean {
+        if (existing == null)
+            throw MochaException.Persistent.StateIssue("Delete attempt against non-existent record. Key: $candidateKey.")
+
+        if (existing.isDeleted) {
+            logger.d { "Ghost Delete detected for $candidateKey. Aborting intent." }
+            return true
+        }
+
+        return false
+    }
+
+    @PublishedApi
+    internal suspend fun stampWithHlc(
+        provisionalState: T,
+        incomingHlc: HLC?
+    ): T {
+        val hlc = incomingHlc?.also { deps.hlcFactory.witness(it) }
+            ?: deps.hlcFactory.getNextHlc()
+        return provisionalState.withHlc(hlc)
+    }
+
+    @PublishedApi
+    internal suspend fun <R> handleLocalCommit(
         candidateKey: String,
         op: MutationOp,
-        hlc: HLC,
-        payload: ByteArray,
-        summary: String,
-        crossinline persistAction: suspend () -> R
+        stampedState: T,
+        existingState: T?,
+        persistAction: suspend () -> R,
+        onSkipAction: () -> R
     ): R {
+        val payload = codec.routedEncode(stampedState, existingState)
+            ?: return onSkipAction()
+
+        val summary = codec.routedSummarize(stampedState, existingState)
+        val hlc = stampedState.hlc
         val tMark = TimeSource.Monotonic.markNow()
+
         var blobId: String? = null
         var dbCommitted = false
 
         try {
-            // Check if External IO needed (bigger blob)
             if (payload.size > 64_000) {
                 blobId = deps.blobStore.stage(Buffer().also { it.write(payload) })
-                logger.i { "Required staged payload: blobId $blobId [${payload.size / 1024}KB | Key: $candidateKey." }
+                logger.i { "Required staged payload: blobId $blobId [${payload.size / 1024}KB | Key: $candidateKey]" }
             }
 
-            // Atomic DB Commit for sync intent & local persistence
             val mark = TimeSource.Monotonic.markNow()
+
             val result = deps.transactor.runImmediateTransaction {
                 val localResult = persistAction()
                 recordIntent(
-                    candidateKey,
-                    op,
-                    hlc,
-                    if (blobId == null) payload else null,
-                    blobId,
-                    summary
+                    candidateKey = candidateKey,
+                    op = op,
+                    hlc = hlc,
+                    payload = if (blobId == null) payload else null,
+                    blobId = blobId,
+                    diagnosticSummary = summary
                 )
                 deps.nodeManager.updateHlcFloor(hlc)
                 localResult
@@ -230,25 +320,20 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                 logger.v { "Local DB Transaction Committed".withTimer(mark) }
             }
 
-            // Commit the blob (sync intent commit means it cannot be orphaned)
             blobId?.also {
                 deps.blobStore.commit(it)
-                logger.i {
-                    "Intent Dispatched | Op: $op | Key: $candidateKey.".withTimer(tMark)
-                }
+                logger.i { "Intent Dispatched | Op: $op | Key: $candidateKey".withTimer(tMark) }
             }
 
             return result
         } catch (e: Exception) {
             if (blobId != null) {
-                // if an exception happened and we have an overflow
                 if (!dbCommitted) {
                     deps.blobStore.abort(blobId).also {
                         logger.e { "Mutation Failed: Blob Aborted | HLC: $hlc | BlobID: $it | Reason: ${e.message}" }
                     }
                 } else {
                     logger.w(e) { "Post-Commit IO Failure: Blob $blobId stranded in /pending. Janitor will reconcile [${e.message}]." }
-                    // Update the status of the SyncIntent? New status?
                     throw MochaException.Transient.BlobResolutionPending(blobId)
                 }
             } else {
@@ -267,16 +352,6 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         blobId: String?,
         diagnosticSummary: String
     ) {
-        val pending = deps.intentStore.getPendingByCandidateKey(candidateKey)
-
-        val effectiveCreatedAt = resolvePruningTimestamp(pending, op, hlc.ts)
-
-        // Compaction
-        pending?.let {
-            logger.i { "Compacting Intent | Replacing HLC [${it.hlc}] with [$hlc] for Key [$candidateKey]" }
-            deps.intentStore.discardIntent(it.hlc)
-        }
-
         deps.intentStore.recordIntent(
             SyncIntent(
                 featureSchemaVersion = codec.latestVersion, // guaranteed to not have changed
@@ -285,7 +360,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                 featureContext = featureContext,
                 operation = op,
                 syncStatus = SyncStatus.PENDING,
-                createdAt = effectiveCreatedAt,
+                createdAt = Clock.System.now().toEpochMilliseconds(),
                 payload = payload,
                 overflowBlobId = blobId,
                 diagnosticSummary = diagnosticSummary
@@ -293,6 +368,12 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         )
     }
 
+    /**
+     * Originally existed for compaction of SyncIntent models, but
+     * as each intent only holds the implicit change in its payload,
+     * current design now does not compact pending intents before sync
+     * and will sync all changes causally.
+     */
     protected fun resolvePruningTimestamp(
         pending: SyncIntent?,
         currentOp: MutationOp,
@@ -311,7 +392,8 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     /**
      * Timeout and error handling for the Janitor's boot sequence.
      */
-    protected suspend fun ensureReady() {
+    @PublishedApi
+    internal suspend fun ensureReady() {
         withTimeout(5_000L.milliseconds) {
             val state =
                 deps.bootStatus.bootState.first { it !is BootState.Initializing && it !is BootState.Idle }

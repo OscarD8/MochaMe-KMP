@@ -1,6 +1,5 @@
-package com.mochame.sync.fakes
+package com.mochame.sync.fixtures
 
-import androidx.sqlite.SQLiteException
 import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.api.models.HLC

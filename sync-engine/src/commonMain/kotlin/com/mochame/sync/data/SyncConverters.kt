@@ -3,8 +3,9 @@ package com.mochame.sync.data
 import androidx.room.TypeConverter
 import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.metadata.MutationOp
-import com.mochame.sync.api.models.HLC
 import com.mochame.sync.api.metadata.SyncStatus
+import com.mochame.sync.api.models.HLC
+import com.mochame.sync.common.TriState
 import kotlin.time.Instant
 
 
@@ -44,6 +45,14 @@ class SyncConverters {
 
     @TypeConverter
     fun toStatus(id: Int): SyncStatus = SyncStatus.fromId(id)
+
+
+    @TypeConverter
+    fun toDb(state: TriState): Int = state.dbValue
+
+    @TypeConverter
+    fun fromDb(value: Int): TriState = TriState.fromDb(value)
+
 
     @TypeConverter
     fun fromContextType(type: FeatureContext.Type?): String? {

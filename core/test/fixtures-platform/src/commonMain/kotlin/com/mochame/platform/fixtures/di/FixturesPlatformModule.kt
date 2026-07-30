@@ -8,9 +8,11 @@ import com.mochame.platform.fixtures.FakeTransactionProvider
 import com.mochame.platform.fixtures.TestWorkspace
 import com.mochame.platform.fixtures.createTestWorkspace
 import com.mochame.support.TestTeardownHook
+import com.mochame.sync.spi.infrastructure.BufferProvider
 import com.mochame.sync.spi.infrastructure.DigestState
 import com.mochame.sync.spi.infrastructure.DigestFactory
 import com.mochame.sync.spi.infrastructure.TransactionProvider
+import kotlinx.io.Buffer
 import kotlinx.io.Source
 import kotlinx.io.files.FileSystem
 import kotlinx.io.files.Path
@@ -23,7 +25,7 @@ import org.koin.core.annotation.Single
 /**
  * Provides a fake platform integration module with no SQLite usage, for Unit testing.
  */
-@Module([TestLoggerModule::class])
+@Module([TestLoggerModule::class, FakeBufferProviderModule::class])
 class FixturesPlatformModule {
 
     @Single(binds = [DigestFactory::class, FakeDigestFactory::class])
@@ -63,6 +65,21 @@ class FixturesPlatformModule {
 
 }
 
+@Module
+class FakeBufferProviderModule {
+    @Single(binds = [BufferProvider::class])
+    fun provideFakeBufferProvider(): BufferProvider {
+        return object : BufferProvider {
+            private val sharedBuffer = Buffer()
+
+            override fun get(): Buffer {
+                sharedBuffer.clear()
+                return sharedBuffer
+            }
+        }
+    }
+}
+
 fun FileSystem.deleteRecursively(path: Path) {
     val metadata = this.metadataOrNull(path) ?: return
     if (metadata.isDirectory) {
@@ -70,3 +87,5 @@ fun FileSystem.deleteRecursively(path: Path) {
     }
     this.delete(path)
 }
+
+

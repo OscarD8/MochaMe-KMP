@@ -2,7 +2,7 @@ package com.mochame.sync.di
 
 import com.mochame.sync.di.blob.SyncBlobStoreTestModule
 import com.mochame.sync.domain.stores.SyncIntentMaintenanceStore
-import com.mochame.sync.fakes.FakeSyncIntentStore
+import com.mochame.sync.fixtures.FakeSyncIntentStore
 import com.mochame.sync.spi.infrastructure.SyncIntentStore
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single

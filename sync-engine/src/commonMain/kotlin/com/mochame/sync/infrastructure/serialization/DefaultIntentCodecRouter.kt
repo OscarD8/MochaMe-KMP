@@ -1,17 +1,16 @@
 package com.mochame.sync.infrastructure.serialization
 
-import com.mochame.sync.spi.infrastructure.serialization.VersionRouter
+import com.mochame.sync.domain.serialization.IntentCodec
+import com.mochame.sync.domain.serialization.IntentCodecRouter
 import com.mochame.sync.spi.infrastructure.serialization.getCodec
 import com.mochame.sync.spi.infrastructure.serialization.latestCodec
 import com.mochame.sync.spi.models.SyncIntent
-import com.mochame.sync.domain.serialization.IntentCodec
-import com.mochame.sync.domain.serialization.IntentCodecRouter
 import org.koin.core.annotation.Single
 
 @Single(binds = [IntentCodecRouter::class])
 internal class DefaultIntentCodecRouter(
     v1: IntentCodecV1,
-) : VersionRouter<IntentCodec>, IntentCodecRouter {
+) : IntentCodecRouter {
 
     override val versionRegistry = arrayOf<IntentCodec?>(null, v1)
     override val latestVersion = 1

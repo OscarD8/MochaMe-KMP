@@ -5,7 +5,7 @@ import com.mochame.utils.fixtures.TestHlcFactory
 import com.mochame.support.runPersistenceEnvironment
 import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.di.data.SyncPersistenceTestApp
-import com.mochame.sync.fakes.createTestIntentEntity
+import com.mochame.sync.fixtures.createTestIntentEntity
 import kotlinx.coroutines.test.TestScope
 import org.koin.dsl.includes
 import org.koin.plugin.module.dsl.koinConfiguration

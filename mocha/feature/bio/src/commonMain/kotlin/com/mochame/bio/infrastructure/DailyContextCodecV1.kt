@@ -5,6 +5,7 @@ import com.mochame.bio.domain.DailyContext
 import com.mochame.sync.spi.infrastructure.BufferProvider
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
+import com.mochame.sync.common.TriState
 import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodec
 import com.mochame.sync.spi.models.DecodeContext
 import com.mochame.utils.readProtobufVarint
@@ -21,8 +22,8 @@ data class DailyContextDeltaV1(
     @ProtoNumber(1) val id: String,
     @ProtoNumber(2) val sleepHours: Double? = null,
     @ProtoNumber(3) val readinessScore: Int? = null,
-    @ProtoNumber(4) val isNapped: Boolean? = null,
-    @ProtoNumber(5) val isDeleted: Boolean? = false
+    @ProtoNumber(4) val isNapped: TriState? = null,
+    @ProtoNumber(5) val isDeleted: Boolean? = null
 )
 
 /**
@@ -30,16 +31,14 @@ data class DailyContextDeltaV1(
  */
 @OptIn(ExperimentalSerializationApi::class)
 @Single
-class DailyContextCodecV1(
+internal class DailyContextCodecV1(
     bufferProvider: BufferProvider,
     logger: Logger
 ) : BaseFeatureCodec<DailyContext, DailyContextDeltaV1>(
     bufferProvider = bufferProvider,
-    deltaSerializer = DailyContextDeltaV1.serializer()
+    deltaSerializer = DailyContextDeltaV1.serializer(),
+    logger = logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.BIO, "DyCdc1")
 ) {
-    private val logger =
-        logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.BIO, "DyCdc1")
-
 
     override fun buildDeleteDelta(entity: DailyContext) = DailyContextDeltaV1(
         id = entity.id,
@@ -91,7 +90,7 @@ class DailyContextCodecV1(
 
             sleepHours = delta.sleepHours ?: existing?.sleepHours ?: 0.0,
             readinessScore = delta.readinessScore ?: existing?.readinessScore ?: 0,
-            isNapped = delta.isNapped ?: existing?.isNapped,
+            isNapped = delta.isNapped ?: existing?.isNapped ?: TriState.UNSET,
             isDeleted = delta.isDeleted ?: existing?.isDeleted ?: false
         )
     }

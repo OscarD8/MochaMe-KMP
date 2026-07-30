@@ -9,9 +9,9 @@ import com.mochame.bio.domain.DailyContextRepository
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.sync.api.metadata.FeatureContext
-import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.api.repository.LocalFirstDependencies
 import com.mochame.sync.api.repository.LocalFirstRepository
+import com.mochame.sync.common.TriState
 import com.mochame.utils.interfaces.MochaTimeProvider
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -27,15 +27,15 @@ internal class DefaultDailyContextRepository(
     deps: LocalFirstDependencies
 ) : LocalFirstRepository<DailyContext>(
     FeatureContext.Type.BIO_DAILY_CONTEXT,
-    codecRouter,
     deps,
+    codecRouter,
     logger = logger.withTags(LogTags.Layer.REPO, LogTags.Domain.BIO, "BioRepo")
 ), DailyContextRepository {
 
     override suspend fun establishDay(
         sleepHours: Double,
         readinessScore: Int,
-        isNapped: Boolean?
+        isNapped: TriState
     ): DailyContext {
         val mochaDay = timeUtils.getMochaDay()
         val id = mochaDay.toString()
@@ -48,45 +48,25 @@ internal class DefaultDailyContextRepository(
             lastModified = timeUtils.now().toEpochMilliseconds()
         )
 
-        return processIntent(
+        return synchronizedUpsert(
             candidateKey = id,
-            op = MutationOp.UPSERT,
             fetchExistingState = { bioDao.getContextById(id)?.toDomain() },
             computeChange = { existing -> compactState(draftContext, existing) },
             persist = { stamped ->
                 bioDao.upsert(stamped.toEntity())
-                return@processIntent stamped
-            },
-            onSkip = { it!! }
+                return@synchronizedUpsert stamped
+            }
         )
     }
 
     /**
      * Currently set to return 0 where there was a skip.
      */
-    override suspend fun deleteContext(epochDay: Long): Int {
-        val id = epochDay.toString()
-
-        return processIntent(
-            candidateKey = id,
-            op = MutationOp.DELETE,
-            fetchExistingState = {
-                bioDao.getContextById(id)
-                    // Gemini noted possible issue here - check bottom note
-                    ?.takeIf { !it.isDeleted }
-                    ?.toDomain()
-            },
-            computeChange = { existing -> existing?.copy(isDeleted = true) },
-            persist = { tombstone ->
-                bioDao.markAsDeleted(
-                    tombstone.id,
-                    tombstone.hlc.toString(),
-                    tombstone.hlc.ts
-                )
-            },
-            onSkip = { 0 }
-        )
-    }
+    override suspend fun deleteContext(epochDay: String) = synchronizedDelete(
+        candidateKey = epochDay,
+        fetchExistingState = { bioDao.getContextById(epochDay)?.toDomain() },
+        persist = { bioDao.markAsDeleted(it.id, it.hlc.toString(), it.hlc.ts) }
+    )
 
     override fun observeContext(epochDay: Long): Flow<DailyContext?> {
         return bioDao.observeContext(epochDay).map { it?.toDomain() }
@@ -104,13 +84,11 @@ internal class DefaultDailyContextRepository(
     override suspend fun getTombstoneCount(): Int = bioDao.getTombstoneCount()
 
     // --- SYNC GATEWAY ---
-    override suspend fun fetch(id: String): DailyContext? {
-        return bioDao.getContextById(id)?.toDomain()
-    }
+    override suspend fun fetch(id: String): DailyContext? =
+        bioDao.getContextById(id)?.toDomain()
 
-    override suspend fun save(entity: DailyContext) {
-        bioDao.upsert(entity.toEntity())
-    }
+    override suspend fun save(entity: DailyContext) = bioDao.upsert(entity.toEntity())
+
 
     // --- HELPERS ---
     override suspend fun compactState(
@@ -135,7 +113,7 @@ internal class DefaultDailyContextRepository(
 
 
 /*
-The Tombstone Trap in deleteContext
+The Tombstone Trap in deleteContext - SHOULD BE FIXED
 
 
 fetchOldState = {

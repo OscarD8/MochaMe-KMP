@@ -8,6 +8,8 @@ import com.mochame.sync.spi.node.IdGenerator
 import com.mochame.sync.spi.infrastructure.TransactionProvider
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
+import com.mochame.logger.withTimer
+import com.mochame.sync.api.models.HLC
 import com.mochame.sync.spi.models.DecodeContext
 import com.mochame.sync.spi.models.SyncIntent
 import com.mochame.sync.tryWithLock
@@ -15,11 +17,14 @@ import com.mochame.sync.domain.serialization.PayloadCodec
 import com.mochame.sync.spi.infrastructure.SyncIntentStore
 import com.mochame.sync.spi.infrastructure.SyncReceiver
 import com.mochame.sync.spi.infrastructure.SyncWorkerHook
+import com.mochame.sync.spi.node.NodeContextManager
+import com.mochame.sync.spi.policy.ExecutionPolicy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import org.koin.core.annotation.Single
+import kotlin.time.TimeSource
 
 
 @Single
@@ -28,7 +33,9 @@ internal class SyncCoordinator(
     private val transactor: TransactionProvider,
     private val payloadCodec: PayloadCodec,
     private val idGenerator: IdGenerator,
+    private val executor: ExecutionPolicy,
     private val invalidationHook: SyncWorkerHook,
+    private val nodeManager: NodeContextManager,
     @CoordinatorMutex private val coordinatorMutex: Mutex,
     @AppScope private val appScope: CoroutineScope,
     receivers: List<SyncReceiver>, // koin handles as long as classes are bound
@@ -114,8 +121,22 @@ internal class SyncCoordinator(
             logger.e(e) { "Unexpected parsing failure during batch processing. ${e.message}" }
             return
         }
+        if (intents.isEmpty()) return
 
-        intents.forEach { processIntent(it) }
+        var maxValidHlc: HLC? = null
+        val mark = TimeSource.Monotonic.markNow()
+
+        executor.execute("InboundBatch_${intents.size}") {
+            intents.forEach { intent ->
+                val succeeded = orchestrateIntent(intent)
+                if (succeeded) {
+                    maxValidHlc = maxValidHlc?.let { maxOf(it, intent.hlc) } ?: intent.hlc
+                }
+            }
+            maxValidHlc?.let { nodeManager.updateHlcFloor(it) }
+        }
+
+        logger.i { "Batch processing finalized".withTimer(mark) }
 
         // is this where the server logic should ultimately lead to a call to nodeContextManager
         // to call its recognizeServerResponse method? When doing this consider if this is the
@@ -131,23 +152,15 @@ internal class SyncCoordinator(
      * There may be a need to update the intent status here to specifically mark it as a
      * received intent?
      */
-    private suspend fun processIntent(intent: SyncIntent) {
-        val receiver = receiverRoutingMap[intent.featureContext.modelName] ?: run {
-            logger.e { "Routing failure for model '${intent.featureContext.modelName}'" }
-            throw MochaException.Persistent.Internal(
-                "No SyncReceiver for model string '${intent.featureContext.modelName}'"
-            )
-        }
-
-        try {
+    private suspend fun orchestrateIntent(intent: SyncIntent): Boolean {
+        return try {
             verifyIntentNullState(intent)
             val intentContext = extractContext(intent)
-            receiver.processRemoteIntent(intentContext, intent.payload!!)
-
-        } catch (e: MochaException) {
-            logger.e { "Null field issue. Key: '${intent.candidateKey}. ${e.message}'" }
+            intent.receiver.processRemoteIntent(intentContext, intent.payload)
+            true
         } catch (e: Exception) {
-            logger.w(e) { "Processing failed for ${intent.candidateKey}. Error : ${e.message}" }
+            logger.w(e) { "[Key: ${intent.candidateKey}] - ${e.message}" }
+            false
         }
     }
 
@@ -180,7 +193,16 @@ internal class SyncCoordinator(
         candidateKey = intent.candidateKey,
         hlc = intent.hlc,
         lastModified = intent.createdAt,
-        op = intent.operation
+        op = intent.operation,
+        overflowBlobId = intent.overflowBlobId
     )
+
+    private val SyncIntent.receiver: SyncReceiver
+        get() = receiverRoutingMap[featureContext.modelName] ?: run {
+            logger.e { "Routing failure for model '${featureContext.modelName}'" }
+            throw MochaException.Persistent.Internal(
+                "No SyncReceiver for model string '${featureContext.modelName}'"
+            )
+        }
 
 }

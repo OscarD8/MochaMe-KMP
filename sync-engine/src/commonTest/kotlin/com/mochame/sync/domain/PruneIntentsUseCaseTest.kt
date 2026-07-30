@@ -9,7 +9,7 @@ import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.di.domain.PruneIntentsTestEnv
 import com.mochame.sync.di.domain.PruneIntentsUseCaseTestApp
-import com.mochame.sync.fakes.createTestSyncIntent
+import com.mochame.sync.fixtures.createTestSyncIntent
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
