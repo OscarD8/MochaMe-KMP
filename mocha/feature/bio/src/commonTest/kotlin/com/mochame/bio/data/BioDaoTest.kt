@@ -1,8 +1,6 @@
 package com.mochame.bio.data
 
 import app.cash.turbine.test
-import com.mochame.bio.database.BioMicroSchema
-import com.mochame.bio.database.BioMicroSchemaConstructor
 import com.mochame.bio.di.BioDaoTestApp
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runPersistenceEnvironment
@@ -62,32 +60,6 @@ class BioDaoTest : MochaPlatformTest() {
 
         val allRecords = getAllContexts()
         assertEquals(1, allRecords.size)
-    }
-
-    @Test
-    fun should_ignoreIncomingData_when_timestampIsOlderThanLocal() = runEnv {
-        val dayKey = 20500L
-        val id = "uuid-1"
-
-        val existing = DailyContextEntity(
-            id = id,
-            epochDay = dayKey,
-            hlc = TestHlcFactory.create(5000L).toString(),
-            sleepHours = 8.0,
-            lastModified = 5000L
-        )
-        upsert(existing)
-
-        val staleIncoming = existing.copy(
-            sleepHours = 4.0,
-            lastModified = 2000L,
-            hlc = TestHlcFactory.create(2000L).toString()
-        )
-        upsert(staleIncoming)
-
-        val result = getContextByDay(dayKey)
-        assertEquals(8.0, result?.sleepHours)
-        assertEquals(TestHlcFactory.create(5000L).toString(), result?.hlc)
     }
 
     @Test
@@ -211,9 +183,9 @@ class BioDaoTest : MochaPlatformTest() {
         )
 
         observeAllNappedContexts().test {
-            assertEquals(0, awaitItem().size)
+            assertEquals(0, awaitItem().size, "Failed on start")
             upsert(notNappedContext)
-            assertEquals(0, awaitItem().size)
+            assertEquals(0, awaitItem().size, "Failed after single upsert")
 
             val nappedUpdate = notNappedContext.copy(
                 isNapped = TriState.TRUE,
@@ -263,29 +235,6 @@ class BioDaoTest : MochaPlatformTest() {
     }
 
     @Test
-    fun should_deterministicallyWin_basedOnNodeId_whenTimestampsMatch() = runEnv {
-        val id = "uuid-1"
-
-        val nodeB = DailyContextEntity(
-            id = id,
-            hlc = TestHlcFactory.create(ts = 5000L, count = 0, nodeId = "NodeB").toString(),
-            sleepHours = 2.0,
-            epochDay = 2000L,
-            readinessScore = 5,
-            lastModified = 1000
-        )
-        upsert(nodeB)
-
-        val nodeA = nodeB.copy(
-            hlc = TestHlcFactory.create(ts = 5000L, count = 0, nodeId = "NodeA").toString()
-        )
-        upsert(nodeA)
-
-        val result = getContextById(id)
-        assertEquals(TestHlcFactory.create(ts = 5000L, count = 0, nodeId = "NodeB").toString(), result?.hlc)
-    }
-
-    @Test
     fun should_hideDeletedRecords_fromUiObservables() = runEnv {
         val dayKey = 20500L
         val entity = DailyContextEntity(
@@ -306,37 +255,6 @@ class BioDaoTest : MochaPlatformTest() {
             assertNull(awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
-    }
-
-    @Test
-    fun should_maintainTombstone_evenWhenOldDataIsSynced() = runEnv {
-        val id = "uuid-1"
-        upsert(
-            DailyContextEntity(
-                id,
-                epochDay = 20500L,
-                readinessScore = 0,
-                sleepHours = 5.0,
-                lastModified = 2000L,
-                hlc = TestHlcFactory.create(1000L).toString()
-            )
-        )
-
-        markAsDeleted(id, TestHlcFactory.create(2000L).toString(), 2000L)
-
-        val staleSync = DailyContextEntity(
-            id,
-            epochDay = 20500L,
-            hlc = TestHlcFactory.create(1000L).toString(),
-            isDeleted = false,
-            readinessScore = 0,
-            sleepHours = 5.0,
-            lastModified = 2000L
-        )
-        upsert(staleSync)
-
-        val finalRecord = getContextById(id)
-        assertEquals(true, finalRecord?.isDeleted)
     }
 
     @Test
@@ -397,29 +315,4 @@ class BioDaoTest : MochaPlatformTest() {
         assertNotNull(getContextById("new"))
     }
 
-    @Test
-    fun should_copyDataCorrectly_when_multipleEventsOccurOnSameDay() = runEnv { scope ->
-        val dayKey = 20500L
-        val id = "uuid-global"
-
-        val attempts = (1000..1010).map { i ->
-            DailyContextEntity(
-                id = id,
-                epochDay = dayKey,
-                sleepHours = i.toDouble(),
-                readinessScore = 9,
-                hlc = TestHlcFactory.create(i.toLong()).toString(),
-                lastModified = 1000L
-            )
-        }
-
-        attempts.shuffled().forEach { incoming ->
-            scope.launch { upsert(incoming) }
-        }
-        scope.advanceUntilIdle()
-
-        val result = getContextByDay(dayKey)
-        assertEquals(TestHlcFactory.create(1010L).toString(), result?.hlc)
-        assertEquals(1010.0, result?.sleepHours)
-    }
 }

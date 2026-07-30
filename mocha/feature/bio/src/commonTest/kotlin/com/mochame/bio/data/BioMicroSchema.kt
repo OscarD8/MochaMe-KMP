@@ -1,14 +1,15 @@
-package com.mochame.bio.database
+package com.mochame.bio.data
 
 import androidx.room.ConstructedBy
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
-import com.mochame.bio.data.BioDao
-import com.mochame.bio.data.DailyContextEntity
+import androidx.room.TypeConverters
+import com.mochame.support.SupportConverters
 
 
 @ConstructedBy(BioMicroSchemaConstructor::class)
+@TypeConverters(SupportConverters::class)
 @Database(
     entities = [DailyContextEntity::class],
     version = 1,

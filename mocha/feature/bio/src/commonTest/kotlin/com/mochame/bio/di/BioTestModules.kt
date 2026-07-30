@@ -1,7 +1,7 @@
 package com.mochame.bio.di
 
 import com.mochame.bio.data.BioDao
-import com.mochame.bio.database.BioMicroSchema
+import com.mochame.bio.data.BioMicroSchema
 import com.mochame.support.TestSupportModule
 import org.koin.core.annotation.KoinApplication
 import org.koin.core.annotation.Module
