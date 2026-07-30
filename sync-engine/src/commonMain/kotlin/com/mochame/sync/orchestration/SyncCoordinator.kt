@@ -127,13 +127,15 @@ internal class SyncCoordinator(
         val mark = TimeSource.Monotonic.markNow()
 
         executor.execute("InboundBatch_${intents.size}") {
-            intents.forEach { intent ->
-                val succeeded = orchestrateIntent(intent)
-                if (succeeded) {
-                    maxValidHlc = maxValidHlc?.let { maxOf(it, intent.hlc) } ?: intent.hlc
+            transactor.runImmediateTransaction {
+                intents.forEach { intent ->
+                    val succeeded = orchestrateIntent(intent)
+                    if (succeeded) {
+                        maxValidHlc = maxValidHlc?.let { maxOf(it, intent.hlc) } ?: intent.hlc
+                    }
                 }
+                maxValidHlc?.let { nodeManager.updateHlcFloor(it) }
             }
-            maxValidHlc?.let { nodeManager.updateHlcFloor(it) }
         }
 
         logger.i { "Batch processing finalized".withTimer(mark) }

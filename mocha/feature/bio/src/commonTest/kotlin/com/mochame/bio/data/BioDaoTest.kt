@@ -31,7 +31,7 @@ private inline fun runEnv(crossinline block: suspend BioDao.(TestScope) -> Unit)
 
 
 @ExperimentalCoroutinesApi
-class BaseBioDaoTest : MochaPlatformTest() {
+class BioDaoTest : MochaPlatformTest() {
 
     @Test
     fun should_updateToLatestData_when_newerTimestampProvidedForExistingDay() = runEnv {
