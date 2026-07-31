@@ -194,7 +194,6 @@ internal class SyncCoordinator(
         featureSchemaVersion = intent.featureSchemaVersion,
         candidateKey = intent.candidateKey,
         hlc = intent.hlc,
-        lastModified = intent.createdAt,
         op = intent.operation,
         overflowBlobId = intent.overflowBlobId
     )

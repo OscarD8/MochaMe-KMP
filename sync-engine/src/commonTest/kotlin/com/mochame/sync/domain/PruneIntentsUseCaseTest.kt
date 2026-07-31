@@ -4,7 +4,7 @@ package com.mochame.sync.domain
 
 import co.touchlab.kermit.ExperimentalKermitApi
 import com.mochame.support.MochaPlatformTest
-import com.mochame.utils.fixtures.TestHlcFactory
+import com.mochame.utils.fixtures.HlcTestFactory
 import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.di.domain.PruneIntentsTestEnv
@@ -65,7 +65,7 @@ class PruneIntentsUseCaseTest : MochaPlatformTest() {
             fakeStore.reset()
             fakeStore.seedIntents(
                 createTestSyncIntent(
-                    hlc = TestHlcFactory.create(),
+                    hlc = HlcTestFactory.create(),
                     status = SyncStatus.SUCCESS
                 )
             )
@@ -103,7 +103,7 @@ class PruneIntentsUseCaseTest : MochaPlatformTest() {
             fakeStore.reset()
 
             val targetCount = 5
-            val chronologicalHlcs = TestHlcFactory.chronologicalSequence(targetCount)
+            val chronologicalHlcs = HlcTestFactory.chronologicalSequence(targetCount)
             val eligibleIntents = chronologicalHlcs.map { hlc ->
                 createTestSyncIntent(hlc = hlc, status = SyncStatus.SUCCESS)
             }
@@ -150,7 +150,7 @@ class PruneIntentsUseCaseTest : MochaPlatformTest() {
             val cutoffThresholdMs = fakeClock.getMillisAgo(TEST_PRUNE_DAYS)
 
             // Distinct HLC identifiers
-            val hlcs = TestHlcFactory.chronologicalSequence(2)
+            val hlcs = HlcTestFactory.chronologicalSequence(2)
             val olderHlc = hlcs[0]
             val youngerHlc = hlcs[1]
 
@@ -200,7 +200,7 @@ class PruneIntentsUseCaseTest : MochaPlatformTest() {
             fakeStore.reset()
 
             val targetCount = 5
-            val chronologicalHlcs = TestHlcFactory.chronologicalSequence(targetCount)
+            val chronologicalHlcs = HlcTestFactory.chronologicalSequence(targetCount)
 
             val eligibleIntents = chronologicalHlcs.map { hlc ->
                 createTestSyncIntent(

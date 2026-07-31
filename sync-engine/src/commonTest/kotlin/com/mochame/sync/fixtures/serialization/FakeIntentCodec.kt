@@ -1,8 +1,9 @@
-package com.mochame.sync.fixtures
+package com.mochame.sync.fixtures.serialization
 
-import com.mochame.utils.fixtures.TestHlcFactory
+import com.mochame.utils.fixtures.HlcTestFactory
 import com.mochame.sync.spi.models.SyncIntent
 import com.mochame.sync.domain.serialization.IntentCodec
+import com.mochame.sync.fixtures.createTestSyncIntent
 
 // Preliminary example
 private class FakeIntentCodec(
@@ -19,7 +20,7 @@ private class FakeIntentCodec(
 
     override fun decode(bytes: ByteArray): SyncIntent {
         decodeCalledWith = bytes
-        return createTestSyncIntent(TestHlcFactory.create())
+        return createTestSyncIntent(HlcTestFactory.create())
     }
 }
 

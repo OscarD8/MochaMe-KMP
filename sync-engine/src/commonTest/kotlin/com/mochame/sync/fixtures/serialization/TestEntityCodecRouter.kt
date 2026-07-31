@@ -10,10 +10,10 @@ import org.koin.core.annotation.Single
 @Single
 internal class TestEntityCodecRouter(
     v1: TestEntityCodecV1,
-    v2: FeatureCodec<TestEntity>? = null,
+    v2: TestEntityCodecV2,
     logger: Logger
 ) : BaseFeatureCodecRouter<TestEntity>(
     versionRegistry = arrayOf(null, v1, v2),
     latestVersion = 2,
-    logger = logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.SYNC, "TeCRtr")
+    logger = logger.withTags(LogTags.Layer.SERI, LogTags.Domain.SYNC, "TeCRtr")
 )

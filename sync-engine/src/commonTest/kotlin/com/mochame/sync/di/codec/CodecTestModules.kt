@@ -14,12 +14,5 @@ import org.koin.core.annotation.Module
 internal class EntityCodecTestApp
 
 @Module(includes = [TestLoggerModule::class, FakeBufferProviderModule::class])
-@ComponentScan("com.mochame.sync.di.codec", "com.mochame.sync.fixtures.serialization")
+@ComponentScan( "com.mochame.sync.fixtures.serialization")
 internal class EntityCodecTestModule
-
-@ExperimentalKermitApi
-@Factory
-internal class EntityCodecTestEnv(
-    val codec: TestEntityCodecV1,
-    val writer: TestLogWriter
-)

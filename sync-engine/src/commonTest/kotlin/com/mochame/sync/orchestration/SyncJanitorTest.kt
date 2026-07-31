@@ -8,7 +8,7 @@ import co.touchlab.kermit.ExperimentalKermitApi
 import com.mochame.sync.api.boot.BootState
 import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.support.MochaPlatformTest
-import com.mochame.utils.fixtures.TestHlcFactory
+import com.mochame.utils.fixtures.HlcTestFactory
 import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.api.models.HLC
@@ -251,7 +251,7 @@ class SyncJanitorTest : MochaPlatformTest() {
         val nodeId = "node-to-end-all-nodes"
 
         val seededHlc =
-            TestHlcFactory.create(
+            HlcTestFactory.create(
                 ts = 1740787200000L,
                 count = 2,
                 nodeId = nodeId
@@ -333,8 +333,8 @@ class SyncJanitorTest : MochaPlatformTest() {
     fun should_clearStaleLocksAndResetIntentsToPending_when_staleIntentsExistOnStartup() =
         runEnv { scope ->
             // Given: Seed intent store with intents stuck in SYNCING with active syncIds (simulating process crash)
-            val hlc1 = TestHlcFactory.create(ts = 100L, count = 0)
-            val hlc2 = TestHlcFactory.create(ts = 200L, count = 0)
+            val hlc1 = HlcTestFactory.create(ts = 100L, count = 0)
+            val hlc2 = HlcTestFactory.create(ts = 200L, count = 0)
 
             intentStore.seedIntents(
                 createTestSyncIntent(
@@ -376,7 +376,7 @@ class SyncJanitorTest : MochaPlatformTest() {
     fun should_notLogIntentCleanup_when_noStaleIntentsExistOnStartup() = runEnv { scope ->
         // Given
         val cleanIntent = createTestSyncIntent(
-            hlc = TestHlcFactory.create(),
+            hlc = HlcTestFactory.create(),
             status = SyncStatus.PENDING
         )
         intentStore.seedIntents(cleanIntent)
@@ -406,7 +406,7 @@ class SyncJanitorTest : MochaPlatformTest() {
 
             intentStore.seedIntents(
                 createTestSyncIntent(
-                    hlc = TestHlcFactory.create(),
+                    hlc = HlcTestFactory.create(),
                     status = SyncStatus.PENDING,
                     overflowBlobId = blobId
                 )
@@ -471,7 +471,7 @@ class SyncJanitorTest : MochaPlatformTest() {
             // Seed intent metadata only for blobB
             intentStore.seedIntents(
                 createTestSyncIntent(
-                    hlc = TestHlcFactory.create(),
+                    hlc = HlcTestFactory.create(),
                     status = SyncStatus.PENDING,
                     overflowBlobId = blobB
                 )
@@ -553,7 +553,7 @@ class SyncJanitorTest : MochaPlatformTest() {
             val initialRetryCount = config.retryThreshold - 3
 
             val intent = createTestSyncIntent(
-                hlc = TestHlcFactory.create(),
+                hlc = HlcTestFactory.create(),
                 status = SyncStatus.SYNCING,
                 leasedAt = staleTimestamp,
                 retryCount = initialRetryCount,
@@ -600,7 +600,7 @@ class SyncJanitorTest : MochaPlatformTest() {
         val initialRetryCount = config.retryThreshold - 1
 
         val intent = createTestSyncIntent(
-            hlc = TestHlcFactory.create(),
+            hlc = HlcTestFactory.create(),
             status = SyncStatus.SYNCING,
             syncId = "test",
             leasedAt = staleTimestamp,
@@ -637,7 +637,7 @@ class SyncJanitorTest : MochaPlatformTest() {
         val leaseStamp = fakeClock.now().toEpochMilliseconds()
 
         val intent = createTestSyncIntent(
-            hlc = TestHlcFactory.create(),
+            hlc = HlcTestFactory.create(),
             status = SyncStatus.SYNCING,
             syncId = "test",
             leasedAt = leaseStamp,
@@ -679,7 +679,7 @@ class SyncJanitorTest : MochaPlatformTest() {
             val timeoutMs = config.staleThreshold.inWholeMilliseconds
             val staleTimestamp = now - (timeoutMs + 1000L)
             val activeTimestamp = now - 1000L
-            val hlcs = TestHlcFactory.concurrentSequence(3)
+            val hlcs = HlcTestFactory.concurrentSequence(3)
 
             val quarantineIntent = createTestSyncIntent(
                 hlc = hlcs[0],
@@ -768,7 +768,7 @@ class SyncJanitorTest : MochaPlatformTest() {
     fun should_triggerPruning_onMaintenanceTick() = runEnv { scope ->
         // Given
         val completedIntent = createTestSyncIntent(
-            hlc = TestHlcFactory.create(),
+            hlc = HlcTestFactory.create(),
             status = SyncStatus.SUCCESS
         )
         intentStore.seedIntents(completedIntent)
@@ -795,7 +795,7 @@ class SyncJanitorTest : MochaPlatformTest() {
         // Given
         intentStore.failWith = SQLiteException("database is locked")
         val prunableIntent = createTestSyncIntent(
-            hlc = TestHlcFactory.create(),
+            hlc = HlcTestFactory.create(),
             status = SyncStatus.SUCCESS
         )
         intentStore.seedIntents(prunableIntent)

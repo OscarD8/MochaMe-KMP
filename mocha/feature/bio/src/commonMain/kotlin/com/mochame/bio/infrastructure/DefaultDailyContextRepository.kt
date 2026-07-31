@@ -44,8 +44,7 @@ internal class DefaultDailyContextRepository(
             epochDay = mochaDay,
             sleepHours = sleepHours,
             readinessScore = readinessScore,
-            isNapped = isNapped,
-            lastModified = timeUtils.now().toEpochMilliseconds()
+            isNapped = isNapped
         )
 
         return synchronizedUpsert(
@@ -68,47 +67,32 @@ internal class DefaultDailyContextRepository(
         persist = { bioDao.markAsDeleted(it.id, it.hlc.toString(), it.hlc.ts) }
     )
 
-    override fun observeContext(epochDay: Long): Flow<DailyContext?> {
-        return bioDao.observeContext(epochDay).map { it?.toDomain() }
-    }
+    override fun observeContext(epochDay: Long): Flow<DailyContext?> =
+        bioDao.observeContext(epochDay).map { it?.toDomain() }
 
-    // --- MAINTENANCE ---
-    /**
-     * Called by the Janitor during off-peak hours.
-     * Not a new syncable event.
-     */
-    override suspend fun pruneOldTombstones(cutoff: Long) {
-        bioDao.hardDeletePruning(cutoff)
-    }
 
+    // --- MAINTENANCE / SYNC ---
+    override suspend fun hardDelete(cutoff: Long) = bioDao.hardDeletePruning(cutoff)
     override suspend fun getTombstoneCount(): Int = bioDao.getTombstoneCount()
-
-    // --- SYNC GATEWAY ---
-    override suspend fun fetch(id: String): DailyContext? =
-        bioDao.getContextById(id)?.toDomain()
-
+    override suspend fun fetch(id: String) = bioDao.getContextById(id)?.toDomain()
     override suspend fun save(entity: DailyContext) = bioDao.upsert(entity.toEntity())
-
-
-    // --- HELPERS ---
     override suspend fun compactState(
         newState: DailyContext,
         existing: DailyContext?
-    ): DailyContext {
-        return existing?.copy(
-            sleepHours = newState.sleepHours,
-            readinessScore = newState.readinessScore,
-            isNapped = newState.isNapped,
-            lastModified = newState.lastModified
-        ) ?: DailyContext(
-            id = newState.id,
-            epochDay = newState.epochDay,
-            sleepHours = newState.sleepHours,
-            readinessScore = newState.readinessScore,
-            isNapped = newState.isNapped,
-            lastModified = newState.lastModified
-        )
-    }
+    ): DailyContext = existing?.copy(
+        sleepHours = newState.sleepHours,
+        readinessScore = newState.readinessScore,
+        isNapped = newState.isNapped,
+        lastModified = newState.lastModified
+    ) ?: DailyContext(
+        id = newState.id,
+        epochDay = newState.epochDay,
+        sleepHours = newState.sleepHours,
+        readinessScore = newState.readinessScore,
+        isNapped = newState.isNapped,
+        lastModified = newState.lastModified
+    )
+
 }
 
 

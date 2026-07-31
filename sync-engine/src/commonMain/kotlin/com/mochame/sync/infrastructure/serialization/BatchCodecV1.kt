@@ -31,7 +31,7 @@ internal class BatchCodecV1(
 ) : BatchCodec {
 
     private val logger =
-        logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.SYNC, "BatCdc")
+        logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.SYNC, "BaCdc1")
 
     override fun encode(intents: List<SyncIntent>): ByteArray {
         require(intents.isNotEmpty()) { "Cannot serialise an empty batch" }

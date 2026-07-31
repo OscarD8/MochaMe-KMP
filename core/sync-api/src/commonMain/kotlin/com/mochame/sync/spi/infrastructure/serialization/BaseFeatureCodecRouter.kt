@@ -7,18 +7,18 @@ import com.mochame.sync.spi.models.DecodeContext
 abstract class BaseFeatureCodecRouter<T : LocalFirstEntity<T>>(
     override val latestVersion: Int,
     override val versionRegistry: Array<FeatureCodec<T>?>,
-    private val logger: Logger
+    protected val logger: Logger
 ) : FeatureCodecRouter<T, FeatureCodec<T>> {
 
     override fun routedEncode(new: T, old: T?): ByteArray? = latestCodec.encode(new, old)
 
     override fun routedDecode(data: ByteArray, context: DecodeContext, existing: T?): T =
-        getCodec(context.featureSchemaVersion).decode(data, context, existing)
+        getCodec(context.featureSchemaVersion, logger).decode(data, context, existing)
 
     override fun routedReconstructSummary(
         data: ByteArray,
         context: DecodeContext
-    ): String = getCodec(context.featureSchemaVersion).reconstructSummary(data)
+    ): String = getCodec(context.featureSchemaVersion, logger).reconstructSummary(data)
 
     override fun routedSummarize(new: T, old: T?): String =
         latestCodec.summarize(new, old)

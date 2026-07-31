@@ -5,6 +5,9 @@ import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.sync.spi.infrastructure.serialization.VersionRouter
 import com.mochame.sync.spi.infrastructure.serialization.getCodec
 
+// -------------------------------------------------------------------
+// CURRENTLY NOT IN USE - SWITCHED TO INT FOR VERSIONING
+// -------------------------------------------------------------------
 
 /**
  * Establishes a new ByteArray, appending the version before utilizing [ByteArray.copyInto] on the
@@ -60,7 +63,7 @@ inline fun <T : Any, R> VersionRouter<T>.stripAndVersion(
         throw MochaException.Persistent.CorruptionDetected("Empty payload received.")
     }
 
-    val codec = getCodec(version)
+    val codec = getCodec(version, logger)
     val strippedPayload = bytes.copyOfRange(1, bytes.size)
 
     return block(codec, strippedPayload)

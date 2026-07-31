@@ -3,7 +3,7 @@ package com.mochame.node.data
 import com.mochame.node.di.NodeContextIntTestApp
 import com.mochame.node.di.NodeContextIntTestEnv
 import com.mochame.support.MochaPlatformTest
-import com.mochame.utils.fixtures.TestHlcFactory
+import com.mochame.utils.fixtures.HlcTestFactory
 import com.mochame.support.getPhysicalRowCount
 import com.mochame.support.runPersistenceEnvironment
 import kotlinx.coroutines.CompletableDeferred
@@ -127,11 +127,11 @@ class NodeContextDaoTest : MochaPlatformTest() {
         val fallbackId = "node-1"
         dao.getOrEstablish(fallbackId = fallbackId, baseVersion = 1, createdAt = 1000L)
 
-        val baseHlc = TestHlcFactory.create(ts = 1000L, count = 5, nodeId = fallbackId)
+        val baseHlc = HlcTestFactory.create(ts = 1000L, count = 5, nodeId = fallbackId)
         dao.setMaxHlc(baseHlc.toString())
 
-        val olderHlc = TestHlcFactory.create(ts = 1000L, count = 4, nodeId = fallbackId)
-        val equalHlc = TestHlcFactory.create(ts = 1000L, count = 5, nodeId = fallbackId)
+        val olderHlc = HlcTestFactory.create(ts = 1000L, count = 4, nodeId = fallbackId)
+        val equalHlc = HlcTestFactory.create(ts = 1000L, count = 5, nodeId = fallbackId)
 
         // When
         val rowsUpdatedByOlder = dao.setMaxHlc(olderHlc.toString())
@@ -159,7 +159,7 @@ class NodeContextDaoTest : MochaPlatformTest() {
         // Given
         val fallbackId = "node-test-device"
         dao.getOrEstablish(fallbackId = fallbackId, baseVersion = 10, createdAt = 1000L)
-        val initialHlc = TestHlcFactory.create(ts = 1000L, count = 0, nodeId = fallbackId)
+        val initialHlc = HlcTestFactory.create(ts = 1000L, count = 0, nodeId = fallbackId)
 
         // When
         val rowsUpdated = dao.setMaxHlc(initialHlc.toString())
@@ -175,8 +175,8 @@ class NodeContextDaoTest : MochaPlatformTest() {
         val fallbackId = "node-test-device"
         dao.getOrEstablish(fallbackId = fallbackId, baseVersion = 1, createdAt = 1000L)
 
-        val baseHlc = TestHlcFactory.create(ts = 1000L, count = 1, nodeId = fallbackId)
-        val greaterHlc = TestHlcFactory.create(ts = 1000L, count = 2, nodeId = fallbackId)
+        val baseHlc = HlcTestFactory.create(ts = 1000L, count = 1, nodeId = fallbackId)
+        val greaterHlc = HlcTestFactory.create(ts = 1000L, count = 2, nodeId = fallbackId)
         dao.setMaxHlc(baseHlc.toString())
 
         // When
@@ -204,7 +204,7 @@ class NodeContextDaoTest : MochaPlatformTest() {
             val gate = CompletableDeferred<Unit>()
             // Generate distinct HLC pools per thread to ensure unique values are written
             val totalOperations = threadCount * iterationsPerThread
-            val hlcSequence = TestHlcFactory.chronologicalSequence(size = totalOperations)
+            val hlcSequence = HlcTestFactory.chronologicalSequence(size = totalOperations)
 
             // When - Multi-threaded HLC writes
             val workerJobs = List(threadCount) { threadId ->

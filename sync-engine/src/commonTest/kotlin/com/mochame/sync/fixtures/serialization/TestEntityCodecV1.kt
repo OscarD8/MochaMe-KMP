@@ -6,6 +6,7 @@ import com.mochame.logger.withTags
 import com.mochame.sync.common.TriState
 import com.mochame.sync.spi.infrastructure.BufferProvider
 import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodec
+import com.mochame.sync.spi.infrastructure.serialization.diff
 import com.mochame.sync.spi.models.DecodeContext
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
@@ -17,10 +18,10 @@ import org.koin.core.annotation.Single
 @ExperimentalSerializationApi
 internal data class TestEntityDeltaV1(
     @ProtoNumber(1) val id: String,
-    @ProtoNumber(2) val triStateValue: TriState? = null,
-    @ProtoNumber(3) val textValue: String? = null,
-    @ProtoNumber(4) val countValue: Int? = null,
-    @ProtoNumber(5) val isDeleted: Boolean? = null
+    @ProtoNumber(2) val isDeleted: Boolean? = null,
+    @ProtoNumber(3) val triStateValue: TriState? = null,
+    @ProtoNumber(4) val textValue: String? = null,
+    @ProtoNumber(5) val countValue: Int? = null
 )
 
 @Single
@@ -31,7 +32,7 @@ internal class TestEntityCodecV1(
 ) : BaseFeatureCodec<TestEntity, TestEntityDeltaV1>(
     bufferProvider = bufferProvider,
     deltaSerializer = TestEntityDeltaV1.serializer(),
-    logger = logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.SYNC, "TeCdc1")
+    logger = logger.withTags(LogTags.Layer.SERI, LogTags.Domain.SYNC, "TeCdc1")
 ) {
 
     override fun buildDeleteDelta(entity: TestEntity) = TestEntityDeltaV1(
@@ -41,43 +42,46 @@ internal class TestEntityCodecV1(
 
     override fun buildInsertDelta(entity: TestEntity) = TestEntityDeltaV1(
         id = entity.id,
+        triStateValue = entity.triStateValue,
         textValue = entity.textValue,
         countValue = entity.countValue
     )
 
     override fun buildUpdateDelta(new: TestEntity, old: TestEntity): TestEntityDeltaV1? {
-        val textDelta = if (new.textValue != old.textValue) new.textValue else null
-        val countDelta = if (new.countValue != old.countValue) new.countValue else null
+        val triStateValue = new.triStateValue diff old.triStateValue
+        val textDelta = new.textValue diff old.textValue
+        val countDelta = new.countValue diff old.countValue
 
-        if (textDelta == null && countDelta == null) return null
+        if (textDelta == null && countDelta == null && triStateValue == null) return null
 
         return TestEntityDeltaV1(
             id = new.id,
+            triStateValue = triStateValue,
             textValue = textDelta,
             countValue = countDelta,
         )
     }
 
-    override fun decode(
-        bytes: ByteArray,
+    override fun mergeDelta(
+        delta: TestEntityDeltaV1,
         context: DecodeContext,
         existing: TestEntity?
-    ): TestEntity {
-        val delta = ProtoBuf.decodeFromByteArray(TestEntityDeltaV1.serializer(), bytes)
-        return TestEntity(
-            id = context.candidateKey,
-            hlc = context.hlc,
-            lastModified = context.lastModified,
+    ): TestEntity = TestEntity(
+        id = context.candidateKey,
+        hlc = context.hlc,
+        lastModified = context.hlc.ts,
 
-            triStateValue = delta.triStateValue ?: existing?.triStateValue ?: TriState.UNSET,
-            textValue = delta.textValue ?: existing?.textValue ?: "",
-            countValue = delta.countValue ?: existing?.countValue ?: 0,
-            isDeleted = delta.isDeleted ?: existing?.isDeleted ?: false
-        )
-    }
+        triStateValue = delta.triStateValue ?: existing?.triStateValue ?: TriState.UNSET,
+        textValue = delta.textValue ?: existing?.textValue ?: "",
+        countValue = delta.countValue ?: existing?.countValue ?: 0,
+        isDeleted = delta.isDeleted ?: existing?.isDeleted ?: false
+    )
 
-    override fun summarize(new: TestEntity, old: TestEntity?): String =
-        if (new.isDeleted) "OP:DELETE" else "OP:UPSERT_V1"
+    override fun computeChangedTags(new: TestEntity, old: TestEntity?): List<Int> =
+        buildList {
+            if (old == null || new.triStateValue != old.triStateValue) add(3)
+            if (old == null || new.textValue != old.textValue) add(4)
+            if (old == null || new.countValue != old.countValue) add(5)
+        }
 
-    override fun reconstructSummary(bytes: ByteArray): String = "OP:RECONSTRUCTED_V1"
 }

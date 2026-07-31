@@ -1,5 +1,6 @@
 package com.mochame.sync.domain.serialization
 
+import co.touchlab.kermit.Logger
 import com.mochame.sync.spi.infrastructure.serialization.VersionRouter
 import com.mochame.sync.spi.models.SyncIntent
 

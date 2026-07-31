@@ -111,14 +111,12 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     ): R {
         val existingState = fetchExistingState()
 
-        // 1. Initial state verification & LWW Checks
         validateLwwRejection(existingState, incomingHlc, candidateKey)?.let {
             rejectedState -> return onSkip(rejectedState)
         }
 
-        if (op == MutationOp.DELETE && isGhostDelete(existingState, candidateKey)) {
+        if (op == MutationOp.DELETE && isGhostDelete(existingState, candidateKey))
             return onSkip(existingState!!)
-        }
 
         val provisionalState = computeChange(existingState)
         val stampedState = stampWithHlc(provisionalState, incomingHlc)
@@ -240,15 +238,13 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     ): T? {
         if (existingState == null) return null
 
-        if (!deps.hlcFactory.isValid(existingState.hlc)) {
+        if (!deps.hlcFactory.isValid(existingState.hlc))
             throw MochaException.Persistent.CorruptionDetected("Invalid HLC [${existingState.hlc}] for $candidateKey")
-        }
 
         if (incomingHlc != null && incomingHlc <= existingState.hlc) {
             logger.d { "Local item [$candidateKey / ${existingState.hlc}] rejected incoming $incomingHlc." }
             return existingState
         }
-
         return null
     }
 
@@ -261,7 +257,6 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             logger.d { "Ghost Delete detected for $candidateKey. Aborting intent." }
             return true
         }
-
         return false
     }
 

@@ -5,7 +5,6 @@ import com.mochame.sync.spi.infrastructure.BufferProvider
 import kotlinx.io.Buffer
 import org.koin.core.annotation.Single
 import platform.posix.pthread_self
-import kotlin.native.concurrent.ObsoleteWorkersApi
 import kotlin.native.concurrent.ThreadLocal
 
 @Single
@@ -15,7 +14,6 @@ class LinuxBufferProvider(private val logger: Logger) : BufferProvider {
         private val threadInstance = Buffer()
     }
 
-    @OptIn(ObsoleteWorkersApi::class)
     override fun get(): Buffer {
         threadInstance.clear()
         logger.v { "BUFFER | REUSE | Thread: ${pthread_self()}" }

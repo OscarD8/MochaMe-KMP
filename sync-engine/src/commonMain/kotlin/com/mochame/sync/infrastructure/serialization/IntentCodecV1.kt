@@ -1,5 +1,8 @@
 package com.mochame.sync.infrastructure.serialization
 
+import co.touchlab.kermit.Logger
+import com.mochame.logger.LogTags
+import com.mochame.logger.withTags
 import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.api.metadata.SyncStatus
@@ -29,7 +32,12 @@ private data class SyncIntentDeltaV1(
 
 @OptIn(ExperimentalSerializationApi::class)
 @Single
-internal class IntentCodecV1 : IntentCodec {
+internal class IntentCodecV1(
+    logger: Logger
+) : IntentCodec {
+
+    private val logger =
+        logger.withTags(LogTags.Layer.SERI, LogTags.Domain.SYNC, "InCdc1")
 
     override fun encode(intent: SyncIntent): ByteArray {
         val delta = SyncIntentDeltaV1(

@@ -8,6 +8,5 @@ data class DecodeContext(
     val candidateKey: String,
     val hlc: HLC,
     val op: MutationOp,
-    val lastModified: Long,
-    val overflowBlobId: String?
+    val overflowBlobId: String? = null
 )

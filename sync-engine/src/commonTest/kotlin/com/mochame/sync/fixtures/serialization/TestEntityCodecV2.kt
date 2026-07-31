@@ -7,7 +7,7 @@ import com.mochame.sync.spi.models.DecodeContext
 import org.koin.core.annotation.Single
 
 @Single
-class FakeTestEntityCodecV2(
+class TestEntityCodecV2(
     override val bufferProvider: BufferProvider
 ) : FeatureCodec<TestEntity> {
     companion object {
@@ -31,7 +31,7 @@ class FakeTestEntityCodecV2(
             return V2_DECODED_MARKER.copy(
                 id = context.candidateKey,
                 hlc = context.hlc,
-                lastModified = context.lastModified
+                lastModified = context.hlc.ts
             )
         }
         error("FakeTestEntityCodecV2 received unexpected payload bytes: ${bytes.toHexString()}")

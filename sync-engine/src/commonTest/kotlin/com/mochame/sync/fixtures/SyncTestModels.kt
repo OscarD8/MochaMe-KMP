@@ -1,6 +1,6 @@
 package com.mochame.sync.fixtures
 
-import com.mochame.utils.fixtures.TestHlcFactory
+import com.mochame.utils.fixtures.HlcTestFactory
 import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.api.metadata.SyncStatus
@@ -35,14 +35,14 @@ internal fun createTestSyncIntent(
 )
 
 internal fun createTestIntentEntity(
-    hlc: HLC = TestHlcFactory.create(),
+    hlc: HLC = HlcTestFactory.create(),
     status: SyncStatus = SyncStatus.PENDING,
     candidateKey: String = "test-key",
     syncId: String? = null,
     overflowBlobId: String? = null,
-    createdAt: Long = TestHlcFactory.BASE_TEST_TIME,
+    createdAt: Long = HlcTestFactory.BASE_TEST_TIME,
     retryCount: Int = 0,
-    leasedAt: Long = TestHlcFactory.BASE_TEST_TIME,
+    leasedAt: Long = HlcTestFactory.BASE_TEST_TIME,
     payload: ByteArray? = byteArrayOf(0x01),
     feature: FeatureContext = FeatureContext.Type.UNRECOGNIZED_MODEL
 ) = SyncIntentEntity(

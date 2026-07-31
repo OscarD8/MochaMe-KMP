@@ -12,13 +12,13 @@ data class DailyContext(
     override val id: String,
     override val hlc: HLC = HLC.EMPTY,
     override val isDeleted: Boolean = false,
-    override val lastModified: Long,
+    override val lastModified: Long = 0L,
     val epochDay: Long,
     val sleepHours: Double,
     val readinessScore: Int,
     val isNapped: TriState = TriState.UNSET,
 ) : LocalFirstEntity<DailyContext> {
 
-    override fun withHlc(hlc: HLC): DailyContext = copy(hlc = hlc)
+    override fun withHlc(hlc: HLC): DailyContext = copy(hlc = hlc, lastModified = hlc.ts)
     override fun markDeleted(): DailyContext = copy(isDeleted = true)
 }

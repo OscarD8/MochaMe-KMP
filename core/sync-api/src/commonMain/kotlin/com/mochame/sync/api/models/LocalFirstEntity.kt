@@ -16,7 +16,7 @@ interface LocalFirstEntity<T : LocalFirstEntity<T>> {
     val id: String
     val isDeleted: Boolean
     val hlc: HLC
-    val lastModified: Long
+    val lastModified: Long?
     fun withHlc(hlc: HLC): T
     fun markDeleted(): T
 }

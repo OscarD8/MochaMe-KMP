@@ -6,7 +6,7 @@ import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Severity
 import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.support.MochaPlatformTest
-import com.mochame.utils.fixtures.TestHlcFactory
+import com.mochame.utils.fixtures.HlcTestFactory
 import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.api.models.HLC
 import com.mochame.sync.api.models.instant
@@ -33,7 +33,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
@@ -70,7 +69,7 @@ class HlcFactoryTest : MochaPlatformTest() {
     fun should_return_success_with_restamped_node_id_when_valid_history_provided() =
         runEnv {
             // Given
-            val history = TestHlcFactory.create(
+            val history = HlcTestFactory.create(
                 ts = HLC.APP_RELEASE_TIME,
                 count = 0xFFEF,
                 nodeId = "device-a"
@@ -97,7 +96,7 @@ class HlcFactoryTest : MochaPlatformTest() {
 
         // When
         factory.hydrate(
-            TestHlcFactory.create(
+            HlcTestFactory.create(
                 ts = historyTs,
                 count = 1,
                 nodeId = "node-old"
@@ -113,7 +112,7 @@ class HlcFactoryTest : MochaPlatformTest() {
     fun should_persist_new_node_id_for_subsequent_hlcs_after_migration() =
         runEnv {
             // Given: History from "node-old"
-            val history = TestHlcFactory.create(
+            val history = HlcTestFactory.create(
                 ts = HLC.APP_RELEASE_TIME,
                 count = 1,
                 nodeId = "node-old"
@@ -174,7 +173,7 @@ class HlcFactoryTest : MochaPlatformTest() {
     fun should_reset_counter_to_zero_during_migration_if_wall_clock_is_ahead() =
         runEnv {
             // Given: History is older than current wall clock
-            val olderHistory = TestHlcFactory.create(
+            val olderHistory = HlcTestFactory.create(
                 ts = fakeClock.now(),
                 count = 1,
                 nodeId = "node-old"
@@ -195,7 +194,7 @@ class HlcFactoryTest : MochaPlatformTest() {
         runEnv {
             // Given: History is newer than current wall clock (but within 1 hour)
             val newerHistoryTs = fakeClock.now().plus(1.seconds)
-            val newerHistory = TestHlcFactory.create(
+            val newerHistory = HlcTestFactory.create(
                 ts = newerHistoryTs,
                 count = 99,
                 nodeId = "node-old"
@@ -220,7 +219,7 @@ class HlcFactoryTest : MochaPlatformTest() {
 
         // When
         val secondResult = factory.hydrate(
-            TestHlcFactory.create(
+            HlcTestFactory.create(
                 ts = 12345,
                 count = 0,
                 nodeId = "node-2"
@@ -235,7 +234,7 @@ class HlcFactoryTest : MochaPlatformTest() {
     @Test
     fun should_yield_and_wait_for_next_tick_when_counter_overflows() = runEnv {
         // Given: Hydrate at the 16-bit limit (65535)
-        val maxCounterHlc = TestHlcFactory.create(
+        val maxCounterHlc = HlcTestFactory.create(
             ts = fakeClock.now().toEpochMilliseconds(),
             count = HLC.MAX_COUNTER_INT,
             nodeId = "node-1"
@@ -328,7 +327,7 @@ class HlcFactoryTest : MochaPlatformTest() {
     fun should_yield_and_retry_when_counter_is_exhausted() = runEnv { scope ->
         // Arrange: Hit the counter limit at a certain time
         fakeClock.setTime(HLC.APP_RELEASE_TIME)
-        val initialHlc = TestHlcFactory.create(
+        val initialHlc = HlcTestFactory.create(
             ts = HLC.APP_RELEASE_TIME,
             count = HLC.MAX_COUNTER_INT,
             nodeId = "node-1"
@@ -461,7 +460,7 @@ class HlcFactoryTest : MochaPlatformTest() {
             // Given: System clock is March 2026, but history is Jan 2040
             val futureTs = 2209032000000L
             val poisonedHlc =
-                TestHlcFactory.create(ts = futureTs, count = 1, nodeId = "node-old")
+                HlcTestFactory.create(ts = futureTs, count = 1, nodeId = "node-old")
 
             // When / Then
             assertFailsWith<MochaException.Persistent.ClockSkew> {
@@ -491,7 +490,7 @@ class HlcFactoryTest : MochaPlatformTest() {
     fun should_log_warning_when_counter_exhaustion_triggers_yield() =
         runEnv { scope ->
             // When: The factory at the 16-bit limit
-            val maxCounterHlc = TestHlcFactory.create(
+            val maxCounterHlc = HlcTestFactory.create(
                 ts = fakeClock.now().toEpochMilliseconds(),
                 count = HLC.MAX_COUNTER_INT,
                 nodeId = "node-1"

@@ -24,6 +24,7 @@ object LogTags {
         const val DOMAIN = "Domn"
         const val DATA = "Data"
         const val INFRA = "Infr"
+        const val SERI = "Seri"
         const val ORCH = "Orch"
         const val BOOT = "Boot"
     }

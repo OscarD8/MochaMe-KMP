@@ -34,6 +34,6 @@ interface DailyContextRepository {
 
 //    suspend fun upsertContext(context: DailyContext)
 
-    suspend fun pruneOldTombstones(cutoff: Long)
+    suspend fun hardDelete(cutoff: Long)
     suspend fun getTombstoneCount(): Int
 }
