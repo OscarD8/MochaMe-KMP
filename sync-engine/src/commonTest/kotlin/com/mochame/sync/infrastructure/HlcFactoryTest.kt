@@ -210,7 +210,7 @@ class HlcFactoryTest : MochaPlatformTest() {
         }
 
     // -----------------------------------------------------------
-    // MONOTONICITY AND CONCURRENCY
+    // MONOTONICITY / CONCURRENCY / CONTENTION
     // -----------------------------------------------------------
     @Test
     fun should_ignore_second_hydration_and_log_warning() = runEnv {

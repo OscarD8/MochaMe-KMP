@@ -7,10 +7,10 @@ import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.common.TriState
-import com.mochame.sync.di.codec.EntityCodecTestApp
-import com.mochame.sync.fixtures.serialization.TestEntity
-import com.mochame.sync.fixtures.serialization.TestEntityCodecV1
-import com.mochame.sync.fixtures.serialization.TestEntityDeltaV1
+import com.mochame.sync.di.codec.CodecTestApp
+import com.mochame.sync.fixtures.serialization.FeatureEntity
+import com.mochame.sync.fixtures.serialization.FeatureCodecV1
+import com.mochame.sync.fixtures.serialization.FeatureEntityDeltaV1
 import com.mochame.sync.spi.models.DecodeContext
 import com.mochame.utils.fixtures.HlcTestFactory
 import kotlinx.coroutines.test.TestScope
@@ -31,14 +31,14 @@ import kotlin.test.assertTrue
 // -----------------------------------------------------------
 // SUT ENVIRONMENT
 // -----------------------------------------------------------
-private inline fun runEnv(crossinline block: suspend TestEntityCodecV1.(TestScope) -> Unit) =
-    runUnitEnvironment<TestEntityCodecV1>(
-        koinSetup = { includes(koinConfiguration<EntityCodecTestApp>()) },
+private inline fun runEnv(crossinline block: suspend FeatureCodecV1.(TestScope) -> Unit) =
+    runUnitEnvironment<FeatureCodecV1>(
+        koinSetup = { includes(koinConfiguration<CodecTestApp>()) },
         block = block
     )
 
 @ExperimentalSerializationApi
-class EntityCodecTest : MochaPlatformTest() {
+class FeatureCodecTest : MochaPlatformTest() {
 
     // -------------------------------------------------------------------
     // DELTA ENCODING TESTS
@@ -46,11 +46,11 @@ class EntityCodecTest : MochaPlatformTest() {
 
     @Test
     fun should_encodeFullPayload_when_insertingNewEntity() = runEnv {
-        val newEntity = TestEntity()
+        val newEntity = FeatureEntity()
 
         val bytes = encode(new = newEntity, old = null)
         assertNotNull(bytes)
-        val delta = ProtoBuf.decodeFromByteArray(TestEntityDeltaV1.serializer(), bytes)
+        val delta = ProtoBuf.decodeFromByteArray(FeatureEntityDeltaV1.serializer(), bytes)
 
         assertEquals(newEntity.id, delta.id)
         assertEquals(newEntity.triStateValue, delta.triStateValue)
@@ -62,7 +62,7 @@ class EntityCodecTest : MochaPlatformTest() {
     @Test
     fun should_encodeSparseDelta_when_partiallyUpdatingFields() = runEnv {
         // Given
-        val oldEntity = TestEntity()
+        val oldEntity = FeatureEntity()
         val newEntity = oldEntity.copy(countValue = 20)
 
         // When Encode
@@ -77,7 +77,7 @@ class EntityCodecTest : MochaPlatformTest() {
 
         // When Decode
         val delta =
-            ProtoBuf.decodeFromByteArray(TestEntityDeltaV1.serializer(), sparseBytes)
+            ProtoBuf.decodeFromByteArray(FeatureEntityDeltaV1.serializer(), sparseBytes)
         assertEquals(oldEntity.id, delta.id)
         assertNull(delta.isDeleted, "Unchanged deletion state must be omitted")
         assertNull(delta.triStateValue, "Unchanged triStateValue must be omitted")
@@ -87,7 +87,7 @@ class EntityCodecTest : MochaPlatformTest() {
 
     @Test
     fun should_returnNull_when_encodingNoOpUpdate() = runEnv {
-        val entity = TestEntity()
+        val entity = FeatureEntity()
 
         val bytes = encode(new = entity, old = entity)
         assertNull(
@@ -98,7 +98,7 @@ class EntityCodecTest : MochaPlatformTest() {
 
     @Test
     fun should_encodeTombstoneOnly_when_entityIsDeleted() = runEnv {
-        val oldEntity = TestEntity()
+        val oldEntity = FeatureEntity()
         val deletedEntity = oldEntity.copy(
             textValue = "modified but deleted",
             countValue = 999,
@@ -108,7 +108,7 @@ class EntityCodecTest : MochaPlatformTest() {
         val bytes = encode(new = deletedEntity, old = oldEntity)
         assertNotNull(bytes)
 
-        val delta = ProtoBuf.decodeFromByteArray(TestEntityDeltaV1.serializer(), bytes)
+        val delta = ProtoBuf.decodeFromByteArray(FeatureEntityDeltaV1.serializer(), bytes)
         assertEquals(oldEntity.id, delta.id)
         assertEquals(true, delta.isDeleted)
         assertNull(delta.triStateValue, "Payload fields must be stripped on delete")
@@ -118,20 +118,20 @@ class EntityCodecTest : MochaPlatformTest() {
 
     @Test
     fun should_preserveTriStateTransitions_on_deltaWire() = runEnv {
-        val baseEntity = TestEntity(triStateValue = TriState.TRUE)
+        val baseEntity = FeatureEntity(triStateValue = TriState.TRUE)
         val falseEntity = baseEntity.copy(triStateValue = TriState.FALSE)
 
         // When Encode/Decode on False change
         val falseBytes = encode(new = falseEntity, old = baseEntity)!!
         val falseDelta =
-            ProtoBuf.decodeFromByteArray(TestEntityDeltaV1.serializer(), falseBytes)
+            ProtoBuf.decodeFromByteArray(FeatureEntityDeltaV1.serializer(), falseBytes)
         assertEquals(TriState.FALSE, falseDelta.triStateValue)
 
         // When Encode/Decode on Unset change
         val unsetEntity = falseEntity.copy(triStateValue = TriState.UNSET)
         val unsetBytes = encode(new = unsetEntity, old = falseEntity)!!
         val unsetDelta =
-            ProtoBuf.decodeFromByteArray(TestEntityDeltaV1.serializer(), unsetBytes)
+            ProtoBuf.decodeFromByteArray(FeatureEntityDeltaV1.serializer(), unsetBytes)
         assertEquals(TriState.UNSET, unsetDelta.triStateValue)
     }
 
@@ -142,7 +142,7 @@ class EntityCodecTest : MochaPlatformTest() {
     @Test
     fun should_hydrateFullEntity_when_existingStateIsNull() = runEnv {
         // Given
-        val originalEntity = TestEntity()
+        val originalEntity = FeatureEntity()
         val inboundBytes = encode(new = originalEntity, old = null)!!
         val context = DecodeContext(
             candidateKey = originalEntity.id,
@@ -166,7 +166,7 @@ class EntityCodecTest : MochaPlatformTest() {
 
     @Test
     fun should_mergeSparseDelta_with_existingLocalEntity() = runEnv {
-        val existingEntity = TestEntity()
+        val existingEntity = FeatureEntity()
 
         // When (Device A: Update & Encode)
         val updatedEntity = existingEntity.copy(countValue = 50)
@@ -197,7 +197,7 @@ class EntityCodecTest : MochaPlatformTest() {
 
     @Test
     fun should_overwriteExistingField_when_deltaContainsEmptyString() = runEnv {
-        val existingEntity = TestEntity()
+        val existingEntity = FeatureEntity()
 
         // When (Device A: User clears field)
         val clearedEntity = existingEntity.copy(textValue = "")
@@ -224,7 +224,7 @@ class EntityCodecTest : MochaPlatformTest() {
     @Test
     fun should_applyContextTimestamps_during_hydration() = runEnv {
         val hlcs = HlcTestFactory.chronologicalSequence(2)
-        val existingEntity = TestEntity(hlc = hlcs[0])
+        val existingEntity = FeatureEntity(hlc = hlcs[0])
 
         // When (Device A: Update and Encode)
         val updatedEntity = existingEntity.copy(hlc = hlcs[1], countValue = 6)
@@ -276,7 +276,7 @@ class EntityCodecTest : MochaPlatformTest() {
 
     @Test
     fun should_maintainSummaryParity_on_fullInsert() = runEnv {
-        val newEntity = TestEntity()
+        val newEntity = FeatureEntity()
         val bytes = encode(new = newEntity, old = null)
         assertNotNull(bytes)
 
@@ -295,7 +295,7 @@ class EntityCodecTest : MochaPlatformTest() {
 
     @Test
     fun should_maintainSummaryParity_on_partialUpdate() = runEnv {
-        val oldEntity = TestEntity()
+        val oldEntity = FeatureEntity()
         val newEntity = oldEntity.copy(countValue = 99)
         val bytes = encode(new = newEntity, old = oldEntity)
         assertNotNull(bytes)
@@ -315,7 +315,7 @@ class EntityCodecTest : MochaPlatformTest() {
 
     @Test
     fun should_maintainSummaryParity_on_tombstoneDelete() = runEnv {
-        val oldEntity = TestEntity()
+        val oldEntity = FeatureEntity()
         val deletedEntity = oldEntity.markDeleted()
         val bytes = encode(new = deletedEntity, old = oldEntity)
         assertNotNull(bytes)
@@ -370,7 +370,7 @@ class EntityCodecTest : MochaPlatformTest() {
     fun should_skipLengthDelimitedPayloads_without_corruptingBuffer() = runEnv {
         // Construct a large string payload (Wire Type 2) to force multi-byte length skipping
         val largeText = "A".repeat(2048)
-        val entityWithLargePayload = TestEntity(
+        val entityWithLargePayload = FeatureEntity(
             id = "entity-large-1",
             triStateValue = TriState.TRUE,     // Tag 2
             textValue = largeText,             // Tag 3 (Wire Type 2, length 2048)
@@ -396,7 +396,7 @@ class EntityCodecTest : MochaPlatformTest() {
     @Test
     fun should_cleanlyResetBuffer_across_sequentialPeeks() = runEnv {
         // Given Payload A: Large payload containing Tags 3, 4, and 5
-        val largeEntity = TestEntity(
+        val largeEntity = FeatureEntity(
             triStateValue = TriState.TRUE, // Tag 3
             textValue = "Long text string to pad the buffer size", // Tag 4
             countValue = 99999 // Tag 5

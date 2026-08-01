@@ -65,7 +65,7 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : Any>(
         val delta = try {
             ProtoBuf.decodeFromByteArray(deltaSerializer, bytes)
         } catch (e: Exception) {
-            logger.e(e) { "Protobuf decoding failed for key=${context.candidateKey} hlc=${context.hlc} (${bytes.size} bytes)" }
+            logger.e(e) { "Protobuf decoding failed: key=${context.candidateKey} hlc=${context.hlc} schema=${context.featureSchemaVersion} (${bytes.size} bytes)" }
             throw e
         }
 

@@ -40,34 +40,68 @@ internal class IntentCodecV1(
         logger.withTags(LogTags.Layer.SERI, LogTags.Domain.SYNC, "InCdc1")
 
     override fun encode(intent: SyncIntent): ByteArray {
-        val delta = SyncIntentDeltaV1(
-            featureSchemaVersion = intent.featureSchemaVersion,
-            hlc = intent.hlc.toString(),
-            candidateKey = intent.candidateKey,
-            module = intent.featureContext.featureName,
-            model = intent.featureContext.modelName,
-            operation = intent.operation.name,
-            payloadBlob = intent.payload,
-            overflowBlobId = intent.overflowBlobId,
-            createdAt = Clock.System.now().toEpochMilliseconds()
-        )
-        return ProtoBuf.encodeToByteArray(SyncIntentDeltaV1.serializer(), delta)
+        return try {
+            val delta = SyncIntentDeltaV1(
+                featureSchemaVersion = intent.featureSchemaVersion,
+                hlc = intent.hlc.toString(),
+                candidateKey = intent.candidateKey,
+                module = intent.featureContext.featureName,
+                model = intent.featureContext.modelName,
+                operation = intent.operation.name,
+                payloadBlob = intent.payload,
+                overflowBlobId = intent.overflowBlobId,
+                createdAt = intent.createdAt
+            )
+
+            val bytes = ProtoBuf.encodeToByteArray(SyncIntentDeltaV1.serializer(), delta)
+
+            logger.v {
+                "Encoded SyncIntent key=${intent.candidateKey} hlc=${intent.hlc} op=${intent.operation} " +
+                        "v=${intent.featureSchemaVersion} size=${bytes.size}B" +
+                        if (intent.overflowBlobId != null) " [Overflow: ${intent.overflowBlobId}]" else ""
+            }
+
+            bytes
+        } catch (e: Exception) {
+            logger.e(e) { "Failed to encode SyncIntent key=${intent.candidateKey} hlc=${intent.hlc}" }
+            throw e
+        }
     }
 
     override fun decode(bytes: ByteArray): SyncIntent {
-        val envelope = ProtoBuf.decodeFromByteArray(SyncIntentDeltaV1.serializer(), bytes)
+        val envelope = try {
+            ProtoBuf.decodeFromByteArray(SyncIntentDeltaV1.serializer(), bytes)
+        } catch (e: Exception) {
+            logger.e(e) { "Failed to deserialize SyncIntent delta (${bytes.size} bytes)" }
+            throw e
+        }
 
-        return SyncIntent(
-            featureSchemaVersion = envelope.featureSchemaVersion,
-            hlc = HLC.parse(envelope.hlc),
-            candidateKey = envelope.candidateKey,
-            featureContext = FeatureContext.fromModelString(envelope.model),
-            operation = MutationOp.valueOf(envelope.operation),
-            syncStatus = SyncStatus.RECEIVED,
-            payload = envelope.payloadBlob,
-            overflowBlobId = envelope.overflowBlobId,
-            retryCount = 0,
-            createdAt = envelope.createdAt
-        )
+        return try {
+            val intent = SyncIntent(
+                featureSchemaVersion = envelope.featureSchemaVersion,
+                hlc = HLC.parse(envelope.hlc),
+                candidateKey = envelope.candidateKey,
+                featureContext = FeatureContext.fromModelString(envelope.model),
+                operation = MutationOp.valueOf(envelope.operation),
+                syncStatus = SyncStatus.RECEIVED,
+                payload = envelope.payloadBlob,
+                overflowBlobId = envelope.overflowBlobId,
+                retryCount = 0,
+                createdAt = envelope.createdAt
+            )
+
+            logger.v {
+                "Decoded SyncIntent key=${intent.candidateKey} hlc=${intent.hlc} op=${intent.operation} " +
+                        "v=${intent.featureSchemaVersion} payload=${intent.payload?.size ?: 0}B"
+            }
+
+            intent
+        } catch (e: Exception) {
+            logger.e(e) {
+                "Intent Invariant Failure: Failed mapping delta key=${envelope.candidateKey} " +
+                        "hlc=${envelope.hlc} op=${envelope.operation} model=${envelope.model}"
+            }
+            throw e
+        }
     }
 }

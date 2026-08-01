@@ -9,6 +9,7 @@ import com.mochame.sync.spi.infrastructure.TransactionProvider
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.logger.withTimer
+import com.mochame.sync.api.infrastructure.HlcFactory
 import com.mochame.sync.api.models.HLC
 import com.mochame.sync.spi.models.DecodeContext
 import com.mochame.sync.spi.models.SyncIntent
@@ -34,6 +35,7 @@ internal class SyncCoordinator(
     private val payloadCodec: PayloadCodec,
     private val idGenerator: IdGenerator,
     private val executor: ExecutionPolicy,
+    private val hlcFactory: HlcFactory,
     private val invalidationHook: SyncWorkerHook,
     private val nodeManager: NodeContextManager,
     @CoordinatorMutex private val coordinatorMutex: Mutex,
@@ -134,7 +136,10 @@ internal class SyncCoordinator(
                         maxValidHlc = maxValidHlc?.let { maxOf(it, intent.hlc) } ?: intent.hlc
                     }
                 }
-                maxValidHlc?.let { nodeManager.updateHlcFloor(it) }
+                maxValidHlc?.let {
+                    hlcFactory.witness(it)
+                    nodeManager.updateHlcFloor(it)
+                }
             }
         }
 
@@ -156,7 +161,7 @@ internal class SyncCoordinator(
      */
     private suspend fun orchestrateIntent(intent: SyncIntent): Boolean {
         return try {
-            verifyIntentNullState(intent)
+            checkOverflow(intent)
             val intentContext = extractContext(intent)
             intent.receiver.processRemoteIntent(intentContext, intent.payload)
             true
@@ -166,7 +171,7 @@ internal class SyncCoordinator(
         }
     }
 
-    private suspend fun verifyIntentNullState(intent: SyncIntent) {
+    private suspend fun checkOverflow(intent: SyncIntent) {
         check(intent.payload != null || intent.overflowBlobId != null) {
             throw MochaException.Persistent.CorruptionDetected(
                 "Data integrity violation for ${intent.candidateKey}: both payload and blobId are null"

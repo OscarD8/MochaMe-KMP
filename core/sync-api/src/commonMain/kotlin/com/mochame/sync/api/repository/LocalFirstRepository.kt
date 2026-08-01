@@ -265,8 +265,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         provisionalState: T,
         incomingHlc: HLC?
     ): T {
-        val hlc = incomingHlc?.also { deps.hlcFactory.witness(it) }
-            ?: deps.hlcFactory.getNextHlc()
+        val hlc = incomingHlc ?: deps.hlcFactory.getNextHlc()
         return provisionalState.withHlc(hlc)
     }
 

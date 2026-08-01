@@ -20,6 +20,10 @@ abstract class BaseFeatureCodecRouter<T : LocalFirstEntity<T>>(
         context: DecodeContext
     ): String = getCodec(context.featureSchemaVersion, logger).reconstructSummary(data)
 
+    /**
+     * As this is an in-memory reconstruction, it must target the latest codec
+     * matching the source code of the model.
+     */
     override fun routedSummarize(new: T, old: T?): String =
         latestCodec.summarize(new, old)
 

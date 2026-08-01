@@ -10,13 +10,12 @@ import com.mochame.sync.spi.infrastructure.serialization.diff
 import com.mochame.sync.spi.models.DecodeContext
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.protobuf.ProtoBuf
 import kotlinx.serialization.protobuf.ProtoNumber
 import org.koin.core.annotation.Single
 
 @Serializable
 @ExperimentalSerializationApi
-internal data class TestEntityDeltaV1(
+internal data class FeatureEntityDeltaV1(
     @ProtoNumber(1) val id: String,
     @ProtoNumber(2) val isDeleted: Boolean? = null,
     @ProtoNumber(3) val triStateValue: TriState? = null,
@@ -26,35 +25,35 @@ internal data class TestEntityDeltaV1(
 
 @Single
 @OptIn(ExperimentalSerializationApi::class)
-internal class TestEntityCodecV1(
+internal class FeatureCodecV1(
     bufferProvider: BufferProvider,
     logger: Logger
-) : BaseFeatureCodec<TestEntity, TestEntityDeltaV1>(
+) : BaseFeatureCodec<FeatureEntity, FeatureEntityDeltaV1>(
     bufferProvider = bufferProvider,
-    deltaSerializer = TestEntityDeltaV1.serializer(),
+    deltaSerializer = FeatureEntityDeltaV1.serializer(),
     logger = logger.withTags(LogTags.Layer.SERI, LogTags.Domain.SYNC, "TeCdc1")
 ) {
 
-    override fun buildDeleteDelta(entity: TestEntity) = TestEntityDeltaV1(
+    override fun buildDeleteDelta(entity: FeatureEntity) = FeatureEntityDeltaV1(
         id = entity.id,
         isDeleted = true
     )
 
-    override fun buildInsertDelta(entity: TestEntity) = TestEntityDeltaV1(
+    override fun buildInsertDelta(entity: FeatureEntity) = FeatureEntityDeltaV1(
         id = entity.id,
         triStateValue = entity.triStateValue,
         textValue = entity.textValue,
         countValue = entity.countValue
     )
 
-    override fun buildUpdateDelta(new: TestEntity, old: TestEntity): TestEntityDeltaV1? {
+    override fun buildUpdateDelta(new: FeatureEntity, old: FeatureEntity): FeatureEntityDeltaV1? {
         val triStateValue = new.triStateValue diff old.triStateValue
         val textDelta = new.textValue diff old.textValue
         val countDelta = new.countValue diff old.countValue
 
         if (textDelta == null && countDelta == null && triStateValue == null) return null
 
-        return TestEntityDeltaV1(
+        return FeatureEntityDeltaV1(
             id = new.id,
             triStateValue = triStateValue,
             textValue = textDelta,
@@ -63,10 +62,10 @@ internal class TestEntityCodecV1(
     }
 
     override fun mergeDelta(
-        delta: TestEntityDeltaV1,
+        delta: FeatureEntityDeltaV1,
         context: DecodeContext,
-        existing: TestEntity?
-    ): TestEntity = TestEntity(
+        existing: FeatureEntity?
+    ): FeatureEntity = FeatureEntity(
         id = context.candidateKey,
         hlc = context.hlc,
         lastModified = context.hlc.ts,
@@ -77,7 +76,7 @@ internal class TestEntityCodecV1(
         isDeleted = delta.isDeleted ?: existing?.isDeleted ?: false
     )
 
-    override fun computeChangedTags(new: TestEntity, old: TestEntity?): List<Int> =
+    override fun computeChangedTags(new: FeatureEntity, old: FeatureEntity?): List<Int> =
         buildList {
             if (old == null || new.triStateValue != old.triStateValue) add(3)
             if (old == null || new.textValue != old.textValue) add(4)

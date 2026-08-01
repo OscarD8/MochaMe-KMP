@@ -58,7 +58,7 @@ sealed class MochaException(
         class Uncategorized(message: String? = null, cause: Throwable? = null) :
             Persistent(message ?: "Unexpected failure.", cause)
 
-        class UnknownProtocolVersion(version: Int) :
+        class UnknownProtocolVersion(val version: Int) :
             Persistent("Unknown protocol version: $version")
 
         class Internal(message: String?, cause: Throwable? = null) :

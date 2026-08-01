@@ -1,8 +1,10 @@
 package com.mochame.sync.infrastructure
 
 import com.mochame.sync.spi.infrastructure.KeyedLocker
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import org.koin.core.annotation.Single
 
 /**
@@ -28,9 +30,11 @@ internal class DefaultKeyedLocker : KeyedLocker {
         return try {
             entry.mutex.withLock { action() }
         } finally {
-            masterLock.withLock {
-                entry.activeUsers--
-                if (entry.activeUsers == 0) keyLocks.remove(candidateKey)
+            withContext(NonCancellable) {
+                masterLock.withLock {
+                    entry.activeUsers--
+                    if (entry.activeUsers == 0) keyLocks.remove(candidateKey)
+                }
             }
         }
     }

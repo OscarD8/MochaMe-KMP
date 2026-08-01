@@ -61,6 +61,7 @@ fun <T : Any> VersionRouter<T>.getCodec(
     return codec
 }
 
+// Not tested or used.
 fun <T : Any> VersionRouter<T>.getCodec(version: Byte, logger: Logger): T {
     val index = (version.toInt() and 0xFF)
     return versionRegistry.getOrNull(index)

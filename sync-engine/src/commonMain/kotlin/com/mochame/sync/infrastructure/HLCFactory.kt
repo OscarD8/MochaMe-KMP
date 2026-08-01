@@ -124,7 +124,7 @@ internal class EngineHlcFactory(
         // Phase 2: Apply 16-bit overflow logic if necessary
         val (finalTs, finalCount) = applyOverflow(provisionalTs, provisionalCount)
 
-        // Phase 3: Ensure the resulting jump is within safety boundaries
+        // Phase 3: Ensure the resulting jump is within boundaries
         validateDrift(Instant.fromEpochMilliseconds(finalTs), wallClock)
 
         state = currentState.copy(
@@ -174,7 +174,7 @@ internal class EngineHlcFactory(
             }
 
             // Case 2: New Install
-            history == null  -> {
+            history == null -> {
                 logger.i { "Hydration: New Install detected. Starting at $wallClock" }
                 HLC(wallClock, 0, currentNodeId)
             }
@@ -195,7 +195,8 @@ internal class EngineHlcFactory(
                 }
 
                 val finalInstant = maxOf(wallClock, history.instant)
-                val finalCounter = if (finalInstant == history.instant) history.count else 0
+                val finalCounter =
+                    if (finalInstant == history.instant) history.count else 0
 
                 HLC(finalInstant, finalCounter, currentNodeId).also {
                     logger.i { "Successfully reconciled new HLC: [$it] with incoming [$history]." }

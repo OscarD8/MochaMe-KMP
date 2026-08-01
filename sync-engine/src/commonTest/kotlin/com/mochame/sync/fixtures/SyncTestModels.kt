@@ -9,7 +9,7 @@ import com.mochame.sync.spi.models.SyncIntent
 import com.mochame.sync.data.SyncIntentEntity
 
 internal fun createTestSyncIntent(
-    hlc: HLC,
+    hlc: HLC = HlcTestFactory.create(),
     candidateKey: String = "test-key-123",
     context: FeatureContext.Type = FeatureContext.Type.BIO_DAILY_CONTEXT,
     payload: ByteArray? = byteArrayOf(0x00),
