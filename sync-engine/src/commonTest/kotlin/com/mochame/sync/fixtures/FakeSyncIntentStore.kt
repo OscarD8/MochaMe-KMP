@@ -2,7 +2,7 @@ package com.mochame.sync.fixtures
 
 import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.metadata.SyncStatus
-import com.mochame.sync.api.models.HLC
+import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.domain.model.QuarantinedFeatureSummary
 import com.mochame.sync.domain.stores.SyncIntentMaintenanceStore
 import com.mochame.sync.spi.infrastructure.SyncIntentStore

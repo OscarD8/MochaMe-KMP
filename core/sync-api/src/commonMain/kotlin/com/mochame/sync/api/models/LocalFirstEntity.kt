@@ -1,5 +1,7 @@
 package com.mochame.sync.api.models
 
+import com.mochame.sync.api.hlc.HLC
+
 
 /**
  * When a concrete class implements this contract, it must declare itself as the

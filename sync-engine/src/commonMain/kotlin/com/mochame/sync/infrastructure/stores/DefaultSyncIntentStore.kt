@@ -2,7 +2,7 @@ package com.mochame.sync.infrastructure.stores
 
 
 import com.mochame.sync.api.metadata.FeatureContext
-import com.mochame.sync.api.models.HLC
+import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.data.SyncIntentDao
 import com.mochame.sync.data.toDomain
 import com.mochame.sync.data.toEntity
@@ -12,8 +12,6 @@ import com.mochame.sync.spi.infrastructure.SyncIntentStore
 import com.mochame.sync.spi.models.SyncIntent
 import kotlinx.coroutines.flow.Flow
 import org.koin.core.annotation.Single
-import kotlin.time.Clock
-import kotlin.time.Duration
 
 /**
  * An implementation coupled to Jetpack Room, bridging the orchestration layer of synchronization logic

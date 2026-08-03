@@ -8,7 +8,7 @@ import com.mochame.sync.spi.infrastructure.TransactionProvider
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.logger.withTimer
-import com.mochame.sync.api.infrastructure.HlcFactory
+import com.mochame.sync.api.hlc.HlcFactory
 import com.mochame.sync.api.boot.BootState
 import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.sync.api.exceptions.toMochaException
@@ -20,7 +20,7 @@ import com.mochame.sync.spi.boot.BootStatusUpdater
 import com.mochame.sync.spi.policy.ExecutionPolicy
 import com.mochame.sync.spi.models.SyncIntent
 import com.mochame.sync.spi.node.NodeContext
-import com.mochame.sync.api.models.HLC
+import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.domain.config.JanitorMaintenanceConfig
 import com.mochame.utils.interfaces.TimeProvider

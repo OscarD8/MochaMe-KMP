@@ -4,7 +4,7 @@ import com.mochame.utils.fixtures.HlcTestFactory
 import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.api.metadata.SyncStatus
-import com.mochame.sync.api.models.HLC
+import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.spi.models.SyncIntent
 import com.mochame.sync.data.SyncIntentEntity
 

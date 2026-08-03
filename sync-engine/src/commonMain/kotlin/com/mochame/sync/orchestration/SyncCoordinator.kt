@@ -9,8 +9,8 @@ import com.mochame.sync.spi.infrastructure.TransactionProvider
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.logger.withTimer
-import com.mochame.sync.api.infrastructure.HlcFactory
-import com.mochame.sync.api.models.HLC
+import com.mochame.sync.api.hlc.HlcFactory
+import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.spi.models.DecodeContext
 import com.mochame.sync.spi.models.SyncIntent
 import com.mochame.sync.tryWithLock
@@ -161,7 +161,7 @@ internal class SyncCoordinator(
      */
     private suspend fun orchestrateIntent(intent: SyncIntent): Boolean {
         return try {
-            checkOverflow(intent)
+            checkOverflowState(intent)
             val intentContext = extractContext(intent)
             intent.receiver.processRemoteIntent(intentContext, intent.payload)
             true
@@ -171,7 +171,7 @@ internal class SyncCoordinator(
         }
     }
 
-    private suspend fun checkOverflow(intent: SyncIntent) {
+    private suspend fun checkOverflowState(intent: SyncIntent) {
         check(intent.payload != null || intent.overflowBlobId != null) {
             throw MochaException.Persistent.CorruptionDetected(
                 "Data integrity violation for ${intent.candidateKey}: both payload and blobId are null"

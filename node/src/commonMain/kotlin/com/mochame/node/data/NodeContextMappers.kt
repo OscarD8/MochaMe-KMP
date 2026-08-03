@@ -1,6 +1,6 @@
 package com.mochame.node.data
 
-import com.mochame.sync.api.models.HLC
+import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.spi.node.NodeContext
 
 internal fun NodeContextEntity.toDomain() = NodeContext(

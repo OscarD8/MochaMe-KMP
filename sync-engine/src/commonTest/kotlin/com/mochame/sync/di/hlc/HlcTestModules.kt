@@ -4,10 +4,11 @@ import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Logger
 import co.touchlab.kermit.TestLogWriter
 import com.mochame.logger.test.TestLoggerModule
-import com.mochame.sync.api.infrastructure.HlcFactory
+import com.mochame.sync.api.hlc.HlcFactory
+import com.mochame.sync.di.SyncDomainModule
 import com.mochame.sync.di.SyncInfraModule
 import com.mochame.sync.fixtures.FakeHlcFactory
-import com.mochame.sync.infrastructure.EngineHlcFactory
+import com.mochame.sync.domain.hlc.EngineHlcFactory
 import com.mochame.utils.fixtures.FakeTimeProvider
 import com.mochame.utils.fixtures.di.FakeTimeProviderModule
 import org.koin.core.annotation.ComponentScan
@@ -23,7 +24,7 @@ internal object HlcTestApp
 @Module(
     includes = [
         FakeTimeProviderModule::class,
-        SyncInfraModule::class,
+        SyncDomainModule::class,
         TestLoggerModule::class
     ]
 )

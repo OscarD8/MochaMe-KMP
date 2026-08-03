@@ -1,7 +1,7 @@
 package com.mochame.sync.spi.models
 
 import com.mochame.sync.api.metadata.MutationOp
-import com.mochame.sync.api.models.HLC
+import com.mochame.sync.api.hlc.HLC
 
 data class DecodeContext(
     val featureSchemaVersion: Int,

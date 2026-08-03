@@ -11,7 +11,7 @@ import com.mochame.support.MochaPlatformTest
 import com.mochame.utils.fixtures.HlcTestFactory
 import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.api.metadata.SyncStatus
-import com.mochame.sync.api.models.HLC
+import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.di.janitor.JanitorTestApp
 import com.mochame.sync.di.janitor.JanitorTestEnv
 import com.mochame.sync.fixtures.createTestSyncIntent

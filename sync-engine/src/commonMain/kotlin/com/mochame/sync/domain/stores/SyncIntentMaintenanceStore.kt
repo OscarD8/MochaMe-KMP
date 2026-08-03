@@ -1,12 +1,11 @@
 package com.mochame.sync.domain.stores
 
 
-import com.mochame.sync.api.models.HLC
+import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.spi.models.SyncIntent
 import com.mochame.sync.domain.model.QuarantinedFeatureSummary
 import com.mochame.sync.orchestration.SyncCoordinator
 import kotlinx.coroutines.flow.Flow
-import kotlin.time.Duration
 
 internal interface SyncIntentMaintenanceStore {
     suspend fun clearAllLocksAndResetToPending(): Int

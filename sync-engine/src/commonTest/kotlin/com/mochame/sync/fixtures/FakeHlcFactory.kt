@@ -1,9 +1,10 @@
 package com.mochame.sync.fixtures
 
 import co.touchlab.kermit.Logger
-import com.mochame.sync.api.infrastructure.HlcFactory
-import com.mochame.sync.api.models.HLC
-import com.mochame.sync.infrastructure.EngineHlcFactory
+import com.mochame.sync.api.hlc.HlcFactory
+import com.mochame.sync.api.hlc.HLC
+import com.mochame.sync.domain.hlc.HlcEvaluation
+import com.mochame.sync.domain.hlc.EngineHlcFactory
 import com.mochame.utils.fixtures.FakeTimeProvider
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
@@ -82,9 +83,13 @@ class FakeHlcFactory(
             _witnessedHlcs.add(remoteHlc)
         }
 
-        realFactory.witness(remoteHlc)
+        return realFactory.witness(remoteHlc)
     }
 
-    override fun isValid(hlc: HLC): Boolean =
-        realFactory.isValid(hlc)
+    override suspend fun getCurrentHlc(): HLC? = lock.withLock {
+        realFactory.getCurrentHlc()
+    }
+
+    override fun assertValid(hlc: HLC, contextKey: String?) =
+        realFactory.assertValid(hlc, contextKey)
 }

@@ -1,6 +1,6 @@
 package com.mochame.utils.fixtures
 
-import com.mochame.sync.api.models.HLC
+import com.mochame.sync.api.hlc.HLC
 import kotlin.time.Instant
 
 

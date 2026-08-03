@@ -1,4 +1,4 @@
-package com.mochame.sync.api.models
+package com.mochame.sync.api.hlc
 
 import com.mochame.sync.api.exceptions.MochaException
 import kotlinx.serialization.Serializable

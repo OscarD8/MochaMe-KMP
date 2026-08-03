@@ -8,7 +8,7 @@ import com.mochame.logger.withTags
 import com.mochame.node.data.NodeContextDao
 import com.mochame.node.data.toDomain
 import com.mochame.node.data.toEntity
-import com.mochame.sync.api.models.HLC
+import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.spi.node.IdGenerator
 import com.mochame.sync.spi.node.NodeContext
 import com.mochame.sync.spi.node.NodeContextManager

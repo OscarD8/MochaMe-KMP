@@ -1,7 +1,7 @@
 package com.mochame.sync.fixtures.serialization
 
 import com.mochame.sync.api.metadata.MutationOp
-import com.mochame.sync.api.models.HLC
+import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.api.models.LocalFirstEntity
 import com.mochame.sync.common.TriState
 import com.mochame.sync.spi.models.DecodeContext

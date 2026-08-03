@@ -9,7 +9,7 @@ import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.spi.models.DecodeContext
-import com.mochame.sync.api.models.HLC
+import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.api.models.LocalFirstEntity
 import com.mochame.sync.spi.models.SyncIntent
 import com.mochame.sync.spi.infrastructure.serialization.FeatureCodec
@@ -111,19 +111,20 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     ): R {
         val existingState = fetchExistingState()
 
-        validateLwwRejection(existingState, incomingHlc, candidateKey)?.let {
-            rejectedState -> return onSkip(rejectedState)
-        }
+        validateLwwRejection(
+            existingState, incomingHlc, candidateKey
+        )?.let { rejectedState -> return onSkip(rejectedState) }
 
         if (op == MutationOp.DELETE && isGhostDelete(existingState, candidateKey))
             return onSkip(existingState!!)
 
-        val provisionalState = computeChange(existingState)
-        val stampedState = stampWithHlc(provisionalState, incomingHlc)
+        val candidateState = computeChange(existingState)
 
         return if (incomingHlc != null) {
-            persist(stampedState)
+            persist(candidateState)
         } else {
+            val stampedState = candidateState.withHlc(deps.hlcFactory.getNextHlc())
+
             handleLocalCommit(
                 candidateKey = candidateKey,
                 op = op,
@@ -139,7 +140,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     // -----------------------------------------------------------
     // ACCESS
     // -----------------------------------------------------------
-    protected suspend inline fun synchronizedUpsert(
+    protected suspend inline fun localUpsert(
         candidateKey: String,
         incomingHlc: HLC? = null,
         op: MutationOp = MutationOp.UPSERT,
@@ -161,13 +162,13 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
      * Convenience overload providing the default soft-delete logic.
      * Suspend functional parameters with default values are not yet supported in inline functions.
      */
-    protected suspend inline fun synchronizedDelete(
+    protected suspend inline fun localDelete(
         candidateKey: String,
         incomingHlc: HLC? = null,
         crossinline fetchExistingState: suspend () -> T?,
         crossinline persist: suspend (stamped: T) -> Int,
         crossinline onSkip: (fallback: T) -> Int = { 0 }
-    ): Int = synchronizedDelete(
+    ): Int = localDelete(
         candidateKey = candidateKey,
         incomingHlc = incomingHlc,
         fetchExistingState = fetchExistingState,
@@ -176,7 +177,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         onSkip = onSkip
     )
 
-    protected suspend inline fun synchronizedDelete(
+    protected suspend inline fun localDelete(
         candidateKey: String,
         incomingHlc: HLC? = null,
         crossinline fetchExistingState: suspend () -> T?,
@@ -206,7 +207,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                 logger.e { "Should not have received null payload with no overflowId for ${context.candidateKey}." }
                 throw MochaException.Persistent.CorruptionDetected("Should not have received null payload with no overflowId for ${context.candidateKey}")
             }
-            // Intent is persisted
+            // Intent is persisted by Coordinator
             logger.d { "Branching to overflow processing. [Key: ${context.candidateKey}] [blobId: ${context.overflowBlobId}]." }
         }
 
@@ -238,13 +239,13 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     ): T? {
         if (existingState == null) return null
 
-        if (!deps.hlcFactory.isValid(existingState.hlc))
-            throw MochaException.Persistent.CorruptionDetected("Invalid HLC [${existingState.hlc}] for $candidateKey")
+        deps.hlcFactory.assertValid(existingState.hlc, candidateKey)
 
         if (incomingHlc != null && incomingHlc <= existingState.hlc) {
             logger.d { "Local item [$candidateKey / ${existingState.hlc}] rejected incoming $incomingHlc." }
             return existingState
         }
+
         return null
     }
 
@@ -258,15 +259,6 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             return true
         }
         return false
-    }
-
-    @PublishedApi
-    internal suspend fun stampWithHlc(
-        provisionalState: T,
-        incomingHlc: HLC?
-    ): T {
-        val hlc = incomingHlc ?: deps.hlcFactory.getNextHlc()
-        return provisionalState.withHlc(hlc)
     }
 
     @PublishedApi
@@ -316,7 +308,9 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
 
             blobId?.also {
                 deps.blobStore.commit(it)
-                logger.i { "Intent Dispatched | Op: $op | Key: $candidateKey".withTimer(tMark) }
+                logger.i {
+                    "Intent Dispatched | Op: $op | Key: $candidateKey".withTimer(tMark)
+                }
             }
 
             return result

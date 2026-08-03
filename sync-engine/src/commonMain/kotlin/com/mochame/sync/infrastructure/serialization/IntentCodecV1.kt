@@ -6,7 +6,7 @@ import com.mochame.logger.withTags
 import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.api.metadata.SyncStatus
-import com.mochame.sync.api.models.HLC
+import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.spi.models.SyncIntent
 import com.mochame.sync.domain.serialization.IntentCodec
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -14,7 +14,6 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoBuf
 import kotlinx.serialization.protobuf.ProtoNumber
 import org.koin.core.annotation.Single
-import kotlin.time.Clock
 
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable

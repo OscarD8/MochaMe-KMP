@@ -1,6 +1,6 @@
 package com.mochame.sync.spi.node
 
-import com.mochame.sync.api.models.HLC
+import com.mochame.sync.api.hlc.HLC
 import kotlin.time.Clock
 
 data class NodeContext(

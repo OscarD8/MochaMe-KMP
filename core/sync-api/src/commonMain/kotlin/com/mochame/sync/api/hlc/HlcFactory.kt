@@ -1,11 +1,10 @@
-package com.mochame.sync.api.infrastructure
-
-import com.mochame.sync.api.models.HLC
+package com.mochame.sync.api.hlc
 
 
 interface HlcFactory {
     suspend fun hydrate(lastKnownHlc: HLC?, currentNodeId: String): HLC
     suspend fun getNextHlc(): HLC
     suspend fun witness(remoteHlc: HLC)
-    fun isValid(hlc: HLC): Boolean
+    suspend fun getCurrentHlc(): HLC?
+    fun assertValid(hlc: HLC, contextKey: String? = null)
 }

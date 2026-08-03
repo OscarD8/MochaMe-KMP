@@ -1,15 +1,14 @@
 @file:OptIn(ExperimentalKermitApi::class)
 
-package com.mochame.sync.infrastructure
+package com.mochame.sync.domain
 
 import co.touchlab.kermit.ExperimentalKermitApi
-import co.touchlab.kermit.Severity
 import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.support.MochaPlatformTest
 import com.mochame.utils.fixtures.HlcTestFactory
 import com.mochame.support.runUnitEnvironment
-import com.mochame.sync.api.models.HLC
-import com.mochame.sync.api.models.instant
+import com.mochame.sync.api.hlc.HLC
+import com.mochame.sync.api.hlc.instant
 import com.mochame.sync.di.hlc.HLCTestEnvironment
 import com.mochame.sync.di.hlc.HlcTestApp
 import kotlinx.coroutines.CompletableDeferred
@@ -22,7 +21,10 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import org.koin.dsl.includes
 import org.koin.plugin.module.dsl.koinConfiguration
@@ -34,6 +36,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
@@ -47,7 +50,7 @@ private inline fun runEnv(crossinline block: suspend HLCTestEnvironment.(TestSco
     )
 
 
-class HlcFactoryTest : MochaPlatformTest() {
+class EngineHlcFactoryTest : MochaPlatformTest() {
 
     // -----------------------------------------------------------
     // SUCCESS PATH
@@ -66,52 +69,25 @@ class HlcFactoryTest : MochaPlatformTest() {
     }
 
     @Test
-    fun should_return_success_with_restamped_node_id_when_valid_history_provided() =
-        runEnv {
-            // Given
-            val history = HlcTestFactory.create(
-                ts = HLC.APP_RELEASE_TIME,
-                count = 0xFFEF,
-                nodeId = "device-a"
-            )
-            val newNodeId = "device-b"
-
-            // When
-            val result = factory.hydrate(history, newNodeId)
-
-            // Then
-            assertNotNull(result)
-            assertEquals(
-                "00${HLC.APP_RELEASE_TIME.toEpochMilliseconds()}:FFEF:device-b",
-                result.toString()
-            )
-        }
-
-    @Test
     fun should_log_warning_but_succeed_when_future_jump_detected() = runEnv {
         // Given: Wall clock is 2 years ahead of history
-        val historyTs = HLC.APP_RELEASE_TIME
-        val wallClock = historyTs + (HLC.ONE_DAY * 730) // 2 years
-        fakeClock.setTime(wallClock)
+        val historyTs = HLC.APP_RELEASE_TIME.also { fakeClock.setTime(it) }
+        val historicHlc = HlcTestFactory.create(historyTs, 1, "node-old")
+        fakeClock.advanceTime(HLC.ONE_DAY * 60)
 
         // When
-        factory.hydrate(
-            HlcTestFactory.create(
-                ts = historyTs,
-                count = 1,
-                nodeId = "node-old"
-            ), "node-new"
-        )
+        factory.hydrate(historicHlc, "node-new")
 
         // Then
-        assertTrue(writer.logs.any { it.message.contains("Future Jump") })
-        assertTrue(writer.logs.any { it.message.contains("Successfully reconciled") })
+        assertTrue(writer.logs.any { it.message.contains("60 days", true) })
+        assertTrue(writer.logs.any { it.message.contains("successfully hydrated", true) })
     }
 
     @Test
     fun should_persist_new_node_id_for_subsequent_hlcs_after_migration() =
         runEnv {
             // Given: History from "node-old"
+            fakeClock.setTime(HLC.APP_RELEASE_TIME)
             val history = HlcTestFactory.create(
                 ts = HLC.APP_RELEASE_TIME,
                 count = 1,
@@ -229,37 +205,6 @@ class HlcFactoryTest : MochaPlatformTest() {
         // Then: Returns the first hydration result
         assertTrue(writer.logs.any { it.message.contains("rehydrate") })
         assertEquals("node-1", secondResult.nodeId)
-    }
-
-    @Test
-    fun should_yield_and_wait_for_next_tick_when_counter_overflows() = runEnv {
-        // Given: Hydrate at the 16-bit limit (65535)
-        val maxCounterHlc = HlcTestFactory.create(
-            ts = fakeClock.now().toEpochMilliseconds(),
-            count = HLC.MAX_COUNTER_INT,
-            nodeId = "node-1"
-        )
-        factory.hydrate(maxCounterHlc, "node-1")
-
-        // When: We try to get the next HLC in a separate coroutine
-        var resultHlc: HLC? = null
-        val job = it.launch {
-            resultHlc = factory.getNextHlc()
-        }
-
-        // Then: It should suspend/yield because the counter is exhausted
-        yield()
-        assertNull(resultHlc, "Factory should be suspended in busy-wait yield")
-
-        // When: Time finally ticks forward
-        fakeClock.advanceTime(1.milliseconds)
-        yield()
-
-        // Then: The suspended call completes with a reset counter
-        assertNotNull(resultHlc)
-        assertEquals(0, resultHlc!!.count)
-        assertEquals(fakeClock.now(), resultHlc!!.instant)
-        job.cancel()
     }
 
     @Test
@@ -387,7 +332,7 @@ class HlcFactoryTest : MochaPlatformTest() {
             jobs.joinAll()
 
             // Verification
-            val initLogs = writer.logs.filter { it.message.contains("New Install") }
+            val initLogs = writer.logs.filter { it.message.contains("New Install", true) }
             val rehydrateLogs = writer.logs.filter { it.message.contains("rehydrate") }
             assertEquals(
                 1,
@@ -483,13 +428,17 @@ class HlcFactoryTest : MochaPlatformTest() {
                 factory.hydrate(null, "node-1")
             }
 
-            assertTrue(exception.drift.inWholeMilliseconds > 0, "Drift should be a positive value")
+            assertTrue(
+                exception.drift.inWholeMilliseconds > 0,
+                "Drift should be a positive value"
+            )
         }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     @Test
-    fun should_log_warning_when_counter_exhaustion_triggers_yield() =
+    fun should_log_warning_when_counter_exhaustion_triggers_delay() =
         runEnv { scope ->
-            // When: The factory at the 16-bit limit
+            // When: The factory at the 16-bit limit, matching the device time
             val maxCounterHlc = HlcTestFactory.create(
                 ts = fakeClock.now().toEpochMilliseconds(),
                 count = HLC.MAX_COUNTER_INT,
@@ -497,34 +446,381 @@ class HlcFactoryTest : MochaPlatformTest() {
             )
             factory.hydrate(maxCounterHlc, "node-1")
 
-            // Then: This will trigger a yield on attempting to get a new hlc
+            // Then: This will trigger a delay on attempting to get a new hlc
             val hlcJob = scope.launch { factory.getNextHlc() }
             yield()
             fakeClock.advanceTime(1.milliseconds)
-            yield()
+            scope.advanceTimeBy(1.milliseconds)
+            scope.runCurrent()
 
             // Verify the log recorded the yield event
-            val counterWarning =
-                writer.logs.find { it.message.contains("counter exhaustion") }
+            val finalHlc = factory.getCurrentHlc()
+            val counterWarning = writer.logs.find { it.message.contains("Attempts: 1") }
 
+            assertEquals(0, finalHlc?.count)
+            assertEquals(fakeClock.now().toEpochMilliseconds(), finalHlc?.ts)
             assertNotNull(counterWarning, "Missing visibility into counter exhaustion!")
         }
 
     // -----------------------------------------------------------
-    // LOGGING TEST
+    // WITNESS
     // -----------------------------------------------------------
+
     @Test
-    fun should_log_error_when_clock_skew_detected() = runEnv { scope ->
-        fakeClock.setTime(Instant.fromEpochMilliseconds(1000L)) // 1970
+    fun should_logWarningAndNotThrow_when_witnessCalledBeforeHydration() = runEnv {
+        // factory is not hydrated — state is null
+        val remoteHlc = HlcTestFactory.create(ts = 1_000L)
 
-        assertFailsWith<MochaException.Persistent.ClockSkew> {
-            factory.hydrate(null, "node-1")
+        // Should not throw
+        factory.witness(remoteHlc)
+
+        // State must remain null — witness must not initialise state
+        val currentHlc = factory.getCurrentHlc()
+        assertEquals(
+            currentHlc,
+            null,
+            "witness must not initialise factory state when called before hydration"
+        )
+
+        // Warning must have been logged
+        val warningLog = writer.logs.find {
+            it.message.contains("no internal state", ignoreCase = true)
         }
-
-        val skewError = writer.logs.find { it.severity == Severity.Error }
-        assertEquals(true, skewError?.message?.contains("Clock Skew"))
+        assertNotNull(
+            warningLog,
+            "witness must log a warning when state is uninitialised"
+        )
     }
 
+    @Test
+    fun should_advanceToRemoteTs_when_remoteTsExceedsBothWallClockAndLocalTs() = runEnv {
+        val localTs = fakeClock.now().toEpochMilliseconds()
+        factory.hydrate(HlcTestFactory.create(ts = localTs), HlcTestFactory.DEFAULT_NODE)
+
+        // Remote is ahead of local clock but within drift
+        val remoteTs = localTs + 50.seconds.inWholeMilliseconds
+        val remoteHlc = HlcTestFactory.create(ts = remoteTs, count = 3)
+
+        factory.witness(remoteHlc)
+
+        val result = factory.getCurrentHlc()
+        assertNotNull(result)
+        // Result ts must equal remote ts (it was the max)
+        assertEquals(
+            remoteTs,
+            result.ts,
+            "Factory ts must advance to remote ts when remote wins"
+        )
+        assertEquals(
+            3,
+            result.count,
+            "Count must be remote.count + 1 when ts matches remote"
+        )
+    }
+
+    @Test
+    fun should_advanceToWallClock_when_wallClockExceedsBothRemoteAndLocalTs() = runEnv {
+        val baseTs = fakeClock.now().toEpochMilliseconds()
+        factory.hydrate(
+            HlcTestFactory.create(ts = baseTs - 10_000L),
+            HlcTestFactory.DEFAULT_NODE
+        )
+        val remoteHlc = HlcTestFactory.create(ts = baseTs - 5_000L, count = 2)
+
+        factory.witness(remoteHlc)
+
+        val result = factory.getCurrentHlc()
+        assertNotNull(result)
+        assertEquals(
+            baseTs,
+            result.ts,
+            "Factory ts must use wall clock when it is the maximum"
+        )
+        assertEquals(
+            0,
+            result.count,
+            "Count must reset to 0 when wall clock wins the timestamp"
+        )
+    }
+
+    @Test
+    fun should_notRegress_when_localTsExceedsRemoteAndWallClock() = runEnv {
+        val baseTs = fakeClock.now().toEpochMilliseconds().plus(1000L)
+        val localTs = baseTs + 10_000L
+        val localCount = 7
+        val remoteHlc = HlcTestFactory.create(ts = baseTs - 1_000L, count = 0)
+        val localHlc = HlcTestFactory.create(ts = localTs, count = localCount)
+
+        factory.hydrate(localHlc, HlcTestFactory.DEFAULT_NODE)
+        factory.witness(remoteHlc)
+
+        val result = factory.getCurrentHlc()
+        assertNotNull(result)
+        assertEquals(localTs, result.ts, "Factory ts must not regress below local ts")
+        assertEquals(
+            localCount,
+            result.count,
+            "Count must be local.count when local ts wins"
+        )
+    }
+
+    @Test
+    fun should_ignoreWitnessCount_when_localTsEqualsRemoteTsAndBothExceedWallClock() =
+        runEnv {
+            val baseTs = fakeClock.now().toEpochMilliseconds()
+            val sharedTs = baseTs + 20_000L
+            factory.hydrate(
+                HlcTestFactory.create(ts = sharedTs, count = 9),
+                HlcTestFactory.DEFAULT_NODE
+            )
+            val remoteHlc = HlcTestFactory.create(ts = sharedTs, count = 5)
+
+            factory.witness(remoteHlc)
+
+            val result = factory.getCurrentHlc()
+            assertNotNull(result)
+            assertEquals(sharedTs, result.ts)
+            assertEquals(
+                9,
+                result.count,
+                "Count cannot be reduced by a remote Hlc."
+            )
+        }
+
+    @Test
+    fun should_witnessCount_when_localAndRemoteAndDeviceTsAreEqual() = runEnv {
+        val sharedTs = fakeClock.now().toEpochMilliseconds()
+        factory.hydrate(
+            HlcTestFactory.create(ts = sharedTs, count = 3),
+            HlcTestFactory.DEFAULT_NODE
+        )
+        val remoteHlc = HlcTestFactory.create(ts = sharedTs, count = 3)
+
+        factory.witness(remoteHlc)
+
+        val result = factory.getCurrentHlc()
+        assertNotNull(result)
+        assertEquals(sharedTs, result.ts)
+        assertEquals(3, result.count)
+    }
+
+    @Test
+    fun should_advanceCountMonotonically_when_sameRemoteHlcWitnessedTwice() = runEnv {
+        val baseTs = fakeClock.now().toEpochMilliseconds()
+        factory.hydrate(HlcTestFactory.create(ts = baseTs), HlcTestFactory.DEFAULT_NODE)
+        val remoteHlc = HlcTestFactory.create(ts = baseTs, count = 0)
+
+        factory.witness(remoteHlc)
+        val afterFirst = factory.getCurrentHlc()
+        factory.witness(remoteHlc)
+        val afterSecond = factory.getCurrentHlc()
+        val finalHlc = factory.getNextHlc()
+
+        assertNotNull(afterFirst)
+        assertNotNull(afterSecond)
+        assertEquals(afterSecond, afterFirst)
+        assertTrue(finalHlc > afterSecond)
+        assertEquals(1, finalHlc.count)
+    }
+
+    @Test
+    fun should_remainMonotonic_when_multipleRemoteHlcsWitnessedInAscendingOrder() =
+        runEnv {
+            val baseTs = fakeClock.now().toEpochMilliseconds()
+            factory.hydrate(
+                HlcTestFactory.create(ts = baseTs),
+                HlcTestFactory.DEFAULT_NODE
+            )
+            val sequence = HlcTestFactory.chronologicalSequence(
+                size = 10,
+                stepMs = 1_000L,
+                baseTs = baseTs + 1_000L
+            )
+
+            var previous = factory.getCurrentHlc()!!
+            sequence.forEach { remoteHlc ->
+                factory.witness(remoteHlc)
+                val current = factory.getCurrentHlc()!!
+                assertTrue(
+                    current > previous,
+                    "Each witness must produce a strictly greater HLC: $previous -> $current"
+                )
+                previous = current
+            }
+        }
+
+    @Test
+    fun should_preserveLocalNodeId_when_witnessHlcCarriesDifferentNodeId() = runEnv {
+        val baseTs = fakeClock.now().toEpochMilliseconds()
+        factory.hydrate(
+            HlcTestFactory.create(ts = baseTs),
+            HlcTestFactory.DEFAULT_NODE
+        )
+        val remoteHlc = HlcTestFactory.create(
+            ts = baseTs + 5_000L,
+            nodeId = "remote-node-other-device"
+        )
+
+        factory.witness(remoteHlc)
+
+        val result = factory.getCurrentHlc()
+        assertNotNull(result)
+        assertEquals(
+            HlcTestFactory.DEFAULT_NODE,
+            result.nodeId,
+            "witness must preserve local nodeId — remote nodeId must never overwrite it"
+        )
+    }
+
+    @Test
+    fun should_throwClockSkew_when_remoteTsExceedsMaxDriftThreshold() = runEnv {
+        val baseTs = fakeClock.now().toEpochMilliseconds()
+        factory.hydrate(HlcTestFactory.create(ts = baseTs), HlcTestFactory.DEFAULT_NODE)
+
+        val drift = HLC.MAX_DRIFT.plus(1.milliseconds)
+        val futureTs = baseTs + drift.inWholeMilliseconds
+        val remoteHlc = HlcTestFactory.create(ts = futureTs)
+
+        val result = assertFailsWith<MochaException.Persistent.ClockSkew> {
+            factory.witness(remoteHlc)
+        }
+
+        assertEquals(drift, result.drift)
+    }
+
+    @Test
+    fun should_notThrow_when_remoteTsIsWithinMaxDriftBoundary() = runEnv {
+        val baseTs = fakeClock.now().toEpochMilliseconds()
+        factory.hydrate(HlcTestFactory.create(ts = baseTs), HlcTestFactory.DEFAULT_NODE)
+        val acceptableTs = baseTs + 30.seconds.inWholeMilliseconds
+        val remoteHlc = HlcTestFactory.create(ts = acceptableTs)
+
+        factory.witness(remoteHlc)
+
+        val result = factory.getCurrentHlc()
+        assertNotNull(
+            result,
+            "Factory state must be updated after a valid witness within drift boundary"
+        )
+    }
+
+    @Test
+    fun should_preserveState_when_witnessThrowsDueToClockSkew() = runEnv {
+        val baseTs = fakeClock.now().toEpochMilliseconds()
+        val originalCount = 4
+        factory.hydrate(
+            HlcTestFactory.create(ts = baseTs, count = originalCount),
+            HlcTestFactory.DEFAULT_NODE
+        )
+        val stateBeforeRejection = factory.getCurrentHlc()
+        val farFutureHlc =
+            HlcTestFactory.create(ts = baseTs + 2.minutes.inWholeMilliseconds)
+
+        try {
+            factory.witness(farFutureHlc)
+        } catch (_: Exception) {
+        }
+
+        val stateAfterRejection = factory.getCurrentHlc()
+        assertEquals(
+            stateBeforeRejection,
+            stateAfterRejection,
+            "Factory state must be unchanged after a rejected witness — no partial mutation allowed"
+        )
+    }
+
+    @Test
+    fun should_produceMonotonicFinalState_when_multipleWitnessCallsFireConcurrently() =
+        runEnv { scope ->
+            val baseTs = fakeClock.now().toEpochMilliseconds()
+            factory.hydrate(
+                HlcTestFactory.create(ts = baseTs),
+                HlcTestFactory.DEFAULT_NODE
+            )
+
+            val threadCount = 10
+            val iterationsPerThread = 10
+            val totalOperations = threadCount * iterationsPerThread
+            val targetTs = baseTs + 1_000L
+
+            val gate = CompletableDeferred<Unit>()
+            val concurrentHlcs = HlcTestFactory.concurrentSequence(
+                size = totalOperations,
+                ts = targetTs
+            )
+
+            // When - Multi-threaded witness updates at identical timestamps
+            val workerJobs = List(threadCount) { threadId ->
+                scope.launch(Dispatchers.Default) {
+                    gate.await()
+
+                    val startIndex = threadId * iterationsPerThread
+                    repeat(iterationsPerThread) { iteration ->
+                        val remoteHlc = concurrentHlcs[startIndex + iteration]
+                        factory.witness(remoteHlc)
+                    }
+                }
+            }
+
+            gate.complete(Unit)
+            workerJobs.joinAll()
+
+            // Then
+            val result = factory.getCurrentHlc()
+            assertNotNull(result)
+            assertEquals(targetTs, result.ts, "Timestamp must match witnessed floor")
+            assertEquals(
+                totalOperations - 1,
+                result.count,
+                "Concurrent witnesses at identical timestamp must advance counter: count=${result.count}"
+            )
+        }
+
+    @Test
+    fun should_neverLoseWitnessUpdates_when_witnessCalledFromMultipleCoroutines() =
+        runEnv { scope ->
+            val baseTs = fakeClock.now().toEpochMilliseconds()
+            factory.hydrate(
+                HlcTestFactory.create(ts = baseTs),
+                HlcTestFactory.DEFAULT_NODE
+            )
+
+            val threadCount = 10
+            val iterationsPerThread = 5
+            val totalOperations = threadCount * iterationsPerThread
+
+            val gate = CompletableDeferred<Unit>()
+            // Generate distinct ascending HLC sequence split across threads
+            val hlcSequence = (1..totalOperations).map { i ->
+                HlcTestFactory.create(ts = baseTs + (i * 500L))
+            }
+            val maxExpectedTs = hlcSequence.last().ts
+
+            // When - Multi-threaded witness updates
+            val workerJobs = List(threadCount) { threadId ->
+                scope.launch(Dispatchers.Default) {
+                    gate.await()
+
+                    val startIndex = threadId * iterationsPerThread
+                    repeat(iterationsPerThread) { iteration ->
+                        val remoteHlc = hlcSequence[startIndex + iteration]
+                        factory.witness(remoteHlc)
+                    }
+                }
+            }
+
+            gate.complete(Unit)
+            workerJobs.joinAll()
+
+            // Then
+            val result = factory.getCurrentHlc()
+            assertNotNull(result)
+            assertEquals(
+                maxExpectedTs,
+                result.ts,
+                "Factory state regressed! Expected highest timestamp $maxExpectedTs, got ${result.ts}"
+            )
+        }
 
     // -----------------------------------------------------------
     // MISC

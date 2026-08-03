@@ -47,13 +47,13 @@ internal class DefaultDailyContextRepository(
             isNapped = isNapped
         )
 
-        return synchronizedUpsert(
+        return localUpsert(
             candidateKey = id,
             fetchExistingState = { bioDao.getContextById(id)?.toDomain() },
             computeChange = { existing -> compactState(draftContext, existing) },
             persist = { stamped ->
                 bioDao.upsert(stamped.toEntity())
-                return@synchronizedUpsert stamped
+                return@localUpsert stamped
             }
         )
     }
@@ -61,7 +61,7 @@ internal class DefaultDailyContextRepository(
     /**
      * Currently set to return 0 where there was a skip.
      */
-    override suspend fun deleteContext(epochDay: String) = synchronizedDelete(
+    override suspend fun deleteContext(epochDay: String) = localDelete(
         candidateKey = epochDay,
         fetchExistingState = { bioDao.getContextById(epochDay)?.toDomain() },
         persist = { bioDao.markAsDeleted(it.id, it.hlc.toString(), it.hlc.ts) }
