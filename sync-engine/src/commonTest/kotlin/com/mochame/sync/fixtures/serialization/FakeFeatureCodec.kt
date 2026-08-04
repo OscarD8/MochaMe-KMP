@@ -6,7 +6,7 @@ import com.mochame.sync.spi.models.DecodeContext
 import org.koin.core.annotation.Single
 
 @Single
-class FeatureCodecV2(
+class FakeFeatureCodec(
     override val bufferProvider: BufferProvider
 ) : FeatureCodec<FeatureEntity> {
     companion object {
@@ -27,14 +27,15 @@ class FeatureCodecV2(
         context: DecodeContext,
         existing: FeatureEntity?
     ): FeatureEntity {
-        if (bytes.contentEquals(BYTES_PRESET)) {
-            return MODEL_PRESET.copy(
-                id = context.candidateKey,
-                hlc = context.hlc,
-                lastModified = context.hlc.ts
-            )
+        require(bytes.contentEquals(BYTES_PRESET)) {
+            "FakeFeatureCodec decode received unexpected bytes: ${bytes.toHexString()}"
         }
-        error("FakeTestEntityCodecV2 received unexpected payload bytes: ${bytes.toHexString()}")
+
+        return MODEL_PRESET.copy(
+            id = context.candidateKey,
+            hlc = context.hlc,
+            lastModified = context.hlc.ts
+        )
     }
 
     override fun summarize(new: FeatureEntity, old: FeatureEntity?): String = SUMMARIZE_PRESET

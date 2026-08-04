@@ -17,7 +17,7 @@ import org.koin.core.annotation.Single
 
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
-private data class SyncIntentDeltaV1(
+internal data class SyncIntentDeltaV1(
     @ProtoNumber(1) val featureSchemaVersion: Int,
     @ProtoNumber(2) val hlc: String,
     @ProtoNumber(3) val candidateKey: String,
@@ -97,7 +97,7 @@ internal class IntentCodecV1(
             intent
         } catch (e: Exception) {
             logger.e(e) {
-                "Intent Invariant Failure: Failed mapping delta key=${envelope.candidateKey} " +
+                "Failed mapping delta key=${envelope.candidateKey} " +
                         "hlc=${envelope.hlc} op=${envelope.operation} model=${envelope.model}"
             }
             throw e

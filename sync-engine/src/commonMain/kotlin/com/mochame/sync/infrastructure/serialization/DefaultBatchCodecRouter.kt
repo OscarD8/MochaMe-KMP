@@ -3,15 +3,13 @@ package com.mochame.sync.infrastructure.serialization
 import co.touchlab.kermit.Logger
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
+import com.mochame.sync.domain.serialization.BatchCodec
+import com.mochame.sync.domain.serialization.BatchCodecRouter
 import com.mochame.sync.spi.infrastructure.serialization.getCodec
 import com.mochame.sync.spi.infrastructure.serialization.latestCodec
 import com.mochame.sync.spi.models.SyncIntent
-import com.mochame.sync.domain.serialization.BatchCodec
-import com.mochame.sync.domain.serialization.BatchCodecRouter
-import kotlinx.serialization.ExperimentalSerializationApi
 import org.koin.core.annotation.Single
 
-@ExperimentalSerializationApi
 @Single(binds = [BatchCodecRouter::class])
 internal class DefaultBatchCodecRouter(
     v1: BatchCodecV1,
@@ -19,7 +17,6 @@ internal class DefaultBatchCodecRouter(
     override val versionRegistry: Array<BatchCodec?> = arrayOf(null, v1),
     override val latestVersion: Int = 1,
 ) : BatchCodecRouter {
-
     private val logger =
         logger.withTags(LogTags.Layer.SERI, LogTags.Domain.SYNC, "BaCRtr")
 

@@ -2,17 +2,22 @@ package com.mochame.sync.infrastructure.serialization
 
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runUnitEnvironment
+import com.mochame.sync.api.metadata.FeatureContext
+import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.api.metadata.SyncStatus
-import com.mochame.sync.di.codec.CodecTestApp
+import com.mochame.sync.di.codec.CodecProductionTestApp
+import com.mochame.sync.fixtures.assertSyncIntentParity
 import com.mochame.sync.fixtures.createTestSyncIntent
-import com.mochame.sync.spi.models.SyncIntent
 import com.mochame.utils.fixtures.HlcTestFactory
 import kotlinx.coroutines.test.TestScope
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.SerializationException
 import org.koin.dsl.includes
 import org.koin.plugin.module.dsl.koinConfiguration
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 
 
@@ -21,14 +26,16 @@ import kotlin.test.assertNull
 // -------------------------------------------------------------------
 private inline fun runEnv(crossinline block: suspend IntentCodecV1.(TestScope) -> Unit) =
     runUnitEnvironment(
-        koinSetup = { includes(koinConfiguration<CodecTestApp>()) },
+        koinSetup = { includes(koinConfiguration<CodecProductionTestApp>()) },
         block = block
     )
 
+
+@ExperimentalSerializationApi
 class IntentCodecV1Test : MochaPlatformTest() {
 
     // -------------------------------------------------------------------
-    // PAYLOAD PARITY
+    // PAYLOAD LIFECYCLE
     // -------------------------------------------------------------------
 
     @Test
@@ -111,36 +118,195 @@ class IntentCodecV1Test : MochaPlatformTest() {
     }
 
     // -------------------------------------------------------------------
-    // SYNCINTENT FIELD PARITY
+    // FIELD LIFECYCLE
     // -------------------------------------------------------------------
 
+    @Test
+    fun should_reset_sync_status_to_RECEIVED_and_retry_count_to_zero_when_decoding_non_default_states() =
+        runEnv {
+            val originalIntent = createTestSyncIntent(
+                status = SyncStatus.FAILED,
+                retryCount = 7
+            )
 
-    // --- HELPERS ---
-    private fun assertSyncIntentParity(expected: SyncIntent, actual: SyncIntent) {
-        assertEquals(expected.featureSchemaVersion, actual.featureSchemaVersion)
-        assertEquals(expected.hlc, actual.hlc)
-        assertEquals(expected.candidateKey, actual.candidateKey)
+            // Act
+            val bytes = encode(originalIntent)
+            val decoded = decode(bytes)
+
+            // Assert: Wire normalization forces RECEIVED and 0 retry count
+            assertEquals(
+                SyncStatus.RECEIVED,
+                decoded.syncStatus,
+                "syncStatus must normalize to RECEIVED upon decode"
+            )
+            assertEquals(
+                0,
+                decoded.retryCount,
+                "retryCount must reset to 0 upon decode"
+            )
+        }
+
+    @Test
+    fun should_preserve_candidate_key_and_feature_context_metadata_parity() = runEnv {
+        // Arrange
+        val expectedKey = "user-profile-uuid-9901-xyz"
+        val expectedContext = FeatureContext.Type.UNRECOGNIZED_MODEL
+
+        val originalIntent = createTestSyncIntent(
+            candidateKey = expectedKey,
+            context = expectedContext
+        )
+
+        // Act
+        val bytes = encode(originalIntent)
+        val decoded = decode(bytes)
+
+        assertEquals(expectedKey, decoded.candidateKey, "candidateKey parity failed")
+        assertEquals(
+            originalIntent.featureContext.modelName,
+            decoded.featureContext.modelName,
+            "modelName parity failed"
+        )
+        assertEquals(
+            originalIntent.featureContext.featureName,
+            decoded.featureContext.featureName,
+            "featureName parity failed across FeatureContext reconstruction"
+        )
+    }
+
+    @Test
+    fun should_preserve_enum_string_parity_for_all_mutation_operations() = runEnv {
+        MutationOp.entries.forEach { op ->
+            val originalIntent = createTestSyncIntent(
+                candidateKey = "key-op-${op.name}",
+                payload = byteArrayOf(0x01),
+                op = op
+            )
+
+            // Act
+            val bytes = encode(originalIntent)
+            val decoded = decode(bytes)
+
+            assertEquals(
+                op,
+                decoded.operation,
+                "MutationOp parity failed for operation: ${op.name}"
+            )
+        }
+    }
+
+    @Test
+    fun should_preserve_hlc_field_integrity_across_string_parse_cycle() = runEnv {
+        val customHlc = HlcTestFactory.create(
+            ts = 1740787200000L,
+            count = 42,
+            nodeId = "mobile-android-device-node-a1"
+        )
+        val originalIntent = createTestSyncIntent(hlc = customHlc)
+
+        // Act
+        val bytes = encode(originalIntent)
+        val decoded = decode(bytes)
+
+        // Assert
+        assertEquals(customHlc.ts, decoded.hlc.ts, "HLC physical timestamp mismatch")
+        assertEquals(customHlc.count, decoded.hlc.count, "HLC logical counter mismatch")
+        assertEquals(customHlc.nodeId, decoded.hlc.nodeId, "HLC node ID mismatch")
+        assertEquals(customHlc, decoded.hlc, "HLC structural equality failed")
+    }
+
+    @Test
+    fun should_preserve_original_created_at_without_overriding_with_system_clock() = runEnv {
+        val historicalCreatedAt = 1600000000000L // Sun Sep 13 2020
+        val originalIntent = createTestSyncIntent(
+            createdAt = historicalCreatedAt
+        )
+
+        // Act
+        val bytes = encode(originalIntent)
+        val decoded = decode(bytes)
 
         assertEquals(
-            expected.featureContext.featureName,
-            actual.featureContext.featureName
+            historicalCreatedAt,
+            decoded.createdAt,
+            "createdAt must match the original intent timestamp and not be overriden by system clock"
         )
-        assertEquals(expected.featureContext.modelName, actual.featureContext.modelName)
+    }
 
-        assertEquals(expected.operation, actual.operation)
-        assertEquals(expected.overflowBlobId, actual.overflowBlobId)
-
-        assertEquals(
-            expected.createdAt,
-            actual.createdAt,
-            "createdAt must match original intent value"
+    @Test
+    fun should_strip_local_leased_at_stamp_during_wire_serialization_lifecycle() = runEnv {
+        val batchLeasedAt = 1740788000000L
+        val localSyncId = "batch-lease-tx-88192"
+        val leasedIntent = createTestSyncIntent(
+            syncId = localSyncId,
+            leasedAt = batchLeasedAt
         )
 
-        assertEquals(
-            SyncStatus.RECEIVED,
-            actual.syncStatus,
-            "syncStatus must reset to RECEIVED upon decode"
+        // Act
+        val bytes = encode(leasedIntent)
+        val decoded = decode(bytes)
+
+        assertNull(
+            decoded.leasedAt,
+            "leasedAt is local engine batch metadata and must decode as null from wire payload"
         )
-        assertEquals(0, actual.retryCount, "retryCount must reset to 0 upon decode")
+        assertNull(
+            decoded.syncId,
+            "syncId is local batch execution metadata and must decode as null from wire payload"
+        )
+    }
+
+    // -----------------------------------------------------------
+    // PROTOBUF CORRUPTION
+    // -----------------------------------------------------------
+
+    @Test
+    fun should_throw_serialization_exception_when_decoding_random_garbage_bytes() = runEnv {
+        val garbageBytes = byteArrayOf(0xFF.toByte(), 0x00, 0xFE.toByte(), 0x12, 0x34)
+
+        assertFailsWith<SerializationException> {
+            decode(garbageBytes)
+        }
+    }
+
+    @Test
+    fun should_throw_indexOutOfbounds_exception_when_decoding_truncated_protobuf_payload() = runEnv {
+        val validIntent = createTestSyncIntent()
+        val fullBytes = encode(validIntent)
+        val truncatedBytes = fullBytes.copyOf(fullBytes.size / 2)
+
+        assertFailsWith<IndexOutOfBoundsException> {
+            decode(truncatedBytes)
+        }
+    }
+
+    @Test
+    fun should_throw_serialization_exception_when_decoding_empty_byte_array() = runEnv {
+        assertFailsWith<SerializationException> {
+            decode(byteArrayOf())
+        }
+    }
+
+    @Test
+    fun should_preserve_boundary_integer_values_for_feature_schema_version() = runEnv {
+        val boundaryVersions = listOf(
+            Int.MIN_VALUE,
+            -1,
+            0,
+            1,
+            Int.MAX_VALUE
+        )
+
+        boundaryVersions.forEach { version ->
+            val originalIntent = createTestSyncIntent(featureSchemaVersion = version)
+            val bytes = encode(originalIntent)
+            val decoded = decode(bytes)
+
+            assertEquals(
+                version,
+                decoded.featureSchemaVersion,
+                "featureSchemaVersion boundary integer $version failed round-trip"
+            )
+        }
     }
 }

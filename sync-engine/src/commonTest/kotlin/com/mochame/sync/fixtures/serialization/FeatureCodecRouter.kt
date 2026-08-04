@@ -9,7 +9,7 @@ import org.koin.core.annotation.Single
 @Single
 internal class FeatureCodecRouter(
     val v1: FeatureCodecV1,
-    val v2: FeatureCodecV2,
+    val v2: FakeFeatureCodec,
     logger: Logger
 ) : BaseFeatureCodecRouter<FeatureEntity>(
     versionRegistry = arrayOf(null, v1, v2),

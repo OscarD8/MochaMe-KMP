@@ -7,6 +7,8 @@ import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.spi.models.SyncIntent
 import com.mochame.sync.data.SyncIntentEntity
+import kotlin.test.assertContentEquals
+import kotlin.test.assertEquals
 
 internal fun createTestSyncIntent(
     hlc: HLC = HlcTestFactory.create(),
@@ -18,20 +20,22 @@ internal fun createTestSyncIntent(
     syncId: String? = null,
     leasedAt: Long? = null,
     overflowBlobId: String? = null,
+    featureSchemaVersion: Int = 1,
+    op: MutationOp = MutationOp.UPSERT,
     retryCount: Int = 0
 ) = SyncIntent(
-    featureSchemaVersion = 1,
+    featureSchemaVersion = featureSchemaVersion,
     hlc = hlc,
     candidateKey = candidateKey,
     featureContext = FeatureContext.fromModelString(context.modelName),
-    operation = MutationOp.UPSERT,
+    operation = op,
     syncStatus = status,
     retryCount = retryCount,
     createdAt = createdAt,
     payload = payload,
     leasedAt = leasedAt,
     syncId = syncId,
-    overflowBlobId = overflowBlobId
+    overflowBlobId = overflowBlobId,
 )
 
 internal fun createTestIntentEntity(
@@ -62,3 +66,22 @@ internal fun createTestIntentEntity(
     lastErrorMessage = null,
     createdAt = createdAt
 )
+
+internal fun assertSyncIntentParity(expected: SyncIntent, actual: SyncIntent) {
+    assertEquals(expected.featureSchemaVersion, actual.featureSchemaVersion)
+    assertEquals(expected.hlc, actual.hlc)
+    assertEquals(expected.candidateKey, actual.candidateKey)
+    assertEquals(expected.featureContext.featureName, actual.featureContext.featureName)
+    assertEquals(expected.featureContext.modelName, actual.featureContext.modelName)
+    assertEquals(expected.operation, actual.operation)
+    assertEquals(expected.overflowBlobId, actual.overflowBlobId)
+    assertEquals(expected.createdAt, actual.createdAt)
+    assertEquals(SyncStatus.RECEIVED, actual.syncStatus)
+    assertEquals(0, actual.retryCount, "retryCount must reset to 0 upon decode")
+
+    if (expected.payload == null) {
+        assertEquals(null, actual.payload)
+    } else {
+        assertContentEquals(expected.payload, actual.payload)
+    }
+}

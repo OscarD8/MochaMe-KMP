@@ -120,28 +120,39 @@ internal class SyncCoordinator(
         val intents = try {
             payloadCodec.decode(inbound)
         } catch (e: Exception) {
-            logger.e(e) { "Unexpected parsing failure during batch processing. ${e.message}" }
+            logger.e(e) { "Unexpected parsing failure during batch processing (${inbound.size}B). ${e.message}" }
             return
         }
-        if (intents.isEmpty()) return
+
+        if (intents.isEmpty()) {
+            logger.e { "Empty List returned (from: ${inbound.size}B). Possible corruption after Encode and before Decode processing." }
+            return
+        }
 
         var maxValidHlc: HLC? = null
         val mark = TimeSource.Monotonic.markNow()
 
-        executor.execute("InboundBatch_${intents.size}") {
-            transactor.runImmediateTransaction {
-                intents.forEach { intent ->
-                    val succeeded = orchestrateIntent(intent)
-                    if (succeeded) {
-                        maxValidHlc = maxValidHlc?.let { maxOf(it, intent.hlc) } ?: intent.hlc
+        try {
+            executor.execute("InboundBatch_${intents.size}") {
+                transactor.runImmediateTransaction {
+                    intents.forEach { intent ->
+                        val succeeded = orchestrateIntent(intent)
+                        if (succeeded) {
+                            maxValidHlc = maxValidHlc?.let { maxOf(it, intent.hlc) } ?: intent.hlc
+                        }
+                    }
+                    maxValidHlc?.let {
+                        hlcFactory.witness(it)
+                        nodeManager.updateHlcFloor(it)
                     }
                 }
-                maxValidHlc?.let {
-                    hlcFactory.witness(it)
-                    nodeManager.updateHlcFloor(it)
-                }
             }
+        } catch (e: Exception) {
+            logger.e { "Caught Exception processing intents: ${e.message}. Inbound (${inbound.size}B)." }
+            // Handle server logic here.
+            return
         }
+
 
         logger.i { "Batch processing finalized".withTimer(mark) }
 

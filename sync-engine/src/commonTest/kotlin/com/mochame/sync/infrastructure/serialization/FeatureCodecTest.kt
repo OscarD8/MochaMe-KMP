@@ -7,7 +7,7 @@ import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.common.TriState
-import com.mochame.sync.di.codec.CodecTestApp
+import com.mochame.sync.di.codec.CodecProductionTestApp
 import com.mochame.sync.fixtures.serialization.FeatureEntity
 import com.mochame.sync.fixtures.serialization.FeatureCodecV1
 import com.mochame.sync.fixtures.serialization.FeatureEntityDeltaV1
@@ -33,7 +33,7 @@ import kotlin.test.assertTrue
 // -----------------------------------------------------------
 private inline fun runEnv(crossinline block: suspend FeatureCodecV1.(TestScope) -> Unit) =
     runUnitEnvironment<FeatureCodecV1>(
-        koinSetup = { includes(koinConfiguration<CodecTestApp>()) },
+        koinSetup = { includes(koinConfiguration<CodecProductionTestApp>()) },
         block = block
     )
 

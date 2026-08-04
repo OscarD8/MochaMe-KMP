@@ -1,26 +1,25 @@
 package com.mochame.sync.fixtures.serialization
 
-import com.mochame.utils.fixtures.HlcTestFactory
-import com.mochame.sync.spi.models.SyncIntent
 import com.mochame.sync.domain.serialization.IntentCodec
 import com.mochame.sync.fixtures.createTestSyncIntent
+import com.mochame.sync.spi.models.SyncIntent
+import org.koin.core.annotation.Single
 
-// Preliminary example
-private class FakeIntentCodec(
-    private val stubbedBytes: ByteArray = byteArrayOf(0x99.toByte())
-) : IntentCodec {
+@Single
+class FakeIntentCodec: IntentCodec {
 
-    var encodeCalled = false
-    var decodeCalledWith: ByteArray? = null
-
-    override fun encode(intent: SyncIntent): ByteArray {
-        encodeCalled = true
-        return stubbedBytes
+    companion object {
+        val BYTES_PRESET = byteArrayOf(0x02, 0x02)
+        val MODEL_PRESET = createTestSyncIntent()
     }
+
+    override fun encode(intent: SyncIntent): ByteArray = BYTES_PRESET
 
     override fun decode(bytes: ByteArray): SyncIntent {
-        decodeCalledWith = bytes
-        return createTestSyncIntent(HlcTestFactory.create())
+        require(bytes.contentEquals(BYTES_PRESET)) {
+            "FakeIntentCodec received unexpected bytes: ${bytes.toHexString()}"
+        }
+
+        return MODEL_PRESET
     }
 }
-
