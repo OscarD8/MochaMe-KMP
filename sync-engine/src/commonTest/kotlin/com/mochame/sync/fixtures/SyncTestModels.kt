@@ -67,7 +67,7 @@ internal fun createTestIntentEntity(
     createdAt = createdAt
 )
 
-internal fun assertSyncIntentParity(expected: SyncIntent, actual: SyncIntent) {
+internal fun assertDecodedIntentParity(expected: SyncIntent, actual: SyncIntent) {
     assertEquals(expected.featureSchemaVersion, actual.featureSchemaVersion)
     assertEquals(expected.hlc, actual.hlc)
     assertEquals(expected.candidateKey, actual.candidateKey)
@@ -84,4 +84,8 @@ internal fun assertSyncIntentParity(expected: SyncIntent, actual: SyncIntent) {
     } else {
         assertContentEquals(expected.payload, actual.payload)
     }
+}
+
+internal fun testBatch(size: Int = 1): List<SyncIntent> = List(size) { index ->
+    createTestSyncIntent(candidateKey = "payload-key-$index")
 }

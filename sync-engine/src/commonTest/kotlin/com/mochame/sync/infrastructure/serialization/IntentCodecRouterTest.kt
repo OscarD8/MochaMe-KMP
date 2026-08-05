@@ -8,7 +8,7 @@ import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.sync.di.codec.CodecFixtureTestApp
 import com.mochame.sync.di.codec.CodecFixtureTestEnv
-import com.mochame.sync.fixtures.assertSyncIntentParity
+import com.mochame.sync.fixtures.assertDecodedIntentParity
 import com.mochame.sync.fixtures.createTestSyncIntent
 import com.mochame.sync.fixtures.serialization.FakeIntentCodec
 import com.mochame.sync.fixtures.serialization.toRouterWithVersion
@@ -31,7 +31,7 @@ private inline fun runEnv(crossinline block: CodecFixtureTestEnv.(TestScope) -> 
 @ExperimentalSerializationApi
 internal class IntentCodecRouterTest : MochaPlatformTest() {
     @Test
-    fun should_roundTripPayload_when_usingDefaultSingleVersionRouter() = runEnv {
+    fun should_roundTripPayload_when_usingDefaultVersionRouter() = runEnv {
         // Arrange
         val intent = createTestSyncIntent()
 
@@ -40,7 +40,7 @@ internal class IntentCodecRouterTest : MochaPlatformTest() {
         val decoded = intentRouter.routedDecode(bytes, version = intentRouter.latestVersion)
 
         // Assert
-        assertSyncIntentParity(intent, decoded)
+        assertDecodedIntentParity(intent, decoded)
     }
 
     @Test
@@ -67,7 +67,7 @@ internal class IntentCodecRouterTest : MochaPlatformTest() {
         val decodedV2 = multiVersionRouter.routedDecode(FakeIntentCodec.BYTES_PRESET, version = 2)
 
         // Assert
-        assertSyncIntentParity(v1Intent, decodedV1)
+        assertDecodedIntentParity(v1Intent, decodedV1)
         assertEquals(FakeIntentCodec.MODEL_PRESET, decodedV2)
     }
 

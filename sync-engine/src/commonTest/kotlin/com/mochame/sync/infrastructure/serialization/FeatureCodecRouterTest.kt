@@ -2,12 +2,10 @@ package com.mochame.sync.infrastructure.serialization
 
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runUnitEnvironment
-import com.mochame.sync.api.exceptions.MochaException
-import com.mochame.sync.di.codec.CodecProductionTestApp
-import com.mochame.sync.fixtures.createTestSyncIntent
+import com.mochame.sync.di.codec.CodecTestApp
 import com.mochame.sync.fixtures.serialization.FakeFeatureCodec
 import com.mochame.sync.fixtures.serialization.FeatureEntity
-import com.mochame.sync.fixtures.serialization.FeatureCodecRouter
+import com.mochame.sync.fixtures.serialization.FeatureCodecRouterFixture
 import com.mochame.sync.fixtures.serialization.deriveContext
 import kotlinx.coroutines.test.TestScope
 import kotlinx.serialization.SerializationException
@@ -24,9 +22,9 @@ import kotlin.test.assertNotNull
 // -------------------------------------------------------------------
 // SUT ENVIRONMENT
 // -------------------------------------------------------------------
-private inline fun runEnv(crossinline block: suspend FeatureCodecRouter.(TestScope) -> Unit) =
+private inline fun runEnv(crossinline block: suspend FeatureCodecRouterFixture.(TestScope) -> Unit) =
     runUnitEnvironment(
-        koinSetup = { includes(koinConfiguration<CodecProductionTestApp>()) },
+        koinSetup = { includes(koinConfiguration<CodecTestApp>()) },
         block = block
     )
 

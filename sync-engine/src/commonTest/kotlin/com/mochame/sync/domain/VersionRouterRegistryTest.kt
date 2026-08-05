@@ -1,6 +1,6 @@
 @file:OptIn(ExperimentalKermitApi::class)
 
-package com.mochame.sync.infrastructure
+package com.mochame.sync.domain
 
 import co.touchlab.kermit.ExperimentalKermitApi
 import com.mochame.support.MochaPlatformTest
@@ -25,7 +25,7 @@ private inline fun runEnv(crossinline block: suspend CodecFixtureTestEnv.(TestSc
         block = block
     )
 
-class VersionRouterTest : MochaPlatformTest() {
+class VersionRouterRegistryTest : MochaPlatformTest() {
 
     // -------------------------------------------------------------------
     //  VERSION REGISTRY & PROTOCOL EXCEPTIONS - USING FEATURE

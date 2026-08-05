@@ -5,8 +5,8 @@ import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.api.metadata.SyncStatus
-import com.mochame.sync.di.codec.CodecProductionTestApp
-import com.mochame.sync.fixtures.assertSyncIntentParity
+import com.mochame.sync.di.codec.CodecTestApp
+import com.mochame.sync.fixtures.assertDecodedIntentParity
 import com.mochame.sync.fixtures.createTestSyncIntent
 import com.mochame.utils.fixtures.HlcTestFactory
 import kotlinx.coroutines.test.TestScope
@@ -26,7 +26,7 @@ import kotlin.test.assertNull
 // -------------------------------------------------------------------
 private inline fun runEnv(crossinline block: suspend IntentCodecV1.(TestScope) -> Unit) =
     runUnitEnvironment(
-        koinSetup = { includes(koinConfiguration<CodecProductionTestApp>()) },
+        koinSetup = { includes(koinConfiguration<CodecTestApp>()) },
         block = block
     )
 
@@ -57,7 +57,7 @@ class IntentCodecV1Test : MochaPlatformTest() {
         val decodedIntent = decode(encodedBytes)
 
         // Then
-        assertSyncIntentParity(originalIntent, decodedIntent)
+        assertDecodedIntentParity(originalIntent, decodedIntent)
         assertContentEquals(originalPayload, decodedIntent.payload)
     }
 
@@ -75,7 +75,7 @@ class IntentCodecV1Test : MochaPlatformTest() {
         val decodedIntent = decode(encodedBytes)
 
         // Then
-        assertSyncIntentParity(originalIntent, decodedIntent)
+        assertDecodedIntentParity(originalIntent, decodedIntent)
         assertEquals(0, decodedIntent.payload?.size)
         assertContentEquals(emptyPayload, decodedIntent.payload)
     }
@@ -93,7 +93,7 @@ class IntentCodecV1Test : MochaPlatformTest() {
         val decodedIntent = decode(encodedBytes)
 
         // Then
-        assertSyncIntentParity(originalIntent, decodedIntent)
+        assertDecodedIntentParity(originalIntent, decodedIntent)
         assertNull(decodedIntent.payload)
         assertEquals("blob-overflow-uuid-9981", decodedIntent.overflowBlobId)
     }
@@ -114,7 +114,7 @@ class IntentCodecV1Test : MochaPlatformTest() {
         // Then
         assertEquals(largePayload.size, decodedIntent.payload?.size)
         assertContentEquals(largePayload, decodedIntent.payload)
-        assertSyncIntentParity(originalIntent, decodedIntent)
+        assertDecodedIntentParity(originalIntent, decodedIntent)
     }
 
     // -------------------------------------------------------------------

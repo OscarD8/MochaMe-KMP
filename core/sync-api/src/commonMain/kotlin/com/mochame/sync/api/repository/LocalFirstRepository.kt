@@ -237,6 +237,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         incomingHlc: HLC?,
         candidateKey: String
     ): T? {
+        // RELEVANT
         if (existingState == null) return null
 
         deps.hlcFactory.assertValid(existingState.hlc, candidateKey)

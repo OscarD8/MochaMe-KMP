@@ -6,7 +6,7 @@ import com.mochame.sync.spi.models.DecodeContext
 import org.koin.core.annotation.Single
 
 @Single
-class FakeFeatureCodec(
+internal class FakeFeatureCodec(
     override val bufferProvider: BufferProvider
 ) : FeatureCodec<FeatureEntity> {
     companion object {

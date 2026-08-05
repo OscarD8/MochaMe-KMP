@@ -70,6 +70,7 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : Any>(
         }
 
         return mergeDelta(delta, context, existing)
+            .also { logger.d { "Decoding finalized. key=${it.id}" } }
     }
 
     override fun summarize(new: T, old: T?): String {

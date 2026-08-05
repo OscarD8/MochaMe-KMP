@@ -105,7 +105,7 @@ internal class BatchCodecV1(
 
         if (corruptedCount > 0) {
             logger.w {
-                "Batch decoding partially degraded: recovered ${decodedIntents.size}/$totalEnvelopes intents " +
+                "Batch decoding degraded: recovered ${decodedIntents.size}/$totalEnvelopes intents " +
                         "($corruptedCount skipped due to corruption)"
             }
         } else {

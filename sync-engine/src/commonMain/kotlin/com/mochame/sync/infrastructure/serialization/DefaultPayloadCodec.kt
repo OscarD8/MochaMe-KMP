@@ -2,6 +2,9 @@
 
 package com.mochame.sync.infrastructure.serialization
 
+import co.touchlab.kermit.Logger
+import com.mochame.logger.LogTags
+import com.mochame.logger.withTags
 import com.mochame.sync.spi.models.SyncIntent
 import com.mochame.sync.domain.serialization.BatchCodecRouter
 import com.mochame.sync.domain.serialization.PayloadCodec
@@ -11,7 +14,7 @@ import kotlinx.serialization.protobuf.ProtoNumber
 import org.koin.core.annotation.Single
 
 @Serializable
-private data class VersionedPayload(
+internal data class VersionedPayload(
     @ProtoNumber(1) val batchVersion: Int,
     @ProtoNumber(2) val payload: ByteArray
 )
@@ -19,14 +22,32 @@ private data class VersionedPayload(
 
 @Single(binds = [PayloadCodec::class])
 internal class DefaultPayloadCodec(
-    private val batchCodecRouter: BatchCodecRouter
+    private val batchCodecRouter: BatchCodecRouter,
+    logger: Logger
 ) : PayloadCodec {
 
-    override fun encode(payload: List<SyncIntent>): ByteArray {
-        val encodedPayload = batchCodecRouter.routedEncode(payload)
-        val delta = VersionedPayload(batchCodecRouter.latestVersion, encodedPayload)
+    private val logger = logger.withTags(LogTags.Layer.SERI, LogTags.Domain.SYNC, "PayCdc")
 
-        return ProtoBuf.encodeToByteArray(VersionedPayload.serializer(), delta)
+    override fun encode(payload: List<SyncIntent>): ByteArray {
+        require(payload.isNotEmpty()) { "Cannot encode an empty payload" }
+
+        return try {
+            val encodedPayload = batchCodecRouter.routedEncode(payload)
+            val version = batchCodecRouter.latestVersion
+            val delta = VersionedPayload(version, encodedPayload)
+
+            val bytes = ProtoBuf.encodeToByteArray(VersionedPayload.serializer(), delta)
+
+            logger.v {
+                "Encoded outer wire payload: ${payload.size} intents -> ${bytes.size}B " +
+                        "(batch schema v$version, payload blob ${encodedPayload.size}B)"
+            }
+
+            bytes
+        } catch (e: Exception) {
+            logger.e(e) { "Failed to encode finalized payload containing ${payload.size} intents" }
+            throw e
+        }
     }
 
     /**
@@ -34,7 +55,17 @@ internal class DefaultPayloadCodec(
      * decoding the payload by calling [BatchCodecRouter], providing it the version.
      */
     override fun decode(bytes: ByteArray): List<SyncIntent> {
-        val delta = ProtoBuf.decodeFromByteArray(VersionedPayload.serializer(), bytes)
+        val delta = try {
+            ProtoBuf.decodeFromByteArray(VersionedPayload.serializer(), bytes)
+        } catch (e: Exception) {
+            logger.e(e) { "Binary Corruption: Failed to decode outer VersionedPayload container (${bytes.size} bytes)" }
+            throw e
+        }
+
+        logger.v {
+            "Unwrapped outer VersionedPayload: batchVersion=v${delta.batchVersion}, " +
+                    "inner payload=${delta.payload.size}B (outer container size=${bytes.size}B)"
+        }
 
         return batchCodecRouter.routedDecode(delta.payload, delta.batchVersion)
     }

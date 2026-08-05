@@ -10,7 +10,7 @@ class FakeIntentCodec: IntentCodec {
 
     companion object {
         val BYTES_PRESET = byteArrayOf(0x02, 0x02)
-        val MODEL_PRESET = createTestSyncIntent()
+        val MODEL_PRESET = createTestSyncIntent(candidateKey = "FakeIntentCodec-key")
     }
 
     override fun encode(intent: SyncIntent): ByteArray = BYTES_PRESET

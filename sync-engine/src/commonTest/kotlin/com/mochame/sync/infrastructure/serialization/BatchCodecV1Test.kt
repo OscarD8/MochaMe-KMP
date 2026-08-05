@@ -7,9 +7,9 @@ import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.metadata.MutationOp
-import com.mochame.sync.di.codec.CodecProductionTestApp
+import com.mochame.sync.di.codec.CodecTestApp
 import com.mochame.sync.di.codec.CodecFixtureTestEnv
-import com.mochame.sync.fixtures.assertSyncIntentParity
+import com.mochame.sync.fixtures.assertDecodedIntentParity
 import com.mochame.sync.fixtures.createTestSyncIntent
 import com.mochame.sync.fixtures.serialization.FakeIntentCodec
 import com.mochame.sync.fixtures.serialization.toRouterWithVersion
@@ -30,7 +30,7 @@ import kotlin.test.assertTrue
 
 private inline fun runEnv(crossinline block: CodecFixtureTestEnv.(TestScope) -> Unit) =
     runUnitEnvironment(
-        koinSetup = { includes(koinConfiguration<CodecProductionTestApp>()) },
+        koinSetup = { includes(koinConfiguration<CodecTestApp>()) },
         block = block
     )
 
@@ -53,7 +53,7 @@ internal class BatchCodecV1Test : MochaPlatformTest() {
         val decodedBatch = realBatchCodec.decode(batchBytes)
 
         assertEquals(1, decodedBatch.size)
-        assertSyncIntentParity(originalBatch[0], decodedBatch[0])
+        assertDecodedIntentParity(originalBatch[0], decodedBatch[0])
     }
 
     @Test
@@ -78,7 +78,7 @@ internal class BatchCodecV1Test : MochaPlatformTest() {
         originalBatch.indices.forEach { index ->
             val expected = originalBatch[index]
             val actual = decodedBatch[index]
-            assertSyncIntentParity(expected, actual)
+            assertDecodedIntentParity(expected, actual)
         }
     }
 
@@ -117,15 +117,15 @@ internal class BatchCodecV1Test : MochaPlatformTest() {
         assertEquals(3, decodedBatch.size)
 
         // Index 0: UPSERT with populated bytes
-        assertSyncIntentParity(intentUpsert, decodedBatch[0])
+        assertDecodedIntentParity(intentUpsert, decodedBatch[0])
         assertContentEquals(byteArrayOf(0xDE.toByte(), 0xAD.toByte()), decodedBatch[0].payload)
 
         // Index 1: DELETE with empty payload
-        assertSyncIntentParity(intentDelete, decodedBatch[1])
+        assertDecodedIntentParity(intentDelete, decodedBatch[1])
         assertEquals(0, decodedBatch[1].payload?.size)
 
         // Index 2: Overflow blob with null payload
-        assertSyncIntentParity(intentOverflow, decodedBatch[2])
+        assertDecodedIntentParity(intentOverflow, decodedBatch[2])
         assertEquals("blob-ref-xyz-99", decodedBatch[2].overflowBlobId)
     }
 
@@ -213,7 +213,7 @@ internal class BatchCodecV1Test : MochaPlatformTest() {
         assertEquals("valid-key-3", decodedList[1].candidateKey)
         assertEquals(intent3.hlc, decodedList[1].hlc)
 
-        assertNotNull(writer.logs.find { it.message.contains("Batch decoding partially degraded: recovered 2/3 intents (1 skipped due to corruption)") })
+        assertNotNull(writer.logs.find { it.message.contains("Batch decoding degraded: recovered 2/3 intents (1 skipped due to corruption)") })
     }
 
     @Test
@@ -342,7 +342,7 @@ internal class BatchCodecV1Test : MochaPlatformTest() {
         // Act
         val decodedList = fixtureCodec.decode(v2BatchBytes)
 
-        // Assert: Proves that v2 was provided the Bytes passed to Encode. v1 would throw.
+        // Assert: FakeIntentCodec accepted bytes: require(bytes.contentEquals(BYTES_PRESET)), returning Preset
         assertEquals(FakeIntentCodec.MODEL_PRESET, decodedList[0])
         assertFailsWith<SerializationException> {
             realIntentCodec.decode(FakeIntentCodec.BYTES_PRESET)

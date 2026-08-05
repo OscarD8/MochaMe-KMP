@@ -8,7 +8,7 @@ import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.sync.di.codec.CodecFixtureTestApp
 import com.mochame.sync.di.codec.CodecFixtureTestEnv
-import com.mochame.sync.fixtures.assertSyncIntentParity
+import com.mochame.sync.fixtures.assertDecodedIntentParity
 import com.mochame.sync.fixtures.createTestSyncIntent
 import com.mochame.sync.fixtures.serialization.FakeBatchCodec
 import com.mochame.sync.fixtures.serialization.toRouterWithVersion
@@ -26,6 +26,7 @@ private inline fun runEnv(crossinline block: CodecFixtureTestEnv.(TestScope) -> 
         block = block
     )
 
+
 class BatchCodecRouterTest : MochaPlatformTest() {
 
     @Test
@@ -39,7 +40,7 @@ class BatchCodecRouterTest : MochaPlatformTest() {
 
         // Assert
         assertEquals(1, decoded.size)
-        assertSyncIntentParity(intents[0], decoded[0])
+        assertDecodedIntentParity(intents[0], decoded[0])
     }
 
     @Test
@@ -67,7 +68,7 @@ class BatchCodecRouterTest : MochaPlatformTest() {
 
         // Assert
         assertEquals(1, decodedV1.size)
-        assertSyncIntentParity(v1Intent, decodedV1[0])
+        assertDecodedIntentParity(v1Intent, decodedV1[0])
 
         assertEquals(2, decodedV2.size)
         assertEquals("BATCH_ITEM_1", decodedV2[0].candidateKey)

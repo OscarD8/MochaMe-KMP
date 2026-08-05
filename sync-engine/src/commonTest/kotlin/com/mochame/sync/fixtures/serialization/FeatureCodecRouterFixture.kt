@@ -7,7 +7,7 @@ import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodecRouter
 import org.koin.core.annotation.Single
 
 @Single
-internal class FeatureCodecRouter(
+internal class FeatureCodecRouterFixture(
     val v1: FeatureCodecV1,
     val v2: FakeFeatureCodec,
     logger: Logger
@@ -16,3 +16,14 @@ internal class FeatureCodecRouter(
     latestVersion = 2,
     logger = logger.withTags(LogTags.Layer.SERI, LogTags.Domain.SYNC, "TeCRtr")
 )
+
+@Single
+internal class FeatureCodecRouter(
+    val v1: FeatureCodecV1,
+    logger: Logger
+) : BaseFeatureCodecRouter<FeatureEntity>(
+    versionRegistry = arrayOf(null, v1),
+    latestVersion = 1,
+    logger = logger.withTags(LogTags.Layer.SERI, LogTags.Domain.SYNC, "TeCRtr")
+)
+

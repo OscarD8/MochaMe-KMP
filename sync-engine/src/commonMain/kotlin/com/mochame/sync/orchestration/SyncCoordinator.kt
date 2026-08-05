@@ -11,7 +11,7 @@ import com.mochame.logger.withTags
 import com.mochame.logger.withTimer
 import com.mochame.sync.api.hlc.HlcFactory
 import com.mochame.sync.api.hlc.HLC
-import com.mochame.sync.spi.models.DecodeContext
+import com.mochame.sync.domain.model.deriveContext
 import com.mochame.sync.spi.models.SyncIntent
 import com.mochame.sync.tryWithLock
 import com.mochame.sync.domain.serialization.PayloadCodec
@@ -141,7 +141,7 @@ internal class SyncCoordinator(
                             maxValidHlc = maxValidHlc?.let { maxOf(it, intent.hlc) } ?: intent.hlc
                         }
                     }
-                    maxValidHlc?.let {
+                    maxValidHlc?.let { //maybe enforce
                         hlcFactory.witness(it)
                         nodeManager.updateHlcFloor(it)
                     }
@@ -172,8 +172,7 @@ internal class SyncCoordinator(
      */
     private suspend fun orchestrateIntent(intent: SyncIntent): Boolean {
         return try {
-            checkOverflowState(intent)
-            val intentContext = extractContext(intent)
+            val intentContext = intent.checkOverflowState().deriveContext()
             intent.receiver.processRemoteIntent(intentContext, intent.payload)
             true
         } catch (e: Exception) {
@@ -182,37 +181,31 @@ internal class SyncCoordinator(
         }
     }
 
-    private suspend fun checkOverflowState(intent: SyncIntent) {
-        check(intent.payload != null || intent.overflowBlobId != null) {
+    private suspend fun SyncIntent.checkOverflowState(): SyncIntent {
+        check(payload != null || overflowBlobId != null) {
             throw MochaException.Persistent.CorruptionDetected(
-                "Data integrity violation for ${intent.candidateKey}: both payload and blobId are null"
+                "Data integrity violation for $candidateKey: both payload and blobId are null"
             )
         }
-        check(!(intent.payload != null && intent.overflowBlobId != null)) {
+        check(!(payload != null && overflowBlobId != null)) {
             throw MochaException.Persistent.CorruptionDetected(
-                "Data integrity violation for ${intent.candidateKey}: payload and blobId are mutually exclusive"
+                "Data integrity violation for $candidateKey: payload and blobId are mutually exclusive"
             )
         }
 
-        if (intent.payload == null) {
-            if (intent.overflowBlobId != null) {
-                intentStore.recordIntent(intent)
-                logger.w { "Overflow intent staged: ${intent.candidateKey}" }
-                return
+        if (payload == null) {
+            if (overflowBlobId != null) {
+                intentStore.recordIntent(this)
+                logger.w { "Overflow intent staged: $candidateKey" }
+                return this
             } else {
-                logger.e { "Received null payload with no overflow reference for ${intent.candidateKey}" }
-                throw MochaException.Persistent.CorruptionDetected("Null payload with no blobId for ${intent.candidateKey}")
+                logger.e { "Received null payload with no overflow reference for $candidateKey" }
+                throw MochaException.Persistent.CorruptionDetected("Null payload with no blobId for $candidateKey")
             }
         }
-    }
 
-    private fun extractContext(intent: SyncIntent) = DecodeContext(
-        featureSchemaVersion = intent.featureSchemaVersion,
-        candidateKey = intent.candidateKey,
-        hlc = intent.hlc,
-        op = intent.operation,
-        overflowBlobId = intent.overflowBlobId
-    )
+        return this
+    }
 
     private val SyncIntent.receiver: SyncReceiver
         get() = receiverRoutingMap[featureContext.modelName] ?: run {
