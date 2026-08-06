@@ -15,7 +15,8 @@ fun DailyContextEntity.toDomain() = DailyContext(
     readinessScore = readinessScore,
     isNapped = isNapped,
     isDeleted = isDeleted,
-    lastModified = lastModified
+    lastModified = lastModified,
+    fieldHlcs = fieldHlcs
 )
 
 /**
@@ -30,5 +31,6 @@ fun DailyContext.toEntity() = DailyContextEntity(
     readinessScore = readinessScore,
     isNapped = isNapped,
     isDeleted = isDeleted,
-    lastModified = lastModified
+    lastModified = lastModified,
+    fieldHlcs = fieldHlcs
 )

@@ -13,6 +13,7 @@ data class DailyContext(
     override val hlc: HLC = HLC.EMPTY,
     override val isDeleted: Boolean = false,
     override val lastModified: Long = 0L,
+    override val fieldHlcs: ByteArray = ByteArray(0),
     val epochDay: Long,
     val sleepHours: Double,
     val readinessScore: Int,
@@ -20,5 +21,6 @@ data class DailyContext(
 ) : LocalFirstEntity<DailyContext> {
 
     override fun withHlc(hlc: HLC): DailyContext = copy(hlc = hlc, lastModified = hlc.ts)
+    override fun withFieldHlcs(blob: ByteArray) = copy(fieldHlcs = blob)
     override fun markDeleted(): DailyContext = copy(isDeleted = true)
 }

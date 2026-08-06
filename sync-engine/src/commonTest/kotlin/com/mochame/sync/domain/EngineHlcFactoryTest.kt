@@ -729,6 +729,7 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
         )
     }
 
+    // CHECK
     @Test
     fun should_produceMonotonicFinalState_when_multipleWitnessCallsFireConcurrently() =
         runEnv { scope ->

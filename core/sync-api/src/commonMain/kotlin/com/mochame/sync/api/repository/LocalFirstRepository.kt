@@ -15,6 +15,7 @@ import com.mochame.sync.spi.models.SyncIntent
 import com.mochame.sync.spi.infrastructure.serialization.FeatureCodec
 import com.mochame.sync.spi.infrastructure.SyncReceiver
 import com.mochame.sync.spi.infrastructure.serialization.FeatureCodecRouter
+import com.mochame.sync.spi.infrastructure.serialization.FieldHlcIndex
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -112,7 +113,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         val existingState = fetchExistingState()
 
         validateLwwRejection(
-            existingState, incomingHlc, candidateKey
+            existingState, incomingHlc, candidateKey, op
         )?.let { rejectedState -> return onSkip(rejectedState) }
 
         if (op == MutationOp.DELETE && isGhostDelete(existingState, candidateKey))
@@ -123,13 +124,24 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         return if (incomingHlc != null) {
             persist(candidateState)
         } else {
-            val stampedState = candidateState.withHlc(deps.hlcFactory.getNextHlc())
+            val hlc = deps.hlcFactory.getNextHlc()
+            val changedTags = codec.routedComputeChangedTags(candidateState, existingState)
+
+            var fieldHlcs = FieldHlcIndex(existingState?.fieldHlcs ?: ByteArray(0))
+            changedTags.forEach { tag ->
+                fieldHlcs = fieldHlcs.updateTag(tag, hlc)
+            }
+
+            val stampedState = candidateState
+                .withHlc(hlc)
+                .withFieldHlcs(fieldHlcs.bytes)
 
             handleLocalCommit(
                 candidateKey = candidateKey,
                 op = op,
                 stampedState = stampedState,
                 existingState = existingState,
+                changedTags = changedTags,
                 persistAction = { persist(stampedState) },
                 onSkipAction = { onSkip(stampedState) }
             )
@@ -235,15 +247,16 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     internal fun validateLwwRejection(
         existingState: T?,
         incomingHlc: HLC?,
-        candidateKey: String
+        candidateKey: String,
+        op: MutationOp
     ): T? {
-        // RELEVANT
         if (existingState == null) return null
 
         deps.hlcFactory.assertValid(existingState.hlc, candidateKey)
 
-        if (incomingHlc != null && incomingHlc <= existingState.hlc) {
-            logger.d { "Local item [$candidateKey / ${existingState.hlc}] rejected incoming $incomingHlc." }
+        // Entity Level rejection
+        if (op == MutationOp.DELETE && incomingHlc != null && incomingHlc <= existingState.hlc) {
+            logger.d { "Local item [$candidateKey / ${existingState.hlc}] rejected stale incoming DELETE $incomingHlc." }
             return existingState
         }
 
@@ -268,13 +281,14 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         op: MutationOp,
         stampedState: T,
         existingState: T?,
+        changedTags: List<Int>,
         persistAction: suspend () -> R,
         onSkipAction: () -> R
     ): R {
         val payload = codec.routedEncode(stampedState, existingState)
             ?: return onSkipAction()
 
-        val summary = codec.routedSummarize(stampedState, existingState)
+        val summary = codec.routedSummarize(op, changedTags)
         val hlc = stampedState.hlc
         val tMark = TimeSource.Monotonic.markNow()
 

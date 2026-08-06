@@ -2,6 +2,7 @@ package com.mochame.sync.infrastructure.serialization
 
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runUnitEnvironment
+import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.di.codec.CodecTestApp
 import com.mochame.sync.fixtures.serialization.FakeFeatureCodec
 import com.mochame.sync.fixtures.serialization.FeatureEntity
@@ -52,9 +53,10 @@ class FeatureCodecRouterTest : MochaPlatformTest() {
     @Test
     fun should_delegateToLatestVersion_on_routedSummarize() = runEnv {
         val entity = FeatureEntity()
+        val changedTags = routedComputeChangedTags(entity, null)
 
         // routedSummarize must always use latestCodec (V2)
-        val summary = routedSummarize(new = entity, old = null)
+        val summary = routedSummarize(MutationOp.UPSERT, changedTags)
 
         assertEquals(
             FakeFeatureCodec.SUMMARIZE_PRESET,

@@ -1,4 +1,4 @@
-package com.mochame.sync.spi.infrastructure.serialization
+package com.mochame.sync.spi.infrastructure
 
 import co.touchlab.kermit.Logger
 import com.mochame.sync.api.exceptions.MochaException

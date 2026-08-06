@@ -1,7 +1,10 @@
 package com.mochame.sync.spi.infrastructure.serialization
 
 import co.touchlab.kermit.Logger
+import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.api.models.LocalFirstEntity
+import com.mochame.sync.spi.infrastructure.getCodec
+import com.mochame.sync.spi.infrastructure.latestCodec
 import com.mochame.sync.spi.models.DecodeContext
 
 abstract class BaseFeatureCodecRouter<T : LocalFirstEntity<T>>(
@@ -24,7 +27,10 @@ abstract class BaseFeatureCodecRouter<T : LocalFirstEntity<T>>(
      * As this is an in-memory reconstruction, it must target the latest codec
      * matching the source code of the model.
      */
-    override fun routedSummarize(new: T, old: T?): String =
-        latestCodec.summarize(new, old)
+    override fun routedSummarize(op: MutationOp, changedTags: List<Int>): String =
+        latestCodec.summarize(op, changedTags)
+
+    override fun routedComputeChangedTags(new: T, old: T?): List<Int> =
+        latestCodec.computeChangedTags(new, old)
 
 }

@@ -278,16 +278,16 @@ class FeatureCodecTest : MochaPlatformTest() {
     fun should_maintainSummaryParity_on_fullInsert() = runEnv {
         val newEntity = FeatureEntity()
         val bytes = encode(new = newEntity, old = null)
-        assertNotNull(bytes)
+        val changedTags = computeChangedTags(newEntity, null)
 
         // When
-        val inMemorySummary = summarize(new = newEntity, old = null)
-        val binarySummary = reconstructSummary(bytes)
+        val inMemorySummary = summarize(MutationOp.UPSERT, changedTags)
+        val binarySummary = reconstructSummary(bytes!!)
 
         val (inMemOp, inMemTags) = parseSummary(inMemorySummary)
         val (binOp, binTags) = parseSummary(binarySummary)
 
-        assertEquals("UPSERT", inMemOp, "Opcode must be UPSERT")
+        assertEquals(MutationOp.UPSERT.name, inMemOp, "Opcode must be UPSERT")
         assertEquals(inMemOp, binOp, "In-memory opcode must match binary peeking opcode")
         assertEquals(listOf(3, 4, 5), inMemTags)
         assertEquals(inMemTags, binTags, "In-memory changed tags must equal binary peeked tags")
@@ -298,11 +298,11 @@ class FeatureCodecTest : MochaPlatformTest() {
         val oldEntity = FeatureEntity()
         val newEntity = oldEntity.copy(countValue = 99)
         val bytes = encode(new = newEntity, old = oldEntity)
-        assertNotNull(bytes)
+        val changedTags = computeChangedTags(newEntity, oldEntity)
 
         // When
-        val inMemorySummary = summarize(new = newEntity, old = oldEntity)
-        val binarySummary = reconstructSummary(bytes)
+        val inMemorySummary = summarize(MutationOp.UPSERT, changedTags)
+        val binarySummary = reconstructSummary(bytes!!)
 
         val (inMemOp, inMemTags) = parseSummary(inMemorySummary)
         val (binOp, binTags) = parseSummary(binarySummary)
@@ -318,11 +318,11 @@ class FeatureCodecTest : MochaPlatformTest() {
         val oldEntity = FeatureEntity()
         val deletedEntity = oldEntity.markDeleted()
         val bytes = encode(new = deletedEntity, old = oldEntity)
-        assertNotNull(bytes)
+        val changedTags = computeChangedTags(deletedEntity, oldEntity)
 
         // When
-        val inMemorySummary = summarize(new = deletedEntity, old = oldEntity)
-        val binarySummary = reconstructSummary(bytes)
+        val inMemorySummary = summarize(MutationOp.DELETE, changedTags)
+        val binarySummary = reconstructSummary(bytes!!)
 
         val (inMemOp, inMemTags) = parseSummary(inMemorySummary)
         val (binOp, binTags) = parseSummary(binarySummary)

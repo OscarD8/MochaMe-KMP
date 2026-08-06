@@ -1,6 +1,7 @@
 package com.mochame.sync.spi.infrastructure.serialization
 
 import co.touchlab.kermit.Logger
+import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.api.models.LocalFirstEntity
 import com.mochame.sync.common.readProtobufVarint
 import com.mochame.sync.common.skipProtobufValue
@@ -73,18 +74,11 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : Any>(
             .also { logger.d { "Decoding finalized. key=${it.id}" } }
     }
 
-    override fun summarize(new: T, old: T?): String {
-        val op = if (new.isDeleted) "DELETE" else "UPSERT"
-        val tags = computeChangedTags(new, old)
+    override fun summarize(op: MutationOp, changedTags: List<Int>): String {
+        val op = if (op == MutationOp.DELETE) "DELETE" else "UPSERT"
 
         with(
-            "OP:${op} ${
-                tags.joinToString(
-                    prefix = "[",
-                    postfix = "]",
-                    separator = ","
-                )
-            }"
+            "OP:${op} ${changedTags.joinToString(prefix = "[", postfix = "]", separator = ",")}"
         ) {
             logger.d { "Model Summary: $this" }
             return this
@@ -133,7 +127,6 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : Any>(
     }
 
     // --- FEATURE REQUIREMENTS ---
-    protected abstract fun computeChangedTags(new: T, old: T?): List<Int>
     protected abstract fun buildDeleteDelta(entity: T): D
     protected abstract fun buildInsertDelta(entity: T): D
     protected abstract fun buildUpdateDelta(new: T, old: T): D?

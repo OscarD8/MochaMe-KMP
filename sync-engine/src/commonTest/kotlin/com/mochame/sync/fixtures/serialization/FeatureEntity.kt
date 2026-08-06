@@ -13,12 +13,14 @@ internal data class FeatureEntity(
     override val hlc: HLC = HlcTestFactory.create(),
     override val lastModified: Long = HlcTestFactory.create().ts,
     override val isDeleted: Boolean = false,
+    override val fieldHlcs: ByteArray = ByteArray(0),
     val triStateValue: TriState = TriState.TRUE,
     val textValue: String = "default-text",
     val countValue: Int = 1,
 ) : LocalFirstEntity<FeatureEntity> {
     override fun withHlc(hlc: HLC): FeatureEntity = copy(hlc = hlc)
     override fun markDeleted(): FeatureEntity = copy(isDeleted = true)
+    override fun withFieldHlcs(blob: ByteArray) = copy(fieldHlcs = blob)
 }
 
 internal fun FeatureEntity.deriveContext(

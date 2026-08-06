@@ -1,5 +1,6 @@
 package com.mochame.sync.fixtures.serialization
 
+import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.spi.infrastructure.BufferProvider
 import com.mochame.sync.spi.infrastructure.serialization.FeatureCodec
 import com.mochame.sync.spi.models.DecodeContext
@@ -38,6 +39,7 @@ internal class FakeFeatureCodec(
         )
     }
 
-    override fun summarize(new: FeatureEntity, old: FeatureEntity?): String = SUMMARIZE_PRESET
+    override fun summarize(op: MutationOp, changedTags: List<Int>): String = SUMMARIZE_PRESET
     override fun reconstructSummary(bytes: ByteArray): String = RECONSTRUCT_PRESET
+    override fun computeChangedTags(new: FeatureEntity, old: FeatureEntity?) = emptyList<Int>()
 }

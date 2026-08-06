@@ -1,6 +1,6 @@
 package com.mochame.sync.domain.serialization
 
-import com.mochame.sync.spi.infrastructure.serialization.VersionRouter
+import com.mochame.sync.spi.infrastructure.VersionRouter
 import com.mochame.sync.spi.models.SyncIntent
 
 

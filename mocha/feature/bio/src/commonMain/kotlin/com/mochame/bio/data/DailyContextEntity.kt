@@ -21,5 +21,6 @@ data class DailyContextEntity(
     val readinessScore: Int = 0,
     val isNapped: TriState = TriState.UNSET,
     val isDeleted: Boolean = false,
+    val fieldHlcs: ByteArray = ByteArray(0),
     val lastModified: Long
 )
