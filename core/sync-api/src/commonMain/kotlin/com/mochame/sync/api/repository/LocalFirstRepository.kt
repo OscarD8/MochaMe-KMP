@@ -112,12 +112,10 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     ): R {
         val existingState = fetchExistingState()
 
-        validateLwwRejection(
-            existingState, incomingHlc, candidateKey, op
-        )?.let { rejectedState -> return onSkip(rejectedState) }
-
-        if (op == MutationOp.DELETE && isGhostDelete(existingState, candidateKey))
-            return onSkip(existingState!!)
+        if (assertEntityLevelRejection(existingState, incomingHlc, op, candidateKey)) {
+            val fallback = existingState ?: computeChange(null)
+            return onSkip(fallback)
+        }
 
         val candidateState = computeChange(existingState)
 
@@ -127,14 +125,14 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             val hlc = deps.hlcFactory.getNextHlc()
             val changedTags = codec.routedComputeChangedTags(candidateState, existingState)
 
-            var fieldHlcs = FieldHlcIndex(existingState?.fieldHlcs ?: ByteArray(0))
+            var fieldHlcBytes = FieldHlcIndex(existingState?.fieldHlcs ?: ByteArray(0))
             changedTags.forEach { tag ->
-                fieldHlcs = fieldHlcs.updateTag(tag, hlc)
+                fieldHlcBytes = fieldHlcBytes.updateTag(tag, hlc)
             }
 
             val stampedState = candidateState
                 .withHlc(hlc)
-                .withFieldHlcs(fieldHlcs.bytes)
+                .withFieldHlcs(fieldHlcBytes.bytes)
 
             handleLocalCommit(
                 candidateKey = candidateKey,
@@ -244,34 +242,37 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     // HELPERS
     // -----------------------------------------------------------
     @PublishedApi
-    internal fun validateLwwRejection(
-        existingState: T?,
+    internal fun assertEntityLevelRejection(
+        existing: T?,
         incomingHlc: HLC?,
-        candidateKey: String,
-        op: MutationOp
-    ): T? {
-        if (existingState == null) return null
-
-        deps.hlcFactory.assertValid(existingState.hlc, candidateKey)
-
-        // Entity Level rejection
-        if (op == MutationOp.DELETE && incomingHlc != null && incomingHlc <= existingState.hlc) {
-            logger.d { "Local item [$candidateKey / ${existingState.hlc}] rejected stale incoming DELETE $incomingHlc." }
-            return existingState
+        op: MutationOp,
+        candidateKey: String
+    ): Boolean {
+        if (existing == null) {
+            if (op == MutationOp.DELETE) {
+                if (incomingHlc != null) {
+                    logger.d { "Remote Ghost Delete (hlc=$incomingHlc) for $candidateKey. Skipping." }
+                    return true
+                } else {
+                    throw MochaException.Persistent.StateIssue("Delete attempt against non-existent record: $candidateKey.")
+                }
+            }
+            return false
         }
 
-        return null
-    }
+        deps.hlcFactory.assertValid(existing.hlc, candidateKey)
 
-    @PublishedApi
-    internal fun isGhostDelete(existing: T?, candidateKey: String): Boolean {
-        if (existing == null)
-            throw MochaException.Persistent.StateIssue("Delete attempt against non-existent record. Key: $candidateKey.")
-
-        if (existing.isDeleted) {
-            logger.d { "Ghost Delete detected for $candidateKey. Aborting intent." }
-            return true
+        if (op == MutationOp.DELETE) {
+            if (existing.isDeleted) {
+                logger.d { "Double Delete for $candidateKey. Skipping." }
+                return true
+            }
+            if (incomingHlc != null && incomingHlc <= existing.hlc) {
+                logger.d { "Local item [$candidateKey / ${existing.hlc}] rejected stale incoming DELETE $incomingHlc." }
+                return true
+            }
         }
+
         return false
     }
 

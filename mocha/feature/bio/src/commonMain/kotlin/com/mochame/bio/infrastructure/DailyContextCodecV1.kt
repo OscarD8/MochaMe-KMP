@@ -5,6 +5,7 @@ import com.mochame.bio.domain.DailyContext
 import com.mochame.sync.spi.infrastructure.BufferProvider
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
+import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.sync.common.TriState
 import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodec
 import com.mochame.sync.spi.infrastructure.serialization.diff
@@ -71,17 +72,19 @@ internal class DailyContextCodecV1(
         delta: DailyContextDeltaV1,
         context: DecodeContext,
         existing: DailyContext?
-    ): DailyContext = DailyContext(
-        id = context.candidateKey,
-        hlc = context.hlc,
-        lastModified = context.hlc.ts,
-        epochDay = context.candidateKey.toLong(),
+    ): DailyContext = mergeFields(existing, context) {
+        DailyContext(
+            id = context.candidateKey,
+            hlc = context.hlc,
+            lastModified = context.hlc.ts,
+            epochDay = context.candidateKey.toLong(),
 
-        sleepHours = delta.sleepHours ?: existing?.sleepHours ?: 0.0,
-        readinessScore = delta.readinessScore ?: existing?.readinessScore ?: 0,
-        isNapped = delta.isNapped ?: existing?.isNapped ?: TriState.UNSET,
-        isDeleted = delta.isDeleted ?: existing?.isDeleted ?: false
-    )
+            sleepHours     = eval(3, delta.sleepHours, existing?.sleepHours ?: 0.0),
+            readinessScore = eval(4, delta.readinessScore, existing?.readinessScore ?: 0),
+            isNapped       = eval(5, delta.isNapped, existing?.isNapped ?: TriState.UNSET),
+            isDeleted      = delta.isDeleted ?: existing?.isDeleted ?: false
+        )
+    }
 
     override fun computeChangedTags(new: DailyContext, old: DailyContext?): List<Int> =
         buildList {
