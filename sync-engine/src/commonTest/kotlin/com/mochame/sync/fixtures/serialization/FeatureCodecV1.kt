@@ -71,17 +71,15 @@ internal class FeatureCodecV1(
         hlc = context.hlc,
         lastModified = context.hlc.ts,
 
-        triStateValue = delta.triStateValue ?: existing?.triStateValue ?: TriState.UNSET,
-        textValue = delta.textValue ?: existing?.textValue ?: "",
-        countValue = delta.countValue ?: existing?.countValue ?: 0,
-        isDeleted = delta.isDeleted ?: existing?.isDeleted ?: false
+        triStateValue = eval(3, delta.triStateValue, existing?.triStateValue ?: TriState.UNSET),
+        textValue = eval(4, delta.textValue, existing?.textValue ?: ""),
+        countValue = eval(5, delta.countValue, existing?.countValue ?: 0)
     )
 
-    override fun computeChangedTags(new: FeatureEntity, old: FeatureEntity?): List<Int> =
-        buildList {
-            if (old == null || new.triStateValue != old.triStateValue) add(3)
-            if (old == null || new.textValue != old.textValue) add(4)
-            if (old == null || new.countValue != old.countValue) add(5)
-        }
+    override fun computeDomainChangedTags(new: FeatureEntity, old: FeatureEntity?) = buildList {
+        if (old == null || new.triStateValue != old.triStateValue) add(3)
+        if (old == null || new.textValue != old.textValue) add(4)
+        if (old == null || new.countValue != old.countValue) add(5)
+    }
 
 }

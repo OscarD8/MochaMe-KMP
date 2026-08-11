@@ -12,7 +12,7 @@ import com.mochame.sync.fixtures.serialization.FeatureEntity
 import com.mochame.sync.fixtures.serialization.FeatureCodecV1
 import com.mochame.sync.fixtures.serialization.FeatureEntityDeltaV1
 import com.mochame.sync.spi.models.DecodeContext
-import com.mochame.utils.fixtures.HlcTestFactory
+import com.mochame.utils.fixtures.TestHlcFactory
 import kotlinx.coroutines.test.TestScope
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerializationException
@@ -223,7 +223,7 @@ class FeatureCodecTest : MochaPlatformTest() {
 
     @Test
     fun should_applyContextTimestamps_during_hydration() = runEnv {
-        val hlcs = HlcTestFactory.chronologicalSequence(2)
+        val hlcs = TestHlcFactory.chronologicalSequence(2)
         val existingEntity = FeatureEntity(hlc = hlcs[0])
 
         // When (Device A: Update and Encode)
@@ -260,7 +260,7 @@ class FeatureCodecTest : MochaPlatformTest() {
         val corruptBytes = byteArrayOf(0x00, 0x80.toByte(), 0xFF.toByte())
         val context = DecodeContext(
             candidateKey = 1000L,
-            hlc = HlcTestFactory.create(),
+            hlc = TestHlcFactory.create(),
             op = MutationOp.UPSERT,
             featureSchemaVersion = 1
         )
@@ -329,8 +329,8 @@ class FeatureCodecTest : MochaPlatformTest() {
 
         assertEquals("DELETE", inMemOp)
         assertEquals(inMemOp, binOp, "Both summary paths must resolve tombstone DELETE")
-        assertEquals(0, inMemTags.size)
-        assertEquals(0, binTags.size)
+        assertEquals(1, inMemTags.size)
+        assertEquals(1, binTags.size)
     }
 
     // -------------------------------------------------------------------

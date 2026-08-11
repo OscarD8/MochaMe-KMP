@@ -9,7 +9,7 @@ import com.mochame.sync.common.TriState
  * This acts as the framing context for all telemetry logged during this period.
  */
 data class DailyContext(
-    override val id: Long,
+    override val id: Long, // The Epoch Day
     override val hlc: HLC = HLC.EMPTY,
     override val isDeleted: Boolean = false,
     override val lastModified: Long = 0L,

@@ -82,10 +82,8 @@ internal class DailyContextCodecV1(
         isDeleted = delta.isDeleted ?: existing?.isDeleted ?: false
     )
 
-
-    override fun computeChangedTags(new: DailyContext, old: DailyContext?): List<Int> =
+    override fun computeDomainChangedTags(new: DailyContext, old: DailyContext?): List<Int> =
         buildList {
-            if (old == null || new.isDeleted != old.isDeleted) add(2)
             if (old == null || new.sleepHours != old.sleepHours) add(3)
             if (old == null || new.readinessScore != old.readinessScore) add(4)
             if (old == null || new.isNapped != old.isNapped) add(5)

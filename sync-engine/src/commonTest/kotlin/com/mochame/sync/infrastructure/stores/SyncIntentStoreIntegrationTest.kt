@@ -2,7 +2,7 @@ package com.mochame.sync.infrastructure.stores
 
 import app.cash.turbine.test
 import com.mochame.support.MochaPlatformTest
-import com.mochame.utils.fixtures.HlcTestFactory
+import com.mochame.utils.fixtures.TestHlcFactory
 import com.mochame.support.runPersistenceEnvironment
 import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.metadata.SyncStatus
@@ -42,7 +42,7 @@ internal class SyncIntentStoreIntegrationTest : MochaPlatformTest() {
     @Test
     fun should_preserveExactDataFields_when_mappingToEntityAndBackToDomain() = runEnv {
         // Given
-        val hlc = HlcTestFactory.create()
+        val hlc = TestHlcFactory.create()
         val candidateKey = 1L
 
         val originalIntent = createTestSyncIntent(
@@ -87,7 +87,7 @@ internal class SyncIntentStoreIntegrationTest : MochaPlatformTest() {
     @Test
     fun should_maintainCollectionSizeAndOrdering_when_retrievingClaimedBatch() = runEnv {
         // Given
-        val hlcs = HlcTestFactory.chronologicalSequence(size = 3)
+        val hlcs = TestHlcFactory.chronologicalSequence(size = 3)
         val sessionId = "store-batch-session"
 
         // Unordered seeding of the database via the DAO to isolate the store's retrieval mapper
@@ -130,7 +130,7 @@ internal class SyncIntentStoreIntegrationTest : MochaPlatformTest() {
     fun should_emitUpdatedSummary_when_intentIsQuarantined() = runEnv {
         // Given
         val targetModule = FeatureContext.Type.UNRECOGNIZED_MODEL
-        val hlc = HlcTestFactory.create()
+        val hlc = TestHlcFactory.create()
 
         // When
         intentStore.observeQuarantinedCountByModule().test {

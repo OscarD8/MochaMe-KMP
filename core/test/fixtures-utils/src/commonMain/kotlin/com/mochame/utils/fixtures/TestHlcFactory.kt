@@ -8,7 +8,7 @@ import kotlin.time.Instant
 /**
  * Global provider for generating fixed HLCs.
  */
-object HlcTestFactory {
+object TestHlcFactory {
 
     val DEFAULT_NODE = NodeId.ZERO
 

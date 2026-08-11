@@ -14,7 +14,7 @@ import com.mochame.sync.fixtures.createTestSyncIntent
 import com.mochame.sync.fixtures.serialization.FakeIntentCodec
 import com.mochame.sync.fixtures.serialization.toRouterWithVersion
 import com.mochame.sync.spi.models.SyncIntent
-import com.mochame.utils.fixtures.HlcTestFactory
+import com.mochame.utils.fixtures.TestHlcFactory
 import kotlinx.coroutines.test.TestScope
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerializationException
@@ -59,7 +59,7 @@ internal class BatchCodecV1Test : MochaPlatformTest() {
     @Test
     fun should_preserve_strict_causal_ordering_and_count_across_multi_intent_batch() = runEnv {
         // Arrange: 10 chronological intents with distinct sequence indices
-        val hlcSequence = HlcTestFactory.chronologicalSequence(size = 10)
+        val hlcSequence = TestHlcFactory.chronologicalSequence(size = 10)
         val originalBatch = hlcSequence.mapIndexed { index, hlc ->
             createTestSyncIntent(
                 hlc = hlc,
@@ -181,11 +181,11 @@ internal class BatchCodecV1Test : MochaPlatformTest() {
         // Arrange
         val intent1 = createTestSyncIntent(
             candidateKey = 1L,
-            hlc = HlcTestFactory.create(ts = 100L)
+            hlc = TestHlcFactory.create(ts = 100L)
         )
         val intent3 = createTestSyncIntent(
             candidateKey = 3L,
-            hlc = HlcTestFactory.create(ts = 300L)
+            hlc = TestHlcFactory.create(ts = 300L)
         )
 
         val validBytes1 = intentRouter.routedEncode(intent1)

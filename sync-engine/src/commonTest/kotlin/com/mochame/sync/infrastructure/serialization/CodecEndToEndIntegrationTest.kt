@@ -16,7 +16,7 @@ import com.mochame.sync.fixtures.assertDecodedIntentParity
 import com.mochame.sync.fixtures.serialization.FeatureEntity
 import com.mochame.sync.fixtures.serialization.assertDecodeParity
 import com.mochame.sync.spi.models.SyncIntent
-import com.mochame.utils.fixtures.HlcTestFactory
+import com.mochame.utils.fixtures.TestHlcFactory
 import kotlinx.coroutines.test.TestScope
 import org.koin.dsl.includes
 import org.koin.plugin.module.dsl.koinConfiguration
@@ -91,14 +91,14 @@ class CodecEndToEndIntegrationTest : MochaPlatformTest() {
             triStateValue = TriState.TRUE,
             textValue = "Old Local Value",
             countValue = 2,
-            hlc = HlcTestFactory.create(ts = 500L),
+            hlc = TestHlcFactory.create(ts = 500L),
             isDeleted = false
         )
         val updatedLocalEntity = originalLocalEntity.copy(
             triStateValue = TriState.UNSET,
             textValue = "Updated Remote Value",
             countValue = 2,
-            hlc = HlcTestFactory.create(ts = 1500L),
+            hlc = TestHlcFactory.create(ts = 1500L),
             isDeleted = false
         )
 
@@ -138,7 +138,7 @@ class CodecEndToEndIntegrationTest : MochaPlatformTest() {
         assertEquals(updatedLocalEntity.textValue, decodedEntity.textValue)
         assertEquals(updatedLocalEntity.triStateValue, decodedEntity.triStateValue)
         assertEquals(originalLocalEntity.countValue, decodedEntity.countValue)
-        assertEquals(HlcTestFactory.create(ts = 1500L), decodedEntity.hlc)
+        assertEquals(TestHlcFactory.create(ts = 1500L), decodedEntity.hlc)
     }
 
     // THE ABOVE TEST PASSES BUT IDENTIFIES A BUG:

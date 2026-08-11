@@ -19,7 +19,7 @@ import org.koin.core.annotation.Single
 @Serializable
 internal data class SyncIntentDeltaV1(
     @ProtoNumber(1) val featureSchemaVersion: Int,
-    @ProtoNumber(2) val hlc: String,
+    @ProtoNumber(2) val hlc: HLC,
     @ProtoNumber(3) val candidateKey: Long,
     @ProtoNumber(4) val module: String,
     @ProtoNumber(5) val model: String,
@@ -42,7 +42,7 @@ internal class IntentCodecV1(
         return try {
             val delta = SyncIntentDeltaV1(
                 featureSchemaVersion = intent.featureSchemaVersion,
-                hlc = intent.hlc.toString(),
+                hlc = intent.hlc,
                 candidateKey = intent.candidateKey,
                 module = intent.featureContext.featureName,
                 model = intent.featureContext.modelName,
@@ -78,7 +78,7 @@ internal class IntentCodecV1(
         return try {
             val intent = SyncIntent(
                 featureSchemaVersion = envelope.featureSchemaVersion,
-                hlc = HLC.parse(envelope.hlc),
+                hlc = envelope.hlc,
                 candidateKey = envelope.candidateKey,
                 featureContext = FeatureContext.fromModelString(envelope.model),
                 operation = MutationOp.valueOf(envelope.operation),

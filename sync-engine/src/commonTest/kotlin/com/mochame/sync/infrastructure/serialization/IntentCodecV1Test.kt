@@ -8,7 +8,7 @@ import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.di.codec.CodecTestApp
 import com.mochame.sync.fixtures.assertDecodedIntentParity
 import com.mochame.sync.fixtures.createTestSyncIntent
-import com.mochame.utils.fixtures.HlcTestFactory
+import com.mochame.utils.fixtures.TestHlcFactory
 import kotlinx.coroutines.test.TestScope
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerializationException
@@ -41,7 +41,7 @@ class IntentCodecV1Test : MochaPlatformTest() {
     @Test
     fun should_preserve_populated_payload_and_created_at_across_encode_decode() = runEnv {
         // Given
-        val expectedHlc = HlcTestFactory.create(ts = 1740787200000L, count = 2)
+        val expectedHlc = TestHlcFactory.create(ts = 1740787200000L, count = 2)
         val originalPayload = byteArrayOf(0x01, 0x02, 0x0F, 0x7F, -0x80)
         val originalCreatedAt = 1740787000000L
 
@@ -197,7 +197,7 @@ class IntentCodecV1Test : MochaPlatformTest() {
 
     @Test
     fun should_preserve_hlc_field_integrity_across_string_parse_cycle() = runEnv {
-        val customHlc = HlcTestFactory.create(
+        val customHlc = TestHlcFactory.create(
             ts = 1740787200000L,
             count = 42,
         )
@@ -269,15 +269,14 @@ class IntentCodecV1Test : MochaPlatformTest() {
     }
 
     @Test
-    fun should_throw_indexOutOfbounds_exception_when_decoding_truncated_protobuf_payload() = runEnv {
-        val validIntent = createTestSyncIntent()
-        val fullBytes = encode(validIntent)
-        val truncatedBytes = fullBytes.copyOf(fullBytes.size / 2)
+    fun should_throw_serializationException_exception_when_decoding_truncated_protobuf_payload() =
+        runEnv {
+            val validIntent = createTestSyncIntent()
+            val fullBytes = encode(validIntent)
+            val truncatedBytes = fullBytes.copyOf(fullBytes.size / 2)
 
-        assertFailsWith<IndexOutOfBoundsException> {
-            decode(truncatedBytes)
+            assertFailsWith<SerializationException> { decode(truncatedBytes) }
         }
-    }
 
     @Test
     fun should_throw_serialization_exception_when_decoding_empty_byte_array() = runEnv {

@@ -4,7 +4,7 @@ import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.common.readLongAt
 import com.mochame.sync.common.readUShortAt
 import com.mochame.sync.common.writeLongAt
-import com.mochame.sync.common.writeShortAt
+import com.mochame.sync.common.writeIntAsShortAt
 import kotlin.jvm.JvmInline
 import kotlin.uuid.Uuid
 
@@ -44,7 +44,7 @@ internal value class FieldHlcMap(val bytes: ByteArray) {
 
         target[writeIdx] = tagId.toByte()
         target.writeLongAt(writeIdx + 1, hlc.ts)
-        target.writeShortAt(writeIdx + 9, hlc.count)
+        target.writeIntAsShortAt(writeIdx + 9, hlc.count)
 
         hlc.nodeId.value.toLongs { msb, lsb ->
             target.writeLongAt(writeIdx + 11, msb)

@@ -1,6 +1,6 @@
 package com.mochame.sync.fixtures
 
-import com.mochame.utils.fixtures.HlcTestFactory
+import com.mochame.utils.fixtures.TestHlcFactory
 import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.api.metadata.SyncStatus
@@ -11,7 +11,7 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 
 internal fun createTestSyncIntent(
-    hlc: HLC = HlcTestFactory.create(),
+    hlc: HLC = TestHlcFactory.create(),
     candidateKey: Long = 1000L,
     context: FeatureContext.Type = FeatureContext.Type.BIO_DAILY_CONTEXT,
     payload: ByteArray? = byteArrayOf(0x00),
@@ -39,14 +39,14 @@ internal fun createTestSyncIntent(
 )
 
 internal fun createTestIntentEntity(
-    hlc: HLC = HlcTestFactory.create(),
+    hlc: HLC = TestHlcFactory.create(),
     status: SyncStatus = SyncStatus.PENDING,
     candidateKey: Long = 1000L,
     syncId: String? = null,
     overflowBlobId: String? = null,
-    createdAt: Long = HlcTestFactory.BASE_TEST_TIME,
+    createdAt: Long = TestHlcFactory.BASE_TEST_TIME,
     retryCount: Int = 0,
-    leasedAt: Long = HlcTestFactory.BASE_TEST_TIME,
+    leasedAt: Long = TestHlcFactory.BASE_TEST_TIME,
     payload: ByteArray? = byteArrayOf(0x01),
     feature: FeatureContext = FeatureContext.Type.UNRECOGNIZED_MODEL
 ) = SyncIntentEntity(

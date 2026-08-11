@@ -12,7 +12,16 @@ import kotlinx.serialization.KSerializer
 import kotlinx.serialization.protobuf.ProtoBuf
 
 /**
- * Internal Base Class: Enforces standard delta logic.
+ * Centralizes standard domain delta logic.
+ * All implementing [FeatureCodec]s and their Serializable deltas must define:
+ * * Primary Key (id) : [TAG_PRIMARY_KEY]
+ * * isDeleted: [TAG_IS_DELETED]
+ * * Domain Fields: [FIRST_DOMAIN_TAG]+
+ * ```kotlin
+ * internal data class FeatureEntityDeltaV1(
+ *     @ProtoNumber(1) val id: Long,
+ *     @ProtoNumber(2) val isDeleted: Boolean? = null,
+ * ```
  *
  * * [T] = Main Domain Entity (e.g. DailyContext)
  * * [D] = Serializable Protobuf Delta Schema (e.g. DailyContextDeltaV1)
@@ -25,7 +34,7 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : Any>(
 ) : FeatureCodec<T> {
 
     companion object {
-        const val TAG_ID = 1
+        const val TAG_PRIMARY_KEY = 1
         const val TAG_IS_DELETED = 2
         const val FIRST_DOMAIN_TAG = 3
     }
@@ -82,7 +91,7 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : Any>(
         with(
             "OP:${op} ${changedTags.joinToString(prefix = "[", postfix = "]", separator = ",")}"
         ) {
-            logger.d { "Model Summary: $this" }
+            logger.d { "In-Memory Summary: $this" }
             return this
         }
     }
@@ -111,7 +120,7 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : Any>(
                 while (!peekSource.exhausted()) {
                     val key = peekSource.readProtobufVarint(logger)
                     val tag = key shr 3
-                    if (tag == TAG_IS_DELETED) isTombstone = true
+                    if (tag == TAG_IS_DELETED) add(tag).also { isTombstone = true }
                     if (tag >= FIRST_DOMAIN_TAG) add(tag)
                     peekSource.skipProtobufValue(key and 0x07, logger)
                 }
@@ -119,12 +128,28 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : Any>(
 
             val opCode = if (isTombstone) "DELETE" else "UPSERT"
             with("OP:$opCode [${tags.distinct().sorted().joinToString(",")}]") {
-                logger.d { "Bytes Summary: $this" }
+                logger.d { "Reconstructed Summary: $this" }
                 return this
             }
         } catch (e: Exception) {
             logger.e(e) { "Packet summary reconstruction failed on payload size=${bytes.size}B" }
             "OP:CORRUPT_PACKET"
+        }
+    }
+
+    /**
+     * Automatically computes Tags 1 & 2 (id, isDeleted)
+     * and delegates domain field diffing (Tag 3+) to [computeDomainChangedTags].
+     */
+    override fun computeChangedTags(new: T, old: T?): List<Int> = buildList {
+        val isTombstoneStateChanged =
+            new.isDeleted || (old != null && new.isDeleted != old.isDeleted)
+
+        if (isTombstoneStateChanged) add(TAG_IS_DELETED)
+
+        if (!new.isDeleted) {
+            if (old == null || new.id != old.id) add(TAG_PRIMARY_KEY)
+            addAll(computeDomainChangedTags(new, old))
         }
     }
 
@@ -134,9 +159,19 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : Any>(
     protected abstract fun buildUpdateDelta(new: T, old: T): D?
 
     /**
+     * Compute changed tag IDs strictly for domain fields (excluding Tags 1 & 2).
+     * Features only work with [FIRST_DOMAIN_TAG]+
+     */
+    protected abstract fun computeDomainChangedTags(new: T, old: T?): List<Int>
+
+    /**
      * Maps the decoded protobuf delta [D] onto domain entity [T] using [DecodeContext] and optional [existing] state.
      */
-    protected abstract fun FieldMergeScope.mergeDelta(delta: D, context: DecodeContext, existing: T?): T
+    protected abstract fun FieldMergeScope.mergeDelta(
+        delta: D,
+        context: DecodeContext,
+        existing: T?
+    ): T
 
 }
 

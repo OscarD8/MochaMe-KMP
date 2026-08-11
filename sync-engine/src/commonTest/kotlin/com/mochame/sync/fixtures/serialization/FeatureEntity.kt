@@ -5,13 +5,13 @@ import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.api.models.LocalFirstEntity
 import com.mochame.sync.common.TriState
 import com.mochame.sync.spi.models.DecodeContext
-import com.mochame.utils.fixtures.HlcTestFactory
+import com.mochame.utils.fixtures.TestHlcFactory
 import kotlin.test.assertEquals
 
 internal data class FeatureEntity(
     override val id: Long = 1000L,
-    override val hlc: HLC = HlcTestFactory.create(),
-    override val lastModified: Long = HlcTestFactory.create().ts,
+    override val hlc: HLC = TestHlcFactory.create(),
+    override val lastModified: Long = TestHlcFactory.create().ts,
     override val isDeleted: Boolean = false,
     override val fieldHlcs: ByteArray = ByteArray(0),
     val triStateValue: TriState = TriState.TRUE,

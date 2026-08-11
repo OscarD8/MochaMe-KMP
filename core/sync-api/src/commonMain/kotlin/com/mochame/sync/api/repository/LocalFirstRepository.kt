@@ -122,8 +122,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             persist(candidateState)
         } else {
             val hlc = deps.hlcFactory.getNextHlc()
-            val changedTags =
-                codec.routedComputeChangedTags(candidateState, existingState)
+            val changedTags = codec.routedComputeChangedTags(candidateState, existingState)
 
             var fieldHlcMap = FieldHlcMap(existingState?.fieldHlcs ?: ByteArray(0))
             changedTags.forEach { tag ->
@@ -199,7 +198,9 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         fetchExistingState = { fetch(it) },
         computeChange = { it!!.markDeleted() },
         persist = { save(it) },
-        onSkip = { 0 }
+        onSkip = {
+            logger.v { "Local Deletion Skipped. ID:${it?.id}. HLC: ${it?.hlc}" }.let { 0L }
+        }
     )
 
     protected suspend inline fun localDelete(
@@ -208,7 +209,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         crossinline fetchExistingState: suspend (id: Long) -> T?,
         crossinline computeChange: suspend (existing: T?) -> T,
         crossinline persist: suspend (stamped: T) -> Long,
-        crossinline onSkip: (fallback: T?) -> Long = { 0L }
+        crossinline onSkip: (fallback: T?) -> Long
     ) = processIntent(
         candidateKey = candidateKey,
         incomingHlc = incomingHlc,
@@ -255,6 +256,9 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     // -----------------------------------------------------------
     // HELPERS
     // -----------------------------------------------------------
+    /**
+     * Returns true if the entity is rejected.
+     */
     @PublishedApi
     internal fun assertEntityLevelRejection(
         existing: T?,
@@ -263,26 +267,24 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         candidateKey: Long
     ): Boolean {
         if (existing == null) {
-            if (op == MutationOp.DELETE) {
-                if (incomingHlc != null) {
-                    logger.d { "Remote Ghost Delete (hlc=$incomingHlc) for $candidateKey. Skipping." }
-                    return true
-                } else {
-                    throw MochaException.Persistent.StateIssue("Delete attempt against non-existent record: $candidateKey.")
-                }
+            // Local/Remote Upserts always require Field-Level processing
+            if (op != MutationOp.DELETE) return false
+
+            if (incomingHlc != null) {
+                return true
+            } else {
+                // If this is to be graceful by calling onSkip - consider change of default onSkip logging for Delete
+                throw MochaException.Persistent.StateIssue("Delete attempt against non-existent record: $candidateKey.")
             }
-            return false
         }
 
         deps.hlcFactory.assertValid(existing.hlc, candidateKey)
 
         if (op == MutationOp.DELETE) {
             if (existing.isDeleted) {
-                logger.d { "Double Delete for $candidateKey. Skipping." }
                 return true
             }
             if (incomingHlc != null && incomingHlc <= existing.hlc) {
-                logger.d { "Local item [$candidateKey / ${existing.hlc}] rejected stale incoming DELETE $incomingHlc." }
                 return true
             }
         }

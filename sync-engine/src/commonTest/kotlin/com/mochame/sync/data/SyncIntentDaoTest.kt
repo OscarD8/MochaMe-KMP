@@ -1,7 +1,7 @@
 package com.mochame.sync.data
 
 import com.mochame.support.MochaPlatformTest
-import com.mochame.utils.fixtures.HlcTestFactory
+import com.mochame.utils.fixtures.TestHlcFactory
 import com.mochame.support.runPersistenceEnvironment
 import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.di.data.SyncPersistenceTestApp
@@ -38,7 +38,7 @@ class SyncIntentDaoTest : MochaPlatformTest() {
     @Test
     fun should_claimBatchInStrictChronologicalOrder_when_insertedOutSequence() = runEnv {
         // Given
-        val (hlc1, hlc2, hlc3) = HlcTestFactory.chronologicalSequence(size = 3)
+        val (hlc1, hlc2, hlc3) = TestHlcFactory.chronologicalSequence(size = 3)
 
         // Intentionally upserting out of order to verify database index sorting
         val intentLater =
@@ -69,7 +69,7 @@ class SyncIntentDaoTest : MochaPlatformTest() {
     @Test
     fun should_limitClaimedBatchSize_when_backlogExceedsLimit() = runEnv {
         // Given unordered sequence of intents against causal HLC's
-        val hlcs = HlcTestFactory.chronologicalSequence(size = 5)
+        val hlcs = TestHlcFactory.chronologicalSequence(size = 5)
         val entities = hlcs.mapIndexed { index, hlc ->
             createTestIntentEntity(
                 hlc = hlc,
@@ -110,7 +110,7 @@ class SyncIntentDaoTest : MochaPlatformTest() {
     @Test
     fun should_isolateDataBatches_when_multipleSessionsClaimSequentially() = runEnv {
         // Given
-        val hlcs = HlcTestFactory.chronologicalSequence(size = 4)
+        val hlcs = TestHlcFactory.chronologicalSequence(size = 4)
         hlcs.forEachIndexed { index, hlc ->
             upsert(
                 createTestIntentEntity(
@@ -157,7 +157,7 @@ class SyncIntentDaoTest : MochaPlatformTest() {
     @Test
     fun should_skipQuarantinedIntents_when_claimingFreshBatch() = runEnv {
         // Given
-        val (hlcOldestQuarantined, hlcNewerPending) = HlcTestFactory.chronologicalSequence(
+        val (hlcOldestQuarantined, hlcNewerPending) = TestHlcFactory.chronologicalSequence(
             size = 2
         )
 
@@ -200,7 +200,7 @@ class SyncIntentDaoTest : MochaPlatformTest() {
 
         // Scenario B: Session Beta
         // Given items exist, but they are already completely locked under another session
-        val targetHlc = HlcTestFactory.create()
+        val targetHlc = TestHlcFactory.create()
         val activelyLeasedIntent =
             createTestIntentEntity(
                 hlc = targetHlc,
@@ -224,7 +224,7 @@ class SyncIntentDaoTest : MochaPlatformTest() {
     @Test
     fun should_filterCorrectRowsOnly_when_ledgerContainsMixedStatuses() = runEnv {
         // Given
-        val hlcs = HlcTestFactory.chronologicalSequence(size = 4)
+        val hlcs = TestHlcFactory.chronologicalSequence(size = 4)
 
         val intentSuccess = createTestIntentEntity(
             hlc = hlcs[0],
@@ -270,7 +270,7 @@ class SyncIntentDaoTest : MochaPlatformTest() {
     @Test
     fun should_stampDiagnosticMessageAcrossBatch_when_batchFailureOccurs() = runEnv {
         // Given
-        val hlcs = HlcTestFactory.chronologicalSequence(size = 3)
+        val hlcs = TestHlcFactory.chronologicalSequence(size = 3)
         val entity1 = createTestIntentEntity(hlc = hlcs[0])
         val entity2 = createTestIntentEntity(hlc = hlcs[1])
         val entity3 = createTestIntentEntity(hlc = hlcs[2])
@@ -305,7 +305,7 @@ class SyncIntentDaoTest : MochaPlatformTest() {
     @Test
     fun should_releaseAllActiveSessionLocks_when_crashRecoveryTriggered() = runEnv {
         // Given
-        val hlcs = HlcTestFactory.chronologicalSequence(size = 3)
+        val hlcs = TestHlcFactory.chronologicalSequence(size = 3)
 
         // Two records simulate being caught mid-upload during a power failure/crash
         val strandedRecord1 = createTestIntentEntity(
@@ -352,7 +352,7 @@ class SyncIntentDaoTest : MochaPlatformTest() {
     fun should_accuratelyTrackBlobExistence_when_payloadIsOverflowed() = runEnv {
         // Given
         val targetBlobId = "blob-large-payload-789"
-        val hlc = HlcTestFactory.create()
+        val hlc = TestHlcFactory.create()
 
         val intentWithBlob =
             createTestIntentEntity(hlc = hlc, overflowBlobId = targetBlobId)
@@ -370,7 +370,7 @@ class SyncIntentDaoTest : MochaPlatformTest() {
     @Test
     fun should_resetLeaseState_when_resetLeaseInvoked() = runEnv {
         // Given
-        val hlc = HlcTestFactory.create()
+        val hlc = TestHlcFactory.create()
         val initialActiveLease = createTestIntentEntity(
             hlc = hlc,
             status = SyncStatus.SYNCING,
@@ -408,8 +408,8 @@ class SyncIntentDaoTest : MochaPlatformTest() {
     @Test
     fun should_returnStaleLeasedIntents_when_leasedAtIsBeforeCutoff() = runEnv {
         // Given
-        val hlcs = HlcTestFactory.chronologicalSequence(size = 2)
-        val cutoffTime = HlcTestFactory.BASE_TEST_TIME
+        val hlcs = TestHlcFactory.chronologicalSequence(size = 2)
+        val cutoffTime = TestHlcFactory.BASE_TEST_TIME
         val targetBlobId = "stale-blob-marker"
 
         // Row whose lease has expired (leasedAt is older than the cutoff)
@@ -446,8 +446,8 @@ class SyncIntentDaoTest : MochaPlatformTest() {
     @Test
     fun should_deleteSuccessRecord_when_olderThanCutoff() = runEnv {
         // Given
-        val hlc = HlcTestFactory.create()
-        val cutoffTime = HlcTestFactory.BASE_TEST_TIME
+        val hlc = TestHlcFactory.create()
+        val cutoffTime = TestHlcFactory.BASE_TEST_TIME
         val targetBlobId = "blob-to-delete"
 
         val oldSuccess = createTestIntentEntity(
@@ -470,8 +470,8 @@ class SyncIntentDaoTest : MochaPlatformTest() {
     @Test
     fun should_keepSuccessRecord_when_newerThanCutoff() = runEnv {
         // Given
-        val hlc = HlcTestFactory.create()
-        val cutoffTime = HlcTestFactory.BASE_TEST_TIME
+        val hlc = TestHlcFactory.create()
+        val cutoffTime = TestHlcFactory.BASE_TEST_TIME
         val targetBlobId = "blob-to-keep"
 
         val recentSuccess = createTestIntentEntity(
@@ -494,8 +494,8 @@ class SyncIntentDaoTest : MochaPlatformTest() {
     @Test
     fun should_keepPendingRecord_when_olderThanCutoff() = runEnv {
         // Given
-        val hlc = HlcTestFactory.create()
-        val cutoffTime = HlcTestFactory.BASE_TEST_TIME
+        val hlc = TestHlcFactory.create()
+        val cutoffTime = TestHlcFactory.BASE_TEST_TIME
         val targetBlobId = "blob-pending-safety"
 
         val oldPending = createTestIntentEntity(

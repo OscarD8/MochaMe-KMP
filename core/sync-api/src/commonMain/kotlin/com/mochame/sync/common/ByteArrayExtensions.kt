@@ -43,6 +43,7 @@ internal inline fun ByteArray.readUShortAt(offset: Int): UShort =
 internal inline fun ByteArray.readShortAt(offset: Int): Short =
     (((this[offset].toInt() and 0xFF) shl 8) or
             (this[offset + 1].toInt() and 0xFF)).toShort()
+
 @Suppress("NOTHING_TO_INLINE")
 internal inline fun ByteArray.readIntAt(offset: Int): Int =
     ((this[offset].toInt() and 0xFF) shl 24) or
@@ -74,8 +75,12 @@ internal inline fun ByteArray.writeLongAt(offset: Int, value: Long) {
     this[offset + 7] = value.toByte()
 }
 
+/**
+ * Writes the lower 16 bits of [value] as a 2-byte Big-Endian short.
+ * Assumes [value] is in range 0..65535 (bits 16..31 are zero).
+ */
 @Suppress("NOTHING_TO_INLINE")
-internal inline fun ByteArray.writeShortAt(offset: Int, value: Int) {
+internal inline fun ByteArray.writeIntAsShortAt(offset: Int, value: Int) {
     this[offset] = (value ushr 8).toByte()
     this[offset + 1] = value.toByte()
 }

@@ -14,7 +14,7 @@ class FieldMergeScope(
 
     /**
      * Field LWW Rule:
-     * - If field is missing from delta (null), retain existing value.
+     * - If field is missing from delta through Protocol Buffer implicit field usage (null), retain existing value.
      * - If field is present, accept if no local tag HLC exists OR incoming HLC > local tag HLC.
      * - Otherwise, reject incoming value and retain existing local value.
      */

@@ -7,11 +7,12 @@ import com.mochame.node.data.nodeTableName
 import com.mochame.node.di.NodeContextIntTestApp
 import com.mochame.node.di.NodeContextIntTestEnv
 import com.mochame.support.MochaPlatformTest
-import com.mochame.utils.fixtures.HlcTestFactory
+import com.mochame.utils.fixtures.TestHlcFactory
 import com.mochame.support.getPhysicalRowCount
 import com.mochame.support.runPersistenceEnvironment
 import com.mochame.sync.spi.node.NodeContext
 import com.mochame.sync.spi.node.NodeId
+import com.mochame.utils.fixtures.TestNodeIds
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -65,9 +66,9 @@ class NodeContextManagerTest : MochaPlatformTest() {
     fun should_preserveAllPopulatedFields_when_mappingRoundTripExecutes() = runEnv {
         // Given
         val expectedHlc =
-            HlcTestFactory.create(ts = 15000L, count = 4)
+            TestHlcFactory.create(ts = 15000L, count = 4)
         val populatedDomainContext = NodeContext(
-            nodeId = NodeId.ZERO,
+            nodeId = TestNodeIds.ONE,
             appVersion = 12,
             createdAt = 1000L,
             lastServerWatermark = "server-sync-token-xyz",
@@ -148,7 +149,7 @@ class NodeContextManagerTest : MochaPlatformTest() {
     @Test
     fun should_logDebugMessage_when_daoReturnsZeroRowsUpdated() = runEnv {
         // Given
-        val hlc = HlcTestFactory.create(ts = 1000L, count = 1)
+        val hlc = TestHlcFactory.create(ts = 1000L, count = 1)
         manager.updateHlcFloor(hlc)
 
         // When
