@@ -106,7 +106,7 @@ internal class EngineHlcFactory(
         state = currentState.copy(lastHlc = witnessedHlc)
     }
 
-    override fun assertValid(hlc: HLC, contextKey: String?) {
+    override fun assertValid(hlc: HLC, contextKey: Long?) {
         val deviceClock = timeUtils.now()
         HlcEvaluator.validate(hlc, deviceClock).logAndThrowIfInvalid(logger, contextKey)
     }

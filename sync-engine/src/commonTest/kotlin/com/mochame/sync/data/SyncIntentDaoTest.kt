@@ -42,11 +42,11 @@ class SyncIntentDaoTest : MochaPlatformTest() {
 
         // Intentionally upserting out of order to verify database index sorting
         val intentLater =
-            createTestIntentEntity(hlc = hlc3, candidateKey = "key-3")
+            createTestIntentEntity(hlc = hlc3)
         val intentEarlier =
-            createTestIntentEntity(hlc = hlc1, candidateKey = "key-1")
+            createTestIntentEntity(hlc = hlc1)
         val intentMiddle =
-            createTestIntentEntity(hlc = hlc2, candidateKey = "key-2")
+            createTestIntentEntity(hlc = hlc2)
 
         upsert(intentLater)
         upsert(intentEarlier)
@@ -73,7 +73,7 @@ class SyncIntentDaoTest : MochaPlatformTest() {
         val entities = hlcs.mapIndexed { index, hlc ->
             createTestIntentEntity(
                 hlc = hlc,
-                candidateKey = "key-$index"
+                candidateKey = index.toLong()
             )
         }
         entities.shuffled().forEach { entity ->
@@ -115,7 +115,7 @@ class SyncIntentDaoTest : MochaPlatformTest() {
             upsert(
                 createTestIntentEntity(
                     hlc = hlc,
-                    candidateKey = "key-$index"
+                    candidateKey = index.toLong()
                 )
             )
         }
@@ -163,14 +163,14 @@ class SyncIntentDaoTest : MochaPlatformTest() {
 
         val quarantinedIntent = createTestIntentEntity(
             hlc = hlcOldestQuarantined,
-            candidateKey = "bad-key",
+            candidateKey = 1L,
             status = SyncStatus.QUARANTINED
         )
 
         val healthyIntent =
             createTestIntentEntity(
                 hlc = hlcNewerPending,
-                candidateKey = "good-key",
+                candidateKey = 2L,
                 status = SyncStatus.PENDING
             )
 
@@ -185,7 +185,7 @@ class SyncIntentDaoTest : MochaPlatformTest() {
         assertEquals(1, rowsClaimed)
         assertEquals(1, claimedBatch.size)
         assertEquals(hlcNewerPending.toString(), claimedBatch[0].hlc)
-        assertEquals("good-key", claimedBatch[0].candidateKey)
+        assertEquals(2L, claimedBatch[0].candidateKey)
     }
 
     @Test
@@ -204,7 +204,6 @@ class SyncIntentDaoTest : MochaPlatformTest() {
         val activelyLeasedIntent =
             createTestIntentEntity(
                 hlc = targetHlc,
-                candidateKey = "locked-key",
                 status = SyncStatus.SYNCING,
                 syncId = "session-active-owner"
             )
@@ -229,23 +228,20 @@ class SyncIntentDaoTest : MochaPlatformTest() {
 
         val intentSuccess = createTestIntentEntity(
             hlc = hlcs[0],
-            candidateKey = "key-1",
             status = SyncStatus.SUCCESS
         )
         val intentLeased = createTestIntentEntity(
             hlc = hlcs[1],
-            candidateKey = "key-2",
             status = SyncStatus.SYNCING,
             syncId = "other-id"
         )
         val intentPending = createTestIntentEntity(
             hlc = hlcs[2],
-            candidateKey = "key-3",
+            candidateKey = 5L,
             status = SyncStatus.PENDING
         )
         val intentQuarantined = createTestIntentEntity(
             hlc = hlcs[3],
-            candidateKey = "key-4",
             status = SyncStatus.QUARANTINED
         )
 
@@ -264,7 +260,7 @@ class SyncIntentDaoTest : MochaPlatformTest() {
         assertEquals(1, rowsClaimed)
         assertEquals(1, claimedBatch.size)
         assertEquals(hlcs[2].toString(), claimedBatch[0].hlc)
-        assertEquals("key-3", claimedBatch[0].candidateKey)
+        assertEquals(5L, claimedBatch[0].candidateKey)
     }
 
 

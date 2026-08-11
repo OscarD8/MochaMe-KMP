@@ -2,24 +2,23 @@ package com.mochame.bio.infrastructure
 
 import co.touchlab.kermit.Logger
 import com.mochame.bio.domain.DailyContext
-import com.mochame.sync.spi.infrastructure.BufferProvider
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
-import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.sync.common.TriState
+import com.mochame.sync.spi.infrastructure.BufferProvider
 import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodec
+import com.mochame.sync.spi.infrastructure.serialization.FieldMergeScope
 import com.mochame.sync.spi.infrastructure.serialization.diff
 import com.mochame.sync.spi.models.DecodeContext
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.protobuf.ProtoBuf
 import kotlinx.serialization.protobuf.ProtoNumber
 import org.koin.core.annotation.Single
 
 @ExperimentalSerializationApi
 @Serializable
 data class DailyContextDeltaV1(
-    @ProtoNumber(1) val id: String,
+    @ProtoNumber(1) val id: Long,
     @ProtoNumber(2) val isDeleted: Boolean? = null,
     @ProtoNumber(3) val sleepHours: Double? = null,
     @ProtoNumber(4) val readinessScore: Int? = null,
@@ -68,23 +67,22 @@ internal class DailyContextCodecV1(
         )
     }
 
-    override fun mergeDelta(
+    override fun FieldMergeScope.mergeDelta(
         delta: DailyContextDeltaV1,
         context: DecodeContext,
         existing: DailyContext?
-    ): DailyContext = mergeFields(existing, context) {
+    ): DailyContext =
         DailyContext(
             id = context.candidateKey,
             hlc = context.hlc,
             lastModified = context.hlc.ts,
-            epochDay = context.candidateKey.toLong(),
 
-            sleepHours     = eval(3, delta.sleepHours, existing?.sleepHours ?: 0.0),
+            sleepHours = eval(3, delta.sleepHours, existing?.sleepHours ?: 0.0),
             readinessScore = eval(4, delta.readinessScore, existing?.readinessScore ?: 0),
-            isNapped       = eval(5, delta.isNapped, existing?.isNapped ?: TriState.UNSET),
-            isDeleted      = delta.isDeleted ?: existing?.isDeleted ?: false
+            isNapped = eval(5, delta.isNapped, existing?.isNapped ?: TriState.UNSET),
+            isDeleted = delta.isDeleted ?: existing?.isDeleted ?: false
         )
-    }
+
 
     override fun computeChangedTags(new: DailyContext, old: DailyContext?): List<Int> =
         buildList {

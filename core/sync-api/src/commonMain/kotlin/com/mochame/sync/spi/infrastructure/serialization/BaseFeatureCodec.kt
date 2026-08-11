@@ -70,7 +70,9 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : Any>(
             throw e
         }
 
-        return mergeDelta(delta, context, existing)
+        val scope = FieldMergeScope(existing?.fieldHlcs ?: ByteArray(0), context.hlc)
+        val mergedEntity = scope.mergeDelta(delta, context, existing)
+        return mergedEntity.withFieldHlcs(scope.buildResultBlob())
             .also { logger.d { "Decoding finalized. key=${it.id}" } }
     }
 
@@ -134,21 +136,8 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : Any>(
     /**
      * Maps the decoded protobuf delta [D] onto domain entity [T] using [DecodeContext] and optional [existing] state.
      */
-    protected abstract fun mergeDelta(delta: D, context: DecodeContext, existing: T?): T
+    protected abstract fun FieldMergeScope.mergeDelta(delta: D, context: DecodeContext, existing: T?): T
 
-    /**
-     * Scope helper for feature codecs during delta merging.
-     * Evaluates LWW per field and stamps updated [FieldHlcIndex] bytes onto the model.
-     */
-    protected inline fun mergeFields(
-        existing: T?,
-        context: DecodeContext,
-        block: FieldMergeScope.() -> T
-    ): T {
-        val scope = FieldMergeScope(existing?.fieldHlcs ?: ByteArray(0), context.hlc)
-        val mergedEntity = scope.block()
-        return mergedEntity.withFieldHlcs(scope.buildResultBlob())
-    }
 }
 
 @Suppress("NOTHING_TO_INLINE")

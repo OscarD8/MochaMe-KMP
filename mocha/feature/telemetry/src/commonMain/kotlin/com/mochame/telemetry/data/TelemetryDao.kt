@@ -26,7 +26,7 @@ interface TelemetryDao {
 
     @Query("""
         SELECT m.* FROM moments m
-        LEFT JOIN daily_context d ON m.associatedEpochDay = d.epochDay
+        LEFT JOIN daily_context d ON m.associatedEpochDay = d.id
         WHERE m.associatedEpochDay = :epochDay        
         ORDER BY m.timestamp DESC
     """)

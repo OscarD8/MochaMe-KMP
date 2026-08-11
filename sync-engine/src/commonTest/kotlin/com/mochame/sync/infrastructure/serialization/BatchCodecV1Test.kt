@@ -63,7 +63,6 @@ internal class BatchCodecV1Test : MochaPlatformTest() {
         val originalBatch = hlcSequence.mapIndexed { index, hlc ->
             createTestSyncIntent(
                 hlc = hlc,
-                candidateKey = "sequence-entity-key-$index",
                 payload = byteArrayOf(index.toByte(), (index * 2).toByte())
             )
         }
@@ -86,14 +85,14 @@ internal class BatchCodecV1Test : MochaPlatformTest() {
     fun should_preserve_heterogeneous_batch_with_mixed_operations_and_nullability() = runEnv {
         // Arrange: Batch containing mixed ops, populated payload, empty payload, and overflow blob
         val intentUpsert = createTestSyncIntent(
-            candidateKey = "key-upsert",
+            candidateKey = 0L,
             context = FeatureContext.Type.BIO_DAILY_CONTEXT,
             payload = byteArrayOf(0xDE.toByte(), 0xAD.toByte()),
             overflowBlobId = null,
         )
 
         val intentDelete = createTestSyncIntent(
-            candidateKey = "key-delete",
+            candidateKey = 1L,
             context = FeatureContext.Type.BIO_DAILY_CONTEXT,
             payload = byteArrayOf(), // Empty array
             overflowBlobId = null,
@@ -101,7 +100,7 @@ internal class BatchCodecV1Test : MochaPlatformTest() {
         )
 
         val intentOverflow = createTestSyncIntent(
-            candidateKey = "key-overflow",
+            candidateKey = 2L,
             context = FeatureContext.Type.BIO_DAILY_CONTEXT,
             payload = null, // Overflow payload
             overflowBlobId = "blob-ref-xyz-99"
@@ -123,10 +122,12 @@ internal class BatchCodecV1Test : MochaPlatformTest() {
         // Index 1: DELETE with empty payload
         assertDecodedIntentParity(intentDelete, decodedBatch[1])
         assertEquals(0, decodedBatch[1].payload?.size)
+        assertEquals(1L, decodedBatch[1].candidateKey)
 
         // Index 2: Overflow blob with null payload
         assertDecodedIntentParity(intentOverflow, decodedBatch[2])
         assertEquals("blob-ref-xyz-99", decodedBatch[2].overflowBlobId)
+        assertEquals(2L, decodedBatch[2].candidateKey)
     }
 
     // -----------------------------------------------------------
@@ -179,11 +180,11 @@ internal class BatchCodecV1Test : MochaPlatformTest() {
     fun should_recover_valid_intents_and_drop_corrupted_middle_envelope() = runEnv {
         // Arrange
         val intent1 = createTestSyncIntent(
-            candidateKey = "valid-key-1",
+            candidateKey = 1L,
             hlc = HlcTestFactory.create(ts = 100L)
         )
         val intent3 = createTestSyncIntent(
-            candidateKey = "valid-key-3",
+            candidateKey = 3L,
             hlc = HlcTestFactory.create(ts = 300L)
         )
 
@@ -207,10 +208,10 @@ internal class BatchCodecV1Test : MochaPlatformTest() {
         // Assert: Corrupted middle envelope dropped, surviving valid envelopes preserved
         assertEquals(2, decodedList.size, "Decoded batch must contain exactly 2 surviving intents")
 
-        assertEquals("valid-key-1", decodedList[0].candidateKey)
+        assertEquals(1L, decodedList[0].candidateKey)
         assertEquals(intent1.hlc, decodedList[0].hlc)
 
-        assertEquals("valid-key-3", decodedList[1].candidateKey)
+        assertEquals(3L, decodedList[1].candidateKey)
         assertEquals(intent3.hlc, decodedList[1].hlc)
 
         assertNotNull(writer.logs.find { it.message.contains("Batch decoding degraded: recovered 2/3 intents (1 skipped due to corruption)") })
@@ -219,7 +220,7 @@ internal class BatchCodecV1Test : MochaPlatformTest() {
     @Test
     fun should_preserve_surviving_valid_intent_when_surrounded_by_corrupted_envelopes() = runEnv {
         // Arrange: [Corrupt, Valid, Corrupt]
-        val validIntent = createTestSyncIntent(candidateKey = "sole-survivor-key")
+        val validIntent = createTestSyncIntent(candidateKey = 5L)
         val validBytes = intentRouter.routedEncode(validIntent)
 
         val garbageBytes1 = byteArrayOf(0x00, 0x01)
@@ -239,7 +240,7 @@ internal class BatchCodecV1Test : MochaPlatformTest() {
 
         // Assert
         assertEquals(1, decodedList.size)
-        assertEquals("sole-survivor-key", decodedList[0].candidateKey)
+        assertEquals(5L, decodedList[0].candidateKey)
     }
 
     @Test
@@ -308,7 +309,7 @@ internal class BatchCodecV1Test : MochaPlatformTest() {
 
     @Test
     fun should_stamp_router_latest_version_into_batch_payload_header_on_encode() = runEnv() {
-        val intent = createTestSyncIntent(candidateKey = "stamped-key-1")
+        val intent = createTestSyncIntent()
 
         // Act
         val batchBytes = realBatchCodec.encode(listOf(intent))

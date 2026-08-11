@@ -20,7 +20,7 @@ import org.koin.core.annotation.Single
 internal data class SyncIntentDeltaV1(
     @ProtoNumber(1) val featureSchemaVersion: Int,
     @ProtoNumber(2) val hlc: String,
-    @ProtoNumber(3) val candidateKey: String,
+    @ProtoNumber(3) val candidateKey: Long,
     @ProtoNumber(4) val module: String,
     @ProtoNumber(5) val model: String,
     @ProtoNumber(6) val operation: String,

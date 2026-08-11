@@ -8,7 +8,7 @@ import com.mochame.sync.api.hlc.HLC
 data class SyncIntent(
     val featureSchemaVersion: Int,
     val hlc: HLC,
-    val candidateKey: String,
+    val candidateKey: Long,
     val featureContext: FeatureContext,
     val operation: MutationOp,
     val syncStatus: SyncStatus,

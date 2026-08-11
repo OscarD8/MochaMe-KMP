@@ -5,7 +5,7 @@ import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.spi.models.SyncIntent
 
 interface SyncIntentStore {
-    suspend fun getPendingByCandidateKey(candidateKey: String): SyncIntent?
+    suspend fun getPendingByCandidateKey(candidateKey: Long): SyncIntent?
 
     suspend fun recordIntent(entry: SyncIntent)
     suspend fun getPendingByFeature(feature: FeatureContext): List<SyncIntent?>

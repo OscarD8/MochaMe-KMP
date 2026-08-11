@@ -20,9 +20,9 @@ internal class DefaultKeyedLocker : KeyedLocker {
      * the exact same millisecond. They must have the master lock.
      */
     private val masterLock = Mutex()
-    private val keyLocks = mutableMapOf<String, LockEntry>()
+    private val keyLocks = mutableMapOf<Long, LockEntry>()
 
-    override suspend fun <R> withLock(candidateKey: String, action: suspend () -> R): R {
+    override suspend fun <R> withLock(candidateKey: Long, action: suspend () -> R): R {
         val entry = masterLock.withLock {
             keyLocks.getOrPut(candidateKey) { LockEntry() }.apply { activeUsers++ }
         }

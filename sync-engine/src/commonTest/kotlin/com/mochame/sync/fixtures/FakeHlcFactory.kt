@@ -90,6 +90,6 @@ class FakeHlcFactory(
         realFactory.getCurrentHlc()
     }
 
-    override fun assertValid(hlc: HLC, contextKey: String?) =
+    override fun assertValid(hlc: HLC, contextKey: Long?) =
         realFactory.assertValid(hlc, contextKey)
 }

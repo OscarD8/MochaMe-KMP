@@ -339,13 +339,11 @@ class SyncJanitorTest : MochaPlatformTest() {
             intentStore.seedIntents(
                 createTestSyncIntent(
                     hlc = hlc1,
-                    candidateKey = "key-1",
                     status = SyncStatus.SYNCING,
                     syncId = "batch-stranded-1"
                 ),
                 createTestSyncIntent(
                     hlc = hlc2,
-                    candidateKey = "key-2",
                     status = SyncStatus.SYNCING,
                     syncId = "batch-stranded-2"
                 )

@@ -9,7 +9,7 @@ import com.mochame.utils.fixtures.HlcTestFactory
 import kotlin.test.assertEquals
 
 internal data class FeatureEntity(
-    override val id: String = "default-entity-1",
+    override val id: Long = 1000L,
     override val hlc: HLC = HlcTestFactory.create(),
     override val lastModified: Long = HlcTestFactory.create().ts,
     override val isDeleted: Boolean = false,

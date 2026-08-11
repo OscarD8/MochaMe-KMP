@@ -5,7 +5,7 @@ import com.mochame.sync.api.hlc.HLC
 
 data class DecodeContext(
     val featureSchemaVersion: Int,
-    val candidateKey: String,
+    val candidateKey: Long,
     val hlc: HLC,
     val op: MutationOp,
     val overflowBlobId: String? = null

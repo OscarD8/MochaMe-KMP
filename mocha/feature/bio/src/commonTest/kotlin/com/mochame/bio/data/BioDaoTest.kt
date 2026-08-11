@@ -25,6 +25,13 @@ private inline fun runEnv(crossinline block: suspend BioDao.(TestScope) -> Unit)
         block = block
     )
 
+private suspend fun BioDao.markAsDeleted(id: Long, hlc: String, lastModified: Long) {
+    val existing = getContextById(id)
+    if (existing != null) {
+        upsert(existing.copy(isDeleted = true, hlc = hlc, lastModified = lastModified))
+    }
+}
+
 
 @ExperimentalCoroutinesApi
 class BioDaoTest : MochaPlatformTest() {
@@ -32,11 +39,9 @@ class BioDaoTest : MochaPlatformTest() {
     @Test
     fun should_updateToLatestData_when_newerTimestampProvidedForExistingDay() = runEnv {
         val dayKey = 20500L
-        val id = "uuid-1"
 
         val initialContext = DailyContextEntity(
-            id = id,
-            epochDay = dayKey,
+            id = dayKey,
             sleepHours = 6.0,
             readinessScore = 5,
             hlc = HlcTestFactory.create(1000L).toString(),
@@ -51,7 +56,7 @@ class BioDaoTest : MochaPlatformTest() {
         )
         upsert(updatedContext)
 
-        val result = getContextByDay(dayKey)
+        val result = getContextById(dayKey)
         assertNotNull(result)
         assertEquals(8.5, result.sleepHours)
         assertEquals(HlcTestFactory.create(1001L).toString(), result.hlc)
@@ -63,17 +68,15 @@ class BioDaoTest : MochaPlatformTest() {
     @Test
     fun should_returnPartitionedLists_when_databaseContainsMixedNappingStates() = runEnv {
         val napped = DailyContextEntity(
-            id = "uuid-1",
+            id = 1L,
             isNapped = TriState.TRUE,
-            epochDay = 1L,
             sleepHours = 6.0,
             hlc = HlcTestFactory.create(5000L).toString(),
             lastModified = 0L
         )
         val notNapped = DailyContextEntity(
-            id = "uuid-2",
+            id = 2L,
             isNapped = TriState.FALSE,
-            epochDay = 2L,
             sleepHours = 3.0,
             hlc = HlcTestFactory.create(5001L).toString(),
             lastModified = 0L
@@ -90,8 +93,7 @@ class BioDaoTest : MochaPlatformTest() {
     fun should_returnContextsInDescendingOrder_ignoringDeleted() = runEnv {
         val days = (1L..3L).map {
             DailyContextEntity(
-                id = "id-$it",
-                epochDay = it,
+                id = it,
                 hlc = HlcTestFactory.create(1000L).toString(),
                 readinessScore = 8,
                 sleepHours = 9.0,
@@ -100,13 +102,13 @@ class BioDaoTest : MochaPlatformTest() {
         }
         days.forEach { upsert(it) }
 
-        markAsDeleted("id-2", HlcTestFactory.create(2000L).toString(), 2000L)
+        markAsDeleted(2L, HlcTestFactory.create(2000L).toString(), 2000L)
 
         observeAllContexts().test {
             val list = awaitItem()
             assertEquals(2, list.size)
-            assertEquals(3L, list[0].epochDay)
-            assertEquals(1L, list[1].epochDay)
+            assertEquals(3L, list[0].id)
+            assertEquals(1L, list[1].id)
         }
     }
 
@@ -114,8 +116,7 @@ class BioDaoTest : MochaPlatformTest() {
     fun should_emitNewData_when_specificallyObservedDayIsUpdated() = runEnv {
         val dayKey = 20500L
         val initial = DailyContextEntity(
-            id = "uuid-1",
-            epochDay = dayKey,
+            id = dayKey,
             sleepHours = 5.0,
             lastModified = 1000L,
             hlc = HlcTestFactory.create(5001L).toString()
@@ -142,8 +143,7 @@ class BioDaoTest : MochaPlatformTest() {
     fun should_notEmit_when_staleDataIsUpserted() = runEnv {
         val dayKey = 20500L
         val initial = DailyContextEntity(
-            id = "uuid-1",
-            epochDay = dayKey,
+            id = dayKey,
             isNapped = TriState.TRUE,
             sleepHours = 6.5,
             lastModified = 2000L,
@@ -171,8 +171,7 @@ class BioDaoTest : MochaPlatformTest() {
     fun should_emitUpdatedRecord_when_recordForSameDayIsAmended() = runEnv {
         val dayKey = 20500L
         val notNappedContext = DailyContextEntity(
-            id = "uuid-1",
-            epochDay = dayKey,
+            id = dayKey,
             sleepHours = 7.0,
             readinessScore = 7,
             isNapped = TriState.FALSE,
@@ -205,8 +204,7 @@ class BioDaoTest : MochaPlatformTest() {
     fun should_emitMergedContext_when_idCollisionOccursWithNewerTimestamp() = runEnv {
         val dayKey = 20500L
         val initialNapped = DailyContextEntity(
-            id = "uuid-1",
-            epochDay = dayKey,
+            id = dayKey,
             isNapped = TriState.TRUE,
             sleepHours = 6.0,
             lastModified = 1000L,
@@ -236,8 +234,7 @@ class BioDaoTest : MochaPlatformTest() {
     fun should_hideDeletedRecords_fromUiObservables() = runEnv {
         val dayKey = 20500L
         val entity = DailyContextEntity(
-            id = "uuid-1",
-            epochDay = dayKey,
+            id = dayKey,
             hlc = HlcTestFactory.create(1000L).toString(),
             sleepHours = 5.0,
             readinessScore = 0,
@@ -249,7 +246,7 @@ class BioDaoTest : MochaPlatformTest() {
 
         observeContext(dayKey).test {
             assertNotNull(awaitItem())
-            markAsDeleted("uuid-1", HlcTestFactory.create(2000L).toString(), 2000L)
+            markAsDeleted(dayKey, HlcTestFactory.create(2000L).toString(), 2000L)
             assertNull(awaitItem())
             cancelAndIgnoreRemainingEvents()
         }
@@ -257,14 +254,12 @@ class BioDaoTest : MochaPlatformTest() {
 
     @Test
     fun should_resurrectRecord_when_newerUpdateFollowsTombstone() = runEnv {
-        val id = "uuid-1"
-        val day = 20500L
+        val id = 20500L
 
         upsert(
             DailyContextEntity(
                 id = id,
                 hlc = HlcTestFactory.create(1000L).toString(),
-                epochDay = day,
                 sleepHours = 5.6,
                 readinessScore = 5,
                 lastModified = 1000L
@@ -274,7 +269,7 @@ class BioDaoTest : MochaPlatformTest() {
         markAsDeleted(id, HlcTestFactory.create(2000L).toString(), 2000L)
 
         val resurrection = DailyContextEntity(
-            id = id, epochDay = day, hlc = HlcTestFactory.create(3000L).toString(),
+            id = id, hlc = HlcTestFactory.create(3000L).toString(),
             isDeleted = false, sleepHours = 7.0, lastModified = 3000L
         )
         upsert(resurrection)
@@ -288,8 +283,7 @@ class BioDaoTest : MochaPlatformTest() {
     fun should_onlyPruneOldTombstones_leavingRecentOnesIntact() = runEnv {
         upsert(
             DailyContextEntity(
-                id = "old",
-                epochDay = 1L,
+                id = 1L,
                 hlc = HlcTestFactory.create(1000L).toString(),
                 isDeleted = true,
                 sleepHours = 5.0,
@@ -298,8 +292,7 @@ class BioDaoTest : MochaPlatformTest() {
         )
         upsert(
             DailyContextEntity(
-                id = "new",
-                epochDay = 2L,
+                id = 2L,
                 hlc = HlcTestFactory.create(5000L).toString(),
                 isDeleted = true,
                 sleepHours = 5.0,
@@ -309,8 +302,8 @@ class BioDaoTest : MochaPlatformTest() {
 
         hardDeletePruning(3000L)
 
-        assertNull(getContextById("old"))
-        assertNotNull(getContextById("new"))
+        assertNull(getContextById(1L))
+        assertNotNull(getContextById(2L))
     }
 
 }

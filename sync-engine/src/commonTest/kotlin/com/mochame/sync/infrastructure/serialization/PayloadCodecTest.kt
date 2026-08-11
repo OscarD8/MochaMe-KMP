@@ -101,8 +101,8 @@ class PayloadCodecTest : MochaPlatformTest() {
         assertDecodedIntentParity(v1Intent, decodedV1[0])
 
         assertEquals(2, decodedV2.size)
-        assertEquals("BATCH_ITEM_1", decodedV2[0].candidateKey)
-        assertEquals("BATCH_ITEM_2", decodedV2[1].candidateKey)
+        assertEquals(0L, decodedV2[0].candidateKey)
+        assertEquals(1L, decodedV2[1].candidateKey)
 
         assertEquals(1, writer.logs.count { it.message.contains("decoding legacy") })
     }

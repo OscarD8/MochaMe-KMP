@@ -14,8 +14,8 @@ class FakeBatchCodec : BatchCodec {
 
         // Minimal multi-item preset using existing test model factory
         val MODEL_LIST_PRESET = listOf(
-            createTestSyncIntent(candidateKey = "BATCH_ITEM_1"),
-            createTestSyncIntent(candidateKey = "BATCH_ITEM_2")
+            createTestSyncIntent(candidateKey = 0L),
+            createTestSyncIntent(candidateKey = 1L)
         )
     }
 

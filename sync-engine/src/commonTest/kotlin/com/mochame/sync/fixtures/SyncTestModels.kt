@@ -12,7 +12,7 @@ import kotlin.test.assertEquals
 
 internal fun createTestSyncIntent(
     hlc: HLC = HlcTestFactory.create(),
-    candidateKey: String = "test-key-123",
+    candidateKey: Long = 1000L,
     context: FeatureContext.Type = FeatureContext.Type.BIO_DAILY_CONTEXT,
     payload: ByteArray? = byteArrayOf(0x00),
     status: SyncStatus = SyncStatus.PENDING,
@@ -41,7 +41,7 @@ internal fun createTestSyncIntent(
 internal fun createTestIntentEntity(
     hlc: HLC = HlcTestFactory.create(),
     status: SyncStatus = SyncStatus.PENDING,
-    candidateKey: String = "test-key",
+    candidateKey: Long = 1000L,
     syncId: String? = null,
     overflowBlobId: String? = null,
     createdAt: Long = HlcTestFactory.BASE_TEST_TIME,
@@ -87,5 +87,5 @@ internal fun assertDecodedIntentParity(expected: SyncIntent, actual: SyncIntent)
 }
 
 internal fun testBatch(size: Int = 1): List<SyncIntent> = List(size) { index ->
-    createTestSyncIntent(candidateKey = "payload-key-$index")
+    createTestSyncIntent(candidateKey = index.toLong())
 }

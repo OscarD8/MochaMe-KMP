@@ -6,6 +6,7 @@ import com.mochame.logger.withTags
 import com.mochame.sync.common.TriState
 import com.mochame.sync.spi.infrastructure.BufferProvider
 import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodec
+import com.mochame.sync.spi.infrastructure.serialization.FieldMergeScope
 import com.mochame.sync.spi.infrastructure.serialization.diff
 import com.mochame.sync.spi.models.DecodeContext
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -16,7 +17,7 @@ import org.koin.core.annotation.Single
 @Serializable
 @ExperimentalSerializationApi
 internal data class FeatureEntityDeltaV1(
-    @ProtoNumber(1) val id: String,
+    @ProtoNumber(1) val id: Long,
     @ProtoNumber(2) val isDeleted: Boolean? = null,
     @ProtoNumber(3) val triStateValue: TriState? = null,
     @ProtoNumber(4) val textValue: String? = null,
@@ -61,7 +62,7 @@ internal class FeatureCodecV1(
         )
     }
 
-    override fun mergeDelta(
+    override fun FieldMergeScope.mergeDelta(
         delta: FeatureEntityDeltaV1,
         context: DecodeContext,
         existing: FeatureEntity?

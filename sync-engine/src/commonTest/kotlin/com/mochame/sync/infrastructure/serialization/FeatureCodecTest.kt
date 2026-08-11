@@ -259,7 +259,7 @@ class FeatureCodecTest : MochaPlatformTest() {
     fun should_throwSerializationException_when_decodingCorruptBytes() = runEnv {
         val corruptBytes = byteArrayOf(0x00, 0x80.toByte(), 0xFF.toByte())
         val context = DecodeContext(
-            candidateKey = "entity-corrupt",
+            candidateKey = 1000L,
             hlc = HlcTestFactory.create(),
             op = MutationOp.UPSERT,
             featureSchemaVersion = 1
@@ -371,7 +371,6 @@ class FeatureCodecTest : MochaPlatformTest() {
         // Construct a large string payload (Wire Type 2) to force multi-byte length skipping
         val largeText = "A".repeat(2048)
         val entityWithLargePayload = FeatureEntity(
-            id = "entity-large-1",
             triStateValue = TriState.TRUE,     // Tag 2
             textValue = largeText,             // Tag 3 (Wire Type 2, length 2048)
             countValue = 999                   // Tag 4 (Wire Type 0)

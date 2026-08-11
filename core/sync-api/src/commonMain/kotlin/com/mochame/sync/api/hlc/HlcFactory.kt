@@ -6,5 +6,5 @@ interface HlcFactory {
     suspend fun getNextHlc(): HLC
     suspend fun witness(remoteHlc: HLC)
     suspend fun getCurrentHlc(): HLC?
-    fun assertValid(hlc: HLC, contextKey: String? = null)
+    fun assertValid(hlc: HLC, contextKey: Long? = null)
 }

@@ -24,7 +24,7 @@ import kotlin.time.Clock
 data class SyncIntentEntity(
     @PrimaryKey val hlc: String,
     val featureSchemaVersion: Int,
-    val candidateKey: String,
+    val candidateKey: Long,
     val feature: String,
     val model: String,
     val operation: MutationOp,

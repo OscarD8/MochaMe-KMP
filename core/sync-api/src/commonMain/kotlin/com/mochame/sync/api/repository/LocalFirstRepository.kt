@@ -37,7 +37,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     @PublishedApi internal val deps: LocalFirstDependencies,
     @PublishedApi internal val codec: FeatureCodecRouter<T, FeatureCodec<T>>,
     protected val logger: Logger
-) : SyncReceiver { // composition would have been better
+) : SyncReceiver { // composition may have been better?
 
     /**
      * All local persistence performed by any feature's repository funnels through this method,
@@ -62,15 +62,15 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
      * * [T] The defined [LocalFirstEntity] involved in processing existing model confirmation, compaction, [HLC] stamping, and local persistence.
      */
     @PublishedApi
-    internal suspend inline fun <R> processIntent(
-        candidateKey: String,
+    internal suspend inline fun processIntent(
+        candidateKey: Long,
         incomingHlc: HLC? = null,
         op: MutationOp,
-        crossinline fetchExistingState: suspend () -> T?,
+        crossinline fetchExistingState: suspend (id: Long) -> T?,
         crossinline computeChange: suspend (existing: T?) -> T,
-        crossinline persist: suspend (stamped: T) -> R,
-        crossinline onSkip: (fallback: T) -> R
-    ): R = withContext(deps.ioContext) {
+        crossinline persist: suspend (stamped: T) -> Long,
+        crossinline onSkip: (fallback: T?) -> Long
+    ): Long = withContext(deps.ioContext) {
         ensureReady()
 
         deps.locker.withLock(candidateKey) {
@@ -101,20 +101,19 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     }
 
     @PublishedApi
-    internal suspend inline fun <R> executeIntentPipeline(
-        candidateKey: String,
+    internal suspend inline fun executeIntentPipeline(
+        candidateKey: Long,
         incomingHlc: HLC?,
         op: MutationOp,
-        crossinline fetchExistingState: suspend () -> T?,
+        crossinline fetchExistingState: suspend (id: Long) -> T?,
         crossinline computeChange: suspend (existing: T?) -> T,
-        crossinline persist: suspend (stamped: T) -> R,
-        crossinline onSkip: (fallback: T) -> R
-    ): R {
-        val existingState = fetchExistingState()
+        crossinline persist: suspend (stamped: T) -> Long,
+        crossinline onSkip: (fallback: T?) -> Long
+    ): Long {
+        val existingState = fetchExistingState(candidateKey)
 
         if (assertEntityLevelRejection(existingState, incomingHlc, op, candidateKey)) {
-            val fallback = existingState ?: computeChange(null)
-            return onSkip(fallback)
+            return onSkip(existingState)
         }
 
         val candidateState = computeChange(existingState)
@@ -123,7 +122,8 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             persist(candidateState)
         } else {
             val hlc = deps.hlcFactory.getNextHlc()
-            val changedTags = codec.routedComputeChangedTags(candidateState, existingState)
+            val changedTags =
+                codec.routedComputeChangedTags(candidateState, existingState)
 
             var fieldHlcBytes = FieldHlcIndex(existingState?.fieldHlcs ?: ByteArray(0))
             changedTags.forEach { tag ->
@@ -150,15 +150,33 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     // -----------------------------------------------------------
     // ACCESS
     // -----------------------------------------------------------
+    /**
+     * Convenience overload providing the default upsert logic.
+     * Suspend functional parameters with default values are not yet supported in inline functions.
+     */
     protected suspend inline fun localUpsert(
-        candidateKey: String,
+        candidateKey: Long,
+        incomingHlc: HLC? = null,
+        crossinline computeChange: suspend (existing: T?) -> T,
+    ) = localUpsert(
+        candidateKey = candidateKey,
+        incomingHlc = incomingHlc,
+        op = MutationOp.UPSERT,
+        fetchExistingState = { fetch(it) },
+        computeChange = computeChange,
+        persist = { save(it) },
+        onSkip = { 0L }
+    )
+
+    protected suspend inline fun localUpsert(
+        candidateKey: Long,
         incomingHlc: HLC? = null,
         op: MutationOp = MutationOp.UPSERT,
-        crossinline fetchExistingState: suspend () -> T?,
+        crossinline fetchExistingState: suspend (id: Long) -> T?,
         crossinline computeChange: suspend (existing: T?) -> T,
-        crossinline persist: suspend (stamped: T) -> T,
-        crossinline onSkip: (fallback: T) -> T = { it }
-    ): T = processIntent(
+        crossinline persist: suspend (stamped: T) -> Long,
+        crossinline onSkip: (fallback: T?) -> Long
+    ): Long = processIntent(
         candidateKey,
         incomingHlc,
         op,
@@ -173,28 +191,25 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
      * Suspend functional parameters with default values are not yet supported in inline functions.
      */
     protected suspend inline fun localDelete(
-        candidateKey: String,
+        candidateKey: Long,
         incomingHlc: HLC? = null,
-        crossinline fetchExistingState: suspend () -> T?,
-        crossinline persist: suspend (stamped: T) -> Int,
-        crossinline onSkip: (fallback: T) -> Int = { 0 }
-    ): Int = localDelete(
+    ): Long = localDelete(
         candidateKey = candidateKey,
         incomingHlc = incomingHlc,
-        fetchExistingState = fetchExistingState,
+        fetchExistingState = { fetch(it) },
         computeChange = { it!!.markDeleted() },
-        persist = persist,
-        onSkip = onSkip
+        persist = { save(it) },
+        onSkip = { 0 }
     )
 
     protected suspend inline fun localDelete(
-        candidateKey: String,
+        candidateKey: Long,
         incomingHlc: HLC? = null,
-        crossinline fetchExistingState: suspend () -> T?,
+        crossinline fetchExistingState: suspend (id: Long) -> T?,
         crossinline computeChange: suspend (existing: T?) -> T,
-        crossinline persist: suspend (stamped: T) -> Int,
-        crossinline onSkip: (fallback: T) -> Int = { 0 }
-    ): Int = processIntent(
+        crossinline persist: suspend (stamped: T) -> Long,
+        crossinline onSkip: (fallback: T?) -> Long = { 0L }
+    ): Long = processIntent(
         candidateKey = candidateKey,
         incomingHlc = incomingHlc,
         op = MutationOp.DELETE,
@@ -228,13 +243,15 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             fetchExistingState = { fetch(context.candidateKey) },
             computeChange = { codec.routedDecode(payload!!, context, it) },
             persist = { stamped -> save(stamped) },
-            onSkip = { logger.v { "Remote intent skipped. ID:${it.id}. HLC: ${it.hlc}" } }
+            onSkip = {
+                logger.v { "Remote intent skipped. ID:${it?.id}. HLC: ${it?.hlc}" }.let { 0L }
+            }
         )
     }
 
     // --- Features required to implement these methods ---
-    protected abstract suspend fun fetch(id: String): T?
-    protected abstract suspend fun save(entity: T)
+    protected abstract suspend fun fetch(id: Long): T?
+    protected abstract suspend fun save(entity: T): Long
     protected abstract suspend fun compactState(newState: T, existing: T?): T
 
 
@@ -246,7 +263,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         existing: T?,
         incomingHlc: HLC?,
         op: MutationOp,
-        candidateKey: String
+        candidateKey: Long
     ): Boolean {
         if (existing == null) {
             if (op == MutationOp.DELETE) {
@@ -278,7 +295,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
 
     @PublishedApi
     internal suspend fun <R> handleLocalCommit(
-        candidateKey: String,
+        candidateKey: Long,
         op: MutationOp,
         stampedState: T,
         existingState: T?,
@@ -349,7 +366,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     }
 
     protected suspend fun recordIntent(
-        candidateKey: String,
+        candidateKey: Long,
         op: MutationOp,
         hlc: HLC,
         payload: ByteArray?,

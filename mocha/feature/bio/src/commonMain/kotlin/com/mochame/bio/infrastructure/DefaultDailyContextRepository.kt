@@ -36,36 +36,22 @@ internal class DefaultDailyContextRepository(
         sleepHours: Double,
         readinessScore: Int,
         isNapped: TriState
-    ): DailyContext {
+    ): Long {
         val mochaDay = timeUtils.getMochaDay()
-        val id = mochaDay.toString()
         val draftContext = DailyContext(
-            id = id,
-            epochDay = mochaDay,
+            id = mochaDay,
             sleepHours = sleepHours,
             readinessScore = readinessScore,
             isNapped = isNapped
         )
 
         return localUpsert(
-            candidateKey = id,
-            fetchExistingState = { bioDao.getContextById(id)?.toDomain() },
-            computeChange = { existing -> compactState(draftContext, existing) },
-            persist = { stamped ->
-                bioDao.upsert(stamped.toEntity())
-                return@localUpsert stamped
-            }
+            candidateKey = mochaDay,
+            computeChange = { existing -> compactState(draftContext, existing) }
         )
     }
 
-    /**
-     * Currently set to return 0 where there was a skip.
-     */
-    override suspend fun deleteContext(epochDay: String) = localDelete(
-        candidateKey = epochDay,
-        fetchExistingState = { bioDao.getContextById(epochDay)?.toDomain() },
-        persist = { bioDao.markAsDeleted(it.id, it.hlc.toString(), it.hlc.ts) }
-    )
+    override suspend fun deleteContext(epochDay: Long) = localDelete(candidateKey = epochDay)
 
     override fun observeContext(epochDay: Long): Flow<DailyContext?> =
         bioDao.observeContext(epochDay).map { it?.toDomain() }
@@ -74,8 +60,8 @@ internal class DefaultDailyContextRepository(
     // --- MAINTENANCE / SYNC ---
     override suspend fun hardDelete(cutoff: Long) = bioDao.hardDeletePruning(cutoff)
     override suspend fun getTombstoneCount(): Int = bioDao.getTombstoneCount()
-    override suspend fun fetch(id: String) = bioDao.getContextById(id)?.toDomain()
-    override suspend fun save(entity: DailyContext) = bioDao.upsert(entity.toEntity())
+    override suspend fun fetch(id: Long) = bioDao.getContextById(id)?.toDomain()
+    override suspend fun save(entity: DailyContext): Long = bioDao.upsert(entity.toEntity())
     override suspend fun compactState(
         newState: DailyContext,
         existing: DailyContext?
@@ -86,13 +72,11 @@ internal class DefaultDailyContextRepository(
         lastModified = newState.lastModified
     ) ?: DailyContext(
         id = newState.id,
-        epochDay = newState.epochDay,
         sleepHours = newState.sleepHours,
         readinessScore = newState.readinessScore,
         isNapped = newState.isNapped,
         lastModified = newState.lastModified
     )
-
 }
 
 

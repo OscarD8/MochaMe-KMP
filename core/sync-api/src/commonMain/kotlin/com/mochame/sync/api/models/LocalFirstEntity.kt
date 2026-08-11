@@ -16,7 +16,7 @@ import com.mochame.sync.api.hlc.HLC
  * checkcast instructions that must be the result of this compiler token system...
  */
 interface LocalFirstEntity<T : LocalFirstEntity<T>> {
-    val id: String
+    val id: Long
     val isDeleted: Boolean
     val hlc: HLC
     val fieldHlcs: ByteArray

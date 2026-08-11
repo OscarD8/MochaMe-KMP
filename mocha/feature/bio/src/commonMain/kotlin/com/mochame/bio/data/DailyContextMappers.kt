@@ -10,7 +10,6 @@ import com.mochame.sync.api.hlc.HLC
 fun DailyContextEntity.toDomain() = DailyContext(
     id = id,
     hlc = HLC.parse(hlc),
-    epochDay = epochDay,
     sleepHours = sleepHours,
     readinessScore = readinessScore,
     isNapped = isNapped,
@@ -26,7 +25,6 @@ fun DailyContextEntity.toDomain() = DailyContext(
 fun DailyContext.toEntity() = DailyContextEntity(
     id = id,
     hlc = hlc.toString(),
-    epochDay = epochDay,
     sleepHours = sleepHours,
     readinessScore = readinessScore,
     isNapped = isNapped,

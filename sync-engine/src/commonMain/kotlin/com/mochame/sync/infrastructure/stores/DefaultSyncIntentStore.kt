@@ -28,7 +28,7 @@ internal class DefaultSyncIntentStore(
     private val dao: SyncIntentDao
 ) : SyncIntentStore, SyncIntentMaintenanceStore {
 
-    override suspend fun getPendingByCandidateKey(candidateKey: String) =
+    override suspend fun getPendingByCandidateKey(candidateKey: Long) =
         dao.getPendingByKey(candidateKey)?.toDomain()
 
     override suspend fun getPendingByFeature(feature: FeatureContext): List<SyncIntent?> =

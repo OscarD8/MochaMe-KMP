@@ -18,7 +18,7 @@ interface DailyContextRepository {
      * Handles UUID generation and biological anchoring internally.
      * Prevents the UI from accidentally creating "dirty" or duplicate entries.
      */
-    suspend fun establishDay(sleepHours: Double, readinessScore: Int, isNapped: TriState) : DailyContext
+    suspend fun establishDay(sleepHours: Double, readinessScore: Int, isNapped: TriState) : Long
 
 //    /**
 //     * Historical record for long-term efficiency analysis.
@@ -30,7 +30,7 @@ interface DailyContextRepository {
      * Removes the 'Cup' (BioContext) but leaves the 'Brew' (Moments) intact.
      * This allows for "Soft Recovery" if the day is re-initialized.
      */
-    suspend fun deleteContext(epochDay: String): Int
+    suspend fun deleteContext(epochDay: Long): Long
 
 //    suspend fun upsertContext(context: DailyContext)
 

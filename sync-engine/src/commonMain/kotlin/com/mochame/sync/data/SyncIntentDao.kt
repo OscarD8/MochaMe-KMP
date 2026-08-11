@@ -37,7 +37,7 @@ interface SyncIntentDao {
     """
     )
     suspend fun getPendingByKey(
-        candidateKey: String,
+        candidateKey: Long,
         status: SyncStatus = SyncStatus.PENDING
     ): SyncIntentEntity?
 

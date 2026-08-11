@@ -14,18 +14,7 @@ interface BioDao {
      * Used by the [BaseRepository] block.
      */
     @Upsert
-    suspend fun upsert(context: DailyContextEntity)
-
-    /**
-     * Logical Delete:
-     * We no longer use 'DELETE FROM'. We flip the bit and update the HLC.
-     */
-    @Query("""
-        UPDATE daily_context 
-        SET isDeleted = 1, hlc = :newHlc, lastModified = :timestamp 
-        WHERE id = :id AND isDeleted = 0
-    """)
-    suspend fun markAsDeleted(id: String, newHlc: String, timestamp: Long): Int
+    suspend fun upsert(context: DailyContextEntity): Long
 
     /**
      * Physically removes tombstones that have been synced to the cloud
@@ -54,12 +43,9 @@ interface BioDao {
      * Includes deleted records so we can update existing tombstones.
      */
     @Query("SELECT * FROM daily_context WHERE id = :id LIMIT 1")
-    suspend fun getContextById(id: String): DailyContextEntity?
+    suspend fun getContextById(id: Long): DailyContextEntity?
 
-    @Query("SELECT * FROM daily_context WHERE epochDay = :epochDay LIMIT 1")
-    suspend fun getContextByDay(epochDay: Long): DailyContextEntity?
-
-    @Query("SELECT * FROM daily_context WHERE isDeleted = 0 ORDER BY epochDay DESC")
+    @Query("SELECT * FROM daily_context WHERE isDeleted = 0 ORDER BY id DESC")
     suspend fun getAllContexts(): List<DailyContextEntity>
 
     @Query("SELECT * FROM daily_context WHERE isNapped = 2 AND isDeleted = 0")
@@ -74,10 +60,10 @@ interface BioDao {
      * The UI Anchor:
      * Filters out tombstones so the user doesn't see "deleted" days.
      */
-    @Query("SELECT * FROM daily_context WHERE epochDay = :epochDay AND isDeleted = 0 LIMIT 1")
+    @Query("SELECT * FROM daily_context WHERE id = :epochDay AND isDeleted = 0 LIMIT 1")
     fun observeContext(epochDay: Long): Flow<DailyContextEntity?>
 
-    @Query("SELECT * FROM daily_context WHERE isDeleted = 0 ORDER BY epochDay DESC")
+    @Query("SELECT * FROM daily_context WHERE isDeleted = 0 ORDER BY id DESC")
     fun observeAllContexts(): Flow<List<DailyContextEntity>>
 
     // --- NAP LOGIC (Filtered) ---

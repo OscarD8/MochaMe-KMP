@@ -149,7 +149,7 @@ class IntentCodecV1Test : MochaPlatformTest() {
     @Test
     fun should_preserve_candidate_key_and_feature_context_metadata_parity() = runEnv {
         // Arrange
-        val expectedKey = "user-profile-uuid-9901-xyz"
+        val expectedKey = 1L
         val expectedContext = FeatureContext.Type.UNRECOGNIZED_MODEL
 
         val originalIntent = createTestSyncIntent(
@@ -176,9 +176,9 @@ class IntentCodecV1Test : MochaPlatformTest() {
 
     @Test
     fun should_preserve_enum_string_parity_for_all_mutation_operations() = runEnv {
-        MutationOp.entries.forEach { op ->
+        MutationOp.entries.forEachIndexed { index, op ->
             val originalIntent = createTestSyncIntent(
-                candidateKey = "key-op-${op.name}",
+                candidateKey = index.toLong(),
                 payload = byteArrayOf(0x01),
                 op = op
             )

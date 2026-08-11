@@ -43,7 +43,7 @@ internal class SyncIntentStoreIntegrationTest : MochaPlatformTest() {
     fun should_preserveExactDataFields_when_mappingToEntityAndBackToDomain() = runEnv {
         // Given
         val hlc = HlcTestFactory.create()
-        val candidateKey = "test-store-key-123"
+        val candidateKey = 1L
 
         val originalIntent = createTestSyncIntent(
             hlc = hlc,
@@ -91,9 +91,9 @@ internal class SyncIntentStoreIntegrationTest : MochaPlatformTest() {
         val sessionId = "store-batch-session"
 
         // Unordered seeding of the database via the DAO to isolate the store's retrieval mapper
-        intentDao.upsert(createTestIntentEntity(hlc = hlcs[2], candidateKey = "key-2"))
-        intentDao.upsert(createTestIntentEntity(hlc = hlcs[0], candidateKey = "key-0"))
-        intentDao.upsert(createTestIntentEntity(hlc = hlcs[1], candidateKey = "key-1"))
+        intentDao.upsert(createTestIntentEntity(hlc = hlcs[2], candidateKey = 0L))
+        intentDao.upsert(createTestIntentEntity(hlc = hlcs[0], candidateKey = 1L))
+        intentDao.upsert(createTestIntentEntity(hlc = hlcs[1], candidateKey = 2L))
 
         // When
         val rowsClaimed = intentStore.claimBatch(batchId = sessionId, limit = 10)
@@ -108,9 +108,9 @@ internal class SyncIntentStoreIntegrationTest : MochaPlatformTest() {
         assertEquals(hlcs[1], claimedDomainBatch[1].hlc)
         assertEquals(hlcs[2], claimedDomainBatch[2].hlc)
 
-        assertEquals("key-0", claimedDomainBatch[0].candidateKey)
-        assertEquals("key-1", claimedDomainBatch[1].candidateKey)
-        assertEquals("key-2", claimedDomainBatch[2].candidateKey)
+        assertEquals(1L, claimedDomainBatch[0].candidateKey)
+        assertEquals(2L, claimedDomainBatch[1].candidateKey)
+        assertEquals(0L, claimedDomainBatch[2].candidateKey)
     }
 
     @Test

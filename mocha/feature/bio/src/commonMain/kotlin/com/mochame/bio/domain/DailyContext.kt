@@ -9,12 +9,11 @@ import com.mochame.sync.common.TriState
  * This acts as the framing context for all telemetry logged during this period.
  */
 data class DailyContext(
-    override val id: String,
+    override val id: Long,
     override val hlc: HLC = HLC.EMPTY,
     override val isDeleted: Boolean = false,
     override val lastModified: Long = 0L,
     override val fieldHlcs: ByteArray = ByteArray(0),
-    val epochDay: Long,
     val sleepHours: Double,
     val readinessScore: Int,
     val isNapped: TriState = TriState.UNSET,
@@ -22,5 +21,5 @@ data class DailyContext(
 
     override fun withHlc(hlc: HLC): DailyContext = copy(hlc = hlc, lastModified = hlc.ts)
     override fun withFieldHlcs(blob: ByteArray) = copy(fieldHlcs = blob)
-    override fun markDeleted(): DailyContext = copy(isDeleted = true)
+    override fun markDeleted() = copy(isDeleted = true)
 }

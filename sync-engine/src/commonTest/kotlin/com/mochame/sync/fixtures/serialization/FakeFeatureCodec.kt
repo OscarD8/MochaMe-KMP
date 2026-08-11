@@ -13,7 +13,7 @@ internal class FakeFeatureCodec(
     companion object {
         val BYTES_PRESET = byteArrayOf(0x02, 0x02)
         val MODEL_PRESET = FeatureEntity(
-            id = "V2_MARKER_ENTITY",
+            id = 5L,
             textValue = "DECODED_VIA_V2_FAKE"
         )
 

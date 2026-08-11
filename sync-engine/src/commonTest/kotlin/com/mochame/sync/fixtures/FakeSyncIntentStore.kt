@@ -55,7 +55,7 @@ class FakeSyncIntentStore : SyncIntentStore, SyncIntentMaintenanceStore {
         _quarantinedFlow.value = emptyList()
     }
 
-    override suspend fun getPendingByCandidateKey(candidateKey: String): SyncIntent? =
+    override suspend fun getPendingByCandidateKey(candidateKey: Long): SyncIntent? =
         lock.withLock {
             _intents.values.find { it.candidateKey == candidateKey && it.syncStatus == SyncStatus.PENDING }
         }

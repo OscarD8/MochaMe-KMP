@@ -59,7 +59,7 @@ class BatchCodecRouterTest : MochaPlatformTest() {
     fun should_dispatchRoutedDecodeToCorrectVersionCodec_when_validVersionProvided() = runEnv {
         // Arrange
         val multiVersionRouter = realBatchCodec.toRouterWithVersion(v2 = fakeBatchCodec, logger)
-        val v1Intent = createTestSyncIntent(candidateKey = "batch-v1-key")
+        val v1Intent = createTestSyncIntent()
         val v1Bytes = realBatchCodec.encode(listOf(v1Intent))
 
         // Act
@@ -71,8 +71,8 @@ class BatchCodecRouterTest : MochaPlatformTest() {
         assertDecodedIntentParity(v1Intent, decodedV1[0])
 
         assertEquals(2, decodedV2.size)
-        assertEquals("BATCH_ITEM_1", decodedV2[0].candidateKey)
-        assertEquals("BATCH_ITEM_2", decodedV2[1].candidateKey)
+        assertEquals(0L, decodedV2[0].candidateKey)
+        assertEquals(1L, decodedV2[1].candidateKey)
     }
 
     @Test

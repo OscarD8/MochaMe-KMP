@@ -56,7 +56,7 @@ sealed interface HlcEvaluation {
  */
 internal fun HlcEvaluation.log(
     logger: Logger,
-    contextKey: String? = null
+    contextKey: Long? = null
 ): HlcEvaluation {
     val keyContext = contextKey?.let { " for key [$it]" } ?: ""
 
@@ -105,7 +105,7 @@ internal fun HlcEvaluation.log(
 /**
  * Throws the appropriate system exception if the evaluation represents a hard failure state.
  */
-internal fun HlcEvaluation.throwIfInvalid(contextKey: String? = null) {
+internal fun HlcEvaluation.throwIfInvalid(contextKey: Long? = null) {
     val keyContext = contextKey?.let { " for key [$it]" } ?: ""
 
     when (this) {
@@ -133,7 +133,7 @@ internal fun HlcEvaluation.throwIfInvalid(contextKey: String? = null) {
  */
 internal fun HlcEvaluation.logAndThrowIfInvalid(
     logger: Logger,
-    contextKey: String? = null
+    contextKey: Long? = null
 ) {
     log(logger, contextKey).throwIfInvalid(contextKey)
 }
