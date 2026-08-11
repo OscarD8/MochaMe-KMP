@@ -1,30 +1,43 @@
 package com.mochame.sync.spi.infrastructure.serialization
 
 import com.mochame.sync.api.hlc.HLC
-import com.mochame.sync.common.readIntAt
 import com.mochame.sync.common.readLongAt
 import com.mochame.sync.common.readUShortAt
-import com.mochame.sync.common.writeIntAt
 import com.mochame.sync.common.writeLongAt
 import com.mochame.sync.common.writeShortAt
 import kotlin.jvm.JvmInline
+import kotlin.uuid.Uuid
 
 /**
  * Inlines the [bytes] property
  */
 @JvmInline
 @PublishedApi
-internal value class FieldHlcIndex(val bytes: ByteArray) {
+internal value class FieldHlcMap(val bytes: ByteArray) {
+
+    init {
+        require(bytes.size % RECORD_SIZE == 0) {
+            "ByteArray size (${bytes.size}) must be a multiple of $RECORD_SIZE"
+        }
+    }
 
     fun getHlc(tagId: Int): HLC? {
+        require(tagId in 0..127)
+
         val index = findTagIndex(tagId) ?: return null
         val ts = bytes.readLongAt(index + 1)
         val count = bytes.readUShortAt(index + 9).toInt()
-        val nodeHash = bytes.readIntAt(index + 11)
-        return HLC(ts = ts, count = count, nodeId = nodeHash.toString())
+
+        val msb = bytes.readLongAt(index + 11)
+        val lsb = bytes.readLongAt(index + 19)
+        val uuid = Uuid.fromLongs(msb, lsb)
+
+        return HLC(ts = ts, count = count, nodeId = uuid)
     }
 
-    fun updateTag(tagId: Int, hlc: HLC): FieldHlcIndex {
+    fun updateTag(tagId: Int, hlc: HLC): FieldHlcMap {
+        require(tagId in 0..127)
+
         val index = findTagIndex(tagId)
         val target = bytes.copyOf(index?.let { bytes.size } ?: (bytes.size + RECORD_SIZE))
         val writeIdx = index ?: bytes.size
@@ -32,14 +45,16 @@ internal value class FieldHlcIndex(val bytes: ByteArray) {
         target[writeIdx] = tagId.toByte()
         target.writeLongAt(writeIdx + 1, hlc.ts)
         target.writeShortAt(writeIdx + 9, hlc.count)
-        target.writeIntAt(writeIdx + 11, hlc.nodeId.hashCode())
 
-        return FieldHlcIndex(target)
+        hlc.nodeId.value.toLongs { msb, lsb ->
+            target.writeLongAt(writeIdx + 11, msb)
+            target.writeLongAt(writeIdx + 19, lsb)
+        }
+
+        return FieldHlcMap(target)
     }
 
     private fun findTagIndex(tagId: Int): Int? {
-        require(tagId in 0..127)
-
         var i = 0
         while (i < bytes.size) {
             // no bitmask operation needed here due to requirement
@@ -50,7 +65,7 @@ internal value class FieldHlcIndex(val bytes: ByteArray) {
     }
 
     companion object {
-        const val RECORD_SIZE = 15
-        val EMPTY = FieldHlcIndex(ByteArray(0))
+        const val RECORD_SIZE = 27
+        val EMPTY = FieldHlcMap(ByteArray(0))
     }
 }

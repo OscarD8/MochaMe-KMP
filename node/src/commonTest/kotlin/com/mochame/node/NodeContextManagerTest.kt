@@ -11,6 +11,7 @@ import com.mochame.utils.fixtures.HlcTestFactory
 import com.mochame.support.getPhysicalRowCount
 import com.mochame.support.runPersistenceEnvironment
 import com.mochame.sync.spi.node.NodeContext
+import com.mochame.sync.spi.node.NodeId
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -64,9 +65,9 @@ class NodeContextManagerTest : MochaPlatformTest() {
     fun should_preserveAllPopulatedFields_when_mappingRoundTripExecutes() = runEnv {
         // Given
         val expectedHlc =
-            HlcTestFactory.create(ts = 15000L, count = 4, nodeId = "node-alpha")
+            HlcTestFactory.create(ts = 15000L, count = 4)
         val populatedDomainContext = NodeContext(
-            nodeId = "node-alpha",
+            nodeId = NodeId.ZERO,
             appVersion = 12,
             createdAt = 1000L,
             lastServerWatermark = "server-sync-token-xyz",

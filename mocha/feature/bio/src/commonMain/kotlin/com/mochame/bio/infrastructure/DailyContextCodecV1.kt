@@ -71,17 +71,16 @@ internal class DailyContextCodecV1(
         delta: DailyContextDeltaV1,
         context: DecodeContext,
         existing: DailyContext?
-    ): DailyContext =
-        DailyContext(
-            id = context.candidateKey,
-            hlc = context.hlc,
-            lastModified = context.hlc.ts,
+    ) = DailyContext(
+        id = context.candidateKey,
+        hlc = context.hlc,
+        lastModified = context.hlc.ts,
 
-            sleepHours = eval(3, delta.sleepHours, existing?.sleepHours ?: 0.0),
-            readinessScore = eval(4, delta.readinessScore, existing?.readinessScore ?: 0),
-            isNapped = eval(5, delta.isNapped, existing?.isNapped ?: TriState.UNSET),
-            isDeleted = delta.isDeleted ?: existing?.isDeleted ?: false
-        )
+        sleepHours = eval(3, delta.sleepHours, existing?.sleepHours ?: 0.0),
+        readinessScore = eval(4, delta.readinessScore, existing?.readinessScore ?: 0),
+        isNapped = eval(5, delta.isNapped, existing?.isNapped ?: TriState.UNSET),
+        isDeleted = delta.isDeleted ?: existing?.isDeleted ?: false
+    )
 
 
     override fun computeChangedTags(new: DailyContext, old: DailyContext?): List<Int> =

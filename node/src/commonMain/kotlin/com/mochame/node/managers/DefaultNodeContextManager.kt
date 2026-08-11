@@ -12,6 +12,7 @@ import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.spi.node.IdGenerator
 import com.mochame.sync.spi.node.NodeContext
 import com.mochame.sync.spi.node.NodeContextManager
+import com.mochame.sync.spi.node.NodeId
 import com.mochame.utils.toDateTime
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
@@ -19,6 +20,7 @@ import org.koin.core.annotation.Provided
 import org.koin.core.annotation.Single
 import kotlin.coroutines.CoroutineContext
 import kotlin.time.Clock
+import kotlin.uuid.Uuid
 
 /**
  * Manager acts as a pass through from domain layers to the database, expecting domain
@@ -79,7 +81,7 @@ class DefaultNodeContextManager(
     override suspend fun getLastBootedAppVersion() = dao.getLastBootedVersion()
     override suspend fun getLastServerSyncTime() = dao.getLastServerSyncTime()
     override suspend fun getLastLocalMutationTime() = dao.getLastLocalMutationTime()
-    override suspend fun getNodeId() = dao.getNodeId()
+    override suspend fun getNodeId() = dao.getNodeId()?.let { NodeId.parse(it) }
     override suspend fun getMaxHlc() = dao.getMaxHlc()?.let { HLC.parse(it) }
 
     override suspend fun overwriteNodeContext(nodeContext: NodeContext) =

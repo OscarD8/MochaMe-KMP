@@ -13,7 +13,7 @@ interface NodeContextManager {
 
     suspend fun getLastBootedAppVersion(): Int?
 
-    suspend fun getNodeId(): String?
+    suspend fun getNodeId(): NodeId?
 
     suspend fun getLastServerSyncTime(): Long?
 

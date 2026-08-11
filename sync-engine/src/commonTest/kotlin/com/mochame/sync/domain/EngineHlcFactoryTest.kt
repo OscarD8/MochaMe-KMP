@@ -3,14 +3,16 @@
 package com.mochame.sync.domain
 
 import co.touchlab.kermit.ExperimentalKermitApi
-import com.mochame.sync.api.exceptions.MochaException
+import com.mochame.node.fixtures.TestNodeIds
 import com.mochame.support.MochaPlatformTest
-import com.mochame.utils.fixtures.HlcTestFactory
 import com.mochame.support.runUnitEnvironment
+import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.api.hlc.instant
 import com.mochame.sync.di.hlc.HLCTestEnvironment
 import com.mochame.sync.di.hlc.HlcTestApp
+import com.mochame.sync.spi.node.NodeId
+import com.mochame.utils.fixtures.HlcTestFactory
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -24,7 +26,6 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import org.koin.dsl.includes
 import org.koin.plugin.module.dsl.koinConfiguration
@@ -49,7 +50,6 @@ private inline fun runEnv(crossinline block: suspend HLCTestEnvironment.(TestSco
         block = block
     )
 
-
 class EngineHlcFactoryTest : MochaPlatformTest() {
 
     // -----------------------------------------------------------
@@ -61,7 +61,7 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
         fakeClock.setTime(HLC.APP_RELEASE_TIME)
 
         // When: First hydration with no history
-        val result = factory.hydrate(null, "node-1")
+        val result = factory.hydrate(null, TestNodeIds.OLD)
 
         // Then: TS is exactly wallClock, count is 0
         assertEquals(HLC.APP_RELEASE_TIME.toEpochMilliseconds(), result.ts)
@@ -72,11 +72,11 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
     fun should_log_warning_but_succeed_when_future_jump_detected() = runEnv {
         // Given: Wall clock is 2 years ahead of history
         val historyTs = HLC.APP_RELEASE_TIME.also { fakeClock.setTime(it) }
-        val historicHlc = HlcTestFactory.create(historyTs, 1, "node-old")
+        val historicHlc = HlcTestFactory.create(historyTs, 1, TestNodeIds.OLD)
         fakeClock.advanceTime(HLC.ONE_DAY * 60)
 
         // When
-        factory.hydrate(historicHlc, "node-new")
+        factory.hydrate(historicHlc, TestNodeIds.OLD)
 
         // Then
         assertTrue(writer.logs.any { it.message.contains("60 days", true) })
@@ -91,16 +91,16 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
             val history = HlcTestFactory.create(
                 ts = HLC.APP_RELEASE_TIME,
                 count = 1,
-                nodeId = "node-old"
+                nodeId = TestNodeIds.OLD
             )
-            factory.hydrate(history, "node-new")
+            factory.hydrate(history, TestNodeIds.NEW)
 
             // When: Generating the next HLC
             val next = factory.getNextHlc()
 
             // Then: It must use "node-new"
             assertEquals(
-                "node-new",
+                TestNodeIds.NEW,
                 next.nodeId,
                 "Factory failed to adopt the new NodeID after hydration."
             )
@@ -118,7 +118,7 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
     fun should_increment_logical_counter_when_wall_clock_has_not_advanced() =
         runEnv {
             // Given
-            factory.hydrate(null, "node-1")
+            factory.hydrate(null, TestNodeIds.OLD)
 
             // When
             val first = factory.getNextHlc()
@@ -133,7 +133,7 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
     @Test
     fun should_reset_counter_to_zero_when_wall_clock_moves_forward() = runEnv {
         // Given
-        factory.hydrate(null, "node-1")
+        factory.hydrate(null, TestNodeIds.OLD)
         val first = factory.getNextHlc()
 
         // When
@@ -152,17 +152,16 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
             val olderHistory = HlcTestFactory.create(
                 ts = fakeClock.now(),
                 count = 1,
-                nodeId = "node-old"
+                nodeId = TestNodeIds.OLD
             )
             fakeClock.advanceTime(1.seconds)
-
             // When
-            val result = factory.hydrate(olderHistory, "node-new")
+            val result = factory.hydrate(olderHistory, TestNodeIds.NEW)
 
             // Then: TS pins to wall clock, counter resets
             assertEquals(fakeClock.now(), result.instant)
             assertEquals(0, result.count)
-            assertEquals("node-new", result.nodeId)
+            assertEquals(TestNodeIds.NEW, result.nodeId)
         }
 
     @Test
@@ -173,16 +172,16 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
             val newerHistory = HlcTestFactory.create(
                 ts = newerHistoryTs,
                 count = 99,
-                nodeId = "node-old"
+                nodeId = TestNodeIds.OLD
             )
 
             // When
-            val result = factory.hydrate(newerHistory, "node-new")
+            val result = factory.hydrate(newerHistory, TestNodeIds.NEW)
 
             // Then: TS pins to history, counter is preserved
             assertEquals(newerHistoryTs, result.instant)
             assertEquals(99, result.count)
-            assertEquals("node-new", result.nodeId)
+            assertEquals(TestNodeIds.NEW, result.nodeId)
         }
 
     // -----------------------------------------------------------
@@ -191,20 +190,21 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
     @Test
     fun should_ignore_second_hydration_and_log_warning() = runEnv {
         // Given
-        factory.hydrate(null, "node-1")
+        factory.hydrate(null, TestNodeIds.OLD)
 
         // When
         val secondResult = factory.hydrate(
             HlcTestFactory.create(
                 ts = 12345,
                 count = 0,
-                nodeId = "node-2"
-            ), "node-2"
+                nodeId = TestNodeIds.OLD
+            ),
+            TestNodeIds.OLD
         )
 
         // Then: Returns the first hydration result
         assertTrue(writer.logs.any { it.message.contains("rehydrate") })
-        assertEquals("node-1", secondResult.nodeId)
+        assertEquals(TestNodeIds.OLD, secondResult.nodeId)
     }
 
     @Test
@@ -214,7 +214,7 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
             val threadCount = 10
             val iterations = 25
             val gate = CompletableDeferred<Unit>()
-            factory.hydrate(null, "node")
+            factory.hydrate(null, TestNodeIds.OLD)
 
             val workerDeferreds = List(threadCount) { workerId ->
                 scope.async(Dispatchers.IO) {
@@ -275,9 +275,9 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
         val initialHlc = HlcTestFactory.create(
             ts = HLC.APP_RELEASE_TIME,
             count = HLC.MAX_COUNTER_INT,
-            nodeId = "node-1"
+            nodeId = TestNodeIds.OLD
         )
-        factory.hydrate(initialHlc, "node-1")
+        factory.hydrate(initialHlc, TestNodeIds.OLD)
 
         // Act: Launch a coroutine to make the 65,536th call
         var capturedHlc: HLC? = null
@@ -320,7 +320,7 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
         runEnv { scope ->
             val threadCount = 30
             val gate = CompletableDeferred<Unit>()
-            val nodeId = "node-1"
+            val nodeId = TestNodeIds.OLD
 
             val jobs = List(threadCount) {
                 scope.launch(Dispatchers.IO) {
@@ -405,11 +405,11 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
             // Given: System clock is March 2026, but history is Jan 2040
             val futureTs = 2209032000000L
             val poisonedHlc =
-                HlcTestFactory.create(ts = futureTs, count = 1, nodeId = "node-old")
+                HlcTestFactory.create(ts = futureTs, count = 1, nodeId = TestNodeIds.OLD)
 
             // When / Then
             assertFailsWith<MochaException.Persistent.ClockSkew> {
-                factory.hydrate(poisonedHlc, "node-new")
+                factory.hydrate(poisonedHlc, TestNodeIds.OLD)
             }
 
             assertTrue(writer.logs.any {
@@ -425,7 +425,7 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
 
             // When & Then
             val exception = assertFailsWith<MochaException.Persistent.ClockSkew> {
-                factory.hydrate(null, "node-1")
+                factory.hydrate(null, TestNodeIds.OLD)
             }
 
             assertTrue(
@@ -442,9 +442,9 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
             val maxCounterHlc = HlcTestFactory.create(
                 ts = fakeClock.now().toEpochMilliseconds(),
                 count = HLC.MAX_COUNTER_INT,
-                nodeId = "node-1"
+                nodeId = TestNodeIds.OLD
             )
-            factory.hydrate(maxCounterHlc, "node-1")
+            factory.hydrate(maxCounterHlc, TestNodeIds.OLD)
 
             // Then: This will trigger a delay on attempting to get a new hlc
             val hlcJob = scope.launch { factory.getNextHlc() }
@@ -658,7 +658,7 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
         )
         val remoteHlc = HlcTestFactory.create(
             ts = baseTs + 5_000L,
-            nodeId = "remote-node-other-device"
+            nodeId = TestNodeIds.NEW
         )
 
         factory.witness(remoteHlc)

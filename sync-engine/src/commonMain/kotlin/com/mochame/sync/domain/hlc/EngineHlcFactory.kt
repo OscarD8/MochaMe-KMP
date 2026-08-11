@@ -6,6 +6,7 @@ import com.mochame.logger.withTags
 import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.sync.api.hlc.HlcFactory
 import com.mochame.sync.api.hlc.HLC
+import com.mochame.sync.spi.node.NodeId
 import com.mochame.utils.interfaces.TimeProvider
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
@@ -28,13 +29,13 @@ internal class EngineHlcFactory(
 
     private data class FactoryState(
         val lastHlc: HLC,
-        val nodeId: String,
+        val nodeId: NodeId,
     )
 
     private val stateMutex = Mutex()
     private var state: FactoryState? = null
 
-    override suspend fun hydrate(lastKnownHlc: HLC?, currentNodeId: String): HLC =
+    override suspend fun hydrate(lastKnownHlc: HLC?, currentNodeId: NodeId): HLC =
         stateMutex.withLock {
             state?.let {
                 logger.w { "An attempt was made to rehydrate the HLC, finding an existing state: ${it.lastHlc} to $lastKnownHlc." }

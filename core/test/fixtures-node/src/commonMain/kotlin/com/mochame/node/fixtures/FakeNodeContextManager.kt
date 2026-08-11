@@ -3,13 +3,14 @@ package com.mochame.node.fixtures
 import com.mochame.sync.spi.node.NodeContextManager
 import com.mochame.sync.spi.node.NodeContext
 import com.mochame.sync.api.hlc.HLC
+import com.mochame.sync.spi.node.NodeId
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
 import kotlinx.coroutines.delay
 import kotlin.time.Duration
 
 class FakeNodeContextManager(
-    private val defaultNodeId: String = "fake-node-uuid"
+    private val defaultNodeId: NodeId = NodeId.ZERO
 ) : NodeContextManager {
 
     // "One lock to rule them all, one lock to find them, one lock to bring them all
@@ -17,7 +18,7 @@ class FakeNodeContextManager(
     private val lock = reentrantLock()
 
     private var _seededContext: NodeContext? = null
-    private var _forcedNextNodeId: String? = null
+    private var _forcedNextNodeId: NodeId? = null
 
     private val _updatedHlcFloors = mutableListOf<HLC>()
     private val _recognizedServerResponses = mutableListOf<Pair<String, Long>>()
@@ -46,7 +47,7 @@ class FakeNodeContextManager(
         get() = lock.withLock { _simulatedDelay }
         set(value) = lock.withLock { _simulatedDelay = value }
 
-    var forcedNextNodeId: String?
+    var forcedNextNodeId: NodeId?
         get() = lock.withLock { _forcedNextNodeId }
         set(value) = lock.withLock { _forcedNextNodeId = value }
 
@@ -109,7 +110,7 @@ class FakeNodeContextManager(
         _seededContext?.lastLocalMutationTime
     }
 
-    override suspend fun getNodeId(): String? = lock.withLock {
+    override suspend fun getNodeId(): NodeId? = lock.withLock {
         _seededContext?.nodeId ?: _forcedNextNodeId ?: defaultNodeId
     }
 

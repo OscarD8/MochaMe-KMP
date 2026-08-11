@@ -2,9 +2,10 @@ package com.mochame.node.data
 
 import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.spi.node.NodeContext
+import com.mochame.sync.spi.node.NodeId
 
 internal fun NodeContextEntity.toDomain() = NodeContext(
-    nodeId = nodeId,
+    nodeId = NodeId.parse(nodeId),
     appVersion = appVersion,
     createdAt = createdAt,
     lastServerWatermark = lastServerWatermark,
@@ -15,7 +16,7 @@ internal fun NodeContextEntity.toDomain() = NodeContext(
 
 internal fun NodeContext.toEntity() = NodeContextEntity(
     id = 1,
-    nodeId = nodeId,
+    nodeId = nodeId.toString(),
     appVersion = appVersion,
     createdAt = createdAt,
     lastServerWatermark = lastServerWatermark,

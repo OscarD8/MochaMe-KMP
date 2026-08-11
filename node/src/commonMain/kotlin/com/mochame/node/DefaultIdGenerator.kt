@@ -1,12 +1,12 @@
 package com.mochame.node
 
-import com.benasher44.uuid.uuid4
 import com.mochame.sync.spi.node.IdGenerator
 import org.koin.core.annotation.Single
+import kotlin.uuid.Uuid
 
-@Single(binds = [IdGenerator::class])
+@Single(binds = [IdGenerator::class]) // Think this could all be deleted
 class DefaultIdGenerator : IdGenerator {
-    override fun nextId(): String = uuid4().toString()
+    override fun nextId(): String = Uuid.random().toString()
 }
 
 

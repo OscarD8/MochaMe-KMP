@@ -10,7 +10,7 @@ class FieldMergeScope(
     existingBytes: ByteArray,
     val incomingHlc: HLC
 ) {
-    private var index = FieldHlcIndex(existingBytes)
+    private var index = FieldHlcMap(existingBytes)
 
     /**
      * Field LWW Rule:

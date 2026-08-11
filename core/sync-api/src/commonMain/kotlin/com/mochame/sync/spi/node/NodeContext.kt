@@ -4,7 +4,7 @@ import com.mochame.sync.api.hlc.HLC
 import kotlin.time.Clock
 
 data class NodeContext(
-    val nodeId: String,
+    val nodeId: NodeId,
     val appVersion: Int,
     val createdAt: Long = Clock.System.now().toEpochMilliseconds(),
     val lastServerWatermark: String? = null,

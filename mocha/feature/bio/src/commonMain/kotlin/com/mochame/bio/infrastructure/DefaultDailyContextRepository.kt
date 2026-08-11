@@ -59,9 +59,9 @@ internal class DefaultDailyContextRepository(
 
     // --- MAINTENANCE / SYNC ---
     override suspend fun hardDelete(cutoff: Long) = bioDao.hardDeletePruning(cutoff)
-    override suspend fun getTombstoneCount(): Int = bioDao.getTombstoneCount()
+    override suspend fun getTombstoneCount() = bioDao.getTombstoneCount()
     override suspend fun fetch(id: Long) = bioDao.getContextById(id)?.toDomain()
-    override suspend fun save(entity: DailyContext): Long = bioDao.upsert(entity.toEntity())
+    override suspend fun save(entity: DailyContext) = bioDao.upsert(entity.toEntity())
     override suspend fun compactState(
         newState: DailyContext,
         existing: DailyContext?

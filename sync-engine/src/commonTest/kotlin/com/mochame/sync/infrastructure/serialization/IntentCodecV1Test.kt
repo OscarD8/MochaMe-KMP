@@ -200,7 +200,6 @@ class IntentCodecV1Test : MochaPlatformTest() {
         val customHlc = HlcTestFactory.create(
             ts = 1740787200000L,
             count = 42,
-            nodeId = "mobile-android-device-node-a1"
         )
         val originalIntent = createTestSyncIntent(hlc = customHlc)
 

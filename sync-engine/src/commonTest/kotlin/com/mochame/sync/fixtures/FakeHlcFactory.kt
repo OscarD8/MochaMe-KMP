@@ -5,6 +5,7 @@ import com.mochame.sync.api.hlc.HlcFactory
 import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.domain.hlc.HlcEvaluation
 import com.mochame.sync.domain.hlc.EngineHlcFactory
+import com.mochame.sync.spi.node.NodeId
 import com.mochame.utils.fixtures.FakeTimeProvider
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
@@ -29,7 +30,7 @@ class FakeHlcFactory(
     // Hydration tracking
     private var _hydrateCallCount = 0
     private var _lastHydratedHlc: HLC? = null
-    private var _lastHydratedNodeId: String? = null
+    private var _lastHydratedNodeId: NodeId? = null
 
     // --- Read-Only Properties ---
     val generatedHlcs: List<HLC>
@@ -47,7 +48,7 @@ class FakeHlcFactory(
     val lastHydratedHlc: HLC?
         get() = lock.withLock { _lastHydratedHlc }
 
-    val lastHydratedNodeId: String?
+    val lastHydratedNodeId: NodeId?
         get() = lock.withLock { _lastHydratedNodeId }
 
     fun reset() = lock.withLock {
@@ -59,7 +60,7 @@ class FakeHlcFactory(
         _lastHydratedNodeId = null
     }
 
-    override suspend fun hydrate(lastKnownHlc: HLC?, currentNodeId: String): HLC {
+    override suspend fun hydrate(lastKnownHlc: HLC?, currentNodeId: NodeId): HLC {
         lock.withLock {
             _hydrateCallCount++
             _lastHydratedHlc = lastKnownHlc

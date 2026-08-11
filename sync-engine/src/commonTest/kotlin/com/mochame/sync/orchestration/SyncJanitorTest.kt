@@ -16,6 +16,7 @@ import com.mochame.sync.di.janitor.JanitorTestApp
 import com.mochame.sync.di.janitor.JanitorTestEnv
 import com.mochame.sync.fixtures.createTestSyncIntent
 import com.mochame.sync.spi.node.NodeContext
+import com.mochame.sync.spi.node.NodeId
 import com.mochame.utils.fixtures.TestPayloads
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
@@ -31,6 +32,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
@@ -65,7 +67,7 @@ class SyncJanitorTest : MochaPlatformTest() {
         runEnv { scope ->
             // Given
             assertEquals(BootState.Idle, bootUpdater.bootState.value)
-            nodeManager.forcedNextNodeId = "node-alpha"
+            nodeManager.forcedNextNodeId = NodeId.ZERO
 
             // When
             janitor.startupChecks()
@@ -82,7 +84,7 @@ class SyncJanitorTest : MochaPlatformTest() {
                 "HLC factory must be hydrated exactly once during startup."
             )
             assertEquals(
-                "node-alpha",
+                NodeId.ZERO,
                 hlcFactory.lastHydratedNodeId,
                 "HLC factory must be hydrated with the current node ID."
             )
@@ -127,38 +129,38 @@ class SyncJanitorTest : MochaPlatformTest() {
         }
 
     @Test
-    fun should_enterCriticalBootFailure_when_lastHlcIsFromTheFuture() =
-        runEnv {
-            // Arrange
-            // Seed a Future HLC (2040-01-01...)
-            val futureHlc = HLC.parse("2209032000000:0000:node-1")
+    fun should_enterCriticalBootFailure_when_lastHlcIsFromTheFuture() = runEnv {
+        // Arrange
+        // Seed a Future HLC (2040-01-01...)
+        val futureTs = fakeClock.now().plus(1.hours)
+        val futureHlc = HlcTestFactory.create(ts = futureTs)
 
-            nodeManager.updateHlcFloor(futureHlc)
+        nodeManager.updateHlcFloor(futureHlc)
 
-            // Act
-            janitor.startupChecks()
+        // Act
+        janitor.startupChecks()
 
-            // Assert
-            bootUpdater.bootState.test {
-                // Skip Idle
-                assertEquals(BootState.Idle, awaitItem())
+        // Assert
+        bootUpdater.bootState.test {
+            // Skip Idle
+            assertEquals(BootState.Idle, awaitItem())
 
-                // Skip Initializing
-                assertTrue(awaitItem() is BootState.Initializing)
+            // Skip Initializing
+            assertTrue(awaitItem() is BootState.Initializing)
 
-                // Capture the Critical Failure
-                val finalState = awaitItem()
-                assertTrue(finalState is BootState.CriticalFailure)
+            // Capture the Critical Failure
+            val finalState = awaitItem()
+            assertTrue(finalState is BootState.CriticalFailure)
 
-                assertTrue(finalState.exception is MochaException.Persistent.ClockSkew)
+            assertTrue(finalState.exception is MochaException.Persistent.ClockSkew)
 
-                // Verify the logs
-                val log = writer.logs.find { it.message.contains("Clock Skew") }
-                assertNotNull(log, "The clock skew log should have been recorded!")
+            // Verify the logs
+            val log = writer.logs.find { it.message.contains("Clock Skew") }
+            assertNotNull(log, "The clock skew log should have been recorded!")
 
-                cancelAndIgnoreRemainingEvents()
-            }
+            cancelAndIgnoreRemainingEvents()
         }
+    }
 
     @Test
     fun should_reportTransientFailure_when_bootHydrationTimesOut() =
@@ -248,14 +250,13 @@ class SyncJanitorTest : MochaPlatformTest() {
     @Test
     fun should_pipeNodeContextToHlcFactory_when_hydrating() = runEnv { scope ->
         // Given
-        val nodeId = "node-to-end-all-nodes"
+        val nodeId = NodeId.ZERO
 
-        val seededHlc =
-            HlcTestFactory.create(
-                ts = 1740787200000L,
-                count = 2,
-                nodeId = nodeId
-            )
+        val seededHlc = HlcTestFactory.create(
+            ts = 1740787200000L,
+            count = 2,
+            nodeId = nodeId
+        )
         nodeManager.seededContext = NodeContext(
             nodeId = nodeId,
             appVersion = 1,

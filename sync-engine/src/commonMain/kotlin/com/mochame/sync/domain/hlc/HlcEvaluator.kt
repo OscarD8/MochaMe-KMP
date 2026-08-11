@@ -4,6 +4,7 @@ import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.api.hlc.HLC.Companion.APP_RELEASE_TIME
 import com.mochame.sync.api.hlc.HLC.Companion.MAX_DRIFT
 import com.mochame.sync.api.hlc.instant
+import com.mochame.sync.spi.node.NodeId
 import kotlin.time.Instant
 
 /**
@@ -19,7 +20,7 @@ internal object HlcEvaluator {
     fun computeNextTick(
         deviceClock: Long,
         last: HLC,
-        nodeId: String
+        nodeId: NodeId
     ): HLC? {
         val nextTs = maxOf(deviceClock, last.ts)
         val nextCount = if (nextTs == last.ts) last.count + 1 else 0
@@ -36,7 +37,7 @@ internal object HlcEvaluator {
         deviceClock: Long,
         last: HLC,
         remote: HLC,
-        nodeId: String
+        nodeId: NodeId
     ): HLC {
         val newTs = maxOf(deviceClock, last.ts, remote.ts)
 
@@ -80,7 +81,7 @@ internal object HlcEvaluator {
     fun reconcileHydration(
         deviceClock: Instant,
         history: HLC?,
-        currentNodeId: String
+        currentNodeId: NodeId
     ): Pair<HLC, HlcEvaluation> {
         captureFloorViolation(deviceClock)?.let { return (history ?: HLC.EMPTY) to it }
 

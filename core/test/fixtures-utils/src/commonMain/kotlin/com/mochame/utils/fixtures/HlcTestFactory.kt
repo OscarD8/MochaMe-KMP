@@ -1,6 +1,7 @@
 package com.mochame.utils.fixtures
 
 import com.mochame.sync.api.hlc.HLC
+import com.mochame.sync.spi.node.NodeId
 import kotlin.time.Instant
 
 
@@ -9,7 +10,7 @@ import kotlin.time.Instant
  */
 object HlcTestFactory {
 
-    const val DEFAULT_NODE = "node-test-device"
+    val DEFAULT_NODE = NodeId.ZERO
 
     /**
      * Fixed base time: Thursday, July 9, 2026
@@ -22,13 +23,13 @@ object HlcTestFactory {
     fun create(
         ts: Long = BASE_TEST_TIME,
         count: Int = 0,
-        nodeId: String = DEFAULT_NODE
+        nodeId: NodeId = DEFAULT_NODE
     ): HLC = HLC(ts = ts, count = count, nodeId = nodeId)
 
     fun create(
         ts: Instant,
         count: Int = 0,
-        nodeId: String = DEFAULT_NODE
+        nodeId: NodeId = DEFAULT_NODE
     ): HLC = HLC(ts = ts, count = count, nodeId = nodeId)
 
     /**
@@ -39,7 +40,7 @@ object HlcTestFactory {
         size: Int,
         stepMs: Long = 60_000L,
         baseTs: Long = BASE_TEST_TIME,
-        nodeId: String = DEFAULT_NODE
+        nodeId: NodeId = DEFAULT_NODE
     ): List<HLC> {
         return List(size) { index ->
             HLC(ts = baseTs + (index * stepMs), count = 0, nodeId = nodeId)
@@ -53,7 +54,7 @@ object HlcTestFactory {
     fun concurrentSequence(
         size: Int,
         ts: Long = BASE_TEST_TIME,
-        nodeId: String = DEFAULT_NODE
+        nodeId: NodeId = DEFAULT_NODE
     ): List<HLC> {
         return List(size) { index ->
             HLC(ts = ts, count = index, nodeId = nodeId)

@@ -15,7 +15,7 @@ import com.mochame.sync.spi.models.SyncIntent
 import com.mochame.sync.spi.infrastructure.serialization.FeatureCodec
 import com.mochame.sync.spi.infrastructure.SyncReceiver
 import com.mochame.sync.spi.infrastructure.serialization.FeatureCodecRouter
-import com.mochame.sync.spi.infrastructure.serialization.FieldHlcIndex
+import com.mochame.sync.spi.infrastructure.serialization.FieldHlcMap
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -125,14 +125,14 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             val changedTags =
                 codec.routedComputeChangedTags(candidateState, existingState)
 
-            var fieldHlcBytes = FieldHlcIndex(existingState?.fieldHlcs ?: ByteArray(0))
+            var fieldHlcMap = FieldHlcMap(existingState?.fieldHlcs ?: ByteArray(0))
             changedTags.forEach { tag ->
-                fieldHlcBytes = fieldHlcBytes.updateTag(tag, hlc)
+                fieldHlcMap = fieldHlcMap.updateTag(tag, hlc)
             }
 
             val stampedState = candidateState
                 .withHlc(hlc)
-                .withFieldHlcs(fieldHlcBytes.bytes)
+                .withFieldHlcs(fieldHlcMap.bytes)
 
             handleLocalCommit(
                 candidateKey = candidateKey,
@@ -176,7 +176,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         crossinline computeChange: suspend (existing: T?) -> T,
         crossinline persist: suspend (stamped: T) -> Long,
         crossinline onSkip: (fallback: T?) -> Long
-    ): Long = processIntent(
+    ) = processIntent(
         candidateKey,
         incomingHlc,
         op,
@@ -193,7 +193,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     protected suspend inline fun localDelete(
         candidateKey: Long,
         incomingHlc: HLC? = null,
-    ): Long = localDelete(
+    ) = localDelete(
         candidateKey = candidateKey,
         incomingHlc = incomingHlc,
         fetchExistingState = { fetch(it) },
@@ -209,7 +209,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         crossinline computeChange: suspend (existing: T?) -> T,
         crossinline persist: suspend (stamped: T) -> Long,
         crossinline onSkip: (fallback: T?) -> Long = { 0L }
-    ): Long = processIntent(
+    ) = processIntent(
         candidateKey = candidateKey,
         incomingHlc = incomingHlc,
         op = MutationOp.DELETE,
@@ -223,10 +223,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
      * If this process fails, the intent is persisted already. It must be ensured that the intent record
      * is not updated to a status that marks it for pruning until confirmation of the below.
      */
-    override suspend fun processRemoteIntent(
-        context: DecodeContext,
-        payload: ByteArray?,
-    ) {
+    override suspend fun processRemoteIntent(context: DecodeContext, payload: ByteArray?) {
         if (payload == null) {
             if (context.overflowBlobId == null) {
                 logger.e { "Should not have received null payload with no overflowId for ${context.candidateKey}." }

@@ -1,10 +1,12 @@
 package com.mochame.sync.api.hlc
 
 import com.mochame.sync.api.exceptions.MochaException
+import com.mochame.sync.spi.node.NodeId
 import kotlinx.serialization.Serializable
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
+import kotlin.uuid.Uuid
 
 /**
  * A Hybrid Logical Clock (HLC) timestamp that provides strict ordering across distributed nodes.
@@ -17,15 +19,15 @@ import kotlin.time.Instant
  */
 @Serializable
 data class HLC(
-    val ts: Long,      // Physical wall-clock time
-    val count: Int,     // Logical counter for same-ms events
-    val nodeId: String,  // Unique device ID (prevents collisions)
+    val ts: Long,
+    val count: Int,
+    val nodeId: NodeId,
 ) : Comparable<HLC> {
 
     /**
      * Converts the HLC to its sortable string representation.
-     * TS: 15 digits
-     * Count: 5 digits (maps to MAX_COUNTER 65535)
+     * * TS: 15 digits
+     * * Count: 5 digits (maps to MAX_COUNTER 65535)
      */
     override fun toString(): String {
         val paddedTs = ts.toString().padStart(15, '0')
@@ -33,11 +35,19 @@ data class HLC(
         return "$paddedTs:$paddedCount:$nodeId"
     }
 
+    /**
+     * 1. Physical Timestamp ([ts])
+     * 2. Logical Counter ([count])
+     * 3. Device Identifier ([nodeId])
+     */
     override fun compareTo(other: HLC): Int {
-        return compareBy<HLC> { it.ts }
-            .thenBy { it.count }
-            .thenBy { it.nodeId }
-            .compare(this, other)
+        val tsCmp = ts.compareTo(other.ts)
+        if (tsCmp != 0) return tsCmp
+
+        val countCmp = count.compareTo(other.count)
+        if (countCmp != 0) return countCmp
+
+        return nodeId.compareTo(other.nodeId)
     }
 
     companion object {
@@ -56,8 +66,7 @@ data class HLC(
             val count = parts[1].takeIf { it.length == 4 }?.toIntOrNull(radix = 16)
                 ?: throw MochaException.Persistent.HlcParseException("Invalid counter: ${parts[1]}")
 
-            val nodeId = parts[2].takeIf { it.isNotBlank() }
-                ?: throw MochaException.Persistent.HlcParseException("NodeId is missing")
+            val nodeId = NodeId.parse(parts[2])
 
             return HLC(ts, count, nodeId)
         }
@@ -66,7 +75,7 @@ data class HLC(
          * Necessary as a Feature state comes down from the UI layer, with no stamp.
          * I'm not sure if this is necessary and may be confusing over null.
          */
-        val EMPTY = HLC(0, 0, "init")
+        val EMPTY = HLC(0, 0, NodeId.ZERO)
 
         /**
          * Internal limits
@@ -82,5 +91,23 @@ data class HLC(
 val HLC.instant: Instant
     get() = Instant.fromEpochMilliseconds(ts)
 
-fun HLC(ts: Instant, count: Int, nodeId: String): HLC =
+fun HLC(ts: Instant, count: Int, nodeId: NodeId): HLC =
     HLC(ts.toEpochMilliseconds(), count, nodeId)
+
+fun HLC(ts: Long, count: Int, nodeId: Uuid): HLC =
+    HLC(ts, count, NodeId(nodeId))
+
+/*
+    Since creating the FieldHlcMap, would probably be good to do something like:
+
+    @JvmInline
+value class NodeId(val value: Uuid) {
+    override fun toString(): String = value.toString()
+
+    companion object {
+        fun random(): NodeId = NodeId(Uuid.random())
+        fun parse(str: String): NodeId = NodeId(Uuid.parse(str))
+    }
+}
+
+ */
