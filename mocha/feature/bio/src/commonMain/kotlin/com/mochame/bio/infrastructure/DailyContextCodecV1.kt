@@ -63,7 +63,7 @@ internal class DailyContextCodecV1(
 
         return DailyContextDeltaV1(
             id = new.id,
-            isDeleted = isResurrection.takeIf { it },
+            isDeleted = false.takeIf { isResurrection },
             sleepHours = sleep,
             readinessScore = readiness,
             isNapped = napped
