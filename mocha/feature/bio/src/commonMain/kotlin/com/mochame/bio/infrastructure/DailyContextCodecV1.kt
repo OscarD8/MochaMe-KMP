@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import com.mochame.bio.domain.DailyContext
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
+import com.mochame.sync.api.models.LocalFirstDelta
 import com.mochame.sync.common.TriState
 import com.mochame.sync.spi.infrastructure.BufferProvider
 import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodec
@@ -18,12 +19,12 @@ import org.koin.core.annotation.Single
 @ExperimentalSerializationApi
 @Serializable
 data class DailyContextDeltaV1(
-    @ProtoNumber(1) val id: Long,
-    @ProtoNumber(2) val isDeleted: Boolean? = null,
+    @ProtoNumber(1) override val id: Long,
+    @ProtoNumber(2) override val isDeleted: Boolean? = null,
     @ProtoNumber(3) val sleepHours: Double? = null,
     @ProtoNumber(4) val readinessScore: Int? = null,
     @ProtoNumber(5) val isNapped: TriState? = null,
-)
+) : LocalFirstDelta
 
 
 @OptIn(ExperimentalSerializationApi::class)
@@ -51,16 +52,18 @@ internal class DailyContextCodecV1(
 
     override fun buildUpdateDelta(
         new: DailyContext,
-        old: DailyContext
+        old: DailyContext,
+        isResurrection: Boolean
     ): DailyContextDeltaV1? {
         val sleep = new.sleepHours diff old.sleepHours
         val readiness = new.readinessScore diff old.readinessScore
         val napped = new.isNapped diff old.isNapped
 
-        if (sleep == null && readiness == null && napped == null) return null
+        if (sleep == null && readiness == null && napped == null && !isResurrection) return null
 
         return DailyContextDeltaV1(
             id = new.id,
+            isDeleted = isResurrection.takeIf { it },
             sleepHours = sleep,
             readinessScore = readiness,
             isNapped = napped
@@ -79,7 +82,6 @@ internal class DailyContextCodecV1(
         sleepHours = eval(3, delta.sleepHours, existing?.sleepHours ?: 0.0),
         readinessScore = eval(4, delta.readinessScore, existing?.readinessScore ?: 0),
         isNapped = eval(5, delta.isNapped, existing?.isNapped ?: TriState.UNSET),
-        isDeleted = delta.isDeleted ?: existing?.isDeleted ?: false
     )
 
     override fun computeDomainChangedTags(new: DailyContext, old: DailyContext?): List<Int> =

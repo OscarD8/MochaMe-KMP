@@ -21,5 +21,5 @@ data class DailyContext(
 
     override fun withHlc(hlc: HLC): DailyContext = copy(hlc = hlc, lastModified = hlc.ts)
     override fun withFieldHlcs(blob: ByteArray) = copy(fieldHlcs = blob)
-    override fun markDeleted() = copy(isDeleted = true)
+    override fun withDeleteState(state: Boolean) = copy(isDeleted = state)
 }

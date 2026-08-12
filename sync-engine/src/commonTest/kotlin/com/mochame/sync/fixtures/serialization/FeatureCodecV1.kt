@@ -3,6 +3,7 @@ package com.mochame.sync.fixtures.serialization
 import co.touchlab.kermit.Logger
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
+import com.mochame.sync.api.models.LocalFirstDelta
 import com.mochame.sync.common.TriState
 import com.mochame.sync.spi.infrastructure.BufferProvider
 import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodec
@@ -17,12 +18,12 @@ import org.koin.core.annotation.Single
 @Serializable
 @ExperimentalSerializationApi
 internal data class FeatureEntityDeltaV1(
-    @ProtoNumber(1) val id: Long,
-    @ProtoNumber(2) val isDeleted: Boolean? = null,
+    @ProtoNumber(1) override val id: Long,
+    @ProtoNumber(2) override val isDeleted: Boolean? = null,
     @ProtoNumber(3) val triStateValue: TriState? = null,
     @ProtoNumber(4) val textValue: String? = null,
     @ProtoNumber(5) val countValue: Int? = null
-)
+) : LocalFirstDelta
 
 @Single
 @OptIn(ExperimentalSerializationApi::class)
@@ -47,7 +48,11 @@ internal class FeatureCodecV1(
         countValue = entity.countValue
     )
 
-    override fun buildUpdateDelta(new: FeatureEntity, old: FeatureEntity): FeatureEntityDeltaV1? {
+    override fun buildUpdateDelta(
+        new: FeatureEntity,
+        old: FeatureEntity,
+        isResurrection: Boolean
+    ): FeatureEntityDeltaV1? {
         val triStateValue = new.triStateValue diff old.triStateValue
         val textDelta = new.textValue diff old.textValue
         val countDelta = new.countValue diff old.countValue
@@ -56,6 +61,7 @@ internal class FeatureCodecV1(
 
         return FeatureEntityDeltaV1(
             id = new.id,
+            isDeleted = isResurrection.takeIf { it },
             triStateValue = triStateValue,
             textValue = textDelta,
             countValue = countDelta,

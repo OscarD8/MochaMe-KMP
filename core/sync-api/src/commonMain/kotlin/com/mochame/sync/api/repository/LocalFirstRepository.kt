@@ -112,9 +112,8 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     ): Long {
         val existingState = fetchExistingState(candidateKey)
 
-        if (assertEntityLevelRejection(existingState, incomingHlc, op, candidateKey)) {
+        if (assertEntityLevelRejection(existingState, incomingHlc, op, candidateKey))
             return onSkip(existingState)
-        }
 
         val candidateState = computeChange(existingState)
 
@@ -125,13 +124,9 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             val changedTags = codec.routedComputeChangedTags(candidateState, existingState)
 
             var fieldHlcMap = FieldHlcMap(existingState?.fieldHlcs ?: ByteArray(0))
-            changedTags.forEach { tag ->
-                fieldHlcMap = fieldHlcMap.updateTag(tag, hlc)
-            }
+            changedTags.forEach { tag -> fieldHlcMap = fieldHlcMap.updateTag(tag, hlc) }
 
-            val stampedState = candidateState
-                .withHlc(hlc)
-                .withFieldHlcs(fieldHlcMap.bytes)
+            val stampedState = candidateState.withHlc(hlc).withFieldHlcs(fieldHlcMap.bytes)
 
             handleLocalCommit(
                 candidateKey = candidateKey,
@@ -164,7 +159,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         fetchExistingState = { fetch(it) },
         computeChange = computeChange,
         persist = { save(it) },
-        onSkip = { 0L }
+        onSkip = { logger.v { "Local Deletion Skipped. ID:${it?.id}. HLC: ${it?.hlc}" }.let { 0L } }
     )
 
     protected suspend inline fun localUpsert(
@@ -196,11 +191,9 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         candidateKey = candidateKey,
         incomingHlc = incomingHlc,
         fetchExistingState = { fetch(it) },
-        computeChange = { it!!.markDeleted() },
+        computeChange = { it!!.withDeleteState(true) },
         persist = { save(it) },
-        onSkip = {
-            logger.v { "Local Deletion Skipped. ID:${it?.id}. HLC: ${it?.hlc}" }.let { 0L }
-        }
+        onSkip = { logger.v { "Local Deletion Skipped. ID:${it?.id}. HLC: ${it?.hlc}" }.let { 0L } }
     )
 
     protected suspend inline fun localDelete(
@@ -269,10 +262,8 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         if (existing == null) {
             // Local/Remote Upserts always require Field-Level processing
             if (op != MutationOp.DELETE) return false
-
-            if (incomingHlc != null) {
-                return true
-            } else {
+            if (incomingHlc != null) return true
+            else {
                 // If this is to be graceful by calling onSkip - consider change of default onSkip logging for Delete
                 throw MochaException.Persistent.StateIssue("Delete attempt against non-existent record: $candidateKey.")
             }
@@ -281,29 +272,25 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         deps.hlcFactory.assertValid(existing.hlc, candidateKey)
 
         if (op == MutationOp.DELETE) {
-            if (existing.isDeleted) {
-                return true
-            }
-            if (incomingHlc != null && incomingHlc <= existing.hlc) {
-                return true
-            }
+            if (existing.isDeleted) return true
+            if (incomingHlc != null && incomingHlc <= existing.hlc) return true
         }
 
         return false
     }
 
     @PublishedApi
-    internal suspend fun <R> handleLocalCommit(
+    internal suspend fun handleLocalCommit(
         candidateKey: Long,
         op: MutationOp,
         stampedState: T,
         existingState: T?,
         changedTags: List<Int>,
-        persistAction: suspend () -> R,
-        onSkipAction: () -> R
-    ): R {
+        persistAction: suspend () -> Long,
+        onSkipAction: (fallback: T) -> Long
+    ): Long {
         val payload = codec.routedEncode(stampedState, existingState)
-            ?: return onSkipAction()
+            ?: return onSkipAction(stampedState)
 
         val summary = codec.routedSummarize(op, changedTags)
         val hlc = stampedState.hlc

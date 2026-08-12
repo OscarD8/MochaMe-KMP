@@ -30,6 +30,11 @@ class FieldMergeScope(
         }
     }
 
-    @PublishedApi
+    internal fun getTagHlc(tagId: Int): HLC? = index.getHlc(tagId)
+
+    internal fun updateTag(tagId: Int, hlc: HLC) {
+        index = index.updateTag(tagId, hlc)
+    }
+
     internal fun buildResultBlob(): ByteArray = index.bytes
 }

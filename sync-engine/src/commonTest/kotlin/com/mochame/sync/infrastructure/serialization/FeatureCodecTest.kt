@@ -316,7 +316,7 @@ class FeatureCodecTest : MochaPlatformTest() {
     @Test
     fun should_maintainSummaryParity_on_tombstoneDelete() = runEnv {
         val oldEntity = FeatureEntity()
-        val deletedEntity = oldEntity.markDeleted()
+        val deletedEntity = oldEntity.withDeleteState(true)
         val bytes = encode(new = deletedEntity, old = oldEntity)
         val changedTags = computeChangedTags(deletedEntity, oldEntity)
 

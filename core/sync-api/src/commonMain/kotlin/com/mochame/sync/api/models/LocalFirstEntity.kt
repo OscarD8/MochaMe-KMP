@@ -23,5 +23,5 @@ interface LocalFirstEntity<T : LocalFirstEntity<T>> {
     val lastModified: Long
     fun withHlc(hlc: HLC): T
     fun withFieldHlcs(blob: ByteArray): T
-    fun markDeleted(): T
+    fun withDeleteState(state: Boolean): T
 }

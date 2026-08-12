@@ -19,7 +19,7 @@ internal data class FeatureEntity(
     val countValue: Int = 1,
 ) : LocalFirstEntity<FeatureEntity> {
     override fun withHlc(hlc: HLC): FeatureEntity = copy(hlc = hlc)
-    override fun markDeleted(): FeatureEntity = copy(isDeleted = true)
+    override fun withDeleteState(state: Boolean): FeatureEntity = copy(isDeleted = state)
     override fun withFieldHlcs(blob: ByteArray) = copy(fieldHlcs = blob)
 }
 

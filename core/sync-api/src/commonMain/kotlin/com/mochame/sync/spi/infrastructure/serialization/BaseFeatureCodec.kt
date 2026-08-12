@@ -2,6 +2,7 @@ package com.mochame.sync.spi.infrastructure.serialization
 
 import co.touchlab.kermit.Logger
 import com.mochame.sync.api.metadata.MutationOp
+import com.mochame.sync.api.models.LocalFirstDelta
 import com.mochame.sync.api.models.LocalFirstEntity
 import com.mochame.sync.common.readProtobufVarint
 import com.mochame.sync.common.skipProtobufValue
@@ -27,11 +28,18 @@ import kotlinx.serialization.protobuf.ProtoBuf
  * * [D] = Serializable Protobuf Delta Schema (e.g. DailyContextDeltaV1)
  */
 @ExperimentalSerializationApi
-abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : Any>(
+abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
     override val bufferProvider: BufferProvider,
     private val deltaSerializer: KSerializer<D>,
     protected val logger: Logger
 ) : FeatureCodec<T> {
+
+    init {
+        val descriptor = deltaSerializer.descriptor
+        require(descriptor.elementsCount >= 2) { "Schema Error: ${descriptor.serialName} needs at least 2 properties." }
+        require(descriptor.getElementName(0) == "id") { "Schema Error: Tag 1 in ${descriptor.serialName} must be 'id'." }
+        require(descriptor.getElementName(1) == "isDeleted") { "Schema Error: Tag 2 in ${descriptor.serialName} must be 'isDeleted'." }
+    }
 
     companion object {
         const val TAG_PRIMARY_KEY = 1
@@ -39,25 +47,19 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : Any>(
         const val FIRST_DOMAIN_TAG = 3
     }
 
+    // -----------------------------------------------------------------
+    // ENCODE: T -> D -> Bytes
+    // -----------------------------------------------------------------
     override fun encode(new: T, old: T?): ByteArray? {
-        val deltaPayload = when {
+        val delta = when {
             new.isDeleted -> buildDeleteDelta(new)
             old == null -> buildInsertDelta(new)
-            else -> buildUpdateDelta(new, old) ?: run {
-                logger.v { "No diff for key=${new.id}; skipping encoding" }
-                return null
-            }
-        }
+            else -> { buildUpdateDelta(new, old, isResurrection = old.isDeleted) }
+        } ?: return null
 
         return try {
-            val bytes = ProtoBuf.encodeToByteArray(deltaSerializer, deltaPayload)
-            logger.v {
-                "Encoded ${
-                    deltaSerializer.descriptor.serialName.substringAfterLast(
-                        "."
-                    )
-                } [${bytes.size}B] key=${new.id}"
-            }
+            val bytes = ProtoBuf.encodeToByteArray(deltaSerializer, delta)
+            logger.v { "Encoded ${deltaSerializer.descriptor.serialName.substringAfterLast(".")} [${bytes.size}B] key=${new.id}" }
             bytes
         } catch (e: Exception) {
             logger.e(e) { "Failed to encode delta payload for entity key=${new.id}" }
@@ -65,6 +67,9 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : Any>(
         }
     }
 
+    // -----------------------------------------------------------------
+    // DECODE: Bytes -> D -> T
+    // -----------------------------------------------------------------
     override fun decode(
         bytes: ByteArray,
         context: DecodeContext,
@@ -81,18 +86,41 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : Any>(
 
         val scope = FieldMergeScope(existing?.fieldHlcs ?: ByteArray(0), context.hlc)
         val mergedEntity = scope.mergeDelta(delta, context, existing)
-        return mergedEntity.withFieldHlcs(scope.buildResultBlob())
+        val deleteState = scope.resolveDeleteState(delta.isDeleted, existing?.isDeleted)
+
+        return mergedEntity
+            .withFieldHlcs(scope.buildResultBlob())
+            .withDeleteState(deleteState)
             .also { logger.d { "Decoding finalized. key=${it.id}" } }
     }
 
-    override fun summarize(op: MutationOp, changedTags: List<Int>): String {
-        val op = if (op == MutationOp.DELETE) "DELETE" else "UPSERT"
+    private fun FieldMergeScope.resolveDeleteState(
+        deltaIsDeleted: Boolean?,
+        existingIsDeleted: Boolean?,
+    ): Boolean {
+        val localTombstoneHlc = getTagHlc(TAG_IS_DELETED)
+        val isNewer = localTombstoneHlc == null || incomingHlc > localTombstoneHlc
 
-        with(
-            "OP:${op} ${changedTags.joinToString(prefix = "[", postfix = "]", separator = ",")}"
-        ) {
-            logger.d { "In-Memory Summary: $this" }
-            return this
+        return when {
+            deltaIsDeleted == true -> {
+                if (isNewer) {
+                    updateTag(TAG_IS_DELETED, incomingHlc)
+                    true
+                } else {
+                    existingIsDeleted ?: true
+                }
+            }
+
+            existingIsDeleted == true -> {
+                if (isNewer) {
+                    updateTag(TAG_IS_DELETED, incomingHlc)
+                    false
+                } else {
+                    true
+                }
+            }
+
+            else -> false
         }
     }
 
@@ -137,18 +165,28 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : Any>(
         }
     }
 
+    override fun summarize(op: MutationOp, changedTags: List<Int>): String {
+        val op = if (op == MutationOp.DELETE) "DELETE" else "UPSERT"
+
+        with(
+            "OP:${op} ${changedTags.joinToString(prefix = "[", postfix = "]", separator = ",")}"
+        ) {
+            logger.d { "In-Memory Summary: $this" }
+            return this
+        }
+    }
+
     /**
      * Automatically computes Tags 1 & 2 (id, isDeleted)
      * and delegates domain field diffing (Tag 3+) to [computeDomainChangedTags].
      */
     override fun computeChangedTags(new: T, old: T?): List<Int> = buildList {
-        val isTombstoneStateChanged =
-            new.isDeleted || (old != null && new.isDeleted != old.isDeleted)
+        val isTombstoneStateChanged = new.isDeleted != (old?.isDeleted ?: false)
 
         if (isTombstoneStateChanged) add(TAG_IS_DELETED)
 
         if (!new.isDeleted) {
-            if (old == null || new.id != old.id) add(TAG_PRIMARY_KEY)
+            if (old == null) add(TAG_PRIMARY_KEY)
             addAll(computeDomainChangedTags(new, old))
         }
     }
@@ -156,11 +194,11 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : Any>(
     // --- FEATURE REQUIREMENTS ---
     protected abstract fun buildDeleteDelta(entity: T): D
     protected abstract fun buildInsertDelta(entity: T): D
-    protected abstract fun buildUpdateDelta(new: T, old: T): D?
+    protected abstract fun buildUpdateDelta(new: T, old: T, isResurrection: Boolean): D?
 
     /**
-     * Compute changed tag IDs strictly for domain fields (excluding Tags 1 & 2).
-     * Features only work with [FIRST_DOMAIN_TAG]+
+     * Compute changed tag IDs strictly for domain fields (excluding Tags 1 [LocalFirstDelta.id] & 2 [LocalFirstDelta.isDeleted]).
+     * Features only work from [FIRST_DOMAIN_TAG]+
      */
     protected abstract fun computeDomainChangedTags(new: T, old: T?): List<Int>
 
