@@ -61,7 +61,7 @@ internal class FeatureCodecV1(
 
         return FeatureEntityDeltaV1(
             id = new.id,
-            isDeleted = isResurrection.takeIf { it },
+            isDeleted = false.takeIf { isResurrection },
             triStateValue = triStateValue,
             textValue = textDelta,
             countValue = countDelta,

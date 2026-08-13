@@ -182,26 +182,17 @@ internal class SyncCoordinator(
     }
 
     private suspend fun SyncIntent.checkOverflowState(): SyncIntent {
-        check(payload != null || overflowBlobId != null) {
-            throw MochaException.Persistent.CorruptionDetected(
-                "Data integrity violation for $candidateKey: both payload and blobId are null"
-            )
-        }
-        check(!(payload != null && overflowBlobId != null)) {
-            throw MochaException.Persistent.CorruptionDetected(
-                "Data integrity violation for $candidateKey: payload and blobId are mutually exclusive"
-            )
+        val hasPayload = payload != null
+        val hasBlobId = overflowBlobId != null
+
+        if (hasPayload == hasBlobId) {
+            val message = if (!hasPayload) "both payload and blobId are null" else "payload and blobId are mutually exclusive"
+            throw MochaException.Persistent.StateIssue("Data integrity violation for $candidateKey: $message")
         }
 
-        if (payload == null) {
-            if (overflowBlobId != null) {
-                intentStore.recordIntent(this)
-                logger.w { "Overflow intent staged: $candidateKey" }
-                return this
-            } else {
-                logger.e { "Received null payload with no overflow reference for $candidateKey" }
-                throw MochaException.Persistent.CorruptionDetected("Null payload with no blobId for $candidateKey")
-            }
+        if (!hasPayload) {
+            intentStore.recordIntent(this)
+            logger.w { "Overflow intent staged: $candidateKey" }
         }
 
         return this

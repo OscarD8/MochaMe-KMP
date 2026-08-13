@@ -5,6 +5,7 @@ import com.mochame.sync.common.readLongAt
 import com.mochame.sync.common.readUShortAt
 import com.mochame.sync.common.writeLongAt
 import com.mochame.sync.common.writeIntAsShortAt
+import com.mochame.sync.spi.node.NodeId
 import kotlin.jvm.JvmInline
 import kotlin.uuid.Uuid
 
@@ -26,13 +27,13 @@ internal value class FieldHlcMap(val bytes: ByteArray) {
 
         val index = findTagIndex(tagId) ?: return null
         val ts = bytes.readLongAt(index + 1)
-        val count = bytes.readUShortAt(index + 9).toInt()
+        val count = bytes.readUShortAt(index + 9)
 
         val msb = bytes.readLongAt(index + 11)
         val lsb = bytes.readLongAt(index + 19)
-        val uuid = Uuid.fromLongs(msb, lsb)
+        val nodeId = NodeId(Uuid.fromLongs(msb, lsb))
 
-        return HLC(ts = ts, count = count, nodeId = uuid)
+        return HLC(ts = ts, count = count, nodeId = nodeId)
     }
 
     fun updateTag(tagId: Int, hlc: HLC): FieldHlcMap {

@@ -1,12 +1,15 @@
 package com.mochame.sync.common
 
 // -------------------------------------------------------------------
-// Expects that the instance (which is endian-neutral) has been
-// written in Big-Endian.
+// Platform agnostic. Expects that the instance (which is endian-neutral)
+// has been written in Big-Endian.
 // -------------------------------------------------------------------
 
+// -----------------------------------------------------------
+// READ
+// -----------------------------------------------------------
 /**
- * Reading a Big-Endian signed Long.
+ * Reading from a ByteArray stored in Big-Endian.
  */
 @Suppress("NOTHING_TO_INLINE")
 internal inline fun ByteArray.readLongAt(offset: Int): Long =
@@ -32,12 +35,12 @@ internal inline fun ByteArray.readULong(offset: Int): ULong =
 
 /**
  * Reading a Big-Endian unsigned short.
- * Because 16 bits are packed into a 32-bit Int, the highest bit of the 16-bit number sits at bit position 15.
- */
+ * Assumes value is in range 0..65535 (bits 16..31 are zero).
+ **/
 @Suppress("NOTHING_TO_INLINE")
-internal inline fun ByteArray.readUShortAt(offset: Int): UShort =
+internal inline fun ByteArray.readUShortAt(offset: Int): Int =
     (((this[offset].toInt() and 0xFF) shl 8) or
-            (this[offset + 1].toInt() and 0xFF)).toUShort()
+            (this[offset + 1].toInt() and 0xFF))
 
 @Suppress("NOTHING_TO_INLINE")
 internal inline fun ByteArray.readShortAt(offset: Int): Short =
@@ -58,7 +61,9 @@ internal inline fun ByteArray.readUIntAt(offset: Int): UInt =
             ((this[offset + 2].toInt() and 0xFF) shl 8) or
             (this[offset + 3].toInt() and 0xFF)).toUInt()
 
-
+// -----------------------------------------------------------
+// WRITE
+// -----------------------------------------------------------
 /**
  * [ushr] to process bytes from highest value first (assuming Big Endian),
  * slicing them with [toByte], and placing that isolated Byte at the offset.

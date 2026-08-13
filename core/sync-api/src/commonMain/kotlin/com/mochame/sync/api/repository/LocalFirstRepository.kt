@@ -140,7 +140,6 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         }
     }
 
-
     // -----------------------------------------------------------
     // ACCESS
     // -----------------------------------------------------------
@@ -159,8 +158,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         fetchExistingState = { fetch(it) },
         computeChange = computeChange,
         persist = { save(it) },
-        onSkip = { logger.v { "Local Deletion Skipped. ID:${it?.id}. HLC: ${it?.hlc}" }.let { 0L } }
-    )
+        onSkip = { logger.v { "Local Upsert Skipped. ID:${it?.id}. HLC: ${it?.hlc}" }.let { 0L } })
 
     protected suspend inline fun localUpsert(
         candidateKey: Long,
@@ -213,18 +211,15 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         onSkip = onSkip
     )
 
-    /**
-     * If this process fails, the intent is persisted already. It must be ensured that the intent record
-     * is not updated to a status that marks it for pruning until confirmation of the below.
-     */
     override suspend fun processRemoteIntent(context: DecodeContext, payload: ByteArray?) {
         if (payload == null) {
-            if (context.overflowBlobId == null) {
-                logger.e { "Should not have received null payload with no overflowId for ${context.candidateKey}." }
-                throw MochaException.Persistent.CorruptionDetected("Should not have received null payload with no overflowId for ${context.candidateKey}")
-            }
-            // Intent is persisted by Coordinator
-            logger.d { "Branching to overflow processing. [Key: ${context.candidateKey}] [blobId: ${context.overflowBlobId}]." }
+            val blobId = context.overflowBlobId ?: throw MochaException.Persistent.StateIssue(
+                "Received null payload with no overflowId for ${context.candidateKey}"
+            )
+
+            logger.d { "Branching to overflow processing. [Key: ${context.candidateKey}] [blobId: $blobId]." }
+            // TODO: Call actual overflow fetching/processing here
+            return
         }
 
         processIntent(
@@ -232,7 +227,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             incomingHlc = context.hlc,
             op = context.op,
             fetchExistingState = { fetch(context.candidateKey) },
-            computeChange = { codec.routedDecode(payload!!, context, it) },
+            computeChange = { codec.routedDecode(payload, context, it) },
             persist = { stamped -> save(stamped) },
             onSkip = {
                 logger.v { "Remote intent skipped. ID:${it?.id}. HLC: ${it?.hlc}" }.let { 0L }
@@ -244,7 +239,6 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     protected abstract suspend fun fetch(id: Long): T?
     protected abstract suspend fun save(entity: T): Long
     protected abstract suspend fun compactState(newState: T, existing: T?): T
-
 
     // -----------------------------------------------------------
     // HELPERS
@@ -261,7 +255,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     ): Boolean {
         if (existing == null) {
             // Local/Remote Upserts always require Field-Level processing
-            if (op != MutationOp.DELETE) return false
+            if (op == MutationOp.UPSERT) return false
             if (incomingHlc != null) return true
             else {
                 // If this is to be graceful by calling onSkip - consider change of default onSkip logging for Delete
@@ -287,10 +281,10 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         existingState: T?,
         changedTags: List<Int>,
         persistAction: suspend () -> Long,
-        onSkipAction: (fallback: T) -> Long
+        onSkipAction: (fallback: T?) -> Long
     ): Long {
         val payload = codec.routedEncode(stampedState, existingState)
-            ?: return onSkipAction(stampedState)
+            ?: return onSkipAction(existingState)
 
         val summary = codec.routedSummarize(op, changedTags)
         val hlc = stampedState.hlc
