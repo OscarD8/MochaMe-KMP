@@ -53,17 +53,17 @@ internal class DailyContextCodecV1(
     override fun buildUpdateDelta(
         new: DailyContext,
         old: DailyContext,
-        isResurrection: Boolean
+        isRestored: Boolean
     ): DailyContextDeltaV1? {
         val sleep = new.sleepHours diff old.sleepHours
         val readiness = new.readinessScore diff old.readinessScore
         val napped = new.isNapped diff old.isNapped
 
-        if (sleep == null && readiness == null && napped == null && !isResurrection) return null
+        if (sleep == null && readiness == null && napped == null && !isRestored) return null
 
         return DailyContextDeltaV1(
             id = new.id,
-            isDeleted = false.takeIf { isResurrection },
+            isDeleted = false.takeIf { isRestored },
             sleepHours = sleep,
             readinessScore = readiness,
             isNapped = napped

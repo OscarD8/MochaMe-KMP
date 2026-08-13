@@ -23,7 +23,7 @@ internal data class SyncIntentDeltaV1(
     @ProtoNumber(3) val candidateKey: Long,
     @ProtoNumber(4) val module: String,
     @ProtoNumber(5) val model: String,
-    @ProtoNumber(6) val operation: String,
+    @ProtoNumber(6) val operation: MutationOp = MutationOp.UNKNOWN,
     @ProtoNumber(7) val payloadBlob: ByteArray? = null,
     @ProtoNumber(8) val overflowBlobId: String? = null,
     @ProtoNumber(9) val createdAt: Long
@@ -46,7 +46,7 @@ internal class IntentCodecV1(
                 candidateKey = intent.candidateKey,
                 module = intent.featureContext.featureName,
                 model = intent.featureContext.modelName,
-                operation = intent.operation.name,
+                operation = intent.operation,
                 payloadBlob = intent.payload,
                 overflowBlobId = intent.overflowBlobId,
                 createdAt = intent.createdAt
@@ -81,7 +81,7 @@ internal class IntentCodecV1(
                 hlc = envelope.hlc,
                 candidateKey = envelope.candidateKey,
                 featureContext = FeatureContext.fromModelString(envelope.model),
-                operation = MutationOp.valueOf(envelope.operation),
+                operation = envelope.operation,
                 syncStatus = SyncStatus.RECEIVED,
                 payload = envelope.payloadBlob,
                 overflowBlobId = envelope.overflowBlobId,

@@ -51,17 +51,17 @@ internal class FeatureCodecV1(
     override fun buildUpdateDelta(
         new: FeatureEntity,
         old: FeatureEntity,
-        isResurrection: Boolean
+        isRestored: Boolean
     ): FeatureEntityDeltaV1? {
         val triStateValue = new.triStateValue diff old.triStateValue
         val textDelta = new.textValue diff old.textValue
         val countDelta = new.countValue diff old.countValue
 
-        if (textDelta == null && countDelta == null && triStateValue == null) return null
+        if (textDelta == null && countDelta == null && triStateValue == null && !isRestored) return null
 
         return FeatureEntityDeltaV1(
             id = new.id,
-            isDeleted = false.takeIf { isResurrection },
+            isDeleted = false.takeIf { isRestored },
             triStateValue = triStateValue,
             textValue = textDelta,
             countValue = countDelta,

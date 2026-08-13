@@ -112,7 +112,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     ): Long {
         val existingState = fetchExistingState(candidateKey)
 
-        if (assertEntityLevelRejection(existingState, incomingHlc, op, candidateKey))
+        if (shouldRejectIntent(existingState, incomingHlc, op, candidateKey))
             return onSkip(existingState)
 
         val candidateState = computeChange(existingState)
@@ -158,7 +158,8 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         fetchExistingState = { fetch(it) },
         computeChange = computeChange,
         persist = { save(it) },
-        onSkip = { logger.v { "Local Upsert Skipped. ID:${it?.id}. HLC: ${it?.hlc}" }.let { 0L } })
+        onSkip = { 0L }
+    )
 
     protected suspend inline fun localUpsert(
         candidateKey: Long,
@@ -191,7 +192,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         fetchExistingState = { fetch(it) },
         computeChange = { it!!.withDeleteState(true) },
         persist = { save(it) },
-        onSkip = { logger.v { "Local Deletion Skipped. ID:${it?.id}. HLC: ${it?.hlc}" }.let { 0L } }
+        onSkip = { 0L }
     )
 
     protected suspend inline fun localDelete(
@@ -229,9 +230,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             fetchExistingState = { fetch(context.candidateKey) },
             computeChange = { codec.routedDecode(payload, context, it) },
             persist = { stamped -> save(stamped) },
-            onSkip = {
-                logger.v { "Remote intent skipped. ID:${it?.id}. HLC: ${it?.hlc}" }.let { 0L }
-            }
+            onSkip = { 0L }
         )
     }
 
@@ -243,11 +242,12 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     // -----------------------------------------------------------
     // HELPERS
     // -----------------------------------------------------------
+
     /**
      * Returns true if the entity is rejected.
      */
     @PublishedApi
-    internal fun assertEntityLevelRejection(
+    internal fun shouldRejectIntent(
         existing: T?,
         incomingHlc: HLC?,
         op: MutationOp,
@@ -256,21 +256,32 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         if (existing == null) {
             // Local/Remote Upserts always require Field-Level processing
             if (op == MutationOp.UPSERT) return false
-            if (incomingHlc != null) return true
-            else {
-                // If this is to be graceful by calling onSkip - consider change of default onSkip logging for Delete
-                throw MochaException.Persistent.StateIssue("Delete attempt against non-existent record: $candidateKey.")
-            }
+
+            if (incomingHlc != null)
+                return reject(candidateKey) { "Non-existent local record (remote HLC: $incomingHlc)" }
+
+            throw MochaException.Persistent.StateIssue("Local Delete attempt against non-existent record: $candidateKey.")
         }
 
         deps.hlcFactory.assertValid(existing.hlc, candidateKey)
 
         if (op == MutationOp.DELETE) {
-            if (existing.isDeleted) return true
-            if (incomingHlc != null && incomingHlc <= existing.hlc) return true
+            when {
+                existing.isDeleted ->
+                    return reject(candidateKey) { "Local record is already deleted (HLC: $incomingHlc)" }
+
+                incomingHlc != null && incomingHlc <= existing.hlc ->
+                    return reject(candidateKey) { "Obsolete HLC: local(${existing.hlc}) > remote($incomingHlc)" }
+            }
         }
 
         return false
+    }
+
+    /** Logs the rejection reason and returns `true` to signal intent rejection. */
+    private inline fun reject(candidateKey: Long, crossinline message: () -> String): Boolean {
+        logger.v { "Skipping operation [ID:$candidateKey] -> ${message()}" }
+        return true
     }
 
     @PublishedApi

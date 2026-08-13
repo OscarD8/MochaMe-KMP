@@ -36,9 +36,14 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
 
     init {
         val descriptor = deltaSerializer.descriptor
-        require(descriptor.elementsCount >= 2) { "Schema Error: ${descriptor.serialName} needs at least 2 properties." }
-        require(descriptor.getElementName(0) == "id") { "Schema Error: Tag 1 in ${descriptor.serialName} must be 'id'." }
-        require(descriptor.getElementName(1) == "isDeleted") { "Schema Error: Tag 2 in ${descriptor.serialName} must be 'isDeleted'." }
+        try {
+            require(descriptor.elementsCount >= 2) { "Schema Error: ${descriptor.serialName} needs at least 2 properties." }
+            require(descriptor.getElementName(0) == "id") { "Schema Error: Tag 1 in ${descriptor.serialName} must be 'id'." }
+            require(descriptor.getElementName(1) == "isDeleted") { "Schema Error: Tag 2 in ${descriptor.serialName} must be 'isDeleted'." }
+        } catch (e: IllegalArgumentException) {
+            logger.e(e) { "Invalid Feature Delta Schema Contract: ${descriptor.serialName}" }
+            throw e
+        }
     }
 
     companion object {
@@ -54,8 +59,13 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
         val delta = when {
             new.isDeleted -> buildDeleteDelta(new)
             old == null -> buildInsertDelta(new)
-            else -> { buildUpdateDelta(new, old, isResurrection = old.isDeleted) }
-        } ?: return null
+            else -> {
+                buildUpdateDelta(new, old, isRestored = old.isDeleted)
+            }
+        } ?: run {
+            logger.v { "No delta generated for key=${new.id}; skipping encoding" }
+            return null
+        }
 
         return try {
             val bytes = ProtoBuf.encodeToByteArray(deltaSerializer, delta)
@@ -84,29 +94,32 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
             throw e
         }
 
-        val scope = FieldMergeScope(existing?.fieldHlcs ?: ByteArray(0), context.hlc)
+        val scope = FieldMergeScope(existing?.fieldHlcs ?: ByteArray(0), context.hlc, logger)
         val mergedEntity = scope.mergeDelta(delta, context, existing)
-        val deleteState = scope.resolveDeleteState(delta.isDeleted, existing?.isDeleted)
+        val deleteState = scope.resolveDeleteState(delta.isDeleted, existing?.isDeleted, delta.id)
 
         return mergedEntity
             .withFieldHlcs(scope.buildResultBlob())
             .withDeleteState(deleteState)
-            .also { logger.d { "Decoding finalized. key=${it.id}" } }
+            .also { logger.v { "Decoding finalized. key=${it.id}" } }
     }
 
     private fun FieldMergeScope.resolveDeleteState(
         deltaIsDeleted: Boolean?,
         existingIsDeleted: Boolean?,
+        candidateKey: Long
     ): Boolean {
-        val localTombstoneHlc = getTagHlc(TAG_IS_DELETED)
-        val isNewer = localTombstoneHlc == null || incomingHlc > localTombstoneHlc
+        val localLastDeleteHlc = getTagHlc(TAG_IS_DELETED)
+        val isNewer = localLastDeleteHlc == null || incomingHlc > localLastDeleteHlc
 
         return when {
             deltaIsDeleted == true -> {
                 if (isNewer) {
                     updateTag(TAG_IS_DELETED, incomingHlc)
+                    logger.v { "Tag[$TAG_IS_DELETED] updated [key=$candidateKey]: Marked deleted at HLC=$incomingHlc" }
                     true
                 } else {
+                    logger.v { "Tag[$TAG_IS_DELETED] update dropped [key=$candidateKey]: Local delete HLC ($localLastDeleteHlc) >= incoming ($incomingHlc)" }
                     existingIsDeleted ?: true
                 }
             }
@@ -114,8 +127,10 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
             existingIsDeleted == true -> {
                 if (isNewer) {
                     updateTag(TAG_IS_DELETED, incomingHlc)
+                    logger.i { "Restored [key=$candidateKey]: Incoming update (HLC=$incomingHlc) overrides Tag[$TAG_IS_DELETED] (HLC=$localLastDeleteHlc)" }
                     false
                 } else {
+                    logger.v { "Stale Update Ignored on Deleted Record [key=$candidateKey]: Local Tag[$TAG_IS_DELETED] HLC ($localLastDeleteHlc) >= incoming ($incomingHlc)" }
                     true
                 }
             }
@@ -181,9 +196,9 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
      * and delegates domain field diffing (Tag 3+) to [computeDomainChangedTags].
      */
     override fun computeChangedTags(new: T, old: T?): List<Int> = buildList {
-        val isTombstoneStateChanged = new.isDeleted != (old?.isDeleted ?: false)
+        val deleteStateChange = new.isDeleted != (old?.isDeleted ?: false)
 
-        if (isTombstoneStateChanged) add(TAG_IS_DELETED)
+        if (deleteStateChange) add(TAG_IS_DELETED)
 
         if (!new.isDeleted) {
             if (old == null) add(TAG_PRIMARY_KEY)
@@ -194,7 +209,7 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
     // --- FEATURE REQUIREMENTS ---
     protected abstract fun buildDeleteDelta(entity: T): D
     protected abstract fun buildInsertDelta(entity: T): D
-    protected abstract fun buildUpdateDelta(new: T, old: T, isResurrection: Boolean): D?
+    protected abstract fun buildUpdateDelta(new: T, old: T, isRestored: Boolean): D?
 
     /**
      * Compute changed tag IDs strictly for domain fields (excluding Tags 1 [LocalFirstDelta.id] & 2 [LocalFirstDelta.isDeleted]).

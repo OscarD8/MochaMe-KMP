@@ -1,5 +1,6 @@
 package com.mochame.sync.spi.infrastructure.serialization
 
+import co.touchlab.kermit.Logger
 import com.mochame.sync.api.hlc.HLC
 
 /**
@@ -8,7 +9,8 @@ import com.mochame.sync.api.hlc.HLC
  */
 class FieldMergeScope(
     existingBytes: ByteArray,
-    val incomingHlc: HLC
+    val incomingHlc: HLC,
+    private val logger: Logger
 ) {
     private var index = FieldHlcMap(existingBytes)
 
@@ -26,6 +28,10 @@ class FieldMergeScope(
             index = index.updateTag(tagId, incomingHlc)
             incomingVal
         } else {
+            logger.v {
+                "Field Rejected [tag=$tagId]: " +
+                        "incoming HLC ($incomingHlc) <= local HLC ($localTagHlc). Retaining local value."
+            }
             existingVal
         }
     }
