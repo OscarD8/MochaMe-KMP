@@ -3,7 +3,7 @@ package com.mochame.bio.domain
 import com.mochame.sync.common.TriState
 import kotlinx.coroutines.flow.Flow
 
-interface DailyContextRepository {
+internal interface DailyContextRepository {
 
     /**
      * Initialization Interceptor:

@@ -3,7 +3,9 @@ package com.mochame.sync.spi
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Logger
 import co.touchlab.kermit.TestLogWriter
+import com.mochame.logger.LogTags
 import com.mochame.logger.test.TestLoggerModule
+import com.mochame.logger.withTags
 import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.spi.node.NodeId
 import org.koin.core.annotation.ComponentScan
@@ -39,5 +41,8 @@ internal class SyncApiTestModule
 @Factory
 internal class SyncApiTestEnv(
     val writer: TestLogWriter,
-    val logger: Logger
+    val untaggedLogger: Logger
 )
+
+internal val SyncApiTestEnv.logger
+    get() = untaggedLogger.withTags(LogTags.Layer.SERI, LogTags.Domain.SYNC, "TeCdc1")

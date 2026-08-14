@@ -72,7 +72,7 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
 
         return try {
             val bytes = ProtoBuf.encodeToByteArray(deltaSerializer, delta)
-            logger.v { "Encoded ${deltaSerializer.descriptor.serialName.substringAfterLast(".")} [${bytes.size}B] key=${new.id}" }
+            logger.v { "Encoded $deltaName [${bytes.size}B] key=${new.id}" }
             bytes
         } catch (e: Exception) {
             logger.e(e) { "Failed to encode delta payload for entity key=${new.id}" }
@@ -88,7 +88,7 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
         context: DecodeContext,
         existing: T?
     ): T {
-        logger.v { "Decoding delta [${bytes.size}B] key=${context.candidateKey} hlc=${context.hlc}" }
+        logger.v { "Decoding $deltaName [${bytes.size}B] key=${context.candidateKey} hlc=${context.hlc}" }
 
         val delta = try {
             ProtoBuf.decodeFromByteArray(deltaSerializer, bytes)
@@ -133,7 +133,7 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
                     logger.i { "Restored [key=$candidateKey]: Incoming update (HLC=$incomingHlc) overrides Tag[$TAG_IS_DELETED] (HLC=$localLastDeleteHlc)" }
                     false
                 } else {
-                    logger.v { "Stale Update Ignored on Deleted Record [key=$candidateKey]: Local Tag[$TAG_IS_DELETED] HLC ($localLastDeleteHlc) >= incoming ($incomingHlc)" }
+                    logger.v { "Field Rejected [tag=$TAG_IS_DELETED]: incoming HLC ($incomingHlc) <= local HLC ($localLastDeleteHlc)." }
                     true
                 }
             }
@@ -229,6 +229,9 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
         existing: T?
     ): T
 
+
+    private val BaseFeatureCodec<T, D>.deltaName
+        get() = this.deltaSerializer.descriptor.serialName.substringAfterLast(".")
 }
 
 @Suppress("NOTHING_TO_INLINE")

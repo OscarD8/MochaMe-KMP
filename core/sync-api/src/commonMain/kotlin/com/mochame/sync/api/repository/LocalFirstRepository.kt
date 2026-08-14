@@ -342,10 +342,10 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             if (blobId != null) {
                 if (!dbCommitted) {
                     deps.blobStore.abort(blobId).also {
-                        logger.e { "Mutation Failed: Blob Aborted | HLC: $hlc | BlobID: $it | Reason: ${e.message}" }
+                        logger.e { "Intent Failed: Blob Aborted | HLC: $hlc | BlobID: $it | Reason: ${e.message}" }
                     }
                 } else {
-                    logger.w(e) { "Post-Commit IO Failure: Blob $blobId stranded in /pending. Janitor will reconcile [${e.message}]." }
+                    logger.w(e) { "Post-Commit IO Failure: Blob $blobId in /pending. Janitor will reconcile [${e.message}]." }
                     throw MochaException.Transient.BlobResolutionPending(blobId)
                 }
             } else {

@@ -30,7 +30,7 @@ class FieldMergeScope(
         } else {
             logger.v {
                 "Field Rejected [tag=$tagId]: " +
-                        "incoming HLC ($incomingHlc) <= local HLC ($localTagHlc). Retaining local value."
+                        "incoming HLC ($incomingHlc) <= local HLC ($localTagHlc)."
             }
             existingVal
         }

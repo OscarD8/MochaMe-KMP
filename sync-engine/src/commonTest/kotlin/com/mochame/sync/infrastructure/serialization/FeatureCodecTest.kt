@@ -291,7 +291,7 @@ class FeatureCodecTest : MochaPlatformTest() {
         )
         assertFalse(finalEntity.isDeleted, "Newer update must resurrect entity")
         assertEquals("hello again", finalEntity.textValue)
-        assertNotSame(deletedEntity.fieldHlcs, finalEntity.fieldHlcs)
+        assertNotSame(persistedDelete.fieldHlcs, finalEntity.fieldHlcs)
     }
 
     @Test

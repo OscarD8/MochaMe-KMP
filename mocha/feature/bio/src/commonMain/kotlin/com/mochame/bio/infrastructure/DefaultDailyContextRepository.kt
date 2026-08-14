@@ -38,7 +38,7 @@ internal class DefaultDailyContextRepository(
         isNapped: TriState
     ): Long {
         val mochaDay = timeUtils.getMochaDay()
-        val draftContext = DailyContext(
+        val draftState = DailyContext(
             id = mochaDay,
             sleepHours = sleepHours,
             readinessScore = readinessScore,
@@ -47,7 +47,7 @@ internal class DefaultDailyContextRepository(
 
         return localUpsert(
             candidateKey = mochaDay,
-            computeChange = { existing -> compactState(draftContext, existing) }
+            computeChange = { existing -> compactState(draftState, existing) }
         )
     }
 
