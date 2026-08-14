@@ -10,7 +10,7 @@ import kotlin.jvm.JvmInline
 import kotlin.uuid.Uuid
 
 /**
- * Inlines the [bytes] property
+ * Inlines the [bytes] property. Performs no causality logic and is immutable.
  */
 @JvmInline
 @PublishedApi

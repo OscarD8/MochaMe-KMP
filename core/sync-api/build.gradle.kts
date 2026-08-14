@@ -1,5 +1,5 @@
 plugins {
-    id("mocha.convention.provider")
+    id("mocha.convention.logic")
     alias(libs.plugins.kotlinSerialization)
 }
 
@@ -13,7 +13,6 @@ kotlin {
             implementation(libs.kotlinx.coroutines.core)
 
             implementation(project(":core:logger"))
-            implementation(project(":core:annotations"))
         }
     }
 }

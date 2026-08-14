@@ -4,13 +4,13 @@ import com.mochame.utils.fixtures.TestHlcFactory
 import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.spi.node.NodeContext
 import com.mochame.sync.spi.node.NodeId
-import com.mochame.utils.fixtures.TestNodeIds
+import com.mochame.utils.fixtures.TestNodeId
 
 /**
  * Generates a deterministic NodeContextEntity with standard test defaults.
  */
 fun createTestNodeContextEntity(
-    nodeId: String = TestNodeIds.ONE.toString(),
+    nodeId: String = TestNodeId.A.toString(),
     appVersion: Int = 1,
     createdAt: Long = TestHlcFactory.BASE_TEST_TIME,
     lastServerWatermark: String? = null,
@@ -32,7 +32,7 @@ fun createTestNodeContextEntity(
  * Generates a deterministic domain NodeContext with standard test defaults.
  */
 fun createTestNodeContext(
-    nodeId: NodeId = TestNodeIds.ONE,
+    nodeId: NodeId = TestNodeId.A,
     appVersion: Int = 1,
     createdAt: Long = TestHlcFactory.BASE_TEST_TIME,
     lastServerWatermark: String? = null,

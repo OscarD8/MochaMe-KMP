@@ -6,8 +6,7 @@ import com.mochame.support.MochaPlatformTest
 import com.mochame.utils.fixtures.TestHlcFactory
 import com.mochame.support.getPhysicalRowCount
 import com.mochame.support.runPersistenceEnvironment
-import com.mochame.sync.spi.node.NodeId
-import com.mochame.utils.fixtures.TestNodeIds
+import com.mochame.utils.fixtures.TestNodeId
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.joinAll
@@ -126,7 +125,7 @@ class NodeContextDaoTest : MochaPlatformTest() {
     @Test
     fun should_rejectHlcUpdate_when_incomingHlcIsOlderOrEqual() = runEnv {
         // Given
-        val fallbackId = TestNodeIds.ONE
+        val fallbackId = TestNodeId.A
         dao.getOrEstablish(fallbackId = fallbackId.toString(), baseVersion = 1, createdAt = 1000L)
 
         val baseHlc = TestHlcFactory.create(ts = 1000L, count = 5, nodeId = fallbackId)
@@ -159,7 +158,7 @@ class NodeContextDaoTest : MochaPlatformTest() {
     @Test
     fun should_initiateHlcFloor_when_transitioningFromNullState() = runEnv {
         // Given
-        val fallbackId = TestNodeIds.ONE
+        val fallbackId = TestNodeId.A
         dao.getOrEstablish(fallbackId = fallbackId.toString(), baseVersion = 10, createdAt = 1000L)
         val initialHlc = TestHlcFactory.create(ts = 1000L, count = 0, nodeId = fallbackId)
 
@@ -174,7 +173,7 @@ class NodeContextDaoTest : MochaPlatformTest() {
     @Test
     fun should_overwriteStoredHlc_when_incomingHlcIsLogicallyGreater() = runEnv {
         // Given
-        val fallbackId = TestNodeIds.ONE
+        val fallbackId = TestNodeId.A
         dao.getOrEstablish(fallbackId = fallbackId.toString(), baseVersion = 1, createdAt = 1000L)
 
         val baseHlc = TestHlcFactory.create(ts = 1000L, count = 1, nodeId = fallbackId)

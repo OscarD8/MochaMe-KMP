@@ -21,6 +21,7 @@ kotlin {
         commonMain.dependencies {
             implementation(project(":core:utils"))
             implementation(project(":core:logger"))
+            implementation(project(":core:sync-api"))
 
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.datetime)

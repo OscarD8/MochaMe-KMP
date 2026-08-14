@@ -11,8 +11,7 @@ import com.mochame.utils.fixtures.TestHlcFactory
 import com.mochame.support.getPhysicalRowCount
 import com.mochame.support.runPersistenceEnvironment
 import com.mochame.sync.spi.node.NodeContext
-import com.mochame.sync.spi.node.NodeId
-import com.mochame.utils.fixtures.TestNodeIds
+import com.mochame.utils.fixtures.TestNodeId
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -68,7 +67,7 @@ class NodeContextManagerTest : MochaPlatformTest() {
         val expectedHlc =
             TestHlcFactory.create(ts = 15000L, count = 4)
         val populatedDomainContext = NodeContext(
-            nodeId = TestNodeIds.ONE,
+            nodeId = TestNodeId.A,
             appVersion = 12,
             createdAt = 1000L,
             lastServerWatermark = "server-sync-token-xyz",
