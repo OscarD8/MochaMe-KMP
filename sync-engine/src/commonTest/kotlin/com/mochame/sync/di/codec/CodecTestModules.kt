@@ -27,10 +27,6 @@ internal class CodecTestApp
 @KoinApplication(modules = [CodecFixtureModule::class])
 internal class CodecFixtureTestApp
 
-@KoinApplication(modules = [CodecIntegrationTestModule::class])
-internal class CodecIntegrationTestApp
-
-
 @Module(includes = [TestLoggerModule::class, FakeBufferProviderModule::class])
 @ComponentScan( "com.mochame.sync.fixtures.serialization")
 internal class CodecTestModule
@@ -38,25 +34,6 @@ internal class CodecTestModule
 @Module(includes = [TestLoggerModule::class, FakeBufferProviderModule::class, SyncInfraModule::class])
 @ComponentScan( "com.mochame.sync.fixtures.serialization", "com.mochame.sync.di.codec")
 internal class CodecFixtureModule
-
-@Module(includes = [TestLoggerModule::class, FakeBufferProviderModule::class, SyncInfraModule::class])
-@ComponentScan( "com.mochame.sync.fixtures.serialization", "com.mochame.sync.di.codec")
-internal class CodecIntegrationTestModule
-
-
-@ExperimentalKermitApi
-@Factory
-internal class CodecIntegrationTestEnv(
-    val featureCodec: FeatureCodecV1,
-    val featureRouter: FeatureCodecRouter,
-    val intentRouter: IntentCodecRouter,
-    val intentCodec: IntentCodecV1,
-    val batchCodec: BatchCodecV1,
-    val batchRouter: BatchCodecRouter,
-    val payloadCodec: DefaultPayloadCodec,
-    val writer: TestLogWriter,
-    val logger: Logger
-)
 
 @ExperimentalKermitApi
 @Factory

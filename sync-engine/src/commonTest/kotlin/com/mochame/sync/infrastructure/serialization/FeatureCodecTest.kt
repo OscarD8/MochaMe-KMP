@@ -8,9 +8,11 @@ import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.common.TriState
 import com.mochame.sync.di.codec.CodecTestApp
-import com.mochame.sync.fixtures.serialization.FeatureEntity
 import com.mochame.sync.fixtures.serialization.FeatureCodecV1
+import com.mochame.sync.fixtures.serialization.FeatureEntity
 import com.mochame.sync.fixtures.serialization.FeatureEntityDeltaV1
+import com.mochame.sync.fixtures.serialization.assertDecodeParity
+import com.mochame.sync.fixtures.serialization.deriveContext
 import com.mochame.sync.spi.models.DecodeContext
 import com.mochame.utils.fixtures.TestHlcFactory
 import kotlinx.coroutines.test.TestScope
@@ -24,7 +26,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNotSame
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 
@@ -140,59 +144,154 @@ class FeatureCodecTest : MochaPlatformTest() {
     // -------------------------------------------------------------------
 
     @Test
-    fun should_hydrateFullEntity_when_existingStateIsNull() = runEnv {
+    fun should_hydrateFullEntityAndInternalizeFieldLWW_when_existingStateIsNull() = runEnv {
         // Given
-        val originalEntity = FeatureEntity()
-        val inboundBytes = encode(new = originalEntity, old = null)!!
-        val context = DecodeContext(
-            candidateKey = originalEntity.id,
-            hlc = originalEntity.hlc,
-            op = MutationOp.UPSERT,
-            featureSchemaVersion = 1
+        val insertEntity = FeatureEntity(
+            id = 1000L,
+            triStateValue = TriState.TRUE,
+            textValue = "initial payload",
+            countValue = 42,
+            fieldHlcs = ByteArray(0)
         )
+        val inboundBytes = encode(new = insertEntity, old = null)!!
+        val context = insertEntity.deriveContext(op = MutationOp.UPSERT)
 
         // When
-        val hydrated =
-            decode(bytes = inboundBytes, context = context, existing = null)
+        val hydrated = decode(bytes = inboundBytes, context = context, existing = null)
 
-        assertEquals(originalEntity.id, hydrated.id)
-        assertEquals(originalEntity.hlc, hydrated.hlc)
-        assertEquals(originalEntity.hlc.ts, hydrated.lastModified)
-        assertEquals(originalEntity.triStateValue, hydrated.triStateValue)
-        assertEquals(originalEntity.textValue, hydrated.textValue)
-        assertEquals(originalEntity.countValue, hydrated.countValue)
-        assertFalse(hydrated.isDeleted)
+        // Then: Values match and fieldHlcs is populated with an opaque non-empty blob
+        hydrated.assertDecodeParity(insertEntity)
+        assertTrue(
+            hydrated.fieldHlcs.isNotEmpty(),
+            "Codec must generate an opaque fieldHlcs tracking blob"
+        )
     }
 
     @Test
-    fun should_mergeSparseDelta_with_existingLocalEntity() = runEnv {
-        val existingEntity = FeatureEntity()
+    fun should_mergeSparseDeltaAndPreserveUnchangedFields_when_incomingHlcIsNewer() = runEnv {
+        // Given:  Hydrate initial entity (gets real underlying binary blob)
+        val hlcs = TestHlcFactory.chronologicalSequence(2)
+        val fieldHlclessEntity =
+            FeatureEntity(id = 1000L, hlc = hlcs[0], countValue = 10, textValue = "keep me")
+        val initialEntity = decode(
+            bytes = encode(new = fieldHlclessEntity, old = null)!!,
+            context = fieldHlclessEntity.deriveContext(),
+            existing = null
+        )
 
-        // When (Device A: Update & Encode)
-        val updatedEntity = existingEntity.copy(countValue = 50)
-        val sparseBytes = encode(new = updatedEntity, old = existingEntity)!!
+        // Given: Remote delta mutates ONLY countValue at a newer HLC (hlcs[1] > hlcs[0])
+        val updatedSparseEntity = initialEntity.copy(countValue = 50, hlc = hlcs[1])
+        val sparseBytes = encode(new = updatedSparseEntity, old = initialEntity)!!
+        val remoteContext = updatedSparseEntity.deriveContext()
 
-        // When (Device B: Decode)
-        val newContext = DecodeContext(
-            candidateKey = updatedEntity.id,
-            hlc = updatedEntity.hlc,
+        // When: Decode sparse delta over existing entity
+        val merged = decode(bytes = sparseBytes, context = remoteContext, existing = initialEntity)
+
+        // Then: Mutated field updates while omitted field remains intact
+        assertEquals(50, merged.countValue, "Mutated countValue must update to 50")
+        assertEquals("keep me", merged.textValue, "Omitted textValue must remain intact")
+        assertNotSame(
+            merged.fieldHlcs,
+            initialEntity.fieldHlcs,
+            "Binary Blob should adjust for changed causality."
+        )
+    }
+
+    @Test
+    fun should_rejectSparseFieldUpdate_when_incomingHlcIsOlderThanLocalField() = runEnv {
+        // Given: Local entity hydrated at newer clock (hlcs[1])
+        val hlcs = TestHlcFactory.chronologicalSequence(2)
+        val olderHlc = hlcs[0]
+        val newerHlc = hlcs[1]
+
+        val existingEntity = decode(
+            bytes = encode(new = FeatureEntity(id = 1000L, countValue = 100), old = null)!!,
+            context = DecodeContext(
+                candidateKey = 1000L,
+                hlc = newerHlc,
+                op = MutationOp.UPSERT,
+                featureSchemaVersion = 1
+            ),
+            existing = null
+        )
+
+        // Given: Inbound stale delta attempting to overwrite countValue with older clock (olderHlc)
+        val staleSparseBytes = encode(
+            new = existingEntity.copy(countValue = 20, hlc = olderHlc),
+            old = existingEntity
+        )!!
+        val staleContext = DecodeContext(
+            candidateKey = existingEntity.id,
+            hlc = olderHlc,
             op = MutationOp.UPSERT,
             featureSchemaVersion = 1
         )
-        val merged = decode(sparseBytes, newContext, existingEntity)
 
-        assertEquals(existingEntity.id, merged.id)
-        assertEquals(50, merged.countValue, "Mutated field must update")
+        // When: Decode stale update against newer existing entity
+        val decoded =
+            decode(bytes = staleSparseBytes, context = staleContext, existing = existingEntity)
+
+        // Then: LWW rejects the stale value; existing local value (100) is preserved
         assertEquals(
-            existingEntity.textValue,
-            merged.textValue,
-            "Omitted textValue must remain untouched"
+            100,
+            decoded.countValue,
+            "Stale countValue (20) must be rejected by LWW in favor of local (100)"
         )
-        assertEquals(
-            TriState.TRUE,
-            merged.triStateValue,
-            "Omitted triStateValue must remain untouched"
+        assertSame(
+            decoded.fieldHlcs,
+            existingEntity.fieldHlcs,
+            "Binary Blob should adjust for changed causality."
         )
+    }
+
+    @Test
+    fun should_trackDeletionAndEnforceRestoreLww_when_processingDeletionLifecycle() = runEnv {
+        val hlcs = TestHlcFactory.chronologicalSequence(4)
+        val hlcInsert = hlcs[0]
+        val hlcDelete = hlcs[1]
+        val hlcRestore = hlcs[3]
+        val initialEntity = FeatureEntity(id = 1000L, hlc = hlcInsert, textValue = "alive")
+
+
+        // 1. Initial Insert
+        val decodedInitial = decode(
+            bytes = encode(new = initialEntity, old = null)!!,
+            context = initialEntity.deriveContext(),
+            existing = null
+        )
+        assertFalse(decodedInitial.isDeleted)
+
+        // 2. Delete (hlcDelete > hlcInsert)
+        val deletedEntity = decodedInitial.copy(isDeleted = true, hlc = hlcDelete)
+        val deleteBytes = encode(new = deletedEntity, old = decodedInitial)!!
+        val decodedDeleted = decode(
+            bytes = deleteBytes,
+            context = deletedEntity.deriveContext(),
+            existing = decodedInitial
+        )
+        assertTrue(decodedDeleted.isDeleted, "Entity must be marked deleted")
+
+        // 3. Stale Upsert Attempt (hlcInsert < hlcDelete)
+        val staleEntity = decodedInitial.copy(textValue = "stale edit")
+        val persistedDelete = decode(
+            bytes = encode(new = staleEntity, old = null)!!,
+            context = staleEntity.deriveContext(),
+            existing = decodedDeleted
+        )
+        assertTrue(persistedDelete.isDeleted, "Stale upsert must not restore deleted entity")
+
+        // 4. Valid Restore Upsert (hlcRestore > hlcDelete)
+        val restoredEntity = decodedInitial.copy(textValue = "hello again", hlc = hlcRestore)
+        val restoreBytes = encode(new = restoredEntity, old = null)!!
+
+        val finalEntity = decode(
+            bytes = restoreBytes,
+            context = restoredEntity.deriveContext(),
+            existing = persistedDelete
+        )
+        assertFalse(finalEntity.isDeleted, "Newer update must resurrect entity")
+        assertEquals("hello again", finalEntity.textValue)
+        assertNotSame(deletedEntity.fieldHlcs, finalEntity.fieldHlcs)
     }
 
     @Test
@@ -204,19 +303,13 @@ class FeatureCodecTest : MochaPlatformTest() {
         val bytes = encode(new = clearedEntity, old = existingEntity)!!
 
         // When (Device B: Decode)
-        val context = DecodeContext(
-            candidateKey = existingEntity.id,
-            hlc = existingEntity.hlc,
-            op = MutationOp.UPSERT,
-            featureSchemaVersion = 1
-        )
-        val decoded =
-            decode(bytes = bytes, context = context, existing = existingEntity)
+        val context = clearedEntity.deriveContext()
+        val decoded = decode(bytes = bytes, context = context, existing = existingEntity)
 
         assertEquals(
             "",
             decoded.textValue,
-            "Empty string delta must overwrite existing non-empty value"
+            "Empty string delta must overwrite existing non-empty value and be included in delta"
         )
         assertEquals(existingEntity.id, decoded.id)
     }
@@ -343,7 +436,11 @@ class FeatureCodecTest : MochaPlatformTest() {
 
         val summary = reconstructSummary(emptyBytes)
 
-        assertEquals("OP:INVALID_EMPTY_BYTES", summary, "Empty ByteArray must short-circuit upfront")
+        assertEquals(
+            "OP:INVALID_EMPTY_BYTES",
+            summary,
+            "Empty ByteArray must short-circuit upfront"
+        )
     }
 
     @Test
@@ -353,7 +450,11 @@ class FeatureCodecTest : MochaPlatformTest() {
 
         val summary = reconstructSummary(truncatedVarintBytes)
 
-        assertEquals("OP:CORRUPT_PACKET", summary, "Truncated MSB varint must trigger OP:CORRUPT_PACKET")
+        assertEquals(
+            "OP:CORRUPT_PACKET",
+            summary,
+            "Truncated MSB varint must trigger OP:CORRUPT_PACKET"
+        )
     }
 
     @Test
@@ -363,7 +464,11 @@ class FeatureCodecTest : MochaPlatformTest() {
 
         val summary = reconstructSummary(invalidWireTypeBytes)
 
-        assertEquals("OP:CORRUPT_PACKET", summary, "Unsupported wire type (6) must trigger OP:CORRUPT_PACKET")
+        assertEquals(
+            "OP:CORRUPT_PACKET",
+            summary,
+            "Unsupported wire type (6) must trigger OP:CORRUPT_PACKET"
+        )
     }
 
     @Test

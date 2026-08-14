@@ -286,18 +286,3 @@ class FieldHlcMapTest : MochaPlatformTest() {
     }
 
 }
-
-// ===================================================================
-// TEST HELPERS
-// ===================================================================
-
-internal object TestNodeId {
-    val A = NodeId(Uuid.fromLongs(1L, 100L))
-    val B = NodeId(Uuid.fromLongs(2L, 200L))
-}
-
-internal fun createHlc(
-    ts: Long = 1000L,
-    count: Int = 1,
-    nodeId: NodeId = TestNodeId.A
-): HLC = HLC(ts = ts, count = count, nodeId = nodeId)

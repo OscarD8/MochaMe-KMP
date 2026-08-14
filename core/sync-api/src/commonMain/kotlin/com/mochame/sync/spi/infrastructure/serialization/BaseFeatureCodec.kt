@@ -55,6 +55,9 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
     // -----------------------------------------------------------------
     // ENCODE: T -> D -> Bytes
     // -----------------------------------------------------------------
+    /**
+     * Returns null on an update operation presenting no field changes.
+     */
     override fun encode(new: T, old: T?): ByteArray? {
         val delta = when {
             new.isDeleted -> buildDeleteDelta(new)

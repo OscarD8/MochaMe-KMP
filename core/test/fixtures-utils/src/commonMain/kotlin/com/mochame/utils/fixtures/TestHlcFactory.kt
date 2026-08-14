@@ -10,7 +10,7 @@ import kotlin.time.Instant
  */
 object TestHlcFactory {
 
-    val DEFAULT_NODE = NodeId.ZERO
+    val DEFAULT_NODE = TestNodeId.A
 
     /**
      * Fixed base time: Thursday, July 9, 2026

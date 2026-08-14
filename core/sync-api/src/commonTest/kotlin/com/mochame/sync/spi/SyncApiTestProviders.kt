@@ -1,0 +1,43 @@
+package com.mochame.sync.spi
+
+import co.touchlab.kermit.ExperimentalKermitApi
+import co.touchlab.kermit.Logger
+import co.touchlab.kermit.TestLogWriter
+import com.mochame.logger.test.TestLoggerModule
+import com.mochame.sync.api.hlc.HLC
+import com.mochame.sync.spi.node.NodeId
+import org.koin.core.annotation.ComponentScan
+import org.koin.core.annotation.Factory
+import org.koin.core.annotation.KoinApplication
+import org.koin.core.annotation.Module
+import kotlin.test.assertEquals
+import kotlin.uuid.Uuid
+
+internal object TestNodeId {
+    val A = NodeId(Uuid.fromLongs(1L, 100L))
+    val B = NodeId(Uuid.fromLongs(2L, 200L))
+}
+
+internal fun createHlc(
+    ts: Long = 1000L,
+    count: Int = 1,
+    nodeId: NodeId = TestNodeId.A
+): HLC = HLC(ts = ts, count = count, nodeId = nodeId)
+
+@OptIn(ExperimentalKermitApi::class)
+internal fun TestLogWriter.assertFieldRejectionLogCount(expectedCount: Int) =
+    assertEquals(expectedCount, this.logs.count { it.message.contains("Field Rejected") })
+
+@KoinApplication(modules = [SyncApiTestModule::class])
+internal class SyncApiTestApp
+
+@Module(includes = [TestLoggerModule::class])
+@ComponentScan("com.mochame.sync.spi")
+internal class SyncApiTestModule
+
+@OptIn(ExperimentalKermitApi::class)
+@Factory
+internal class SyncApiTestEnv(
+    val writer: TestLogWriter,
+    val logger: Logger
+)
