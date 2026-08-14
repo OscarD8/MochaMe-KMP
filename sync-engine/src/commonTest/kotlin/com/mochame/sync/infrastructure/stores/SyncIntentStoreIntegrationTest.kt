@@ -116,7 +116,7 @@ internal class SyncIntentStoreIntegrationTest : MochaPlatformTest() {
     @Test
     fun should_returnEmptyList_when_noPendingIntentsExistForModule() = runEnv {
         // Given
-        val targetFeature = FeatureContext.Type.UNRECOGNIZED_MODEL
+        val targetFeature = FeatureContext.UNRECOGNIZED_MODEL
 
         // When
         val result = intentStore.getPendingByFeature(targetFeature)
@@ -129,7 +129,7 @@ internal class SyncIntentStoreIntegrationTest : MochaPlatformTest() {
     @Test
     fun should_emitUpdatedSummary_when_intentIsQuarantined() = runEnv {
         // Given
-        val targetModule = FeatureContext.Type.UNRECOGNIZED_MODEL
+        val targetModule = FeatureContext.UNRECOGNIZED_MODEL
         val hlc = TestHlcFactory.create()
 
         // When
@@ -148,7 +148,7 @@ internal class SyncIntentStoreIntegrationTest : MochaPlatformTest() {
             assertEquals(1, updatedList.size)
 
             val summary = updatedList.first()
-            assertEquals(targetModule, summary.feature)
+            assertEquals(targetModule, summary.featureContext)
             assertEquals(1, summary.count)
 
             cancelAndIgnoreRemainingEvents()

@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.Flow
  * Responsibilities involve:
  * - Ingestion & Ordering, Leasing & Batching, State Management & Recovery.
  *
- *  On ingestion, it must accept local modifications from features, and order those mutations in
+ *  On ingestion, it must accept local modifications from featureContexts, and order those mutations in
  * way that ensures outbound batching reaches the longest pending intents first.
  * This component must ensure an atomic claim phase where no two sessions should ever grab
  * overlapping intents. It must ensure Success states clear the sessionID and updates the status.
@@ -44,12 +44,12 @@ interface SyncIntentDao {
     @Query(
         """
         SELECT * FROM SyncIntentEntity
-        WHERE feature = :featureName
+        WHERE featureContext = :featureContextName
         AND syncStatus = :status
     """
     )
     suspend fun getPendingByFeature(
-        featureName: String,
+        featureContextName: String,
         status: SyncStatus = SyncStatus.PENDING
     ): List<SyncIntentEntity>
 
@@ -197,10 +197,10 @@ interface SyncIntentDao {
 
     @Query(
         """
-        SELECT feature, COUNT(*) AS count
+        SELECT featureContext, COUNT(*) AS count
         FROM SyncIntentEntity
         WHERE syncStatus = :quarantinedStatus 
-        GROUP BY feature
+        GROUP BY featureContext
     """
     )
     fun observeQuarantinedCountByModule(quarantinedStatus: SyncStatus = SyncStatus.QUARANTINED): Flow<List<QuarantinedFeatureSummary>>

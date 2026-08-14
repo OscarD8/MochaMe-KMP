@@ -10,7 +10,7 @@ import com.mochame.sync.data.SyncIntentDao
  * UI.
  */
 data class QuarantinedFeatureSummary(
-    val feature: FeatureContext,
+    val featureContext: FeatureContext,
     val count: Int
 )
 

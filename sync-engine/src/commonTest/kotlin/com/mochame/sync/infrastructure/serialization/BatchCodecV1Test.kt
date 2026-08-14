@@ -86,14 +86,14 @@ internal class BatchCodecV1Test : MochaPlatformTest() {
         // Arrange: Batch containing mixed ops, populated payload, empty payload, and overflow blob
         val intentUpsert = createTestSyncIntent(
             candidateKey = 0L,
-            context = FeatureContext.Type.BIO_DAILY_CONTEXT,
+            featureContext = FeatureContext.UNRECOGNIZED_MODEL,
             payload = byteArrayOf(0xDE.toByte(), 0xAD.toByte()),
             overflowBlobId = null,
         )
 
         val intentDelete = createTestSyncIntent(
             candidateKey = 1L,
-            context = FeatureContext.Type.BIO_DAILY_CONTEXT,
+            featureContext = FeatureContext.UNRECOGNIZED_MODEL,
             payload = byteArrayOf(), // Empty array
             overflowBlobId = null,
             op = MutationOp.DELETE
@@ -101,7 +101,7 @@ internal class BatchCodecV1Test : MochaPlatformTest() {
 
         val intentOverflow = createTestSyncIntent(
             candidateKey = 2L,
-            context = FeatureContext.Type.BIO_DAILY_CONTEXT,
+            featureContext = FeatureContext.UNRECOGNIZED_MODEL,
             payload = null, // Overflow payload
             overflowBlobId = "blob-ref-xyz-99"
         )

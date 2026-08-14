@@ -13,7 +13,7 @@ import kotlin.test.assertEquals
 internal fun createTestSyncIntent(
     hlc: HLC = TestHlcFactory.create(),
     candidateKey: Long = 1000L,
-    context: FeatureContext.Type = FeatureContext.Type.BIO_DAILY_CONTEXT,
+    featureContext: FeatureContext = FeatureContext.UNRECOGNIZED_MODEL,
     payload: ByteArray? = byteArrayOf(0x00),
     status: SyncStatus = SyncStatus.PENDING,
     createdAt: Long = 0L,
@@ -27,7 +27,7 @@ internal fun createTestSyncIntent(
     featureSchemaVersion = featureSchemaVersion,
     hlc = hlc,
     candidateKey = candidateKey,
-    featureContext = FeatureContext.fromModelString(context.modelName),
+    featureContext = featureContext,
     operation = op,
     syncStatus = status,
     retryCount = retryCount,
@@ -48,13 +48,12 @@ internal fun createTestIntentEntity(
     retryCount: Int = 0,
     leasedAt: Long = TestHlcFactory.BASE_TEST_TIME,
     payload: ByteArray? = byteArrayOf(0x01),
-    feature: FeatureContext = FeatureContext.Type.UNRECOGNIZED_MODEL
+    featureContext: FeatureContext = FeatureContext.UNRECOGNIZED_MODEL
 ) = SyncIntentEntity(
     hlc = hlc.toString(),
     featureSchemaVersion = 1,
     candidateKey = candidateKey,
-    feature = feature.featureName,
-    model = feature.modelName,
+    featureContext = featureContext,
     operation = MutationOp.UPSERT,
     payload = payload,
     overflowBlobId = overflowBlobId,
@@ -71,8 +70,7 @@ internal fun assertDecodedIntentParity(expected: SyncIntent, actual: SyncIntent)
     assertEquals(expected.featureSchemaVersion, actual.featureSchemaVersion)
     assertEquals(expected.hlc, actual.hlc)
     assertEquals(expected.candidateKey, actual.candidateKey)
-    assertEquals(expected.featureContext.featureName, actual.featureContext.featureName)
-    assertEquals(expected.featureContext.modelName, actual.featureContext.modelName)
+    assertEquals(expected.featureContext, actual.featureContext)
     assertEquals(expected.operation, actual.operation)
     assertEquals(expected.operation.name, actual.operation.name)
     assertEquals(expected.overflowBlobId, actual.overflowBlobId)

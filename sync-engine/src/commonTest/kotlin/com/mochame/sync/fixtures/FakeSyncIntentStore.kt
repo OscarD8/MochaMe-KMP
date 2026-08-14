@@ -210,7 +210,7 @@ class FakeSyncIntentStore : SyncIntentStore, SyncIntentMaintenanceStore {
             .filter { it.syncStatus == SyncStatus.QUARANTINED }
             .groupBy { it.featureContext }
             .map { (feature, items) ->
-                QuarantinedFeatureSummary(feature = feature, count = items.size)
+                QuarantinedFeatureSummary(featureContext = feature, count = items.size)
             }
     }
 }

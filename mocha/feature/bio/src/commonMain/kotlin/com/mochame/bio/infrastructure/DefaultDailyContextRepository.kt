@@ -26,7 +26,7 @@ internal class DefaultDailyContextRepository(
     logger: Logger,
     deps: LocalFirstDependencies
 ) : LocalFirstRepository<DailyContext>(
-    FeatureContext.Type.BIO_DAILY_CONTEXT,
+    FeatureContext.BIO_DAILY_CONTEXT,
     deps,
     codecRouter,
     logger = logger.withTags(LogTags.Layer.REPO, LogTags.Domain.BIO, "BioRepo")
@@ -38,7 +38,7 @@ internal class DefaultDailyContextRepository(
         isNapped: TriState
     ): Long {
         val mochaDay = timeUtils.getMochaDay()
-        val draftState = DailyContext(
+        val draftContext = DailyContext(
             id = mochaDay,
             sleepHours = sleepHours,
             readinessScore = readinessScore,
@@ -47,7 +47,7 @@ internal class DefaultDailyContextRepository(
 
         return localUpsert(
             candidateKey = mochaDay,
-            computeChange = { existing -> compactState(draftState, existing) }
+            computeChange = { existing -> compactState(draftContext, existing) }
         )
     }
 

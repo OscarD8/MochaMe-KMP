@@ -150,11 +150,11 @@ class IntentCodecV1Test : MochaPlatformTest() {
     fun should_preserve_candidate_key_and_feature_context_metadata_parity() = runEnv {
         // Arrange
         val expectedKey = 1L
-        val expectedContext = FeatureContext.Type.UNRECOGNIZED_MODEL
+        val expectedContext = FeatureContext.UNRECOGNIZED_MODEL
 
         val originalIntent = createTestSyncIntent(
             candidateKey = expectedKey,
-            context = expectedContext
+            featureContext = expectedContext
         )
 
         // Act

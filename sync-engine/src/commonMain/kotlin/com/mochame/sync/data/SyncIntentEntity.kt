@@ -3,6 +3,7 @@ package com.mochame.sync.data
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.api.metadata.SyncStatus
 import kotlin.time.Clock
@@ -15,9 +16,8 @@ import kotlin.time.Clock
 @Entity(
     indices = [
         Index(value = ["syncStatus"]),
-        Index(value = ["candidateKey", "feature", "syncStatus"]),
-        Index(value = ["syncStatus", "createdAt"]),
-        Index(value = ["feature", "syncStatus"]),
+        Index(value = ["syncStatus", "leasedAt"]),
+        Index(value = ["featureContext", "syncStatus"]),
         Index(value = ["syncId"])
     ]
 )
@@ -25,8 +25,7 @@ data class SyncIntentEntity(
     @PrimaryKey val hlc: String,
     val featureSchemaVersion: Int,
     val candidateKey: Long,
-    val feature: String,
-    val model: String,
+    val featureContext: FeatureContext,
     val operation: MutationOp,
     val payload: ByteArray?,
     val overflowBlobId: String?,

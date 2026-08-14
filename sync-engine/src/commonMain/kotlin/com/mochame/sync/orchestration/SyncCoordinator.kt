@@ -11,6 +11,7 @@ import com.mochame.logger.withTags
 import com.mochame.logger.withTimer
 import com.mochame.sync.api.hlc.HlcFactory
 import com.mochame.sync.api.hlc.HLC
+import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.domain.model.deriveContext
 import com.mochame.sync.spi.models.SyncIntent
 import com.mochame.sync.tryWithLock
@@ -49,8 +50,8 @@ internal class SyncCoordinator(
         className = "MsCord"
     )
 
-    private val receiverRoutingMap: Map<String, SyncReceiver> =
-        receivers.associateBy { it.featureContext.modelName }
+    private val receiverRoutingMap: Map<FeatureContext, SyncReceiver> =
+        receivers.associateBy { it.featureContext }
 
     fun startOutbound() = appScope.launch {
         invalidationHook.signals.collect {
@@ -199,10 +200,10 @@ internal class SyncCoordinator(
     }
 
     private val SyncIntent.receiver: SyncReceiver
-        get() = receiverRoutingMap[featureContext.modelName] ?: run {
-            logger.e { "Routing failure for model '${featureContext.modelName}'" }
+        get() = receiverRoutingMap[featureContext] ?: run {
+            logger.e { "Routing failure for feature context '$featureContext'" }
             throw MochaException.Persistent.Internal(
-                "No SyncReceiver for model string '${featureContext.modelName}'"
+                "No SyncReceiver for feature context '$featureContext'"
             )
         }
 

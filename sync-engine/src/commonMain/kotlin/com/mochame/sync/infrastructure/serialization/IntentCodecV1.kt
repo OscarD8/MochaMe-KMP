@@ -21,8 +21,7 @@ internal data class SyncIntentDeltaV1(
     @ProtoNumber(1) val featureSchemaVersion: Int,
     @ProtoNumber(2) val hlc: HLC,
     @ProtoNumber(3) val candidateKey: Long,
-    @ProtoNumber(4) val module: String,
-    @ProtoNumber(5) val model: String,
+    @ProtoNumber(4) val featureContext: FeatureContext,
     @ProtoNumber(6) val operation: MutationOp = MutationOp.UNKNOWN,
     @ProtoNumber(7) val payloadBlob: ByteArray? = null,
     @ProtoNumber(8) val overflowBlobId: String? = null,
@@ -44,8 +43,7 @@ internal class IntentCodecV1(
                 featureSchemaVersion = intent.featureSchemaVersion,
                 hlc = intent.hlc,
                 candidateKey = intent.candidateKey,
-                module = intent.featureContext.featureName,
-                model = intent.featureContext.modelName,
+                featureContext = intent.featureContext,
                 operation = intent.operation,
                 payloadBlob = intent.payload,
                 overflowBlobId = intent.overflowBlobId,
@@ -80,7 +78,7 @@ internal class IntentCodecV1(
                 featureSchemaVersion = envelope.featureSchemaVersion,
                 hlc = envelope.hlc,
                 candidateKey = envelope.candidateKey,
-                featureContext = FeatureContext.fromModelString(envelope.model),
+                featureContext = envelope.featureContext,
                 operation = envelope.operation,
                 syncStatus = SyncStatus.RECEIVED,
                 payload = envelope.payloadBlob,
@@ -98,7 +96,7 @@ internal class IntentCodecV1(
         } catch (e: Exception) {
             logger.e(e) {
                 "Failed mapping delta key=${envelope.candidateKey} " +
-                        "hlc=${envelope.hlc} op=${envelope.operation} model=${envelope.model}"
+                        "hlc=${envelope.hlc} op=${envelope.operation} model=${envelope.featureContext.modelName}"
             }
             throw e
         }

@@ -1,51 +1,43 @@
 package com.mochame.sync.api.metadata
 
 import com.mochame.sync.api.exceptions.MochaException
+import kotlinx.serialization.Serializable
 
-interface FeatureContext {
-    val id: Int
-    val featureName: String
+@Serializable
+enum class FeatureContext(
+    val moduleId: Int,
+    val featureName: String,
     val modelName: String
+) {
+    UNRECOGNIZED_MODEL(0, "UNRECOGNIZED", "MODEL"),
 
-    enum class Type(
-        override val id: Int,
-        override val featureName: String,
-        override val modelName: String
-    ) : FeatureContext {
-        BIO_DAILY_CONTEXT(1, "BIO", "DAILY_CONTEXT"),
+    BIO_DAILY_CONTEXT(1, "BIO", "DAILY_CONTEXT"),
 
-        TELEMETRY_TOPIC(2, "TELEMETRY", "TOPIC"),
-        TELEMETRY_DOMAIN(2, "TELEMETRY", "DOMAIN"),
-        TELEMETRY_MOMENT(2, "TELEMETRY", "MOMENT"),
+    TELEMETRY_TOPIC(2, "TELEMETRY", "TOPIC"),
+    TELEMETRY_DOMAIN(2, "TELEMETRY", "DOMAIN"),
+    TELEMETRY_MOMENT(2, "TELEMETRY", "MOMENT"),
 
-        RESONANCE_BOOK(3, "RESONANCE", "BOOK"),
-        RESONANCE_AUTHOR(3, "RESONANCE", "AUTHOR"),
-        RESONANCE_QUOTE(3, "RESONANCE", "QUOTE"),
-
-        // Used for testing or as fall back
-        UNRECOGNIZED_MODEL(0, "UNRECOGNIZED", "MODEL");
-
-    }
+    RESONANCE_BOOK(3, "RESONANCE", "BOOK"),
+    RESONANCE_AUTHOR(3, "RESONANCE", "AUTHOR"),
+    RESONANCE_QUOTE(3, "RESONANCE", "QUOTE");
 
     companion object {
-        val allFeatureContext: List<FeatureContext> = Type.entries
-
         val allFeatureModules: List<String> by lazy {
-            Type.entries
+            entries
                 .asSequence()
-                .filter { it != Type.UNRECOGNIZED_MODEL }
+                .filter { it != UNRECOGNIZED_MODEL }
                 .map { it.featureName }
                 .distinct()
                 .toList()
         }
 
+        private val modelLookup by lazy {
+            entries.associateBy { it.modelName }
+        }
+
         fun fromModelString(model: String): FeatureContext {
-            try {
-                return Type.entries.first { it.modelName == model }
-            } catch (e: NoSuchElementException) {
-                throw MochaException.Persistent.CorruptionDetected("Error on Module Enum conversion from string. ${e.message}")
-            }
+            return modelLookup[model]
+                ?: throw MochaException.Persistent.CorruptionDetected("Unknown model name: $model")
         }
     }
-
 }
