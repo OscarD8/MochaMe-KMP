@@ -13,18 +13,18 @@ class FakeSyncWorkerHook(
 
     private val lock = reentrantLock()
     private var _invalidationCount = 0
-    private var _totalDrains = 0
+    private var _totalCollects = 0
     private var pendingSignalError: Throwable? = null
 
     val invalidationCount: Int
         get() = lock.withLock { _invalidationCount }
 
-    val totalDrains: Int
-        get() = lock.withLock { _totalDrains }
+    val totalCollects: Int
+        get() = lock.withLock { _totalCollects }
 
     override val signals: Flow<Unit> = delegate.signals.map { signal ->
         val errorToThrow = lock.withLock {
-            _totalDrains++
+            _totalCollects++
             val error = pendingSignalError
             pendingSignalError = null
             error
@@ -39,7 +39,7 @@ class FakeSyncWorkerHook(
 
     fun reset() = lock.withLock {
         _invalidationCount = 0
-        _totalDrains = 0
+        _totalCollects = 0
         pendingSignalError = null
     }
 

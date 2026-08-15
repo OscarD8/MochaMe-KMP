@@ -5,13 +5,11 @@ import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.di.fixtures.SyncFixturesModule
 import com.mochame.sync.fixtures.FakeSyncWorkerHook
-import kotlinx.atomicfu.locks.reentrantLock
-import kotlinx.atomicfu.locks.withLock
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -97,6 +95,19 @@ class SyncWorkerHookTest : MochaPlatformTest() {
         scope.runCurrent()
 
         assertEquals(listOf(0, 1, 2), receivedById)
+    }
+
+    @Test
+    fun should_deliverSignalOutputToAllActiveCollectors() = runEnv { scope ->
+        val routine1 = scope.async(start = CoroutineStart.UNDISPATCHED) { signals.first() }
+        val routine2 = scope.async(start = CoroutineStart.UNDISPATCHED) { signals.first() }
+        val routine3 = scope.async(start = CoroutineStart.UNDISPATCHED) { signals.first() }
+
+        invalidate()
+
+        assertEquals(Unit, routine1.await())
+        assertEquals(Unit, routine2.await())
+        assertEquals(Unit, routine3.await())
     }
 
     @Test
@@ -209,7 +220,7 @@ class SyncWorkerHookTest : MochaPlatformTest() {
     // COLLECTOR CANCELLATION BEHAVIOUR
     // -----------------------------------------------------------
     @Test
-    fun should_surviveAndProcessSubsequentInvalidations_when_drainThrowsNonCancellationException() =
+    fun should_cancelCollection_when_jobThrowsNonCancellationException() =
         runEnv { scope ->
             throwOnNextSignal(CancellationException("Transient SQLite Disk I/O Failure"))
 
@@ -226,17 +237,16 @@ class SyncWorkerHookTest : MochaPlatformTest() {
             }
             scope.runCurrent()
 
-            // 1. Invalidation triggers the injected failure, but the collection job survives
-            invalidate()
+            invalidate() // triggers collect
             scope.runCurrent()
 
-            assertEquals(1, totalDrains)
+            assertEquals(1, totalCollects)
             assertTrue(job.isCancelled)
             assertFalse(job.isActive)
 
             invalidate()
             scope.runCurrent()
-            assertEquals(1, totalDrains)
+            assertEquals(1, totalCollects)
         }
 
     @Test
@@ -250,7 +260,7 @@ class SyncWorkerHookTest : MochaPlatformTest() {
             // 1. Initial valid cycle
             invalidate()
             scope.runCurrent()
-            assertEquals(1, totalDrains)
+            assertEquals(1, totalCollects)
 
             // 2. External cancellation of host scope / job
             job.cancel()
@@ -260,7 +270,7 @@ class SyncWorkerHookTest : MochaPlatformTest() {
             // 3. Subsequent invalidations have 0 subscribers and are dropped immediately (replay = 0)
             invalidate()
             scope.runCurrent()
-            assertEquals(1, totalDrains)
+            assertEquals(1, totalCollects)
         }
 
 }
