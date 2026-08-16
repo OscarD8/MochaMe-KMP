@@ -25,4 +25,5 @@ kotlin {
             implementation(libs.androidx.junit.ktx)
         }
     }
+
 }

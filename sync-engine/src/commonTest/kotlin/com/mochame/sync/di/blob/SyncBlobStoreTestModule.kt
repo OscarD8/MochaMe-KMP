@@ -16,7 +16,7 @@ import org.koin.core.annotation.KoinApplication
 import org.koin.core.annotation.Module
 
 @KoinApplication(modules = [SyncBlobStoreTestModule::class])
-internal class BlobStoreTestApp
+internal object BlobStoreTestApp
 
 @Module(
     includes = [
@@ -25,7 +25,7 @@ internal class BlobStoreTestApp
     ]
 )
 @ComponentScan("com.mochame.sync.di.blob")
-internal class SyncBlobStoreTestModule
+internal object SyncBlobStoreTestModule
 
 @ExperimentalKermitApi
 @Factory

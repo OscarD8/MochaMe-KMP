@@ -22,10 +22,10 @@ import org.koin.core.annotation.KoinApplication
 import org.koin.core.annotation.Module
 
 @KoinApplication(modules = [CodecTestModule::class])
-internal class CodecTestApp
+internal object CodecTestApp
 
 @KoinApplication(modules = [CodecFixtureModule::class])
-internal class CodecFixtureTestApp
+internal object CodecFixtureTestApp
 
 @Module(includes = [TestLoggerModule::class, FakeBufferProviderModule::class])
 @ComponentScan( "com.mochame.sync.fixtures.serialization")

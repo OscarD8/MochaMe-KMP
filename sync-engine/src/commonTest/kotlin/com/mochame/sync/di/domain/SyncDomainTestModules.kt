@@ -18,7 +18,7 @@ import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
 
 @KoinApplication(modules = [SyncPruneIntentsTestModule::class])
-internal class PruneIntentsUseCaseTestApp
+internal object PruneIntentsUseCaseTestApp
 
 @Module(
     includes = [

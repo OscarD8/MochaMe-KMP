@@ -119,7 +119,7 @@ class SyncWorkerHookTest : MochaPlatformTest() {
             cancelAndIgnoreRemainingEvents()
         }
 
-        // Emit during dead window (0 active collectors)
+        // 0 active collectors
         invalidate()
 
         // Collector 2 lifecycle

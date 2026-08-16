@@ -8,7 +8,7 @@ import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
 
 @KoinApplication(modules = [BioDaoTestModule::class])
-class BioDaoTestApp
+internal object BioDaoTestApp
 
 @Module(
     includes = ([TestSupportModule::class])

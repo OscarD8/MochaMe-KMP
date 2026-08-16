@@ -31,7 +31,7 @@ internal fun TestLogWriter.assertFieldRejectionLogCount(expectedCount: Int) =
     assertEquals(expectedCount, this.logs.count { it.message.contains("Field Rejected") })
 
 @KoinApplication(modules = [SyncApiTestModule::class])
-internal class SyncApiTestApp
+internal object SyncApiTestApp
 
 @Module(includes = [TestLoggerModule::class])
 @ComponentScan("com.mochame.sync.spi")
