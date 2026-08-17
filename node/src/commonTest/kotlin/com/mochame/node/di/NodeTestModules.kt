@@ -8,7 +8,7 @@ import com.mochame.annotations.NodeManagerMutex
 import com.mochame.logger.test.TestLoggerModule
 import com.mochame.node.data.NodeContextDao
 import com.mochame.node.data.NodeContextMicroSchema
-import com.mochame.node.policies.JitteredExecutionPolicy
+import com.mochame.node.policies.StaggeredDbRetryPolicy
 import com.mochame.support.TestSupportModule
 import com.mochame.sync.spi.node.NodeContextManager
 import kotlinx.coroutines.sync.Mutex
@@ -28,8 +28,8 @@ object NodeContextIntTestApp
 @KoinApplication(modules = [NodeProductionModule::class])
 object BootManagerUnitTestApp
 
-@KoinApplication(modules = [JitteredExecutionPolicyTestModule::class])
-object JitteredExecutionTestApp
+@KoinApplication(modules = [StaggeredDbPolicyTestModule::class])
+object StaggeredDbPolicyTestApp
 
 
 // -----------------------------------------------------------
@@ -62,7 +62,7 @@ class NodeTestPersistenceModule {
 }
 
 @Module(includes = [TestLoggerModule::class, NodeProductionModule::class])
-class JitteredExecutionPolicyTestModule
+class StaggeredDbPolicyTestModule
 
 // -----------------------------------------------------------
 // Environments
@@ -78,7 +78,7 @@ data class NodeContextIntTestEnv(
 )
 
 @Factory
-data class JitteredExecutionTestEnv(
-    val executor: JitteredExecutionPolicy,
+data class StaggeredDbPolicyTestEnv(
+    val executor: StaggeredDbRetryPolicy,
     val writer: TestLogWriter
 )

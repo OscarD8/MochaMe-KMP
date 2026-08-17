@@ -12,14 +12,14 @@ sealed class MochaException(
 
     sealed class Transient(message: String, cause: Throwable? = null) :
         MochaException(message, cause) {
-        class VaultBusy(message: String? = null, cause: Throwable? = null) :
+        class DatabaseBusy(message: String? = null, cause: Throwable? = null) :
             Transient(message ?: "The database is locked.", cause)
 
         class NetworkTimeout(message: String? = null, cause: Throwable? = null) :
             Transient(message ?: "The sync server took too long to respond.", cause)
 
         class Contention(message: String? = null, cause: Throwable? = null) :
-            Transient(message ?: "Operation timed out. Possible lockout.", cause)
+            Transient(message ?: "Operation timed out.", cause)
 
         class BootTimeout(message: String? = null, cause: Throwable? = null) :
             Transient(message ?: "Boot system timeout.", cause)
@@ -29,6 +29,9 @@ sealed class MochaException(
 
         class FileNotFound(blobId: String) :
             Transient("File not found: $blobId")
+
+        class LocalPersistenceFailure(message: String? = null, cause: Throwable? = null) :
+            Transient(message ?: "Local persistence failed.", cause)
 
     }
 
@@ -63,6 +66,12 @@ sealed class MochaException(
 
         class Internal(message: String?, cause: Throwable? = null) :
             Persistent(message ?: "Internal failure. Dependency issue? ${cause?.message}", cause)
+
+        class DirectoryInitializationFailure(message: String?, cause: Throwable? = null) :
+            Persistent(message ?: "Failed to initialize directory.", cause)
+
+        class IOFailure(message: String?, cause: Throwable? = null) :
+            Persistent(message ?: "Unexpected IO Error", cause)
     }
 
     sealed class Policy(message: String, cause: Throwable? = null) :

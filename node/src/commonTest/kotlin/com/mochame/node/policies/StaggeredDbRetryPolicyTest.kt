@@ -3,8 +3,8 @@
 package com.mochame.node.policies
 
 import co.touchlab.kermit.ExperimentalKermitApi
-import com.mochame.node.di.JitteredExecutionTestApp
-import com.mochame.node.di.JitteredExecutionTestEnv
+import com.mochame.node.di.StaggeredDbPolicyTestApp
+import com.mochame.node.di.StaggeredDbPolicyTestEnv
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runUnitEnvironment
 import kotlinx.coroutines.test.TestScope
@@ -16,15 +16,15 @@ import kotlin.test.assertNotNull
 // -----------------------------------------------------------
 // SUT ENVIRONMENT
 // -----------------------------------------------------------
-private inline fun runEnv(crossinline block: suspend JitteredExecutionTestEnv.(TestScope) -> Unit) =
-    runUnitEnvironment<JitteredExecutionTestEnv>(
-        koinSetup = { includes(koinConfiguration<JitteredExecutionTestApp>()) },
+private inline fun runEnv(crossinline block: suspend StaggeredDbPolicyTestEnv.(TestScope) -> Unit) =
+    runUnitEnvironment<StaggeredDbPolicyTestEnv>(
+        koinSetup = { includes(koinConfiguration<StaggeredDbPolicyTestApp>()) },
         block = block
     )
 
 
 
-class JitteredExecutionPolicyTest : MochaPlatformTest() {
+class StaggeredDbRetryPolicyTest : MochaPlatformTest() {
 
     @Test
     fun should_retryFourTimes_then_successfullyExecuteBlock() = runEnv {

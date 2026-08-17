@@ -279,7 +279,7 @@ class SyncJanitorTest : MochaPlatformTest() {
     fun should_transitionToTransientFailure_when_startupThrowsTransientMochaException() =
         runEnv { scope ->
             // Given
-            intentStore.failWith = MochaException.Transient.VaultBusy()
+            intentStore.failWith = MochaException.Transient.DatabaseBusy()
 
             // When
             janitor.startupChecks()

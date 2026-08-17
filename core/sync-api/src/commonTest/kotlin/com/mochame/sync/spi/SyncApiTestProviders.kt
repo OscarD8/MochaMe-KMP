@@ -15,20 +15,9 @@ import org.koin.core.annotation.Module
 import kotlin.test.assertEquals
 import kotlin.uuid.Uuid
 
-internal object TestNodeId {
-    val A = NodeId(Uuid.fromLongs(1L, 100L))
-    val B = NodeId(Uuid.fromLongs(2L, 200L))
-}
-
-internal fun createHlc(
-    ts: Long = 1000L,
-    count: Int = 1,
-    nodeId: NodeId = TestNodeId.A
-): HLC = HLC(ts = ts, count = count, nodeId = nodeId)
-
-@OptIn(ExperimentalKermitApi::class)
-internal fun TestLogWriter.assertFieldRejectionLogCount(expectedCount: Int) =
-    assertEquals(expectedCount, this.logs.count { it.message.contains("Field Rejected") })
+// -----------------------------------------------------------
+// DI
+// -----------------------------------------------------------
 
 @KoinApplication(modules = [SyncApiTestModule::class])
 internal object SyncApiTestApp
@@ -43,6 +32,25 @@ internal class SyncApiTestEnv(
     val writer: TestLogWriter,
     val untaggedLogger: Logger
 )
+
+// -----------------------------------------------------------
+// UTILS
+// -----------------------------------------------------------
+
+internal object TestNodeId {
+    val A = NodeId(Uuid.fromLongs(1L, 100L))
+    val B = NodeId(Uuid.fromLongs(2L, 200L))
+}
+
+internal fun createHlc(
+    ts: Long = 1000L,
+    count: Int = 1,
+    nodeId: NodeId = TestNodeId.A
+): HLC = HLC(ts = ts, count = count, nodeId = nodeId)
+
+@OptIn(ExperimentalKermitApi::class)
+internal fun TestLogWriter.assertFieldRejectionLogCount(expectedCount: Int) =
+    assertEquals(expectedCount, this.logs.count { it.message.contains("Field Rejected") })
 
 internal val SyncApiTestEnv.logger
     get() = untaggedLogger.withTags(LogTags.Layer.SERI, LogTags.Domain.SYNC, "TeCdc1")

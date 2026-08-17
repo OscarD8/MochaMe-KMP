@@ -348,8 +348,6 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                     logger.w(e) { "Post-Commit IO Failure: Blob $blobId in /pending. Janitor will reconcile [${e.message}]." }
                     throw MochaException.Transient.BlobResolutionPending(blobId)
                 }
-            } else {
-                logger.e { "Local persistence failed: ${e.message}" }
             }
 
             throw e.toMochaException(e.message)

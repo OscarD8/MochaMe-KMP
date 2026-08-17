@@ -17,7 +17,7 @@ import kotlin.time.TimeSource
  * Execution policy for the local database.
  */
 @Single(binds = [ExecutionPolicy::class])
-class JitteredExecutionPolicy(
+class StaggeredDbRetryPolicy(
     logger: Logger
 ) : ExecutionPolicy {
 
@@ -48,9 +48,9 @@ class JitteredExecutionPolicy(
                 }
             } catch (e: Exception) {
 
-                val mochaError = e.toMochaException(message = operationTag)
+                val mochaError = e.toMochaException(operationTag)
 
-                if (mochaError is MochaException.Transient.VaultBusy) {
+                if (mochaError is MochaException.Transient.DatabaseBusy) {
                     if (attempt == 0) logger.w {
                         "Database busy, initiating retry loop".withTimer(mark)
                     }
