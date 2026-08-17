@@ -1,6 +1,10 @@
 package com.mochame.sync.infrastructure
 
+import com.mochame.sync.api.metadata.FeatureContext
+import com.mochame.sync.domain.model.LockKey
 import com.mochame.sync.spi.infrastructure.KeyedLocker
+import kotlinx.atomicfu.locks.reentrantLock
+import kotlinx.atomicfu.locks.withLock
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -19,21 +23,28 @@ internal class DefaultKeyedLocker : KeyedLocker {
      * needs to ensure that no two identical keys establish their own lock at
      * the exact same millisecond. They must have the master lock.
      */
-    private val masterLock = Mutex()
-    private val keyLocks = mutableMapOf<Long, LockEntry>()
+    private val registryLock = reentrantLock()
+    private val keyLocks = mutableMapOf<LockKey, LockEntry>()
 
-    override suspend fun <R> withLock(candidateKey: Long, action: suspend () -> R): R {
-        val entry = masterLock.withLock {
-            keyLocks.getOrPut(candidateKey) { LockEntry() }.apply { activeUsers++ }
+    override suspend fun <R> withLock(
+        context: FeatureContext,
+        candidateKey: Long,
+        action: suspend () -> R
+    ): R {
+        val key = LockKey(context, candidateKey)
+        val entry = registryLock.withLock {
+            keyLocks.getOrPut(key) { LockEntry() }.apply { activeUsers++ }
         }
 
         return try {
             entry.mutex.withLock { action() }
         } finally {
             withContext(NonCancellable) {
-                masterLock.withLock {
+                registryLock.withLock {
                     entry.activeUsers--
-                    if (entry.activeUsers == 0) keyLocks.remove(candidateKey)
+                    if (entry.activeUsers == 0) {
+                        keyLocks.remove(key)
+                    }
                 }
             }
         }

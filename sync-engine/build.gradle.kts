@@ -8,6 +8,7 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            implementation(libs.kotlinx.atomicfu)
             implementation(libs.kotlinx.serialization.protobuf)
             implementation(libs.kotlinx.datetime)
             implementation(libs.kotlinx.io.core)
@@ -16,7 +17,6 @@ kotlin {
         }
 
         commonTest.dependencies {
-            implementation(libs.kotlinx.atomicfu)
             implementation(project(":core:test:fixtures-node"))
             implementation(project(":core:test:fixtures-utils"))
             implementation(project(":core:test:fixtures-platform"))
