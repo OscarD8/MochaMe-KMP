@@ -11,6 +11,7 @@ kotlin {
             implementation(libs.kotlinx.serialization.protobuf)
             implementation(libs.kotlinx.io.core)
             implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.androidx.annotation)
 
             implementation(project(":core:logger"))
         }

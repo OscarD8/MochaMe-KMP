@@ -73,7 +73,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     ): Long = withContext(deps.ioContext) {
         ensureReady()
 
-        deps.locker.withLock(candidateKey) {
+        deps.locker.withLock(featureContext, candidateKey) {
             if (incomingHlc != null) {
                 executeIntentPipeline(
                     candidateKey = candidateKey,

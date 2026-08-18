@@ -19,12 +19,33 @@ internal class DefaultKeyedLocker : KeyedLocker {
     private class LockEntry(val mutex: Mutex = Mutex(), var activeUsers: Int = 0)
 
     /**
-     * To handle the fact that mutable maps are not thread safe, so the system
-     * needs to ensure that no two identical keys establish their own lock at
-     * the exact same millisecond. They must have the master lock.
+     * Guards map lookups, mutations, and inspectability reads across threads.
      */
     private val registryLock = reentrantLock()
     private val keyLocks = mutableMapOf<LockKey, LockEntry>()
+
+    /**
+     * Returns the total count of active lock keys currently retained in the registry.
+     */
+    internal val activeKeysCount: Int
+        get() = registryLock.withLock { keyLocks.size }
+
+    /**
+     * Returns the count of active users (holder + queued waiters) for a specific domain key,
+     * or null if the key is not currently present in the registry.
+     */
+    internal fun activeUsersFor(context: FeatureContext, candidateKey: Long): Int? {
+        val key = LockKey(context, candidateKey)
+        return registryLock.withLock { keyLocks[key]?.activeUsers }
+    }
+
+    /**
+     * Returns the count of active users directly via an existing [LockKey] instance,
+     * avoiding redundant object allocations.
+     */
+    internal fun activeUsersFor(key: LockKey): Int? =
+        registryLock.withLock { keyLocks[key]?.activeUsers }
+
 
     override suspend fun <R> withLock(
         context: FeatureContext,
@@ -49,4 +70,5 @@ internal class DefaultKeyedLocker : KeyedLocker {
             }
         }
     }
+
 }

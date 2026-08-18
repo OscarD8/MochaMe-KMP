@@ -1,5 +1,6 @@
 package com.mochame.sync.data
 
+import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -34,7 +35,6 @@ data class SyncIntentEntity(
     val leasedAt: Long? = null,          // enables safe Janitor cutoff queries
     val diagnosticSummary: String?,
     val retryCount: Int = 0,              // Janitor implements threshold logic
-    val lastErrorMessage: String? = null, // works in conjunction with retryCount - is there ever a need to clear this?
+    val lastErrorMessage: String? = null,
     val createdAt: Long = Clock.System.now().toEpochMilliseconds()
-    // hasConflict removed — until server conflict protocol is defined
 )

@@ -8,6 +8,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(project(":core:platform"))
+            implementation(project(":core:sync-api"))
             implementation(project(":node"))
             implementation(project(":sync-engine"))
             implementation(project(":mocha:feature:bio"))

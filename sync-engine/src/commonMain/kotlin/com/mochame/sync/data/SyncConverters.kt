@@ -54,15 +54,9 @@ class SyncConverters {
     fun fromDb(value: Int): TriState = TriState.fromDb(value)
 
     @TypeConverter
-    fun fromFeatureContext(context: FeatureContext): String = context.name
+    fun fromFeatureContext(context: FeatureContext): Int = context.modelId
 
     @TypeConverter
-    fun toFeatureContext(value: String): FeatureContext {
-        return try {
-            FeatureContext.valueOf(value)
-        } catch (e: IllegalArgumentException) {
-            FeatureContext.UNRECOGNIZED_MODEL
-        }
-    }
-
+    fun toFeatureContext(value: Int): FeatureContext = FeatureContext.fromModelId(value)
 }
+

@@ -1,6 +1,5 @@
 package com.mochame.sync.data
 
-import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.spi.models.SyncIntent
 
