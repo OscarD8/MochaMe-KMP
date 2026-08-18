@@ -32,6 +32,10 @@ kotlin {
             implementation(libs.sqlite.bundled)
         }
 
+        commonTest.dependencies {
+            implementation(libs.kotlinx.atomicfu)
+        }
+
         androidMain.dependencies {
             implementation(libs.koin.android)
             implementation(libs.work.runtime.ktx)

@@ -9,17 +9,24 @@ import com.mochame.annotations.IoContext
 import com.mochame.annotations.MainContext
 import com.mochame.logger.LoggerModule
 import com.mochame.platform.providers.*
+import com.mochame.sync.spi.infrastructure.BufferProvider
 import com.mochame.sync.spi.infrastructure.DigestFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.SupervisorJob
+import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
 import kotlin.coroutines.CoroutineContext
 
 
-@Module(includes = [InternalPlatformModule::class])
+@Module(
+    includes = [
+        InternalPlatformModule::class,
+        PlatformDigestModule::class,
+        BufferProviderModule::class]
+)
 class CommonPlatformModule {
 
     @Single
@@ -49,12 +56,14 @@ class CommonPlatformModule {
 @Module
 expect class InternalPlatformModule
 
-
-@Module(includes = [LoggerModule::class])
+@Module
 class PlatformDigestModule {
-
     @Single
     fun provideHasher(logger: Logger): DigestFactory = DigestFactory {
         createPlatformDigest(logger = logger)
     }
 }
+
+@Module
+@ComponentScan("com.mochame.platform.providers")
+class BufferProviderModule

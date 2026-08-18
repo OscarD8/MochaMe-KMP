@@ -1,6 +1,8 @@
 package com.mochame.platform.providers
 
 import co.touchlab.kermit.Logger
+import com.mochame.logger.LogTags
+import com.mochame.logger.withTags
 import com.mochame.sync.spi.infrastructure.DigestState
 import kotlinx.io.Source
 import kotlinx.io.readByteArray
@@ -12,7 +14,8 @@ import java.security.MessageDigest
 actual fun createPlatformDigest(algorithm: String, logger: Logger): DigestState =
     object : DigestState {
         private val delegate = MessageDigest.getInstance(algorithm)
-        private val log = logger.withTag("AndDigest-$algorithm")
+        private val log = logger
+            .withTags(LogTags.Layer.INFRA, LogTags.Domain.PLATFORM, algorithm)
 
 
         override fun update(source: Source) {

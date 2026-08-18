@@ -1,11 +1,18 @@
 package com.mochame.platform.providers
 
 import co.touchlab.kermit.Logger
+import com.mochame.logger.LogTags
+import com.mochame.logger.withTags
 import com.mochame.sync.spi.infrastructure.BufferProvider
 import kotlinx.io.Buffer
+import org.koin.core.annotation.Single
 
-class JvmBufferProvider(private val logger: Logger) : BufferProvider {
+@Single(binds = [BufferProvider::class])
+class JvmBufferProvider(logger: Logger) : BufferProvider {
+    private val logger =
+        logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.PLATFORM, "Buffer")
     private val threadLocal = ThreadLocal.withInitial { Buffer() }
+
     override fun get(): Buffer {
         val buffer = threadLocal.get()
 
@@ -18,3 +25,4 @@ class JvmBufferProvider(private val logger: Logger) : BufferProvider {
         return buffer
     }
 }
+

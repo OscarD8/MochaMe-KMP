@@ -11,6 +11,7 @@ object LogTags {
         const val NODE = "Node"
         const val SYNC = "Sync"
         const val AUTH = "Auth"
+        const val PLATFORM = "Plat"
         const val BIO = "Bio"
         const val SIGNAL = "Signal"
         const val TELEMETRY = "Telem"

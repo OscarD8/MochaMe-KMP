@@ -8,6 +8,8 @@ import com.mochame.app.infrastructure.native.openssl.EVP_MD_CTX_free
 import com.mochame.app.infrastructure.native.openssl.EVP_MD_CTX_new
 import com.mochame.app.infrastructure.native.openssl.EVP_MD_size
 import com.mochame.app.infrastructure.native.openssl.EVP_get_digestbyname
+import com.mochame.logger.LogTags
+import com.mochame.logger.withTags
 import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.sync.spi.infrastructure.DigestState
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -27,12 +29,16 @@ class LinuxOpenSSLDigest(
     logger: Logger
 ) : DigestState, AutoCloseable {
 
-    private val log = logger.withTag("OpenSSL-${algorithm}")
+    private val log =
+        logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.PLATFORM, algorithm)
+
+    private val normalizedAlgorithm = normalizeAlgorithmName(algorithm)
 
     private val ctx = EVP_MD_CTX_new()
         ?: throw MochaException.Persistent.Internal("OpenSSL: Context init failed")
-    private val md = EVP_get_digestbyname(algorithm)
-        ?: throw MochaException.Persistent.Internal("OpenSSL: Invalid Algo")
+    private val md = EVP_get_digestbyname(normalizedAlgorithm)
+        ?: EVP_get_digestbyname(algorithm)
+        ?: throw MochaException.Persistent.Internal("OpenSSL: Invalid Algo '$algorithm' (resolved as '$normalizedAlgorithm')")
 
     init {
         EVP_DigestInit_ex(ctx, md, null)
@@ -73,5 +79,16 @@ class LinuxOpenSSLDigest(
     override fun close() {
         EVP_MD_CTX_free(ctx)
         log.v { "Native heap cleared: EVP_MD_CTX freed" }
+    }
+
+    companion object {
+        private fun normalizeAlgorithmName(name: String): String {
+            val upper = name.uppercase()
+            return when {
+                upper.startsWith("SHA-") -> "SHA" + upper.removePrefix("SHA-")
+                upper.startsWith("SHA_") -> "SHA" + upper.removePrefix("SHA_")
+                else -> name
+            }
+        }
     }
 }
