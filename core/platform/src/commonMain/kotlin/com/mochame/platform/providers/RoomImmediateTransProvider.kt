@@ -4,6 +4,7 @@ import androidx.room.RoomDatabase
 import androidx.room.Transactor
 import androidx.room.useWriterConnection
 import com.mochame.sync.spi.infrastructure.TransactionProvider
+import org.koin.core.annotation.Provided
 import org.koin.core.annotation.Single
 
 /**
@@ -13,7 +14,7 @@ import org.koin.core.annotation.Single
  * for now purely as a boilerplate reduction (may not be best practice?)
  */
 @Single(binds = [TransactionProvider::class])
-class RoomImmediateTransProvider(private val db: RoomDatabase) : TransactionProvider {
+class RoomImmediateTransProvider(@Provided private val db: RoomDatabase) : TransactionProvider {
     override suspend fun <R> runImmediateTransaction(block: suspend () -> R): R {
         return db.useWriterConnection { conn ->
             conn.withTransaction(type = Transactor.SQLiteTransactionType.IMMEDIATE) { block() }

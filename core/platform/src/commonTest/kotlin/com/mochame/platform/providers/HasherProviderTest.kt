@@ -1,7 +1,7 @@
 package com.mochame.platform.providers
 
 import com.mochame.logger.test.TestLoggerModule
-import com.mochame.platform.di.PlatformDigestModule
+import com.mochame.platform.di.CommonPlatformModule
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.spi.infrastructure.DigestFactory
@@ -13,7 +13,7 @@ import kotlin.test.assertEquals
 
 private inline fun runEnv(crossinline block: suspend DigestFactory.(TestScope) -> Unit) =
     runUnitEnvironment(
-        koinSetup = { modules(TestLoggerModule::class, PlatformDigestModule::class) },
+        koinSetup = { modules(TestLoggerModule::class, CommonPlatformModule::class) },
         block = block
     )
 

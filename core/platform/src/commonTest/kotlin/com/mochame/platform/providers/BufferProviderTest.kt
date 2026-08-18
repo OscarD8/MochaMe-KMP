@@ -1,7 +1,7 @@
 package com.mochame.platform.providers
 
 import com.mochame.logger.test.TestLoggerModule
-import com.mochame.platform.di.BufferProviderModule
+import com.mochame.platform.di.PlatformProviderModule
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.spi.infrastructure.BufferProvider
@@ -20,7 +20,7 @@ import kotlin.test.assertSame
 
 private inline fun runEnv(crossinline block: suspend BufferProvider.(TestScope) -> Unit) =
     runUnitEnvironment<BufferProvider>(
-        koinSetup = { modules(TestLoggerModule::class, BufferProviderModule::class) },
+        koinSetup = { modules(TestLoggerModule::class, PlatformProviderModule::class) },
         block = block
     )
 

@@ -15,6 +15,7 @@ import com.mochame.schema.MochaMeDatabaseConstructor
 import com.mochame.sync.data.SyncIntentDao
 import com.mochame.sync.spi.infrastructure.TransactionProvider
 import com.mochame.telemetry.data.TelemetryDao
+import org.koin.core.annotation.Configuration
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Provided
 import org.koin.core.annotation.Single
