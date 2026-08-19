@@ -2,6 +2,7 @@ package com.mochame.utils.fixtures
 
 import com.mochame.sync.api.hlc.HLC
 import com.mochame.utils.interfaces.MochaTimeProvider
+import com.mochame.utils.interfaces.TimeProvider
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
 import kotlinx.datetime.LocalDate
@@ -17,10 +18,9 @@ import kotlin.time.Instant
 /**
  * Defaults initial time to: Saturday, March 1, 2025 at 00:00:00 UTC.
  */
-class FakeTimeProvider(
-    initialTime: Instant = HLC.APP_RELEASE_TIME.plus(1.days),
-    private var defaultTimeZone: TimeZone = TimeZone.currentSystemDefault()
-) : MochaTimeProvider {
+open class FakeTimeProvider(
+    initialTime: Instant = HLC.APP_RELEASE_TIME.plus(1.days)
+) : TimeProvider {
 
     private val lock = reentrantLock()
     private var currentTime: Instant = initialTime
@@ -28,22 +28,34 @@ class FakeTimeProvider(
     fun advanceTime(duration: Duration) = lock.withLock { currentTime += duration }
     fun reverseTime(duration: Duration) = lock.withLock { currentTime -= duration }
     fun setTime(instant: Instant) = lock.withLock { currentTime = instant }
-    fun setTimeZone(timeZone: TimeZone) = lock.withLock { defaultTimeZone = timeZone }
 
     override fun now(): Instant = lock.withLock { currentTime }
+}
 
-    override fun getMochaDay(): Long {
-        return calculateMochaEpochDay(now())
-    }
+class MochaFakeTimeProvider(
+    val baseClock: FakeTimeProvider,
+    defaultTimeZone: TimeZone = TimeZone.currentSystemDefault()
+) : MochaTimeProvider, TimeProvider by baseClock {
+
+    private val lock = reentrantLock()
+    private var currentTimeZone: TimeZone = defaultTimeZone
+
+    fun setTimeZone(timeZone: TimeZone) = lock.withLock { currentTimeZone = timeZone }
+
+    fun advanceTime(duration: Duration) = baseClock.advanceTime(duration)
+    fun reverseTime(duration: Duration) = baseClock.reverseTime(duration)
+    fun setTime(instant: Instant) = baseClock.setTime(instant)
+
+    override fun getMochaDay(): Long = calculateMochaEpochDay(now())
 
     override fun calculateMochaEpochDay(instant: Instant): Long {
-        val tz = lock.withLock { defaultTimeZone }
+        val tz = lock.withLock { currentTimeZone }
         val biologicalInstant = instant.minus(4.hours)
-        return biologicalInstant.toLocalDateTime(tz).date.toEpochDays().toLong()
+        return biologicalInstant.toLocalDateTime(tz).date.toEpochDays()
     }
 
     override fun getMillisAgo(duration: Duration): Long {
-        val tz = lock.withLock { defaultTimeZone }
+        val tz = lock.withLock { currentTimeZone }
         val targetMochaDay = getMochaDay() - duration.inWholeDays
         val targetDate = LocalDate.fromEpochDays(targetMochaDay.toInt())
 

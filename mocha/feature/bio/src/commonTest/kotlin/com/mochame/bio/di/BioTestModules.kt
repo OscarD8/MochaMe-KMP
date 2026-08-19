@@ -5,8 +5,7 @@ import com.mochame.bio.data.BioMicroSchema
 import com.mochame.platform.fixtures.di.FixturesPlatformModule
 import com.mochame.support.TestSupportModule
 import com.mochame.sync.fixtures.di.FixturesSyncModule
-import com.mochame.utils.fixtures.di.FakeTimeProviderModule
-import org.koin.core.annotation.ComponentScan
+import com.mochame.utils.fixtures.di.FakeMochaTimeProviderModule
 import org.koin.core.annotation.KoinApplication
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
@@ -17,10 +16,8 @@ internal object BioDaoTestApp
 @Module(
     includes = [
         BioProductionModule::class,
-        TestSupportModule::class,
         FixturesSyncModule::class,
-        FixturesPlatformModule::class,
-        FakeTimeProviderModule::class
+        FakeMochaTimeProviderModule::class
     ]
 )
 class BioInfraTestModule {

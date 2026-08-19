@@ -3,6 +3,7 @@ package com.mochame.sync.fixtures
 import com.mochame.sync.spi.infrastructure.SyncWorkerHook
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -55,6 +56,7 @@ class FakeSyncWorkerHook : SyncWorkerHook {
         pendingSignalError = throwable
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun reset() = lock.withLock {
         _invalidationCount = 0
         _totalCollects = 0
