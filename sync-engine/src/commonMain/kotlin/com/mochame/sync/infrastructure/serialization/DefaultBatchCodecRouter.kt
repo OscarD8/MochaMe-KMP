@@ -3,8 +3,8 @@ package com.mochame.sync.infrastructure.serialization
 import co.touchlab.kermit.Logger
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
-import com.mochame.sync.domain.serialization.BatchCodec
-import com.mochame.sync.domain.serialization.BatchCodecRouter
+import com.mochame.sync.spi.infrastructure.serialization.BatchCodec
+import com.mochame.sync.spi.infrastructure.serialization.BatchCodecRouter
 import com.mochame.sync.spi.infrastructure.getCodec
 import com.mochame.sync.spi.infrastructure.latestCodec
 import com.mochame.sync.spi.models.SyncIntent

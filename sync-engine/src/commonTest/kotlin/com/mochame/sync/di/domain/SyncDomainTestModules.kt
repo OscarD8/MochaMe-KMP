@@ -5,7 +5,7 @@ package com.mochame.sync.di.domain
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Logger
 import co.touchlab.kermit.TestLogWriter
-import com.mochame.sync.di.FakeSyncStoresModule
+import com.mochame.sync.di.fixtures.SyncInternalFixturesModule
 import com.mochame.sync.domain.TEST_PRUNE_DAYS
 import com.mochame.sync.domain.usecase.PruneIntentsUseCase
 import com.mochame.sync.fixtures.FakeSyncIntentStore
@@ -22,7 +22,7 @@ internal object PruneIntentsUseCaseTestApp
 
 @Module(
     includes = [
-        FakeSyncStoresModule::class,
+        SyncInternalFixturesModule::class,
         TestLogWriter::class,
         FakeTimeProviderModule::class
     ]

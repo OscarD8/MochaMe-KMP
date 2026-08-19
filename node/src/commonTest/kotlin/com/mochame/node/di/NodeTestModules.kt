@@ -67,7 +67,7 @@ class NodeTestPersistenceModule {
 class StaggeredDbPolicyTestModule {
 
     @Single
-    fun provideStaggeredDbRetryPolicy(logger: Logger): StaggeredDbRetryPolicy =
+    fun provideTestStaggeredDbRetryPolicy(logger: Logger): StaggeredDbRetryPolicy =
         StaggeredDbRetryPolicy(
             logger,
             TestStaggerConfig.MAX_ATTEMPTS,

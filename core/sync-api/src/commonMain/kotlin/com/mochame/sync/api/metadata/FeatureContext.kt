@@ -1,7 +1,7 @@
 package com.mochame.sync.api.metadata
 
 import com.mochame.sync.api.exceptions.MochaException
-import com.mochame.sync.spi.metadata.InternalTestApi
+import com.mochame.sync.common.InternalTestApi
 import kotlinx.serialization.Serializable
 
 

@@ -14,7 +14,7 @@ import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.sync.api.exceptions.toMochaException
 import com.mochame.sync.spi.node.NodeContextManager
 import com.mochame.sync.spi.infrastructure.BlobStore
-import com.mochame.sync.domain.stores.SyncIntentMaintenanceStore
+import com.mochame.sync.spi.domain.SyncIntentMaintenanceStore
 import com.mochame.sync.domain.usecase.PruneIntentsUseCase
 import com.mochame.sync.spi.boot.BootStatusUpdater
 import com.mochame.sync.spi.policy.ExecutionPolicy

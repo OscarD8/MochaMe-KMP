@@ -52,6 +52,7 @@ class TestSupportModule {
     fun provideTestAppScope(): CoroutineScope = CoroutineScope(SupervisorJob())
 
     @Single
+    @IoContext
     fun provideTestIoContext(): CoroutineContext = EmptyCoroutineContext
 }
 

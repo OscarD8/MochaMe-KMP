@@ -3,8 +3,8 @@ package com.mochame.sync.infrastructure
 import app.cash.turbine.test
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runUnitEnvironment
-import com.mochame.sync.di.fixtures.SyncFixturesModule
-import com.mochame.sync.fixtures.FakeSyncWorkerHook
+import com.mochame.sync.di.fixtures.SyncInternalFixturesModule
+import com.mochame.sync.internal.fixtures.SpySyncWorkerHook
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -22,9 +22,9 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 
-private inline fun runEnv(crossinline block: suspend FakeSyncWorkerHook.(TestScope) -> Unit) =
-    runUnitEnvironment<FakeSyncWorkerHook>(
-        koinSetup = { modules(SyncFixturesModule::class) },
+private inline fun runEnv(crossinline block: suspend SpySyncWorkerHook.(TestScope) -> Unit) =
+    runUnitEnvironment<SpySyncWorkerHook>(
+        koinSetup = { modules(SyncInternalFixturesModule::class) },
         block = block
     )
 

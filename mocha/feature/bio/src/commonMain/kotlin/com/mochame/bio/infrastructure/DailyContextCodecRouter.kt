@@ -8,7 +8,7 @@ import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodecRouter
 import com.mochame.sync.spi.infrastructure.serialization.FeatureCodecRouter
 import org.koin.core.annotation.Single
 
-@Single(binds = [FeatureCodecRouter::class])
+@Single
 internal class DailyContextCodecRouter(
     v1: DailyContextCodecV1,
     logger: Logger

@@ -5,22 +5,22 @@ import com.mochame.logger.withTimer
 import com.mochame.sync.api.boot.BootState
 import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.sync.api.exceptions.toMochaException
+import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.api.metadata.SyncStatus
-import com.mochame.sync.spi.models.DecodeContext
-import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.api.models.LocalFirstEntity
-import com.mochame.sync.spi.models.SyncIntent
-import com.mochame.sync.spi.infrastructure.serialization.FeatureCodec
 import com.mochame.sync.spi.infrastructure.SyncReceiver
+import com.mochame.sync.spi.infrastructure.serialization.FeatureCodec
 import com.mochame.sync.spi.infrastructure.serialization.FeatureCodecRouter
 import com.mochame.sync.spi.infrastructure.serialization.FieldHlcMap
+import com.mochame.sync.spi.models.DecodeContext
+import com.mochame.sync.spi.models.SyncIntent
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.io.Buffer
-import org.koin.core.annotation.Single
+import org.koin.core.annotation.Provided
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.TimeSource
@@ -31,13 +31,12 @@ import kotlin.time.TimeSource
  *
  * @param T The entity type, adhering to the [LocalFirstEntity] contract.
  */
-@Single(binds = [SyncReceiver::class])
 abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     override val featureContext: FeatureContext,
     @PublishedApi internal val deps: LocalFirstDependencies,
-    @PublishedApi internal val codec: FeatureCodecRouter<T, FeatureCodec<T>>,
+    @Provided @PublishedApi internal val codec: FeatureCodecRouter<T, FeatureCodec<T>>,
     protected val logger: Logger
-) : SyncReceiver { // composition may have been better?
+) : SyncReceiver { // I regret not using composition
 
     /**
      * All local persistence performed by any feature's repository funnels through this method,
@@ -326,7 +325,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                 localResult
             }.also {
                 dbCommitted = true
-                deps.invalidationHook.invalidate()
+                deps.workerHook.invalidate()
                 logger.v { "Local DB Transaction Committed".withTimer(mark) }
             }
 

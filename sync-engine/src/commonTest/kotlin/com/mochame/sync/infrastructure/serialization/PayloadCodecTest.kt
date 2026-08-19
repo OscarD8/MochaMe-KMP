@@ -8,11 +8,11 @@ import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.sync.di.codec.CodecFixtureTestEnv
 import com.mochame.sync.di.codec.CodecTestApp
-import com.mochame.sync.fixtures.assertDecodedIntentParity
-import com.mochame.sync.fixtures.createTestSyncIntent
-import com.mochame.sync.fixtures.testBatch
-import com.mochame.sync.fixtures.serialization.FakeBatchCodec
-import com.mochame.sync.fixtures.serialization.toRouterWithVersion
+import com.mochame.sync.internal.fixtures.assertDecodedIntentParity
+import com.mochame.sync.internal.fixtures.createTestSyncIntent
+import com.mochame.sync.internal.fixtures.serialization.FakeBatchCodec
+import com.mochame.sync.internal.fixtures.testBatch
+import com.mochame.sync.internal.fixtures.toRouterWithVersion
 import kotlinx.coroutines.test.TestScope
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerializationException

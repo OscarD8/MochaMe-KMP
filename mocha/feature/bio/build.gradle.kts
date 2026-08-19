@@ -12,11 +12,14 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            implementation(project(":core:platform"))
             implementation(libs.kotlinx.serialization.protobuf)
             implementation(libs.kotlinx.io.core)
         }
         commonTest.dependencies {
+            implementation(project(":core:test:fixtures-sync"))
             implementation(project(":core:test:fixtures-utils"))
+            implementation(project(":core:test:fixtures-platform"))
         }
     }
 }

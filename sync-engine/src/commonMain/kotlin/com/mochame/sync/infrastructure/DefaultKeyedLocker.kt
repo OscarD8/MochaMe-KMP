@@ -1,7 +1,7 @@
 package com.mochame.sync.infrastructure
 
 import com.mochame.sync.api.metadata.FeatureContext
-import com.mochame.sync.domain.model.LockKey
+import com.mochame.sync.spi.models.LockKey
 import com.mochame.sync.spi.infrastructure.KeyedLocker
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock

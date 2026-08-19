@@ -12,19 +12,21 @@ import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.repository.LocalFirstDependencies
 import com.mochame.sync.api.repository.LocalFirstRepository
 import com.mochame.sync.common.TriState
+import com.mochame.sync.spi.infrastructure.SyncReceiver
 import com.mochame.utils.interfaces.MochaTimeProvider
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import org.koin.core.annotation.Provided
 import org.koin.core.annotation.Single
 
 
-@Single([DailyContextRepository::class])
+@Single([DailyContextRepository::class, SyncReceiver::class])
 internal class DefaultDailyContextRepository(
     private val timeUtils: MochaTimeProvider,
-    private val bioDao: BioDao,
+    @Provided private val bioDao: BioDao,
     codecRouter: DailyContextCodecRouter,
     logger: Logger,
-    deps: LocalFirstDependencies
+    @Provided deps: LocalFirstDependencies
 ) : LocalFirstRepository<DailyContext>(
     FeatureContext.BIO_DAILY_CONTEXT,
     deps,
@@ -45,10 +47,9 @@ internal class DefaultDailyContextRepository(
             isNapped = isNapped
         )
 
-        return localUpsert(
-            candidateKey = mochaDay,
-            computeChange = { existing -> compactState(draftContext, existing) }
-        )
+        return localUpsert(candidateKey = mochaDay) { existing ->
+            compactState(draftContext, existing)
+        }
     }
 
     override suspend fun deleteContext(epochDay: Long) = localDelete(candidateKey = epochDay)

@@ -10,17 +10,13 @@ import com.mochame.node.fixtures.di.FixturesNodeModule
 import com.mochame.platform.fixtures.FakeTransactionProvider
 import com.mochame.platform.fixtures.di.FixturesPlatformModule
 import com.mochame.support.TestSupportModule
-import com.mochame.sync.di.FakeSyncStoresModule
-import com.mochame.sync.di.SyncConcurrencyModule
-import com.mochame.sync.di.SyncDomainModule
-import com.mochame.sync.di.SyncInfraModule
-import com.mochame.sync.di.SyncOrchestrationModule
+import com.mochame.sync.di.SyncProductionModule
 import com.mochame.sync.di.domain.SyncPruneIntentsTestModule
-import com.mochame.sync.di.hlc.FakeHlcFactoryModule
+import com.mochame.sync.di.fixtures.SyncInternalFixturesModule
 import com.mochame.sync.domain.config.JanitorMaintenanceConfig
-import com.mochame.sync.fixtures.FakeHlcFactory
 import com.mochame.sync.fixtures.FakeSyncIntentStore
 import com.mochame.sync.infrastructure.stores.DefaultBlobStore
+import com.mochame.sync.internal.fixtures.SpyHlcFactory
 import com.mochame.sync.orchestration.SyncJanitor
 import com.mochame.utils.fixtures.FakeTimeProvider
 import com.mochame.utils.fixtures.di.FakeTimeProviderModule
@@ -42,15 +38,9 @@ internal object JanitorTestApp
         TestSupportModule::class,
         FixturesNodeModule::class,
         FixturesPlatformModule::class,
-
-        SyncOrchestrationModule::class,
-        SyncDomainModule::class,
-        SyncInfraModule::class,
-        SyncConcurrencyModule::class,
+        SyncProductionModule::class,
         SyncPruneIntentsTestModule::class,
-
-        FakeHlcFactoryModule::class,
-        FakeSyncStoresModule::class,
+        SyncInternalFixturesModule::class,
         FakeTimeProviderModule::class
     ]
 )
@@ -72,7 +62,7 @@ internal data class JanitorTestEnv(
     val writer: TestLogWriter,
     val fakeClock: FakeTimeProvider,
     val bootUpdater: FakeBootStatusManager,
-    val hlcFactory: FakeHlcFactory,
+    val hlcFactory: SpyHlcFactory,
     val nodeManager: FakeNodeContextManager,
     val blobStore: DefaultBlobStore,
     val intentStore: FakeSyncIntentStore,

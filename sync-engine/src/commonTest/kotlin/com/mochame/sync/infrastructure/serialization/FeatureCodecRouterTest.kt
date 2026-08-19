@@ -4,10 +4,10 @@ import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.di.codec.CodecTestApp
-import com.mochame.sync.fixtures.serialization.FakeFeatureCodec
-import com.mochame.sync.fixtures.serialization.FeatureEntity
-import com.mochame.sync.fixtures.serialization.FeatureCodecRouterFixture
-import com.mochame.sync.fixtures.serialization.deriveContext
+import com.mochame.sync.internal.fixtures.serialization.FakeFeatureCodec
+import com.mochame.sync.internal.fixtures.serialization.FeatureCodecRouterFixture
+import com.mochame.sync.internal.fixtures.serialization.FeatureEntity
+import com.mochame.sync.internal.fixtures.serialization.deriveContext
 import kotlinx.coroutines.test.TestScope
 import kotlinx.serialization.SerializationException
 import org.koin.dsl.includes

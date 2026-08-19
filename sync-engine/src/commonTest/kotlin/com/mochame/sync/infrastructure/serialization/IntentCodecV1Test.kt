@@ -6,8 +6,8 @@ import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.di.codec.CodecTestApp
-import com.mochame.sync.fixtures.assertDecodedIntentParity
-import com.mochame.sync.fixtures.createTestSyncIntent
+import com.mochame.sync.internal.fixtures.assertDecodedIntentParity
+import com.mochame.sync.internal.fixtures.createTestSyncIntent
 import com.mochame.utils.fixtures.TestHlcFactory
 import kotlinx.coroutines.test.TestScope
 import kotlinx.serialization.ExperimentalSerializationApi

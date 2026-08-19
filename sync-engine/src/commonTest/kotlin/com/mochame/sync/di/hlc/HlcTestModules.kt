@@ -1,13 +1,9 @@
 package com.mochame.sync.di.hlc
 
 import co.touchlab.kermit.ExperimentalKermitApi
-import co.touchlab.kermit.Logger
 import co.touchlab.kermit.TestLogWriter
 import com.mochame.logger.test.TestLoggerModule
-import com.mochame.sync.api.hlc.HlcFactory
 import com.mochame.sync.di.SyncDomainModule
-import com.mochame.sync.di.SyncInfraModule
-import com.mochame.sync.fixtures.FakeHlcFactory
 import com.mochame.sync.domain.hlc.EngineHlcFactory
 import com.mochame.utils.fixtures.FakeTimeProvider
 import com.mochame.utils.fixtures.di.FakeTimeProviderModule
@@ -15,9 +11,8 @@ import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Factory
 import org.koin.core.annotation.KoinApplication
 import org.koin.core.annotation.Module
-import org.koin.core.annotation.Single
 
-@KoinApplication(modules = [SyncHlcTestModule::class])
+@KoinApplication(modules = [EngineHlcTestModule::class])
 internal object HlcTestApp
 
 
@@ -29,17 +24,8 @@ internal object HlcTestApp
     ]
 )
 @ComponentScan("com.mochame.sync.di.hlc")
-internal class SyncHlcTestModule
+internal class EngineHlcTestModule
 
-
-@Module(includes = [FakeTimeProviderModule::class, TestLoggerModule::class])
-internal class FakeHlcFactoryModule {
-    @Single(binds = [HlcFactory::class, FakeHlcFactory::class])
-    internal fun provideFakeHlcFactory(
-        clock: FakeTimeProvider,
-        logger: Logger
-    ): FakeHlcFactory = FakeHlcFactory(clock, logger)
-}
 
 @ExperimentalKermitApi
 @Factory

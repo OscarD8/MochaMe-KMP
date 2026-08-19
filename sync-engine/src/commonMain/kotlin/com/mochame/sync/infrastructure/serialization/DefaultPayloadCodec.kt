@@ -6,8 +6,8 @@ import co.touchlab.kermit.Logger
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.sync.spi.models.SyncIntent
-import com.mochame.sync.domain.serialization.BatchCodecRouter
-import com.mochame.sync.domain.serialization.PayloadCodec
+import com.mochame.sync.spi.infrastructure.serialization.BatchCodecRouter
+import com.mochame.sync.spi.infrastructure.serialization.PayloadCodec
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoBuf
 import kotlinx.serialization.protobuf.ProtoNumber

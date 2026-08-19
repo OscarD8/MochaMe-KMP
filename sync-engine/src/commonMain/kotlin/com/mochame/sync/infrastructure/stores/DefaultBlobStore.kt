@@ -29,9 +29,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.TimeSource
 
-/**
- * BlobStore using kotlinx-io.
- */
+
 @Single(binds = [BlobStore::class])
 internal class DefaultBlobStore(
     private val timeUtils: TimeProvider,

@@ -5,8 +5,8 @@ import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.sync.spi.models.SyncIntent
-import com.mochame.sync.domain.serialization.BatchCodec
-import com.mochame.sync.domain.serialization.IntentCodecRouter
+import com.mochame.sync.spi.infrastructure.serialization.BatchCodec
+import com.mochame.sync.spi.infrastructure.serialization.IntentCodecRouter
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoBuf

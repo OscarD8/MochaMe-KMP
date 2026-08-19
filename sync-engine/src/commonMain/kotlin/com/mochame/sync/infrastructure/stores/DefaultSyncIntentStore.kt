@@ -6,8 +6,8 @@ import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.data.SyncIntentDao
 import com.mochame.sync.data.toDomain
 import com.mochame.sync.data.toEntity
-import com.mochame.sync.domain.model.QuarantinedFeatureSummary
-import com.mochame.sync.domain.stores.SyncIntentMaintenanceStore
+import com.mochame.sync.spi.models.QuarantinedFeatureSummary
+import com.mochame.sync.spi.domain.SyncIntentMaintenanceStore
 import com.mochame.sync.spi.infrastructure.SyncIntentStore
 import com.mochame.sync.spi.models.SyncIntent
 import kotlinx.coroutines.flow.Flow

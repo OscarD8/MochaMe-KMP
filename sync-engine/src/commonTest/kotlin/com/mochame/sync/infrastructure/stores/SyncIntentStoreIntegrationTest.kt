@@ -8,8 +8,8 @@ import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.di.data.IntentComponentEnv
 import com.mochame.sync.di.data.SyncPersistenceTestApp
-import com.mochame.sync.fixtures.createTestIntentEntity
-import com.mochame.sync.fixtures.createTestSyncIntent
+import com.mochame.sync.internal.fixtures.createTestIntentEntity
+import com.mochame.sync.internal.fixtures.createTestSyncIntent
 import com.mochame.sync.data.SyncMicroSchema
 import com.mochame.sync.data.SyncMicroSchemaConstructor
 import com.mochame.utils.fixtures.TestPayloads

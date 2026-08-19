@@ -15,7 +15,7 @@ import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.domain.model.deriveContext
 import com.mochame.sync.spi.models.SyncIntent
 import com.mochame.sync.tryWithLock
-import com.mochame.sync.domain.serialization.PayloadCodec
+import com.mochame.sync.spi.infrastructure.serialization.PayloadCodec
 import com.mochame.sync.spi.infrastructure.SyncIntentStore
 import com.mochame.sync.spi.infrastructure.SyncReceiver
 import com.mochame.sync.spi.infrastructure.SyncWorkerHook
@@ -37,7 +37,7 @@ internal class SyncCoordinator(
     private val idGenerator: IdGenerator,
     private val executor: ExecutionPolicy,
     private val hlcFactory: HlcFactory,
-    private val invalidationHook: SyncWorkerHook,
+    private val workerHook: SyncWorkerHook,
     private val nodeManager: NodeContextManager,
     @CoordinatorMutex private val coordinatorMutex: Mutex,
     @AppScope private val appScope: CoroutineScope,
@@ -54,7 +54,7 @@ internal class SyncCoordinator(
         receivers.associateBy { it.featureContext }
 
     fun startOutbound() = appScope.launch {
-        invalidationHook.signals.collect {
+        workerHook.signals.collect {
             try {
                 processQueueUntilExhausted()
             } catch (e: Exception) {

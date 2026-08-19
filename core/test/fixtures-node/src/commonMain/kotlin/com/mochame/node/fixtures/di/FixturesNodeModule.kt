@@ -16,16 +16,13 @@ import org.koin.core.annotation.Single
 @Module(includes = [FakeIdGeneratorModule::class])
 class FixturesNodeModule {
     @Single(binds = [NodeContextManager::class, FakeNodeContextManager::class])
-    fun provideFakeNodeManager(): NodeContextManager = FakeNodeContextManager()
+    fun provideFakeNodeManager(): FakeNodeContextManager = FakeNodeContextManager()
 
-    @Single(binds = [BootStatusUpdater::class, FakeBootStatusManager::class])
-    fun provideFakeBootStatusProvider(): BootStatusProvider = FakeBootStatusManager()
-
-    @Single(binds = [BootStatusProvider::class, FakeBootStatusManager::class])
-    fun provideFakeBootStatusManager(): BootStatusUpdater = FakeBootStatusManager()
+    @Single(binds = [BootStatusProvider::class, BootStatusUpdater::class, FakeBootStatusManager::class])
+    fun provideFakeBootStatusManager(): FakeBootStatusManager = FakeBootStatusManager()
 
     @Single(binds = [ExecutionPolicy::class, FakeExecutionPolicy::class])
-    fun provideFakeExecutionPolicy(): ExecutionPolicy = FakeExecutionPolicy()
+    fun provideFakeExecutionPolicy(): FakeExecutionPolicy = FakeExecutionPolicy()
 }
 
 @Module

@@ -8,11 +8,11 @@ import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.common.TriState
 import com.mochame.sync.di.codec.CodecTestApp
-import com.mochame.sync.fixtures.serialization.FeatureCodecV1
-import com.mochame.sync.fixtures.serialization.FeatureEntity
-import com.mochame.sync.fixtures.serialization.FeatureEntityDeltaV1
-import com.mochame.sync.fixtures.serialization.assertDecodeParity
-import com.mochame.sync.fixtures.serialization.deriveContext
+import com.mochame.sync.internal.fixtures.serialization.FeatureCodecV1
+import com.mochame.sync.internal.fixtures.serialization.FeatureEntity
+import com.mochame.sync.internal.fixtures.serialization.FeatureEntityDeltaV1
+import com.mochame.sync.internal.fixtures.serialization.assertDecodeParity
+import com.mochame.sync.internal.fixtures.serialization.deriveContext
 import com.mochame.sync.spi.models.DecodeContext
 import com.mochame.utils.fixtures.TestHlcFactory
 import kotlinx.coroutines.test.TestScope
