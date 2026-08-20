@@ -4,4 +4,6 @@ import kotlinx.coroutines.flow.StateFlow
 
 interface BootStatusProvider {
     val bootState: StateFlow<BootState>
+
+    suspend fun awaitReady()
 }

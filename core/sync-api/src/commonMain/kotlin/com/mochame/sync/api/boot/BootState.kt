@@ -10,6 +10,6 @@ sealed class BootState {
     object Ready : BootState() {
         override fun toString() = "Ready"
     }
-    data class TransientFailure(val error: String, val exception: Exception? = null) : BootState()
-    data class CriticalFailure(val error: String, val exception: Exception? = null) : BootState()
+    data class TransientFailure(val message: String, val exception: Exception? = null) : BootState()
+    data class CriticalFailure(val message: String, val exception: Exception? = null) : BootState()
 }

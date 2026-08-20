@@ -2,7 +2,6 @@ package com.mochame.sync.api.repository
 
 import co.touchlab.kermit.Logger
 import com.mochame.logger.withTimer
-import com.mochame.sync.api.boot.BootState
 import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.sync.api.exceptions.toMochaException
 import com.mochame.sync.api.hlc.HLC
@@ -16,13 +15,10 @@ import com.mochame.sync.spi.infrastructure.serialization.FeatureCodecRouter
 import com.mochame.sync.spi.infrastructure.serialization.FieldHlcMap
 import com.mochame.sync.spi.models.DecodeContext
 import com.mochame.sync.spi.models.SyncIntent
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import kotlinx.io.Buffer
 import org.koin.core.annotation.Provided
 import kotlin.time.Clock
-import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.TimeSource
 
 /**
@@ -70,7 +66,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         crossinline persist: suspend (stamped: T) -> Long,
         crossinline onSkip: (fallback: T?) -> Long
     ): Long = withContext(deps.ioContext) {
-        ensureReady()
+        deps.bootProvider.awaitReady()
 
         deps.locker.withLock(featureContext, candidateKey) {
             if (incomingHlc != null) {
@@ -253,7 +249,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         candidateKey: Long
     ): Boolean {
         if (existing == null) {
-            // Local/Remote Upserts always require Field-Level processing
+            // Local/Remote Upserts always require Field-Level diffing
             if (op == MutationOp.UPSERT) return false
 
             if (incomingHlc != null)
@@ -267,10 +263,10 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         if (op == MutationOp.DELETE) {
             when {
                 existing.isDeleted ->
-                    return reject(candidateKey) { "Local record is already deleted (HLC: $incomingHlc)" }
+                    return reject(candidateKey) { "Local record is already deleted (HLC: ${existing.hlc})" }
 
                 incomingHlc != null && incomingHlc <= existing.hlc ->
-                    return reject(candidateKey) { "Obsolete HLC: local(${existing.hlc}) > remote($incomingHlc)" }
+                    return reject(candidateKey) { "Obsolete Remote Delete: local(${existing.hlc}) > remote($incomingHlc)" }
             }
         }
 
@@ -326,7 +322,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             }.also {
                 dbCommitted = true
                 deps.workerHook.invalidate()
-                logger.v { "Local DB Transaction Committed".withTimer(mark) }
+                logger.v { "Local DB Transaction Committed [key: $candidateKey]".withTimer(mark) }
             }
 
             blobId?.also {
@@ -397,21 +393,4 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             now
         }
     }
-
-    /**
-     * Timeout and error handling for the Janitor's boot sequence.
-     */
-    @PublishedApi
-    internal suspend fun ensureReady() {
-        withTimeout(5_000L.milliseconds) {
-            val state =
-                deps.bootStatus.bootState.first { it !is BootState.Initializing && it !is BootState.Idle }
-
-            if (state is BootState.CriticalFailure) {
-                throw state.exception
-                    ?: MochaException.Persistent.BootInitializationError(state.error)
-            }
-        }
-    }
-
 }

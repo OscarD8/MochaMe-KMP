@@ -31,7 +31,7 @@ internal class DefaultDailyContextRepository(
     FeatureContext.BIO_DAILY_CONTEXT,
     deps,
     codecRouter,
-    logger = logger.withTags(LogTags.Layer.REPO, LogTags.Domain.BIO, "BioRepo")
+    logger = logger.withTags(LogTags.Layer.REPO, LogTags.Domain.BIO, "BioRep")
 ), DailyContextRepository {
 
     override suspend fun establishDay(

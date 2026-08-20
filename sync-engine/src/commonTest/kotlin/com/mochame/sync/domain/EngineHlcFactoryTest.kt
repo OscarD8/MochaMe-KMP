@@ -438,11 +438,7 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
     fun should_log_warning_when_counter_exhaustion_triggers_delay() =
         runEnv { scope ->
             // When: The factory at the 16-bit limit, matching the device time
-            val maxCounterHlc = TestHlcFactory.create(
-                ts = fakeClock.now().toEpochMilliseconds(),
-                count = HLC.MAX_COUNTER_INT,
-                nodeId = TestNodeId.A
-            )
+            val maxCounterHlc = TestHlcFactory.create(count = HLC.MAX_COUNTER_INT)
             factory.hydrate(maxCounterHlc, TestNodeId.A)
 
             // Then: This will trigger a delay on attempting to get a new hlc
@@ -779,9 +775,8 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
     @Test
     fun should_neverLoseWitnessUpdates_when_witnessCalledFromMultipleCoroutines() =
         runEnv { scope ->
-            val baseTs = fakeClock.now().toEpochMilliseconds()
             factory.hydrate(
-                TestHlcFactory.create(ts = baseTs),
+                TestHlcFactory.create(),
                 TestHlcFactory.DEFAULT_NODE
             )
 
@@ -791,9 +786,9 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
 
             val gate = CompletableDeferred<Unit>()
             // Generate distinct ascending HLC sequence split across threads
-            val hlcSequence = (1..totalOperations).map { i ->
-                TestHlcFactory.create(ts = baseTs + (i * 500L))
-            }
+            val hlcSequence = TestHlcFactory.chronologicalSequence(
+                size = totalOperations
+            )
             val maxExpectedTs = hlcSequence.last().ts
 
             // When - Multi-threaded witness updates

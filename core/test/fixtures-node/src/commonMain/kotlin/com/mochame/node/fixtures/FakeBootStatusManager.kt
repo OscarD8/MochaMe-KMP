@@ -1,42 +1,35 @@
 package com.mochame.node.fixtures
 
+import com.mochame.node.managers.DefaultBootStatusManager
 import com.mochame.sync.api.boot.BootState
 import com.mochame.sync.api.boot.BootStatusProvider
 import com.mochame.sync.spi.boot.BootStatusUpdater
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 class FakeBootStatusManager(
-    initialState: BootState = BootState.Idle
-) : BootStatusProvider, BootStatusUpdater {
-
-    /**
-     * Required as the context is non-suspending. In the risk of the runtime execution
-     * being multithreaded for a test, this provides a lock that physically blocks other
-     * Thread IDs from writing to the history/current [BootState] out of sequence.
-     */
+    initialState: BootState = BootState.Idle,
+    timeout: Duration = 5.seconds,
+    private val delegate: DefaultBootStatusManager = DefaultBootStatusManager(initialState, timeout)
+) : BootStatusProvider, BootStatusUpdater by delegate {
     private val lock = reentrantLock()
+    private val _history = mutableListOf(initialState)
 
-    private val _state = MutableStateFlow(initialState)
-    override val bootState: StateFlow<BootState> = _state.asStateFlow()
-
-    private val _history = mutableListOf<BootState>()
     val history: List<BootState>
         get() = lock.withLock { _history.toList() }
-
-    init {
-        lock.withLock {
-            _history.add(initialState)
-        }
-    }
 
     override fun updateBootState(newState: BootState) {
         lock.withLock {
             _history.add(newState)
-            _state.value = newState
         }
+        delegate.updateBootState(newState)
+    }
+
+    fun reset(initialState: BootState = BootState.Idle) = lock.withLock {
+        _history.clear()
+        _history.add(initialState)
+        delegate.updateBootState(initialState)
     }
 }

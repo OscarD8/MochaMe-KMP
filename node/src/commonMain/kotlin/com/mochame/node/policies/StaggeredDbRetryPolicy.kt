@@ -30,7 +30,7 @@ class StaggeredDbRetryPolicy(
     }
 
     private val logger =
-        logger.withTags(LogTags.Layer.ORCH, LogTags.Domain.EXECUTE, "Exectr")
+        logger.withTags(LogTags.Layer.ORCH, LogTags.Domain.POLICY, "Exectr")
 
     /**
      * Any block passed to StaggeredDbRetryPolicy must encapsulate their own atomicity configuration.
@@ -55,7 +55,7 @@ class StaggeredDbRetryPolicy(
                     currentDelay *= 2
 
                 } else {
-                    logger.e(e) { "$operationTag Aborted database interaction. ${e.message}" }
+                    logger.e(e) { "$operationTag Aborted. ${e.message}" }
                     throw mochaError
                 }
             }

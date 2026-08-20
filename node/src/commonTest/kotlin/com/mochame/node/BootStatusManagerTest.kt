@@ -8,14 +8,21 @@ import com.mochame.sync.api.boot.BootState
 import com.mochame.sync.api.boot.BootStatusProvider
 import com.mochame.sync.api.exceptions.MochaException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import org.koin.dsl.includes
 import org.koin.plugin.module.dsl.koinConfiguration
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 
 
 // -----------------------------------------------------------
@@ -105,6 +112,33 @@ class BootStatusManagerTest : MochaPlatformTest() {
                 BootState.Ready
             )
             assertEquals(expectedStates, emittedStates)
+        }
+
+    @Test
+    fun awaitReady_whenBootTakesTime_suspendsNaturallyUntilWorkerEmitsReady() =
+        runEnv { scope ->
+            updateBootState(BootState.Initializing)
+
+            scope.launch {
+                delay(350.milliseconds)
+                updateBootState(BootState.Ready)
+            }
+
+            var completed = false
+            val awaitJob = scope.launch {
+                awaitReady()
+                completed = true
+            }
+
+            scope.runCurrent()
+            assertFalse(completed)
+            assertEquals(0L, scope.testScheduler.currentTime)
+
+            scope.advanceUntilIdle()
+
+            assertTrue(completed)
+            assertTrue(awaitJob.isCompleted)
+            assertEquals(350L, scope.testScheduler.currentTime)
         }
 
     // -----------------------------------------------------------

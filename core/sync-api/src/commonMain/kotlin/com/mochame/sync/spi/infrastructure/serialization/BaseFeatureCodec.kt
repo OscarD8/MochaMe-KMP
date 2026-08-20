@@ -62,9 +62,7 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
         val delta = when {
             new.isDeleted -> buildDeleteDelta(new)
             old == null -> buildInsertDelta(new)
-            else -> {
-                buildUpdateDelta(new, old, isRestored = old.isDeleted)
-            }
+            else -> buildUpdateDelta(new, old, isRestored = old.isDeleted)
         } ?: run {
             logger.v { "No delta generated for key=${new.id}; skipping encoding" }
             return null

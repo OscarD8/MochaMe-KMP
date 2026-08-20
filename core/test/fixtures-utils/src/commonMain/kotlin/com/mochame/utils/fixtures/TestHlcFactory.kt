@@ -2,6 +2,8 @@ package com.mochame.utils.fixtures
 
 import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.spi.node.NodeId
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
 
 
@@ -11,20 +13,24 @@ import kotlin.time.Instant
 object TestHlcFactory {
 
     val DEFAULT_NODE = TestNodeId.A
+    val BASE_TEST_TIME = HLC.APP_RELEASE_TIME.plus(1.days).toEpochMilliseconds()
 
-    /**
-     * Fixed base time: Thursday, July 9, 2026
-     */
-    const val BASE_TEST_TIME = 0L
 
-    /**
-     * Builds a standalone HLC with safe defaults.
-     */
     fun create(
         ts: Long = BASE_TEST_TIME,
         count: Int = 0,
         nodeId: NodeId = DEFAULT_NODE
     ): HLC = HLC(ts = ts, count = count, nodeId = nodeId)
+
+    fun createWithOffset(
+        offset: Duration = Duration.ZERO,
+        count: Int = 0,
+        nodeId: NodeId = DEFAULT_NODE
+    ): HLC = HLC(
+        ts = BASE_TEST_TIME + offset.inWholeMilliseconds,
+        count = count,
+        nodeId = nodeId
+    )
 
     fun create(
         ts: Instant,
@@ -38,13 +44,11 @@ object TestHlcFactory {
      */
     fun chronologicalSequence(
         size: Int,
-        stepMs: Long = 60_000L,
+        stepMs: Long = 1L,
         baseTs: Long = BASE_TEST_TIME,
         nodeId: NodeId = DEFAULT_NODE
-    ): List<HLC> {
-        return List(size) { index ->
-            HLC(ts = baseTs + (index * stepMs), count = 0, nodeId = nodeId)
-        }
+    ): List<HLC> = List(size) { index ->
+        HLC(ts = baseTs + (index * stepMs), count = 0, nodeId = nodeId)
     }
 
     /**
@@ -55,9 +59,7 @@ object TestHlcFactory {
         size: Int,
         ts: Long = BASE_TEST_TIME,
         nodeId: NodeId = DEFAULT_NODE
-    ): List<HLC> {
-        return List(size) { index ->
-            HLC(ts = ts, count = index, nodeId = nodeId)
-        }
+    ): List<HLC> = List(size) { index ->
+        HLC(ts = ts, count = index, nodeId = nodeId)
     }
 }

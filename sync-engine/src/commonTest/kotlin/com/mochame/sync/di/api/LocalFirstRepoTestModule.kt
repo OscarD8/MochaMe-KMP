@@ -3,19 +3,30 @@ package com.mochame.sync.di.api
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Logger
 import co.touchlab.kermit.TestLogWriter
+import com.mochame.logger.test.TestLoggerModule
 import com.mochame.node.di.StaggeredDbRetryPolicyModule
+import com.mochame.node.fixtures.FakeBootStatusManager
+import com.mochame.node.fixtures.FakeNodeContextManager
 import com.mochame.node.fixtures.di.FixturesNodeModule
 import com.mochame.platform.fixtures.di.FixturesPlatformModule
-import com.mochame.support.TestSupportModule
+import com.mochame.sync.api.boot.BootState
+import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.repository.LocalFirstDependencies
-import com.mochame.sync.di.SyncInfraModule
+import com.mochame.sync.common.InternalTestApi
 import com.mochame.sync.di.codec.CodecTestModule
 import com.mochame.sync.di.fixtures.SyncInternalFixturesModule
-import com.mochame.sync.common.InternalTestApi
+import com.mochame.sync.di.infrastructure.DefaultKeyedLockerModule
+import com.mochame.sync.fixtures.FakeSyncIntentStore
 import com.mochame.sync.fixtures.di.FixturesSyncModule
 import com.mochame.sync.internal.fixtures.FeatureRepository
+import com.mochame.sync.internal.fixtures.SpyHlcFactory
+import com.mochame.sync.internal.fixtures.SpySyncWorkerHook
+import com.mochame.sync.internal.fixtures.serialization.FeatureCodecRouter
 import com.mochame.sync.internal.fixtures.serialization.FeatureCodecRouterFixture
+import com.mochame.sync.internal.fixtures.serialization.FeatureCodecV1
+import com.mochame.utils.fixtures.FakeTimeProvider
+import com.mochame.utils.fixtures.TestNodeId
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Factory
 import org.koin.core.annotation.KoinApplication
@@ -50,10 +61,12 @@ object LocalFirstRepoTestApp
     includes = [
         FixturesSyncModule::class,
         SyncInternalFixturesModule::class,
+        DefaultKeyedLockerModule::class,
         CodecTestModule::class,
         FixturesNodeModule::class,
         FixturesPlatformModule::class,
-        StaggeredDbRetryPolicyModule::class
+        StaggeredDbRetryPolicyModule::class,
+        TestLoggerModule::class
     ]
 )
 @ComponentScan("com.mochame.sync.di.api")
@@ -78,6 +91,29 @@ internal class LocalFirstRepoTestModule {
 @ExperimentalKermitApi
 internal class LocalFirstRepoTestEnv(
     val repo: FeatureRepository,
+    val hlcFactory: SpyHlcFactory,
+    val intentStore: FakeSyncIntentStore,
+    val workerHook: SpySyncWorkerHook,
+    val nodeManager: FakeNodeContextManager,
+    val bootProvider: FakeBootStatusManager,
+    val integratedCodec: FeatureCodecV1,
     val deps: LocalFirstDependencies,
+    val fakeClock: FakeTimeProvider,
+    val logger: Logger,
     val writer: TestLogWriter,
-)
+) {
+    @OptIn(InternalTestApi::class)
+    fun createCodecIntegratedRepo(
+        featureContext: FeatureContext = FeatureContext.TEST_STUB_A
+    ): FeatureRepository = FeatureRepository(
+        featureContext = featureContext,
+        deps = deps,
+        codecRouter = FeatureCodecRouter(integratedCodec, logger),
+        logger = logger
+    )
+
+    suspend fun setupValidContext(hlc: HLC? = null) {
+        hlcFactory.hydrate(hlc, TestNodeId.A)
+        bootProvider.updateBootState(BootState.Ready)
+    }
+}

@@ -11,6 +11,7 @@ import com.mochame.sync.spi.node.NodeContextManager
 import com.mochame.sync.spi.policy.ExecutionPolicy
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
+import kotlin.time.Duration.Companion.seconds
 
 
 @Module(includes = [FakeIdGeneratorModule::class])
@@ -19,7 +20,8 @@ class FixturesNodeModule {
     fun provideFakeNodeManager(): FakeNodeContextManager = FakeNodeContextManager()
 
     @Single(binds = [BootStatusProvider::class, BootStatusUpdater::class, FakeBootStatusManager::class])
-    fun provideFakeBootStatusManager(): FakeBootStatusManager = FakeBootStatusManager()
+    fun provideFakeBootStatusManager(): FakeBootStatusManager =
+        FakeBootStatusManager(timeout = FixturesNodeConfig.BOOT_TIMEOUT)
 
     @Single(binds = [ExecutionPolicy::class, FakeExecutionPolicy::class])
     fun provideFakeExecutionPolicy(): FakeExecutionPolicy = FakeExecutionPolicy()
@@ -29,4 +31,8 @@ class FixturesNodeModule {
 class FakeIdGeneratorModule {
     @Single(binds = [IdGenerator::class, FakeIdGenerator::class])
     fun provideIdGenerator(): IdGenerator = FakeIdGenerator()
+}
+
+object FixturesNodeConfig {
+    val BOOT_TIMEOUT = 5.seconds
 }

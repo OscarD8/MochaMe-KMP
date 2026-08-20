@@ -35,8 +35,8 @@ import kotlin.coroutines.CoroutineContext
         FakeTimeProviderModule::class,
         FixturesPlatformModule::class,
         FixturesNodeModule::class,
+        TestSupportModule::class,
         TestLoggerModule::class,
-        TestSupportModule::class
     ]
 )
 class FixturesSyncModule {
@@ -84,7 +84,7 @@ class FixturesSyncModule {
         locker = locker,
         logger = logger,
         nodeManager = nodeManager,
-        bootStatus = bootStatus,
+        bootProvider = bootStatus,
         ioContext = ioContext
     )
 }

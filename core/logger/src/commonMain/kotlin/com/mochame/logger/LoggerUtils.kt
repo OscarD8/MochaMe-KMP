@@ -7,16 +7,16 @@ object LogTags {
     const val APP = "Mocha"
 
     object Domain {
-        const val METADATA = "Metadata"
+        const val METADATA = "Meta"
         const val NODE = "Node"
         const val SYNC = "Sync"
         const val AUTH = "Auth"
         const val PLATFORM = "Plat"
         const val BIO = "Bio"
-        const val SIGNAL = "Signal"
-        const val TELEMETRY = "Telem"
-        const val PRUNE = "Prune"
-        const val EXECUTE = "Execute"
+        const val SIGNAL = "Sign"
+        const val TELEMETRY = "Tele"
+        const val PRUNE = "Prun"
+        const val POLICY = "Plcy"
     }
 
     object Layer {

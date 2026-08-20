@@ -23,6 +23,6 @@ class LocalFirstDependencies(
     val locker: KeyedLocker,
     val logger: Logger,
     val nodeManager: NodeContextManager,
-    val bootStatus: BootStatusProvider,
+    val bootProvider: BootStatusProvider,
     @IoContext val ioContext: CoroutineContext
 )
