@@ -23,7 +23,7 @@ import com.mochame.sync.spi.infrastructure.SyncWorkerHook
 import com.mochame.sync.spi.infrastructure.TransactionProvider
 import com.mochame.sync.spi.node.NodeContextManager
 import com.mochame.sync.spi.policy.ExecutionPolicy
-import com.mochame.utils.fixtures.FakeTimeProvider
+import com.mochame.utils.fixtures.FakeTimeUtils
 import com.mochame.utils.fixtures.di.FakeTimeProviderModule
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
@@ -54,7 +54,7 @@ class FixturesSyncModule {
         FakeSyncWorkerHook()
 
     @Single(binds = [HlcFactory::class, FakeHlcFactory::class])
-    fun provideFakeHlcFactory(timeProvider: FakeTimeProvider): FakeHlcFactory =
+    fun provideFakeHlcFactory(timeProvider: FakeTimeUtils): FakeHlcFactory =
         FakeHlcFactory(timeProvider)
 
     @Single(binds = [KeyedLocker::class, FakeKeyedLocker::class])

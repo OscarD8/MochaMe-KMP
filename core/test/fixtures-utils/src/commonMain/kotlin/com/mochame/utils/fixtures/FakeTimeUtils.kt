@@ -1,8 +1,8 @@
 package com.mochame.utils.fixtures
 
 import com.mochame.sync.api.hlc.HLC
-import com.mochame.utils.interfaces.MochaTimeProvider
-import com.mochame.utils.interfaces.TimeProvider
+import com.mochame.utils.interfaces.MochaTimeUtils
+import com.mochame.utils.interfaces.TimeUtils
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
 import kotlinx.datetime.LocalDate
@@ -18,9 +18,9 @@ import kotlin.time.Instant
 /**
  * Defaults initial time to: Saturday, March 1, 2025 at 00:00:00 UTC.
  */
-open class FakeTimeProvider(
+open class FakeTimeUtils(
     initialTime: Instant = HLC.APP_RELEASE_TIME.plus(1.days)
-) : TimeProvider {
+) : TimeUtils {
 
     private val lock = reentrantLock()
     private var currentTime: Instant = initialTime
@@ -32,10 +32,10 @@ open class FakeTimeProvider(
     override fun now(): Instant = lock.withLock { currentTime }
 }
 
-class MochaFakeTimeProvider(
-    val baseClock: FakeTimeProvider,
+class MochaFakeTimeUtils(
+    val baseClock: FakeTimeUtils,
     defaultTimeZone: TimeZone = TimeZone.currentSystemDefault()
-) : MochaTimeProvider, TimeProvider by baseClock {
+) : MochaTimeUtils, TimeUtils by baseClock {
 
     private val lock = reentrantLock()
     private var currentTimeZone: TimeZone = defaultTimeZone

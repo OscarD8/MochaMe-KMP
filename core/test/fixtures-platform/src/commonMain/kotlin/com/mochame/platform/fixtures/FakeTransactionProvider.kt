@@ -16,6 +16,9 @@ class FakeTransactionProvider : TransactionProvider {
     val executionCount
         get() = lock.withLock { _executionCount }
 
+    /**
+     * One time throw. Resets to null after use.
+     */
     private var _shouldThrow: Exception? = null
     var shouldThrow: Exception?
         get() = lock.withLock { _shouldThrow }
@@ -24,8 +27,12 @@ class FakeTransactionProvider : TransactionProvider {
     override suspend fun <R> runImmediateTransaction(block: suspend () -> R): R {
         lock.withLock {
             _executionCount++
+            shouldThrow?.let {
+                _shouldThrow = null
+                throw it
+            }
         }
-        shouldThrow?.let { throw it }
+
         return block()
     }
 

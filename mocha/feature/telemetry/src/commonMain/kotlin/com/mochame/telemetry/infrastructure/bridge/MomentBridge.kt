@@ -10,20 +10,18 @@ import com.mochame.telemetry.domain.MomentDetail
 import com.mochame.telemetry.domain.MomentDraft
 import com.mochame.telemetry.domain.MomentMetadata
 import com.mochame.telemetry.domain.repositories.MomentRepository
-import com.mochame.utils.interfaces.MochaTimeProvider
+import com.mochame.utils.interfaces.MochaTimeUtils
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.CoroutineContext
-import kotlin.time.Clock
-import kotlin.time.Instant
 
 /**
  * ObservationBridge: SQLite-backed implementation of [com.mochame.telemetry.domain.repositories.MomentRepository].
- * * Uses [MochaTimeProvider] to calculate 4am cutoff for a day, and
+ * * Uses [MochaTimeUtils] to calculate 4am cutoff for a day, and
  * [com.mochame.telemetry.data.TelemetryDao] for persistent storage.
  */
 internal class MomentBridge(
     private val dao: TelemetryDao,
-    private val timeUtils: MochaTimeProvider,
+    private val timeUtils: MochaTimeUtils,
     @IoContext private val ioContext: CoroutineContext
 ) : MomentRepository {
 

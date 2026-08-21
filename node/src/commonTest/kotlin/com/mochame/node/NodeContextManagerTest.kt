@@ -6,17 +6,21 @@ import com.mochame.node.data.NodeContextMicroSchemaConstructor
 import com.mochame.node.data.nodeTableName
 import com.mochame.node.di.NodeContextIntTestApp
 import com.mochame.node.di.NodeContextIntTestEnv
+import com.mochame.node.managers.DefaultNodeContextManager
 import com.mochame.support.MochaPlatformTest
 import com.mochame.utils.fixtures.TestHlcFactory
 import com.mochame.support.getPhysicalRowCount
 import com.mochame.support.runPersistenceEnvironment
 import com.mochame.sync.spi.node.NodeContext
 import com.mochame.utils.fixtures.TestNodeId
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.yield
 import org.koin.dsl.includes
 import org.koin.plugin.module.dsl.koinConfiguration
 import kotlin.test.Test
@@ -106,15 +110,21 @@ class NodeContextManagerTest : MochaPlatformTest() {
     @Test
     fun should_initialize_single_id_when_async_polls_to_manager() =
         runEnv { scope ->
-            // Given
+            val defaultManager =
+                DefaultNodeContextManager(dao, idGen, Dispatchers.IO, managerMutex, logger)
+            val readyCounter = atomic(0)
             val threads = 8
-            val gate = CompletableDeferred(Unit)
+            val gate = CompletableDeferred<Unit>()
 
             val workerDeferreds = List(threads) {
                 scope.async(Dispatchers.Default) {
+                    readyCounter.incrementAndGet()
                     gate.await()
-                    manager.getOrEstablishContext()
+                    defaultManager.getOrEstablishContext()
                 }
+            }
+            while (readyCounter.value < threads) {
+                yield()
             }
 
             // When

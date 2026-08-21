@@ -1,6 +1,6 @@
 package com.mochame.node.fixtures.di
 
-import com.mochame.node.fixtures.FakeBootStatusManager
+import com.mochame.node.fixtures.SpyBootStatusManager
 import com.mochame.node.fixtures.FakeExecutionPolicy
 import com.mochame.node.fixtures.FakeIdGenerator
 import com.mochame.node.fixtures.FakeNodeContextManager
@@ -19,9 +19,9 @@ class FixturesNodeModule {
     @Single(binds = [NodeContextManager::class, FakeNodeContextManager::class])
     fun provideFakeNodeManager(): FakeNodeContextManager = FakeNodeContextManager()
 
-    @Single(binds = [BootStatusProvider::class, BootStatusUpdater::class, FakeBootStatusManager::class])
-    fun provideFakeBootStatusManager(): FakeBootStatusManager =
-        FakeBootStatusManager(timeout = FixturesNodeConfig.BOOT_TIMEOUT)
+    @Single(binds = [BootStatusProvider::class, BootStatusUpdater::class, SpyBootStatusManager::class])
+    fun provideSpyBootStatusManager(): SpyBootStatusManager =
+        SpyBootStatusManager(timeout = FixturesNodeConfig.BOOT_TIMEOUT)
 
     @Single(binds = [ExecutionPolicy::class, FakeExecutionPolicy::class])
     fun provideFakeExecutionPolicy(): FakeExecutionPolicy = FakeExecutionPolicy()

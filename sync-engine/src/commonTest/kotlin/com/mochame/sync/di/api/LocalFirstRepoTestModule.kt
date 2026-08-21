@@ -5,9 +5,10 @@ import co.touchlab.kermit.Logger
 import co.touchlab.kermit.TestLogWriter
 import com.mochame.logger.test.TestLoggerModule
 import com.mochame.node.di.StaggeredDbRetryPolicyModule
-import com.mochame.node.fixtures.FakeBootStatusManager
 import com.mochame.node.fixtures.FakeNodeContextManager
+import com.mochame.node.fixtures.SpyBootStatusManager
 import com.mochame.node.fixtures.di.FixturesNodeModule
+import com.mochame.platform.fixtures.FakeTransactionProvider
 import com.mochame.platform.fixtures.di.FixturesPlatformModule
 import com.mochame.sync.api.boot.BootState
 import com.mochame.sync.api.hlc.HLC
@@ -17,16 +18,21 @@ import com.mochame.sync.common.InternalTestApi
 import com.mochame.sync.di.codec.CodecTestModule
 import com.mochame.sync.di.fixtures.SyncInternalFixturesModule
 import com.mochame.sync.di.infrastructure.DefaultKeyedLockerModule
+import com.mochame.sync.fixtures.FakeBlobStore
 import com.mochame.sync.fixtures.FakeSyncIntentStore
 import com.mochame.sync.fixtures.di.FixturesSyncModule
+import com.mochame.sync.infrastructure.DefaultKeyedLocker
 import com.mochame.sync.internal.fixtures.FeatureRepository
 import com.mochame.sync.internal.fixtures.SpyHlcFactory
 import com.mochame.sync.internal.fixtures.SpySyncWorkerHook
+import com.mochame.sync.internal.fixtures.serialization.FakeFeatureCodec
 import com.mochame.sync.internal.fixtures.serialization.FeatureCodecRouter
 import com.mochame.sync.internal.fixtures.serialization.FeatureCodecRouterFixture
 import com.mochame.sync.internal.fixtures.serialization.FeatureCodecV1
-import com.mochame.utils.fixtures.FakeTimeProvider
+import com.mochame.sync.spi.infrastructure.BufferProvider
+import com.mochame.utils.fixtures.FakeTimeUtils
 import com.mochame.utils.fixtures.TestNodeId
+import kotlinx.coroutines.Dispatchers
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Factory
 import org.koin.core.annotation.KoinApplication
@@ -44,14 +50,14 @@ import org.koin.core.annotation.Single
  * - NodeContextManager & BootStatusProvider: StateFlow-driven fakes to simulate boot states and node state.
  * - FeatureCodecRouterFixture & FakeFeatureCodec: Routes as default to lightweight fake. Decode / Encode pipeline verified
  *   2-byte preset completed roundtrip with parity.
+ * - FakeBlobStore (holding FakeDigestState + TestWorkspace): Simulate throwing on each operation, and uses internal maps
+ *   as opposed to involving the Test Filesystem
  *
  * Integrated Dependencies:
  * - ExecutionPolicy (StaggeredDbRetryPolicy): Validates retry loops on Transient.DatabaseBusy and ensures
  *   repository behavior despite non-atomic retry behaviors. Essential to verify against possibility of partial
  *   state updates within retry increments.
  * - KeyedLocker (DefaultKeyedLocker): Tightly coupled to functioning of repository. Mutex is required as the nested block suspends - faking unnecessary.
- * - BlobStore (DefaultBlobStore holding FakeDigestState + TestWorkspace): Validates payload size routing (>64KB), staging, committing,
- *   and abort pipelines using test infrastructure (file paths).
  */
 
 @KoinApplication(modules = [LocalFirstRepoTestModule::class])
@@ -95,10 +101,14 @@ internal class LocalFirstRepoTestEnv(
     val intentStore: FakeSyncIntentStore,
     val workerHook: SpySyncWorkerHook,
     val nodeManager: FakeNodeContextManager,
-    val bootProvider: FakeBootStatusManager,
+    val bootProvider: SpyBootStatusManager,
     val integratedCodec: FeatureCodecV1,
     val deps: LocalFirstDependencies,
-    val fakeClock: FakeTimeProvider,
+    val blobStore: FakeBlobStore,
+    val transactor: FakeTransactionProvider,
+    val fakeClock: FakeTimeUtils,
+    val locker: DefaultKeyedLocker,
+    val fakeBufferProvider: BufferProvider,
     val logger: Logger,
     val writer: TestLogWriter,
 ) {
@@ -109,6 +119,22 @@ internal class LocalFirstRepoTestEnv(
         featureContext = featureContext,
         deps = deps,
         codecRouter = FeatureCodecRouter(integratedCodec, logger),
+        logger = logger
+    )
+
+    @OptIn(InternalTestApi::class)
+    fun createIntegratedMultiThreadedRepo(
+        logger: Logger,
+        fakeBufferProvider: BufferProvider,
+        featureContext: FeatureContext = FeatureContext.TEST_STUB_A
+    ): FeatureRepository = FeatureRepository(
+        featureContext = featureContext,
+        deps = deps.copy(ioContext = Dispatchers.Default),
+        codecRouter = FeatureCodecRouterFixture(
+            integratedCodec,
+            FakeFeatureCodec(fakeBufferProvider),
+            logger
+        ),
         logger = logger
     )
 

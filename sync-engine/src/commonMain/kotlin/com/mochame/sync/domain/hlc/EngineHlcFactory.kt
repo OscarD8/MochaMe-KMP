@@ -7,7 +7,7 @@ import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.sync.api.hlc.HlcFactory
 import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.spi.node.NodeId
-import com.mochame.utils.interfaces.TimeProvider
+import com.mochame.utils.interfaces.TimeUtils
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -20,7 +20,7 @@ import kotlin.time.Duration.Companion.milliseconds
  */
 @Single(binds = [HlcFactory::class])
 internal class EngineHlcFactory(
-    private val timeUtils: TimeProvider,
+    private val timeUtils: TimeUtils,
     logger: Logger
 ) : HlcFactory {
 

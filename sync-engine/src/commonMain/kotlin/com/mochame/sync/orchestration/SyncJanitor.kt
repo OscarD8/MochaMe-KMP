@@ -23,7 +23,7 @@ import com.mochame.sync.spi.node.NodeContext
 import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.domain.config.JanitorMaintenanceConfig
-import com.mochame.utils.interfaces.TimeProvider
+import com.mochame.utils.interfaces.TimeUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
@@ -64,7 +64,7 @@ internal class SyncJanitor(
     private val nodeManager: NodeContextManager,
     private val intentStore: SyncIntentMaintenanceStore,
     private val config: JanitorMaintenanceConfig,
-    private val timeProvider: TimeProvider,
+    private val timeUtils: TimeUtils,
     @IoContext private val ioContext: CoroutineContext,
     @AppScope private val appScope: CoroutineScope,
     @JanitorMutex private val mutex: Mutex,
@@ -216,7 +216,7 @@ internal class SyncJanitor(
      * the full history of an intent across multiple sync attempts.
      */
     private suspend fun assessStaleLeases() {
-        val cutoff = timeProvider.getMillisAgo(config.staleThreshold)
+        val cutoff = timeUtils.getMillisAgo(config.staleThreshold)
 
         transactor.runImmediateTransaction {
             val staleLeases = intentStore.getStaleLeasedIntents(cutoff)

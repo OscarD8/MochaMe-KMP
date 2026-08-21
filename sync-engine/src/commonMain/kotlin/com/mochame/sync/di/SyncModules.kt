@@ -13,7 +13,8 @@ import org.koin.core.annotation.Single
         SyncDomainModule::class,
         SyncConcurrencyModule::class,
         SyncInfraModule::class,
-        SyncOrchestrationModule::class
+        SyncOrchestrationModule::class,
+        SyncStoresModule::class
     ]
 )
 class SyncProductionModule
@@ -25,6 +26,10 @@ class SyncDataModule
 @Module
 @ComponentScan("com.mochame.sync.infrastructure")
 class SyncInfraModule
+
+@Module
+@ComponentScan("com.mochame.sync.infrastructure.stores")
+class SyncStoresModule
 
 @Module
 @ComponentScan("com.mochame.sync.domain")

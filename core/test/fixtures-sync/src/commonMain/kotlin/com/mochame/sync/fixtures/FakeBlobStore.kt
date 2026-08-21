@@ -21,7 +21,9 @@ class FakeBlobStore(
     private var _stageCallCount = 0
     private var _commitCallCount = 0
     private var _abortCallCount = 0
-    private var pendingError: Throwable? = null
+    private var _stageError: Exception? = null
+    private var _commitError: Exception? = null
+    private var _generalError: Exception? = null
 
     // --- Telemetry Properties ---
 
@@ -31,30 +33,44 @@ class FakeBlobStore(
     val pendingCount: Int get() = lock.withLock { _pendingBlobs.size }
     val committedCount: Int get() = lock.withLock { _committedBlobs.size }
 
+    var stageError: Exception?
+        get() = lock.withLock { _stageError }
+        set(value) = lock.withLock { _stageError = value }
+
+    var commitError: Exception?
+        get() = lock.withLock { _commitError }
+        set(value) = lock.withLock { _commitError = value }
+
+    var generalError: Exception?
+        get() = lock.withLock { _generalError }
+        set(value) = lock.withLock { _generalError = value }
+
+
     // --- BlobStore Operations ---
 
     override suspend fun stage(source: Source): String {
+        lock.withLock {
+            _stageError?.let { throw it }
+            _stageCallCount++
+        }
+
         val digest = digestFactory()
         val buffer = Buffer()
 
-        // Stream bytes into buffer while feeding DigestState
         while (source.readAtMostTo(buffer, 8192L) != -1L) {
             digest.update(buffer)
         }
         val bytes = buffer.readByteArray()
         val blobId = digest.digestHex()
 
-        lock.withLock {
-            checkAndThrowPendingError()
-            _stageCallCount++
-            _pendingBlobs[blobId] = bytes
-        }
+        lock.withLock { _pendingBlobs[blobId] = bytes }
+
         return blobId
     }
 
     override suspend fun commit(blobId: String) {
         lock.withLock {
-            checkAndThrowPendingError()
+            _commitError?.let { throw it }
             _commitCallCount++
             val payload = _pendingBlobs.remove(blobId)
             if (payload != null) {
@@ -65,7 +81,7 @@ class FakeBlobStore(
 
     override suspend fun abort(blobId: String) {
         lock.withLock {
-            checkAndThrowPendingError()
+            _generalError?.let { throw it }
             _abortCallCount++
             _pendingBlobs.remove(blobId)
         }
@@ -91,7 +107,7 @@ class FakeBlobStore(
 
     override suspend fun open(blobId: String): Source {
         val bytes = lock.withLock {
-            checkAndThrowPendingError()
+            _generalError?.let { throw it }
             _committedBlobs[blobId]
         } ?: throw MochaException.Transient.FileNotFound(blobId)
 
@@ -108,22 +124,14 @@ class FakeBlobStore(
         _committedBlobs[blobId]?.copyOf()
     }
 
-    fun throwOnNextOperation(throwable: Throwable) = lock.withLock {
-        pendingError = throwable
-    }
-
     fun reset() = lock.withLock {
         _pendingBlobs.clear()
         _committedBlobs.clear()
         _stageCallCount = 0
         _commitCallCount = 0
         _abortCallCount = 0
-        pendingError = null
+        _commitError = null
+        _stageError = null
     }
 
-    private fun checkAndThrowPendingError() {
-        val error = pendingError
-        pendingError = null
-        error?.let { throw it }
-    }
 }

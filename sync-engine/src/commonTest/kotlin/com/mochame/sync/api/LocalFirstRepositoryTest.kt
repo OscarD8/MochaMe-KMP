@@ -18,12 +18,21 @@ import com.mochame.sync.internal.fixtures.serialization.deriveContext
 import com.mochame.sync.spi.models.DecodeContext
 import com.mochame.utils.fixtures.TestHlcFactory
 import com.mochame.utils.fixtures.TestNodeId
+import kotlinx.atomicfu.atomic
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.yield
+import kotlinx.io.IOException
 import org.koin.dsl.includes
 import org.koin.plugin.module.dsl.koinConfiguration
+import kotlin.test.DefaultAsserter.assertNotNull
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
@@ -31,7 +40,9 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
@@ -612,5 +623,377 @@ class LocalFirstRepositoryTest : MochaPlatformTest() {
             assertEquals(1, workerHook.invalidationCount, "Only local upsert invalidation")
         }
 
+    // -----------------------------------------------------------
+    // STAGING
+    // -----------------------------------------------------------
+
+    @Test
+    fun handleLocalCommit_withInlinePayload_embedsPayloadDirectlyWithoutBlobStaging() = runEnv {
+        setupValidContext()
+        val integratedRepo = createCodecIntegratedRepo()
+        val candidateKey = 201L
+
+        // Standard payload <= 64KB
+        val result = integratedRepo.upsert(candidateKey) { FeatureEntity(id = candidateKey) }
+        assertEquals(candidateKey, result, "Key")
+
+        // Intent verification
+        val recordedIntents = intentStore.intents
+        val intent = recordedIntents.first()
+
+        assertEquals(1, recordedIntents.size)
+        assertNotNull(intent.payload, "Payload <= 64KB must be embedded inline")
+        assertNull(intent.overflowBlobId, "Inline payload must not set overflowBlobId")
+        assertEquals(MutationOp.UPSERT, intent.operation)
+        assertEquals(SyncStatus.PENDING, intent.syncStatus)
+
+        // Side-effects
+        assertEquals(1, workerHook.invalidationCount)
+        assertEquals(1, hlcFactory.getNextHlcCallCount)
+    }
+
+    @Test
+    fun handleLocalCommit_withOverflowPayload_stagesBlob_andCommitsPostTransaction() = runEnv {
+        setupValidContext()
+        val integratedRepo = createCodecIntegratedRepo()
+        val candidateKey = 202L
+
+        // Large payload > 65_536L bytes
+        val largeText = "A".repeat(70_000)
+        val result = integratedRepo.upsert(candidateKey) {
+            FeatureEntity(id = candidateKey, textValue = largeText)
+        }
+        assertEquals(candidateKey, result)
+
+        // Intent verification
+        val recordedIntents = intentStore.intents
+        val intent = recordedIntents.first()
+        val blobId = intent.overflowBlobId
+
+        assertEquals(1, recordedIntents.size)
+        assertEquals(candidateKey, intent.candidateKey)
+        assertNull(intent.payload, "Overflow payload must not be stored inline in SyncIntent")
+        assertNotNull(blobId, "Overflow payload must assign an overflowBlobId")
+
+        // Side-effect verification
+        assertTrue(deps.blobStore.existsInCommitted(blobId!!))
+        assertEquals(1, workerHook.invalidationCount)
+    }
+
+    @Test
+    fun handleLocalCommit_whenStagingThrows_propagatesExceptionAndAbortsBeforeTransaction() =
+        runEnv {
+            setupValidContext()
+            val integratedRepo = createCodecIntegratedRepo()
+            val candidateKey = 203L
+            val largeText = "A".repeat(70_000)
+
+            blobStore.stageError = IOException("Staging failed: Disk full")
+
+            assertFailsWith<MochaException.Persistent.IOFailure> {
+                integratedRepo.upsert(candidateKey) {
+                    FeatureEntity(id = candidateKey, textValue = largeText)
+                }
+            }
+
+            assertEquals(0, intentStore.intents.size, "No intent recorded on staging failure")
+            assertEquals(0, workerHook.invalidationCount, "Worker hook must not be triggered")
+            assertNull(repo.storedEntities[candidateKey], "No entity should be persisted")
+        }
+
+    @Test
+    fun handleLocalCommit_whenPreCommitFails_abortsStagedBlob_andDoesNotNotifyWorker() = runEnv {
+        setupValidContext()
+        val candidateKey = 204L
+        val largeText = "A".repeat(70_000)
+        val integratedRepo = createCodecIntegratedRepo()
+
+        transactor.shouldThrow = IllegalStateException("Database write locked")
+
+        assertFailsWith<MochaException> {
+            integratedRepo.upsert(candidateKey) {
+                FeatureEntity(id = candidateKey, textValue = largeText)
+            }
+        }
+
+        assertEquals(0, intentStore.intents.size, "No intent recorded after rollback")
+        assertEquals(0, workerHook.invalidationCount, "Worker must not be notified on rollback")
+        assertEquals(0, deps.blobStore.listPendingHashes().size, "blob must be aborted")
+    }
+
+    @Test
+    fun handleLocalCommit_whenPostCommitBlobCommitFails_throwsBlobResolutionPending() = runEnv {
+        setupValidContext()
+        val candidateKey = 205L
+        val largeText = "A".repeat(70_000)
+        val integratedRepo = createCodecIntegratedRepo()
+
+        blobStore.commitError = IOException("Access issue on path")
+
+        val thrown = assertFailsWith<MochaException.Transient.BlobResolutionPending> {
+            integratedRepo.upsert(candidateKey) {
+                FeatureEntity(id = candidateKey, textValue = largeText)
+            }
+        }
+
+        assertNotNull(thrown.blobId)
+        assertEquals(1, intentStore.intents.size, "Intent is retained in DB")
+        assertEquals(1, workerHook.invalidationCount, "Worker is notified of DB commit")
+        assertNotNull(integratedRepo.storedEntities[candidateKey], "Local entity remains persisted")
+    }
+
+    // -----------------------------------------------------------
+    // CONTENTION / CONCURRENCY
+    // -----------------------------------------------------------
+
+    @Test
+    fun keyedLocker_serializesConcurrentMutationsOnSameCandidateKey() = runEnv { scope ->
+        setupValidContext()
+        val candidateKey = 301L
+        val holdFirstMutation = CompletableDeferred<Unit>()
+        val firstMutationEntered = CompletableDeferred<Unit>()
+        var secondMutationEntered = false
+
+        // First coroutine
+        val job1 = scope.launch {
+            repo.upsert(candidateKey) {
+                firstMutationEntered.complete(Unit)
+                holdFirstMutation.await()
+                FeatureEntity(id = candidateKey, textValue = "FIRST_MUTATION")
+            }
+        }
+
+        scope.runCurrent()
+        assertTrue(firstMutationEntered.isCompleted, "First mutation entered")
+        assertEquals(1, locker.activeUsersFor(repo.featureContext, candidateKey))
+
+        // Second coroutine
+        val job2 = scope.launch {
+            repo.upsert(candidateKey) {
+                secondMutationEntered = true
+                FeatureEntity(id = candidateKey, textValue = "SECOND_MUTATION")
+            }
+        }
+
+        scope.runCurrent()
+        assertEquals(false, secondMutationEntered)
+        assertEquals(2, locker.activeUsersFor(repo.featureContext, candidateKey))
+
+        // Release first mutation
+        holdFirstMutation.complete(Unit)
+        scope.runCurrent()
+        job1.join()
+        job2.join()
+
+        // Second mutation runs after first; final entity state reflects second mutation
+        assertTrue(secondMutationEntered, "Second mutation entered")
+        assertEquals("SECOND_MUTATION", repo.storedEntities[candidateKey]?.textValue)
+        assertNull(locker.activeUsersFor(repo.featureContext, candidateKey))
+        assertEquals(0, locker.activeKeysCount)
+    }
+
+    @Test
+    fun keyedLocker_allowsParallelExecutionAcrossDistinctCandidateKeys() = runEnv { scope ->
+        setupValidContext()
+        val keyA = 302L
+        val keyB = 303L
+        val holdKeyA = CompletableDeferred<Unit>()
+        var keyBCompleted = false
+
+        // Coroutine on Key A suspends mid-lock
+        val jobA = scope.launch {
+            repo.upsert(keyA) {
+                holdKeyA.await()
+                FeatureEntity(id = keyA, textValue = "KEY_A")
+            }
+        }
+        scope.runCurrent()
+        assertEquals(1, locker.activeUsersFor(repo.featureContext, keyA))
+
+        // Coroutine on Key B proceeds without contention
+        val jobB = scope.launch {
+            repo.upsert(keyB) {
+                FeatureEntity(id = keyB, textValue = "KEY_B")
+            }
+            keyBCompleted = true
+        }
+        scope.runCurrent()
+
+        // Key B completes independently while Key A is still held
+        assertTrue(keyBCompleted)
+        assertEquals("KEY_B", repo.storedEntities[keyB]?.textValue)
+        assertEquals(1, locker.activeKeysCount, "Only Key A should remain in registry")
+
+        // Complete Key A
+        holdKeyA.complete(Unit)
+        scope.runCurrent()
+        jobA.join()
+        jobB.join()
+
+        assertEquals(2, repo.storedEntities.size)
+        assertEquals(0, locker.activeKeysCount)
+    }
+
+    @Test
+    fun keyedLocker_cleansUpRegistryAndReleasesLockOnThrownExceptionAndRepoPropagates() = runEnv {
+        setupValidContext()
+        val candidateKey = 304L
+
+        // Force an exception inside the locked execution block
+        assertFailsWith<MochaException.Persistent.StateIssue> {
+            repo.upsert(candidateKey) {
+                throw IllegalStateException("Domain validation failure")
+            }
+        }
+        assertNull(locker.activeUsersFor(repo.featureContext, candidateKey))
+        assertEquals(0, locker.activeKeysCount)
+
+        // Subsequent success with no deadlock
+        val result = repo.upsert(candidateKey) {
+            FeatureEntity(id = candidateKey, textValue = "RECOVERED")
+        }
+
+        assertEquals(candidateKey, result)
+        assertEquals("RECOVERED", repo.storedEntities[candidateKey]?.textValue)
+        assertEquals(0, locker.activeKeysCount)
+    }
+
+    @Test
+    fun staggeredDbRetryPolicy_withConcurrentUpsertDuringRetry_serializesAndMergesBothMutations() =
+        runEnv { scope ->
+            setupValidContext()
+            val candidateKey = 306L
+            transactor.shouldThrow =
+                MochaException.Transient.DatabaseBusy("Simulated SQLite database locked")
+
+            // First mutation: sets textValue and triggers database retry
+            val deferred1 = scope.async {
+                repo.upsert(candidateKey) { existing ->
+                    (existing ?: FeatureEntity(id = candidateKey)).copy(
+                        textValue = "RETRY_SUCCESS",
+                        countValue = 0
+                    )
+                }
+            }
+            scope.runCurrent() // hits delay backoff and holds the lock
+            assertEquals(1, transactor.executionCount)
+            assertEquals(false, deferred1.isCompleted)
+            assertEquals(1, locker.activeUsersFor(repo.featureContext, candidateKey))
+
+            // Second mutation on the same candidateKey dispatched
+            val deferred2 = scope.async {
+                repo.upsert(candidateKey) { existing ->
+                    existing!!.copy(countValue = 42)
+                }
+            }
+            scope.runCurrent() // Second intent blocked
+            assertEquals(false, deferred2.isCompleted)
+            assertEquals(1, transactor.executionCount)
+            assertEquals(2, locker.activeUsersFor(repo.featureContext, candidateKey))
+
+            // Advance past the retry backoff delay (10ms * random multiplier)
+            scope.advanceTimeBy(30.milliseconds)
+            scope.runCurrent()
+            val result1 = deferred1.await()
+            val result2 = deferred2.await()
+
+            // -- Assertions --
+            assertEquals(candidateKey, result1)
+            assertEquals(candidateKey, result2)
+            // 1 failed attempt + 1 retry success (Op 1) + 1 direct success (Op 2)
+            assertEquals(3, transactor.executionCount)
+
+            val stored = repo.storedEntities[candidateKey]
+            assertNotNull(stored)
+            assertEquals(1, repo.storedEntities.size)
+            assertEquals("RETRY_SUCCESS", stored.textValue)
+            assertEquals(42, stored.countValue)
+
+            assertEquals(2, intentStore.intents.size, "Both mutations recorded distinct intents")
+            assertEquals(2, workerHook.invalidationCount, "Worker notified after each commit")
+        }
+
+    @Test
+    fun concurrentMutations_withSharedAndDistinctKeysAndTransientDbBusy_recoversAndPersistsCorrectly() =
+        runEnv { scope ->
+            setupValidContext()
+            val sharedKey = 306L
+            val distinctKey = 307L
+
+            val multiThreadedRepo = createIntegratedMultiThreadedRepo(logger, fakeBufferProvider)
+
+            // Seed initial entities
+            multiThreadedRepo.seed(
+                FeatureEntity(id = sharedKey, countValue = 0, textValue = "INITIAL_SHARED")
+            )
+            multiThreadedRepo.seed(
+                FeatureEntity(id = distinctKey, countValue = 0, textValue = "INITIAL_DISTINCT")
+            )
+
+            // Simulate transient SQLite locking on the first database transaction attempt
+            transactor.shouldThrow =
+                MochaException.Transient.DatabaseBusy("Simulated SQLite database locked")
+
+            val key1Workers = 3
+            val key2Workers = 3
+            val totalWorkers = key1Workers + key2Workers
+            val operationsPerWorker = 3
+
+            val readyCounter = atomic(0)
+            val startGate = CompletableDeferred<Unit>()
+
+            // Launch key 1 workers
+            val sharedJobs = List(key1Workers) {
+                scope.launch(Dispatchers.Default) {
+                    readyCounter.incrementAndGet()
+                    startGate.await()
+
+                    repeat(operationsPerWorker) {
+                        multiThreadedRepo.upsert(sharedKey) { existing ->
+                            val currentCount = existing?.countValue ?: 0
+                            existing!!.copy(countValue = currentCount + 1)
+                        }
+                    }
+                }
+            }
+            // Launch key 2 workers
+            val distinctJobs = List(key2Workers) {
+                scope.launch(Dispatchers.Default) {
+                    readyCounter.incrementAndGet()
+                    startGate.await()
+
+                    repeat(operationsPerWorker) {
+                        multiThreadedRepo.upsert(distinctKey) { existing ->
+                            val currentCount = existing?.countValue ?: 0
+                            existing!!.copy(countValue = currentCount + 1)
+                        }
+                    }
+                }
+            }
+            while (readyCounter.value < totalWorkers) {
+                yield()
+            }
+
+            startGate.complete(Unit)
+            (sharedJobs + distinctJobs).joinAll()
+
+            // --- Assertions ---
+            val expectedKeyACount = key1Workers * operationsPerWorker
+            val finalKeyAEntity = multiThreadedRepo.storedEntities[sharedKey]
+            assertNotNull(finalKeyAEntity)
+            assertEquals(expectedKeyACount, finalKeyAEntity.countValue)
+
+            val expectedKey2Count = key2Workers * operationsPerWorker
+            val finalKey2Entity = multiThreadedRepo.storedEntities[distinctKey]
+            assertNotNull(finalKey2Entity)
+            assertEquals(expectedKey2Count, finalKey2Entity.countValue)
+
+            // Side-effects
+            val totalExpectedIntents = expectedKeyACount + expectedKey2Count
+            assertEquals(0, locker.activeKeysCount)
+            assertEquals(totalExpectedIntents, intentStore.intents.size)
+            assertEquals(totalExpectedIntents, workerHook.invalidationCount)
+            assertEquals(totalExpectedIntents + 1, hlcFactory.getNextHlcCallCount)
+        }
 
 }

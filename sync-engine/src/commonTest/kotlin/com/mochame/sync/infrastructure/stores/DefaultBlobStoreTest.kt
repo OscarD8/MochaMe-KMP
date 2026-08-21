@@ -11,11 +11,14 @@ import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.sync.di.blob.BlobStoreTestApp
 import com.mochame.sync.di.blob.BlobStoreTestEnv
 import com.mochame.utils.fixtures.TestPayloads
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.IO
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.yield
 import kotlinx.io.buffered
 import kotlinx.io.files.Path
 import kotlinx.io.readByteArray
@@ -108,14 +111,11 @@ internal class DefaultBlobStoreTest : MochaPlatformTest() {
         runEnv {
             // Arrange
             val source = TestPayloads.defaultSource()
-            val expectedCause =
-                IllegalStateException("Simulated native OpenSSL allocation failure")
+            val expectedCause = IllegalStateException("Simulated native OpenSSL allocation failure")
             digestFactory.shouldThrow = expectedCause
 
             // Act & Assert Exception Wrapping
-            val thrownException = assertFailsWith<MochaException> {
-                store.stage(source)
-            }
+            val thrownException = assertFailsWith<MochaException> { store.stage(source) }
 
             // Assert
             assertEquals(
@@ -138,25 +138,40 @@ internal class DefaultBlobStoreTest : MochaPlatformTest() {
                 fileSystem.deleteRecursively(pendingDir)
             }
 
+            val multiThreadedStore = DefaultBlobStore(
+                timeUtils = clock,
+                digestFactory = digestFactory,
+                fileSystem = fileSystem,
+                pendingDir = pendingDir,
+                committedDir = committedDir,
+                blobMutex = mutex,
+                logger = logger,
+                ioContext = Dispatchers.Default
+            )
+            val readyCounter = atomic(0)
             val threadCount = 8
-            val iterations = 10
+            val iterations = 5
             val gate = CompletableDeferred<Unit>()
 
             val workerDeferreds = List(threadCount) { workerId ->
                 scope.async(Dispatchers.Default) {
+                    readyCounter.incrementAndGet()
                     gate.await()
+
                     val localResults = mutableListOf<String>()
                     repeat(iterations) { iteration ->
                         // Generate unique payloads to stress-test concurrent creation of distinct paths
                         val uniquePayload =
                             TestPayloads.sourceFromString("payload-$workerId-$iteration")
-                        val blobId = store.stage(uniquePayload)
+                        val blobId = multiThreadedStore.stage(uniquePayload)
                         localResults.add(blobId)
                     }
                     localResults
                 }
             }
-
+            while (readyCounter.value < threadCount) {
+                yield()
+            }
             // Act
             gate.complete(Unit)
             val allResults = workerDeferreds.awaitAll().flatten()

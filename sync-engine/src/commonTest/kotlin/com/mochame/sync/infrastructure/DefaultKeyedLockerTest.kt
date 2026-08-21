@@ -516,7 +516,7 @@ class DefaultKeyedLockerTest : MochaPlatformTest() {
             val context = FeatureContext.TEST_STUB_A
             val sharedKey = 888L
             val totalCallers = 20
-
+            val readyCounter = atomic(0)
             val startGate = CompletableDeferred<Unit>()
             val insideCriticalSection = atomic(0)
             val maxConcurrencyObserved = atomic(0)
@@ -525,6 +525,7 @@ class DefaultKeyedLockerTest : MochaPlatformTest() {
 
             val jobs = List(totalCallers) {
                 scope.launch(Dispatchers.Default) {
+                    readyCounter.incrementAndGet()
                     startGate.await()
 
                     withLock(context, sharedKey) {
@@ -538,8 +539,10 @@ class DefaultKeyedLockerTest : MochaPlatformTest() {
                     }
                 }
             }
+            while (readyCounter.value < totalCallers) {
+                yield()
+            }
 
-            // All 20 background threads strike withLock simultaneously
             startGate.complete(Unit)
             jobs.joinAll()
 

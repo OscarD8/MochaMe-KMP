@@ -10,7 +10,7 @@ import com.mochame.sync.internal.fixtures.SpySyncWorkerHook
 import com.mochame.sync.spi.domain.SyncIntentMaintenanceStore
 import com.mochame.sync.spi.infrastructure.SyncIntentStore
 import com.mochame.sync.spi.infrastructure.SyncWorkerHook
-import com.mochame.utils.fixtures.FakeTimeProvider
+import com.mochame.utils.fixtures.FakeTimeUtils
 import com.mochame.utils.fixtures.di.FakeTimeProviderModule
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Module
@@ -28,7 +28,7 @@ class SyncInternalFixturesModule {
 
     @Single(binds = [HlcFactory::class, SpyHlcFactory::class])
     internal fun provideSpyHlcFactory(
-        clock: FakeTimeProvider,
+        clock: FakeTimeUtils,
         logger: Logger
     ): SpyHlcFactory = SpyHlcFactory(clock, logger)
 

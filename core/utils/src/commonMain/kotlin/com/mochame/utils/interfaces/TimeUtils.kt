@@ -6,7 +6,7 @@ import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Duration
 import kotlin.time.Instant
 
-interface TimeProvider {
+interface TimeUtils {
     fun now(): Instant
 
     fun getMillisAgo(duration: Duration): Long {

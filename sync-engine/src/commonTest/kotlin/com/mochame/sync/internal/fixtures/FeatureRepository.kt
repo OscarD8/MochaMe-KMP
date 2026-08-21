@@ -34,7 +34,10 @@ internal class FeatureRepository(
     fun clear() = lock.withLock { memoryStore.clear() }
 
     // --- Feature Implementation ---
-    suspend fun upsert(candidateKey: Long, computeChange: (FeatureEntity?) -> FeatureEntity): Long =
+    suspend fun upsert(
+        candidateKey: Long,
+        computeChange: suspend (FeatureEntity?) -> FeatureEntity
+    ): Long =
         localUpsert(candidateKey = candidateKey) { existing -> computeChange(existing) }
 
     suspend fun delete(candidateKey: Long): Long = localDelete(candidateKey)

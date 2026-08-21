@@ -40,9 +40,6 @@ class FakeDigestState(
     private val buffer = mutableListOf<Byte>()
     private var _shouldThrow: Exception? = initialError
 
-    val shouldThrow: Exception?
-        get() = lock.withLock { _shouldThrow }
-
     override fun update(source: Source) {
         lock.withLock {
             _shouldThrow?.let { throw it }

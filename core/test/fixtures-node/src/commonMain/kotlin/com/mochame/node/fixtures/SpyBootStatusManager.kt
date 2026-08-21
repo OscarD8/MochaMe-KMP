@@ -9,7 +9,7 @@ import kotlinx.atomicfu.locks.withLock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
-class FakeBootStatusManager(
+class SpyBootStatusManager(
     initialState: BootState = BootState.Idle,
     timeout: Duration = 5.seconds,
     private val delegate: DefaultBootStatusManager = DefaultBootStatusManager(initialState, timeout)

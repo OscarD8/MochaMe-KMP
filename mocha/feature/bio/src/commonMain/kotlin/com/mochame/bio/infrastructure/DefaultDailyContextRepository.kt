@@ -13,7 +13,7 @@ import com.mochame.sync.api.repository.LocalFirstDependencies
 import com.mochame.sync.api.repository.LocalFirstRepository
 import com.mochame.sync.common.TriState
 import com.mochame.sync.spi.infrastructure.SyncReceiver
-import com.mochame.utils.interfaces.MochaTimeProvider
+import com.mochame.utils.interfaces.MochaTimeUtils
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.koin.core.annotation.Provided
@@ -22,7 +22,7 @@ import org.koin.core.annotation.Single
 
 @Single([DailyContextRepository::class, SyncReceiver::class])
 internal class DefaultDailyContextRepository(
-    private val timeUtils: MochaTimeProvider,
+    private val timeUtils: MochaTimeUtils,
     @Provided private val bioDao: BioDao,
     codecRouter: DailyContextCodecRouter,
     logger: Logger,

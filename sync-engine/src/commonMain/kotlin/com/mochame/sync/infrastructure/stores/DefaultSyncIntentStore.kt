@@ -11,6 +11,7 @@ import com.mochame.sync.spi.domain.SyncIntentMaintenanceStore
 import com.mochame.sync.spi.infrastructure.SyncIntentStore
 import com.mochame.sync.spi.models.SyncIntent
 import kotlinx.coroutines.flow.Flow
+import org.koin.core.annotation.Provided
 import org.koin.core.annotation.Single
 
 /**
@@ -25,7 +26,7 @@ import org.koin.core.annotation.Single
  */
 @Single(binds = [SyncIntentStore::class, SyncIntentMaintenanceStore::class])
 internal class DefaultSyncIntentStore(
-    private val dao: SyncIntentDao
+    @Provided private val dao: SyncIntentDao
 ) : SyncIntentStore, SyncIntentMaintenanceStore {
 
     override suspend fun getPendingByCandidateKey(candidateKey: Long) =

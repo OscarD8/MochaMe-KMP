@@ -3,7 +3,7 @@ package com.mochame.sync.di.janitor
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.TestLogWriter
 import com.mochame.annotations.JanitorMutex
-import com.mochame.node.fixtures.FakeBootStatusManager
+import com.mochame.node.fixtures.SpyBootStatusManager
 import com.mochame.node.fixtures.FakeExecutionPolicy
 import com.mochame.node.fixtures.FakeNodeContextManager
 import com.mochame.node.fixtures.di.FixturesNodeModule
@@ -18,7 +18,7 @@ import com.mochame.sync.fixtures.FakeSyncIntentStore
 import com.mochame.sync.infrastructure.stores.DefaultBlobStore
 import com.mochame.sync.internal.fixtures.SpyHlcFactory
 import com.mochame.sync.orchestration.SyncJanitor
-import com.mochame.utils.fixtures.FakeTimeProvider
+import com.mochame.utils.fixtures.FakeTimeUtils
 import com.mochame.utils.fixtures.di.FakeTimeProviderModule
 import kotlinx.coroutines.sync.Mutex
 import org.koin.core.annotation.ComponentScan
@@ -60,8 +60,8 @@ internal data class JanitorTestEnv(
     val janitor: SyncJanitor,
     val config: JanitorMaintenanceConfig,
     val writer: TestLogWriter,
-    val fakeClock: FakeTimeProvider,
-    val bootUpdater: FakeBootStatusManager,
+    val fakeClock: FakeTimeUtils,
+    val bootUpdater: SpyBootStatusManager,
     val hlcFactory: SpyHlcFactory,
     val nodeManager: FakeNodeContextManager,
     val blobStore: DefaultBlobStore,

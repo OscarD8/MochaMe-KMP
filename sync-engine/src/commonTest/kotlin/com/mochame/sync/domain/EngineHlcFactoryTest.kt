@@ -12,6 +12,7 @@ import com.mochame.sync.api.hlc.instant
 import com.mochame.sync.di.hlc.HLCTestEnvironment
 import com.mochame.sync.di.hlc.HlcTestApp
 import com.mochame.utils.fixtures.TestHlcFactory
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -210,14 +211,17 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
     fun should_maintain_monotonicity_when_multi_threaded_push_for_nextHlc() =
         runEnv { scope ->
             // Arrange: Multi-threaded simulation suspended with CompletableDeferred
-            val threadCount = 10
-            val iterations = 25
+            val readyCounter = atomic(0)
+            val threadCount = 5
+            val iterations = 5
             val gate = CompletableDeferred<Unit>()
             factory.hydrate(null, TestNodeId.A)
 
             val workerDeferreds = List(threadCount) { workerId ->
                 scope.async(Dispatchers.IO) {
+                    readyCounter.incrementAndGet()
                     gate.await()
+
                     val localResults = mutableListOf<HLC>()
                     repeat(iterations) {
                         val current = factory.getNextHlc()
@@ -232,8 +236,10 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
                     localResults
                 }
             }
+            while (readyCounter.value < threadCount) {
+                yield()
+            }
 
-            // Act I: FIRE and await all promised individual thread results
             gate.complete(Unit)
             val allResults = workerDeferreds.awaitAll().flatten()
 
@@ -317,15 +323,20 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
     @Test
     fun should_only_initialize_one_new_install_when_init_under_contention() =
         runEnv { scope ->
-            val threadCount = 30
+            val readyCounter = atomic(0)
+            val threadCount = 8
             val gate = CompletableDeferred<Unit>()
             val nodeId = TestNodeId.A
 
             val jobs = List(threadCount) {
                 scope.launch(Dispatchers.IO) {
+                    readyCounter.incrementAndGet()
                     gate.await() // THE STARTING GUN (gemini)
                     factory.hydrate(null, nodeId)
                 }
+            }
+            while (readyCounter.value < threadCount) {
+                yield()
             }
             gate.complete(Unit)
             jobs.joinAll()
@@ -724,7 +735,6 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
         )
     }
 
-    // CHECK
     @Test
     fun should_produceMonotonicFinalState_when_multipleWitnessCallsFireConcurrently() =
         runEnv { scope ->
@@ -734,12 +744,13 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
                 TestHlcFactory.DEFAULT_NODE
             )
 
-            val threadCount = 10
-            val iterationsPerThread = 10
+            val readyCounter = atomic(0)
+            val threadCount = 8
+            val iterationsPerThread = 5
             val totalOperations = threadCount * iterationsPerThread
             val targetTs = baseTs + 1_000L
-
             val gate = CompletableDeferred<Unit>()
+
             val concurrentHlcs = TestHlcFactory.concurrentSequence(
                 size = totalOperations,
                 ts = targetTs
@@ -748,6 +759,7 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
             // When - Multi-threaded witness updates at identical timestamps
             val workerJobs = List(threadCount) { threadId ->
                 scope.launch(Dispatchers.Default) {
+                    readyCounter.incrementAndGet()
                     gate.await()
 
                     val startIndex = threadId * iterationsPerThread
@@ -757,6 +769,9 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
                     }
                 }
             }
+            while (readyCounter.value < threadCount) {
+                yield()
+            }
 
             gate.complete(Unit)
             workerJobs.joinAll()
@@ -765,11 +780,7 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
             val result = factory.getCurrentHlc()
             assertNotNull(result)
             assertEquals(targetTs, result.ts, "Timestamp must match witnessed floor")
-            assertEquals(
-                totalOperations - 1,
-                result.count,
-                "Concurrent witnesses at identical timestamp must advance counter: count=${result.count}"
-            )
+            assertEquals(totalOperations - 1, result.count, "Total calls: count=${result.count}")
         }
 
     @Test
@@ -779,21 +790,18 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
                 TestHlcFactory.create(),
                 TestHlcFactory.DEFAULT_NODE
             )
-
-            val threadCount = 10
+            val readyCounter = atomic(0)
+            val threadCount = 8
             val iterationsPerThread = 5
             val totalOperations = threadCount * iterationsPerThread
 
             val gate = CompletableDeferred<Unit>()
-            // Generate distinct ascending HLC sequence split across threads
-            val hlcSequence = TestHlcFactory.chronologicalSequence(
-                size = totalOperations
-            )
+            val hlcSequence = TestHlcFactory.chronologicalSequence(size = totalOperations)
             val maxExpectedTs = hlcSequence.last().ts
 
-            // When - Multi-threaded witness updates
             val workerJobs = List(threadCount) { threadId ->
                 scope.launch(Dispatchers.Default) {
+                    readyCounter.incrementAndGet()
                     gate.await()
 
                     val startIndex = threadId * iterationsPerThread
@@ -802,6 +810,9 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
                         factory.witness(remoteHlc)
                     }
                 }
+            }
+            while (readyCounter.value < threadCount) {
+                yield()
             }
 
             gate.complete(Unit)

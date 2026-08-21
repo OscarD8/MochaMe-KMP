@@ -5,7 +5,7 @@ import co.touchlab.kermit.TestLogWriter
 import com.mochame.logger.test.TestLoggerModule
 import com.mochame.sync.di.SyncDomainModule
 import com.mochame.sync.domain.hlc.EngineHlcFactory
-import com.mochame.utils.fixtures.FakeTimeProvider
+import com.mochame.utils.fixtures.FakeTimeUtils
 import com.mochame.utils.fixtures.di.FakeTimeProviderModule
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Factory
@@ -31,6 +31,6 @@ internal class EngineHlcTestModule
 @Factory
 internal data class HLCTestEnvironment(
     val factory: EngineHlcFactory,
-    val fakeClock: FakeTimeProvider,
+    val fakeClock: FakeTimeUtils,
     val writer: TestLogWriter
 )

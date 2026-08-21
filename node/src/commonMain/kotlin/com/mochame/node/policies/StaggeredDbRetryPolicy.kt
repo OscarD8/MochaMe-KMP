@@ -49,7 +49,7 @@ class StaggeredDbRetryPolicy(
                 val mochaError = e.toMochaException(operationTag)
 
                 if (mochaError is MochaException.Transient.DatabaseBusy) {
-                    if (attempt == 0) logger.w { "Database busy. Staggering retry".withTimer(mark) }
+                    if (attempt == 0) logger.w { "$operationTag Database busy. Staggering retry".withTimer(mark) }
 
                     delay(currentDelay * Random.nextDouble(1.0, 1.5))
                     currentDelay *= 2

@@ -1,17 +1,16 @@
 package com.mochame.sync.fixtures.hlc
 
-import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.api.hlc.HlcFactory
 import com.mochame.sync.spi.node.NodeId
 import com.mochame.utils.fixtures.TestHlcFactory
 import com.mochame.utils.fixtures.TestNodeId
-import com.mochame.utils.interfaces.TimeProvider
+import com.mochame.utils.interfaces.TimeUtils
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
 
 class FakeHlcFactory(
-    private val timeUtils: TimeProvider
+    private val timeUtils: TimeUtils
 ) : HlcFactory {
 
     private val lock = reentrantLock()

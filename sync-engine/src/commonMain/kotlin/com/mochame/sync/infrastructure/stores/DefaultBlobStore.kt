@@ -13,7 +13,7 @@ import com.mochame.sync.api.exceptions.toMochaException
 import com.mochame.sync.spi.infrastructure.BlobStore
 import com.mochame.sync.spi.infrastructure.DigestFactory
 import com.mochame.sync.spi.infrastructure.digestHex
-import com.mochame.utils.interfaces.TimeProvider
+import com.mochame.utils.interfaces.TimeUtils
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -32,7 +32,7 @@ import kotlin.time.TimeSource
 
 @Single(binds = [BlobStore::class])
 internal class DefaultBlobStore(
-    private val timeUtils: TimeProvider,
+    private val timeUtils: TimeUtils,
     private val digestFactory: DigestFactory,
     private val fileSystem: FileSystem,
     private val maxStagingAge: Duration = DEFAULT_STALE_AGE,
@@ -97,17 +97,12 @@ internal class DefaultBlobStore(
                 fileSystem.delete(tempPath)
             } else {
                 fileSystem.atomicMove(tempPath, finalPendingPath)
-                logger.d {
-                    "Blob Staged | ID: $blobId | Size: ${totalBytes / 1024}KB".withTimer(
-                        mark
-                    )
-                }
+                logger.d { "Blob Staged | ID: $blobId | Size: ${totalBytes / 1024}KB".withTimer(mark) }
             }
 
             blobId
         } catch (e: Exception) {
             if (fileSystem.exists(tempPath)) fileSystem.delete(tempPath)
-
             throw e.toMochaException("Blob Staging: ${e.message}")
         }
     }
@@ -145,7 +140,7 @@ internal class DefaultBlobStore(
     // --- ADMIN ---
 
     /**
-     * Returns a list necessary for the reconciliation protocol.
+     * Returns a list necessary for reconciliation.
      * These are success stages that failed to atomically transition from
      * pending to committed directories, but are not orphaned. Therefore,
      * a retry attempt is possible.

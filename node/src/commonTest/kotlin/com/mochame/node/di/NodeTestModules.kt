@@ -12,6 +12,7 @@ import com.mochame.node.data.NodeContextMicroSchema
 import com.mochame.node.policies.StaggeredDbRetryPolicy
 import com.mochame.node.policies.TestStaggerConfig
 import com.mochame.support.TestSupportModule
+import com.mochame.sync.spi.node.IdGenerator
 import com.mochame.sync.spi.node.NodeContextManager
 import kotlinx.coroutines.sync.Mutex
 import org.koin.core.annotation.ComponentScan
@@ -83,7 +84,9 @@ class StaggeredDbPolicyTestModule {
 data class NodeContextIntTestEnv(
     val db: NodeContextMicroSchema,
     val dao: NodeContextDao,
+    val idGen: IdGenerator,
     val manager: NodeContextManager,
+    val logger: Logger,
     val writer: TestLogWriter,
     @NodeManagerMutex val managerMutex: Mutex
 )

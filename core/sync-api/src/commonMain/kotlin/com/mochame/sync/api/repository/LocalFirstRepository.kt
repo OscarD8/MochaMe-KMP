@@ -300,9 +300,9 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         var dbCommitted = false
 
         try {
-            if (payload.size > 64_000) {
+            if (payload.size > 65_536L) {
                 blobId = deps.blobStore.stage(Buffer().also { it.write(payload) })
-                logger.i { "Required staged payload: blobId $blobId [${payload.size / 1024}KB | Key: $candidateKey]" }
+                logger.v { "Required staged payload: [${payload.size / 1024}KB | Key: $candidateKey]" }
             }
 
             val mark = TimeSource.Monotonic.markNow()
@@ -322,7 +322,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             }.also {
                 dbCommitted = true
                 deps.workerHook.invalidate()
-                logger.v { "Local DB Transaction Committed [key: $candidateKey]".withTimer(mark) }
+                logger.v { "Local DB Transaction Committed [key: $candidateKey] [hlc: $hlc]".withTimer(mark) }
             }
 
             blobId?.also {
@@ -337,7 +337,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             if (blobId != null) {
                 if (!dbCommitted) {
                     deps.blobStore.abort(blobId).also {
-                        logger.e { "Intent Failed: Blob Aborted | HLC: $hlc | BlobID: $it | Reason: ${e.message}" }
+                        logger.e { "Intent Failed: Blob Aborted | Key: $candidateKey | Reason: ${e.message}" }
                     }
                 } else {
                     logger.w(e) { "Post-Commit IO Failure: Blob $blobId in /pending. Janitor will reconcile [${e.message}]." }

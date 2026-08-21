@@ -1,7 +1,7 @@
 package com.mochame.sync.domain.usecase
 
 import co.touchlab.kermit.Logger
-import com.mochame.utils.interfaces.TimeProvider
+import com.mochame.utils.interfaces.TimeUtils
 import com.mochame.sync.spi.domain.SyncIntentMaintenanceStore
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
@@ -24,7 +24,7 @@ import kotlin.time.TimeSource
 @Single
 internal class PruneIntentsUseCase(
     private val intentStore: SyncIntentMaintenanceStore,
-    private val timeUtils: TimeProvider,
+    private val timeUtils: TimeUtils,
     private val pruneDays: Duration = DEFAULT_PRUNE_DAYS,
     private val limit: Int = DEFAULT_LIMIT,
     logger: Logger

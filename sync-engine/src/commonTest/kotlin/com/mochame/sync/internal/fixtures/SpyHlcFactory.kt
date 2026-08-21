@@ -5,12 +5,12 @@ import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.api.hlc.HlcFactory
 import com.mochame.sync.domain.hlc.EngineHlcFactory
 import com.mochame.sync.spi.node.NodeId
-import com.mochame.utils.fixtures.FakeTimeProvider
+import com.mochame.utils.fixtures.FakeTimeUtils
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
 
 class SpyHlcFactory(
-    clock: FakeTimeProvider,
+    clock: FakeTimeUtils,
     private val logger: Logger
 ) : HlcFactory {
 

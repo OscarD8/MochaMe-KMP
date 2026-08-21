@@ -13,7 +13,7 @@ import com.mochame.sync.spi.node.NodeContextManager
 import com.mochame.sync.spi.policy.ExecutionPolicy
 import kotlin.coroutines.CoroutineContext
 
-class LocalFirstDependencies(
+data class LocalFirstDependencies(
     val hlcFactory: HlcFactory,
     val transactor: TransactionProvider,
     val blobStore: BlobStore,

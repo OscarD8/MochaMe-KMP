@@ -1,6 +1,6 @@
 package com.mochame.utils.implementations
 
-import com.mochame.utils.interfaces.MochaTimeProvider
+import com.mochame.utils.interfaces.MochaTimeUtils
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atTime
@@ -12,8 +12,8 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
 
-@Single(binds = [MochaTimeProvider::class])
-open class DefaultMochaTimeProvider : MochaTimeProvider {
+@Single(binds = [MochaTimeUtils::class])
+open class DefaultMochaTimeUtils : MochaTimeUtils {
 
     override fun now(): Instant = Clock.System.now()
 

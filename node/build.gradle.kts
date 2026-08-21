@@ -12,6 +12,7 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(project(":core:test:fixtures-utils"))
+            implementation(libs.kotlinx.atomicfu)
         }
     }
 }

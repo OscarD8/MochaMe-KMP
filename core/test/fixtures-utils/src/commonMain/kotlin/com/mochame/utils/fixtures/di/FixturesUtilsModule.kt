@@ -1,10 +1,10 @@
 package com.mochame.utils.fixtures.di
 
 
-import com.mochame.utils.fixtures.FakeTimeProvider
-import com.mochame.utils.fixtures.MochaFakeTimeProvider
-import com.mochame.utils.interfaces.MochaTimeProvider
-import com.mochame.utils.interfaces.TimeProvider
+import com.mochame.utils.fixtures.FakeTimeUtils
+import com.mochame.utils.fixtures.MochaFakeTimeUtils
+import com.mochame.utils.interfaces.MochaTimeUtils
+import com.mochame.utils.interfaces.TimeUtils
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
 
@@ -13,13 +13,13 @@ import org.koin.core.annotation.Single
  */
 @Module
 class FakeTimeProviderModule {
-    @Single(binds = [TimeProvider::class, FakeTimeProvider::class])
-    fun provideFakeTimeUtils(): FakeTimeProvider = FakeTimeProvider()
+    @Single(binds = [TimeUtils::class, FakeTimeUtils::class])
+    fun provideFakeTimeUtils(): FakeTimeUtils = FakeTimeUtils()
 }
 
 @Module(includes = [FakeTimeProviderModule::class])
 class FakeMochaTimeProviderModule {
-    @Single(binds = [MochaTimeProvider::class])
-    fun provideFakeMochaTimeProvider(baseClock: FakeTimeProvider): MochaFakeTimeProvider =
-        MochaFakeTimeProvider(baseClock)
+    @Single(binds = [MochaTimeUtils::class])
+    fun provideFakeMochaTimeProvider(baseClock: FakeTimeUtils): MochaFakeTimeUtils =
+        MochaFakeTimeUtils(baseClock)
 }

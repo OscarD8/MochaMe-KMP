@@ -9,7 +9,7 @@ import com.mochame.sync.di.fixtures.SyncInternalFixturesModule
 import com.mochame.sync.domain.TEST_PRUNE_DAYS
 import com.mochame.sync.domain.usecase.PruneIntentsUseCase
 import com.mochame.sync.fixtures.FakeSyncIntentStore
-import com.mochame.utils.fixtures.FakeTimeProvider
+import com.mochame.utils.fixtures.FakeTimeUtils
 import com.mochame.utils.fixtures.di.FakeTimeProviderModule
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Factory
@@ -32,7 +32,7 @@ internal class SyncPruneIntentsTestModule {
     @Single
     fun provideUseCase(
         intentStore: FakeSyncIntentStore,
-        dateTimeUtils: FakeTimeProvider,
+        dateTimeUtils: FakeTimeUtils,
         logger: Logger
     ): PruneIntentsUseCase =
         PruneIntentsUseCase(intentStore, dateTimeUtils, TEST_PRUNE_DAYS, 2, logger)
@@ -42,7 +42,7 @@ internal class SyncPruneIntentsTestModule {
 internal data class PruneIntentsTestEnv(
     val useCase: PruneIntentsUseCase,
     val fakeStore: FakeSyncIntentStore,
-    val fakeClock: FakeTimeProvider,
+    val fakeClock: FakeTimeUtils,
     val logWriter: TestLogWriter,
-    val fakeDateTimeUtils: FakeTimeProvider,
+    val fakeDateTimeUtils: FakeTimeUtils,
 )
