@@ -44,5 +44,4 @@ internal data class PruneIntentsTestEnv(
     val fakeStore: FakeSyncIntentStore,
     val fakeClock: FakeTimeUtils,
     val logWriter: TestLogWriter,
-    val fakeDateTimeUtils: FakeTimeUtils,
 )

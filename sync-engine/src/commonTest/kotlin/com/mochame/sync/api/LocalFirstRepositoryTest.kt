@@ -917,53 +917,40 @@ class LocalFirstRepositoryTest : MochaPlatformTest() {
     fun concurrentMutations_withSharedAndDistinctKeysAndTransientDbBusy_recoversAndPersistsCorrectly() =
         runEnv { scope ->
             setupValidContext()
-            val sharedKey = 306L
-            val distinctKey = 307L
-
+            val key1 = 306L
+            val key2 = 307L
             val multiThreadedRepo = createIntegratedMultiThreadedRepo(logger, fakeBufferProvider)
-
-            // Seed initial entities
-            multiThreadedRepo.seed(
-                FeatureEntity(id = sharedKey, countValue = 0, textValue = "INITIAL_SHARED")
-            )
-            multiThreadedRepo.seed(
-                FeatureEntity(id = distinctKey, countValue = 0, textValue = "INITIAL_DISTINCT")
-            )
-
-            // Simulate transient SQLite locking on the first database transaction attempt
-            transactor.shouldThrow =
-                MochaException.Transient.DatabaseBusy("Simulated SQLite database locked")
+            multiThreadedRepo.seed(FeatureEntity(id = key1, countValue = 0, textValue = "1"))
+            multiThreadedRepo.seed(FeatureEntity(id = key2, countValue = 0, textValue = "2"))
+            transactor.shouldThrow = MochaException.Transient.DatabaseBusy("SQLite database locked")
 
             val key1Workers = 3
             val key2Workers = 3
             val totalWorkers = key1Workers + key2Workers
             val operationsPerWorker = 3
-
             val readyCounter = atomic(0)
             val startGate = CompletableDeferred<Unit>()
 
-            // Launch key 1 workers
-            val sharedJobs = List(key1Workers) {
+            val key1Jobs = List(key1Workers) {
                 scope.launch(Dispatchers.Default) {
                     readyCounter.incrementAndGet()
                     startGate.await()
 
                     repeat(operationsPerWorker) {
-                        multiThreadedRepo.upsert(sharedKey) { existing ->
+                        multiThreadedRepo.upsert(key1) { existing ->
                             val currentCount = existing?.countValue ?: 0
                             existing!!.copy(countValue = currentCount + 1)
                         }
                     }
                 }
             }
-            // Launch key 2 workers
-            val distinctJobs = List(key2Workers) {
+            val key2Jobs = List(key2Workers) {
                 scope.launch(Dispatchers.Default) {
                     readyCounter.incrementAndGet()
                     startGate.await()
 
                     repeat(operationsPerWorker) {
-                        multiThreadedRepo.upsert(distinctKey) { existing ->
+                        multiThreadedRepo.upsert(key2) { existing ->
                             val currentCount = existing?.countValue ?: 0
                             existing!!.copy(countValue = currentCount + 1)
                         }
@@ -975,21 +962,23 @@ class LocalFirstRepositoryTest : MochaPlatformTest() {
             }
 
             startGate.complete(Unit)
-            (sharedJobs + distinctJobs).joinAll()
+            (key1Jobs + key2Jobs).joinAll()
 
             // --- Assertions ---
-            val expectedKeyACount = key1Workers * operationsPerWorker
-            val finalKeyAEntity = multiThreadedRepo.storedEntities[sharedKey]
-            assertNotNull(finalKeyAEntity)
-            assertEquals(expectedKeyACount, finalKeyAEntity.countValue)
+            val expectedKey1Count = key1Workers * operationsPerWorker
+            val finalKey1Entity = multiThreadedRepo.storedEntities[key1]
+            assertNotNull(finalKey1Entity)
+            assertEquals("1", finalKey1Entity.textValue)
+            assertEquals(expectedKey1Count, finalKey1Entity.countValue)
 
             val expectedKey2Count = key2Workers * operationsPerWorker
-            val finalKey2Entity = multiThreadedRepo.storedEntities[distinctKey]
+            val finalKey2Entity = multiThreadedRepo.storedEntities[key2]
             assertNotNull(finalKey2Entity)
+            assertEquals("2", finalKey2Entity.textValue)
             assertEquals(expectedKey2Count, finalKey2Entity.countValue)
 
             // Side-effects
-            val totalExpectedIntents = expectedKeyACount + expectedKey2Count
+            val totalExpectedIntents = expectedKey1Count + expectedKey2Count
             assertEquals(0, locker.activeKeysCount)
             assertEquals(totalExpectedIntents, intentStore.intents.size)
             assertEquals(totalExpectedIntents, workerHook.invalidationCount)
