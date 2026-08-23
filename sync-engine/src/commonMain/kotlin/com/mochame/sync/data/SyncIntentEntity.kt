@@ -36,5 +36,6 @@ data class SyncIntentEntity(
     val diagnosticSummary: String?,
     val retryCount: Int = 0,              // Janitor implements threshold logic
     val lastErrorMessage: String? = null,
-    val createdAt: Long = Clock.System.now().toEpochMilliseconds()
+    val createdAt: Long = Clock.System.now().toEpochMilliseconds(),
+    val changedMask: Long
 )

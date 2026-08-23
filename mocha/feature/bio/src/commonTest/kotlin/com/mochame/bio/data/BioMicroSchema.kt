@@ -4,12 +4,8 @@ import androidx.room.ConstructedBy
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
-import androidx.room.TypeConverters
-import com.mochame.support.SupportConverters
-
 
 @ConstructedBy(BioMicroSchemaConstructor::class)
-@TypeConverters(SupportConverters::class)
 @Database(
     entities = [DailyContextEntity::class],
     version = 1,

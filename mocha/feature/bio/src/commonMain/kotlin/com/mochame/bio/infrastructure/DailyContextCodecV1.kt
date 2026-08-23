@@ -5,7 +5,6 @@ import com.mochame.bio.domain.DailyContext
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.sync.api.models.LocalFirstDelta
-import com.mochame.sync.common.TriState
 import com.mochame.sync.spi.infrastructure.BufferProvider
 import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodec
 import com.mochame.sync.spi.infrastructure.serialization.FieldMergeScope
@@ -23,7 +22,7 @@ data class DailyContextDeltaV1(
     @ProtoNumber(2) override val isDeleted: Boolean? = null,
     @ProtoNumber(3) val sleepHours: Double? = null,
     @ProtoNumber(4) val readinessScore: Int? = null,
-    @ProtoNumber(5) val isNapped: TriState? = null,
+    @ProtoNumber(5) val isNapped: Boolean? = null,
 ) : LocalFirstDelta
 
 
@@ -83,9 +82,9 @@ internal class DailyContextCodecV1(
         hlc = context.hlc,
         lastModified = context.hlc.ts,
 
-        sleepHours = eval(3, delta.sleepHours, existing?.sleepHours ?: 0.0),
-        readinessScore = eval(4, delta.readinessScore, existing?.readinessScore ?: 0),
-        isNapped = eval(5, delta.isNapped, existing?.isNapped ?: TriState.UNSET),
+        sleepHours = eval(3, delta.sleepHours, existing?.sleepHours),
+        readinessScore = eval(4, delta.readinessScore, existing?.readinessScore),
+        isNapped = eval(5, delta.isNapped, existing?.isNapped),
     )
 
     override fun computeDomainChangedTags(new: DailyContext, old: DailyContext?): List<Int> =

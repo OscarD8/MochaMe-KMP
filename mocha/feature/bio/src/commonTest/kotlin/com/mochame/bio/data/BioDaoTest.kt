@@ -4,7 +4,6 @@ import app.cash.turbine.test
 import com.mochame.bio.di.BioDaoTestApp
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runPersistenceEnvironment
-import com.mochame.sync.common.TriState
 import com.mochame.utils.fixtures.TestHlcFactory
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
@@ -69,14 +68,14 @@ class BioDaoTest : MochaPlatformTest() {
     fun should_returnPartitionedLists_when_databaseContainsMixedNappingStates() = runEnv {
         val napped = DailyContextEntity(
             id = 1L,
-            isNapped = TriState.TRUE,
+            isNapped = true,
             sleepHours = 6.0,
             hlc = TestHlcFactory.create(5000L).toString(),
             lastModified = 0L
         )
         val notNapped = DailyContextEntity(
             id = 2L,
-            isNapped = TriState.FALSE,
+            isNapped = false,
             sleepHours = 3.0,
             hlc = TestHlcFactory.create(5001L).toString(),
             lastModified = 0L
@@ -144,7 +143,7 @@ class BioDaoTest : MochaPlatformTest() {
         val dayKey = 20500L
         val initial = DailyContextEntity(
             id = dayKey,
-            isNapped = TriState.TRUE,
+            isNapped = true,
             sleepHours = 6.5,
             lastModified = 2000L,
             hlc = TestHlcFactory.create(5001L).toString()
@@ -174,7 +173,7 @@ class BioDaoTest : MochaPlatformTest() {
             id = dayKey,
             sleepHours = 7.0,
             readinessScore = 7,
-            isNapped = TriState.FALSE,
+            isNapped = false,
             lastModified = 1000L,
             hlc = TestHlcFactory.create(5001L).toString()
         )
@@ -185,7 +184,7 @@ class BioDaoTest : MochaPlatformTest() {
             assertEquals(0, awaitItem().size, "Failed after single upsert")
 
             val nappedUpdate = notNappedContext.copy(
-                isNapped = TriState.TRUE,
+                isNapped = true,
                 lastModified = 1001L,
                 hlc = TestHlcFactory.create(5001L, count = 1).toString()
             )
@@ -193,7 +192,7 @@ class BioDaoTest : MochaPlatformTest() {
 
             val resultList = awaitItem()
             assertEquals(1, resultList.size)
-            assertEquals(TriState.TRUE, resultList[0].isNapped)
+            assertEquals(true, resultList[0].isNapped)
 
             expectNoEvents()
             cancelAndIgnoreRemainingEvents()
@@ -205,7 +204,7 @@ class BioDaoTest : MochaPlatformTest() {
         val dayKey = 20500L
         val initialNapped = DailyContextEntity(
             id = dayKey,
-            isNapped = TriState.TRUE,
+            isNapped = true,
             sleepHours = 6.0,
             lastModified = 1000L,
             hlc = TestHlcFactory.create(5001L).toString()

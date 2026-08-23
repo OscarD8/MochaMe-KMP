@@ -2,6 +2,7 @@ package com.mochame.sync.spi.infrastructure.serialization
 
 import co.touchlab.kermit.Logger
 import com.mochame.sync.api.hlc.HLC
+import com.mochame.sync.common.hasTag
 
 /**
  * Scope provided to feature codecs during field-level delta merging.
@@ -10,9 +11,11 @@ import com.mochame.sync.api.hlc.HLC
 class FieldMergeScope(
     existingBytes: ByteArray,
     val incomingHlc: HLC,
-    private val logger: Logger
+    val changedMask: Long,
+    val logger: Logger
 ) {
-    private var index = FieldHlcMap(existingBytes)
+    @PublishedApi
+    internal var index = FieldHlcMap(existingBytes)
 
     /**
      * Field LWW Rule:
@@ -20,18 +23,19 @@ class FieldMergeScope(
      * - If field is present, accept if no local tag HLC exists OR incoming HLC > local tag HLC.
      * - Otherwise, reject incoming value and retain existing local value.
      */
-    fun <V> eval(tagId: Int, incomingVal: V?, existingVal: V): V {
-        if (incomingVal == null) return existingVal
+    @Suppress("NOTHING_TO_INLINE")
+    inline fun <V> eval(tagId: Int, incomingVal: V?, existingVal: V?): V? {
+        if (!changedMask.hasTag(tagId)) {
+            return existingVal
+        }
+        
         val localTagHlc = index.getHlc(tagId)
 
         return if (localTagHlc == null || incomingHlc > localTagHlc) {
             index = index.updateTag(tagId, incomingHlc)
             incomingVal
         } else {
-            logger.v {
-                "Field Rejected [tag=$tagId]: " +
-                        "incoming HLC ($incomingHlc) <= local HLC ($localTagHlc)."
-            }
+            logger.v { "Field conflict lost [tag=$tagId]. Local HLC ($localTagHlc) >= Inbound ($incomingHlc)" }
             existingVal
         }
     }

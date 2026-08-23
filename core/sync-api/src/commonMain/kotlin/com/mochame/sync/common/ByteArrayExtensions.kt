@@ -1,5 +1,10 @@
 package com.mochame.sync.common
 
+
+// =======================
+// BYTEARRAY
+// =======================
+
 // -------------------------------------------------------------------
 // Platform agnostic. Expects that the instance (which is endian-neutral)
 // has been written in Big-Endian.

@@ -2,7 +2,6 @@ package com.mochame.bio.domain
 
 import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.api.models.LocalFirstEntity
-import com.mochame.sync.common.TriState
 
 /**
  * Represents the biological capacity and readiness for a single day.
@@ -14,9 +13,9 @@ data class DailyContext(
     override val isDeleted: Boolean = false,
     override val lastModified: Long = 0L,
     override val fieldHlcs: ByteArray = ByteArray(0),
-    val sleepHours: Double,
-    val readinessScore: Int,
-    val isNapped: TriState = TriState.UNSET,
+    val sleepHours: Double? = null,
+    val readinessScore: Int? = null,
+    val isNapped: Boolean? = null,
 ) : LocalFirstEntity<DailyContext> {
 
     override fun withHlc(hlc: HLC): DailyContext = copy(hlc = hlc, lastModified = hlc.ts)

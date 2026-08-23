@@ -25,7 +25,8 @@ internal data class SyncIntentDeltaV1(
     @ProtoNumber(6) val operation: MutationOp = MutationOp.UNKNOWN,
     @ProtoNumber(7) val payloadBlob: ByteArray? = null,
     @ProtoNumber(8) val overflowBlobId: String? = null,
-    @ProtoNumber(9) val createdAt: Long
+    @ProtoNumber(9) val createdAt: Long,
+    @ProtoNumber(10) val changedMask: Long
 )
 
 @OptIn(ExperimentalSerializationApi::class)
@@ -47,7 +48,8 @@ internal class IntentCodecV1(
                 operation = intent.operation,
                 payloadBlob = intent.payload,
                 overflowBlobId = intent.overflowBlobId,
-                createdAt = intent.createdAt
+                createdAt = intent.createdAt,
+                changedMask = intent.changedMask
             )
 
             val bytes = ProtoBuf.encodeToByteArray(SyncIntentDeltaV1.serializer(), delta)
@@ -84,7 +86,8 @@ internal class IntentCodecV1(
                 payload = envelope.payloadBlob,
                 overflowBlobId = envelope.overflowBlobId,
                 retryCount = 0,
-                createdAt = envelope.createdAt
+                createdAt = envelope.createdAt,
+                changedMask = envelope.changedMask
             )
 
             logger.v {

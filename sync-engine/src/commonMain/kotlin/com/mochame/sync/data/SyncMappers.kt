@@ -16,6 +16,7 @@ internal fun SyncIntentEntity.toDomain(): SyncIntent = SyncIntent(
     overflowBlobId = overflowBlobId,
     retryCount = retryCount,
     createdAt = createdAt,
+    changedMask = changedMask,
     leasedAt = leasedAt,
     lastErrorMessage = lastErrorMessage
 )
@@ -33,6 +34,7 @@ internal fun SyncIntent.toEntity(): SyncIntentEntity = SyncIntentEntity(
     overflowBlobId = overflowBlobId,
     retryCount = retryCount,
     createdAt = createdAt,
+    changedMask = changedMask,
     leasedAt = leasedAt,
     lastErrorMessage = lastErrorMessage
 )

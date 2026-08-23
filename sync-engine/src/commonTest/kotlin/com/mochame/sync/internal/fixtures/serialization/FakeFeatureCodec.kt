@@ -39,7 +39,6 @@ class FakeFeatureCodec(
         )
     }
 
-    override fun summarize(op: MutationOp, changedTags: List<Int>): String = SUMMARIZE_PRESET
     override fun reconstructSummary(bytes: ByteArray): String = RECONSTRUCT_PRESET
     override fun computeChangedTags(new: FeatureEntity, old: FeatureEntity?) = emptyList<Int>()
 }

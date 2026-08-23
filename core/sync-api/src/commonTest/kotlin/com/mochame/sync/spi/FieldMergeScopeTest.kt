@@ -36,12 +36,10 @@ class FieldMergeScopeTest : MochaPlatformTest() {
         val incomingHlc =
             createHlc(ts = 500L, nodeId = TestNodeId.B) // Higher clock, but incoming value is null
 
-        val scope =
-            FieldMergeScope(existingBytes = existingBytes, incomingHlc = incomingHlc, logger)
+        val scope = FieldMergeScope(existingBytes, incomingHlc, 0L, logger)
 
         // When: Remote delta did not change the individual field
-        val result =
-            scope.eval(tagId = 1, incomingVal = null, existingVal = "currentValue")
+        val result = scope.eval(tagId = 1, incomingVal = null, existingVal = "currentValue")
 
         // Then: Retains existing value and leaves local tag HLC untouched
         assertEquals("currentValue", result)
@@ -61,11 +59,15 @@ class FieldMergeScopeTest : MochaPlatformTest() {
     fun should_acceptIncomingValueAndInsertTag_when_localTagDoesNotExist() = runEnv {
         // Given: Scope initialized with empty bytes (no local tags exist)
         val incomingHlc = createHlc(ts = 200L, count = 1)
-        val scope = FieldMergeScope(existingBytes = ByteArray(0), incomingHlc = incomingHlc, logger)
+        val scope = FieldMergeScope(
+            existingBytes = ByteArray(0),
+            incomingHlc = incomingHlc,
+            changedMask = 0L,
+            logger
+        )
 
         // When
-        val result =
-            scope.eval(tagId = 3, incomingVal = "insertedText", existingVal = "")
+        val result = scope.eval(tagId = 3, incomingVal = "insertedText", existingVal = "")
 
         // Then: Accepts incoming value and inserts tag with incoming HLC
         assertEquals("insertedText", result)
@@ -86,7 +88,12 @@ class FieldMergeScopeTest : MochaPlatformTest() {
 
         val higherIncomingHlc = createHlc(ts = 200L, count = 1)
         val scope =
-            FieldMergeScope(existingBytes = existingBytes, incomingHlc = higherIncomingHlc, logger)
+            FieldMergeScope(
+                existingBytes,
+                incomingHlc = higherIncomingHlc,
+                changedMask = 0L,
+                logger
+            )
 
         // When
         val result =
@@ -118,6 +125,7 @@ class FieldMergeScopeTest : MochaPlatformTest() {
             val scope = FieldMergeScope(
                 existingBytes = existingBytes,
                 incomingHlc = staleIncomingHlc,
+                changedMask = 0L,
                 logger
             )
 
@@ -150,7 +158,12 @@ class FieldMergeScopeTest : MochaPlatformTest() {
 
         // Incoming HLC is ts = 300 (Beats Tag 1, loses to Tag 2, and new for Tag 3)
         val incomingHlc = createHlc(ts = 300L)
-        val scope = FieldMergeScope(existingBytes = initialBytes, incomingHlc = incomingHlc, logger)
+        val scope = FieldMergeScope(
+            existingBytes = initialBytes,
+            incomingHlc = incomingHlc,
+            changedMask = 0L,
+            logger
+        )
 
         // When: Evaluate across 4 fields
         val field1 = scope.eval(

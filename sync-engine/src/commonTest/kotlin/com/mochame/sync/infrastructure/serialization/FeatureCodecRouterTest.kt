@@ -2,7 +2,6 @@ package com.mochame.sync.infrastructure.serialization
 
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runUnitEnvironment
-import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.di.codec.CodecTestApp
 import com.mochame.sync.internal.fixtures.serialization.FakeFeatureCodec
 import com.mochame.sync.internal.fixtures.serialization.FeatureCodecRouterFixture
@@ -47,21 +46,6 @@ class FeatureCodecRouterTest : MochaPlatformTest() {
             FakeFeatureCodec.BYTES_PRESET,
             encodedBytes,
             "routedEncode must delegate strictly to V2 codec bytes"
-        )
-    }
-
-    @Test
-    fun should_delegateToLatestVersion_on_routedSummarize() = runEnv {
-        val entity = FeatureEntity()
-        val changedTags = routedComputeChangedTags(entity, null)
-
-        // routedSummarize must always use latestCodec (V2)
-        val summary = routedSummarize(MutationOp.UPSERT, changedTags)
-
-        assertEquals(
-            FakeFeatureCodec.SUMMARIZE_PRESET,
-            summary,
-            "routedSummarize must delegate strictly to V2 codec"
         )
     }
 

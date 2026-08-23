@@ -5,7 +5,6 @@ import com.mochame.bio.domain.DailyContext
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodecRouter
-import com.mochame.sync.spi.infrastructure.serialization.FeatureCodecRouter
 import org.koin.core.annotation.Single
 
 @Single

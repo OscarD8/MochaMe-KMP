@@ -6,7 +6,8 @@ import co.touchlab.kermit.ExperimentalKermitApi
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.api.metadata.MutationOp
-import com.mochame.sync.common.TriState
+import com.mochame.sync.common.toBitmask
+import com.mochame.sync.common.toDiagnosticTagSummary
 import com.mochame.sync.di.codec.CodecTestApp
 import com.mochame.sync.internal.fixtures.serialization.FeatureCodecV1
 import com.mochame.sync.internal.fixtures.serialization.FeatureEntity
@@ -57,7 +58,6 @@ class FeatureCodecTest : MochaPlatformTest() {
         val delta = ProtoBuf.decodeFromByteArray(FeatureEntityDeltaV1.serializer(), bytes)
 
         assertEquals(newEntity.id, delta.id)
-        assertEquals(newEntity.triStateValue, delta.triStateValue)
         assertEquals(newEntity.textValue, delta.textValue)
         assertEquals(newEntity.countValue, delta.countValue)
         assertNull(delta.isDeleted)
@@ -84,7 +84,6 @@ class FeatureCodecTest : MochaPlatformTest() {
             ProtoBuf.decodeFromByteArray(FeatureEntityDeltaV1.serializer(), sparseBytes)
         assertEquals(oldEntity.id, delta.id)
         assertNull(delta.isDeleted, "Unchanged deletion state must be omitted")
-        assertNull(delta.triStateValue, "Unchanged triStateValue must be omitted")
         assertNull(delta.textValue, "Unchanged textValue must be omitted")
         assertEquals(20, delta.countValue)
     }
@@ -115,28 +114,8 @@ class FeatureCodecTest : MochaPlatformTest() {
         val delta = ProtoBuf.decodeFromByteArray(FeatureEntityDeltaV1.serializer(), bytes)
         assertEquals(oldEntity.id, delta.id)
         assertEquals(true, delta.isDeleted)
-        assertNull(delta.triStateValue, "Payload fields must be stripped on delete")
         assertNull(delta.textValue, "Payload fields must be stripped on delete")
         assertNull(delta.countValue, "Payload fields must be stripped on delete")
-    }
-
-    @Test
-    fun should_preserveTriStateTransitions_on_deltaWire() = runEnv {
-        val baseEntity = FeatureEntity(triStateValue = TriState.TRUE)
-        val falseEntity = baseEntity.copy(triStateValue = TriState.FALSE)
-
-        // When Encode/Decode on False change
-        val falseBytes = encode(new = falseEntity, old = baseEntity)!!
-        val falseDelta =
-            ProtoBuf.decodeFromByteArray(FeatureEntityDeltaV1.serializer(), falseBytes)
-        assertEquals(TriState.FALSE, falseDelta.triStateValue)
-
-        // When Encode/Decode on Unset change
-        val unsetEntity = falseEntity.copy(triStateValue = TriState.UNSET)
-        val unsetBytes = encode(new = unsetEntity, old = falseEntity)!!
-        val unsetDelta =
-            ProtoBuf.decodeFromByteArray(FeatureEntityDeltaV1.serializer(), unsetBytes)
-        assertEquals(TriState.UNSET, unsetDelta.triStateValue)
     }
 
     // -------------------------------------------------------------------
@@ -148,7 +127,6 @@ class FeatureCodecTest : MochaPlatformTest() {
         // Given
         val insertEntity = FeatureEntity(
             id = 1000L,
-            triStateValue = TriState.TRUE,
             textValue = "initial payload",
             countValue = 42,
             fieldHlcs = ByteArray(0)
@@ -210,7 +188,8 @@ class FeatureCodecTest : MochaPlatformTest() {
                 candidateKey = 1000L,
                 hlc = newerHlc,
                 op = MutationOp.UPSERT,
-                featureSchemaVersion = 1
+                featureSchemaVersion = 1,
+                changedMask = 0L
             ),
             existing = null
         )
@@ -224,7 +203,8 @@ class FeatureCodecTest : MochaPlatformTest() {
             candidateKey = existingEntity.id,
             hlc = olderHlc,
             op = MutationOp.UPSERT,
-            featureSchemaVersion = 1
+            featureSchemaVersion = 1,
+            changedMask = 0L
         )
 
         // When: Decode stale update against newer existing entity
@@ -328,7 +308,8 @@ class FeatureCodecTest : MochaPlatformTest() {
             candidateKey = updatedEntity.id,
             hlc = updatedEntity.hlc,
             op = MutationOp.UPSERT,
-            featureSchemaVersion = 1
+            featureSchemaVersion = 1,
+            changedMask = 0L
         )
         val hydrated = decode(
             bytes = bytes,
@@ -355,7 +336,8 @@ class FeatureCodecTest : MochaPlatformTest() {
             candidateKey = 1000L,
             hlc = TestHlcFactory.create(),
             op = MutationOp.UPSERT,
-            featureSchemaVersion = 1
+            featureSchemaVersion = 1,
+            changedMask = 0L
         )
 
         assertFailsWith<SerializationException> {
@@ -374,7 +356,7 @@ class FeatureCodecTest : MochaPlatformTest() {
         val changedTags = computeChangedTags(newEntity, null)
 
         // When
-        val inMemorySummary = summarize(MutationOp.UPSERT, changedTags)
+        val inMemorySummary = changedTags.toBitmask().toDiagnosticTagSummary(MutationOp.UPSERT)
         val binarySummary = reconstructSummary(bytes!!)
 
         val (inMemOp, inMemTags) = parseSummary(inMemorySummary)
@@ -382,7 +364,7 @@ class FeatureCodecTest : MochaPlatformTest() {
 
         assertEquals(MutationOp.UPSERT.name, inMemOp, "Opcode must be UPSERT")
         assertEquals(inMemOp, binOp, "In-memory opcode must match binary peeking opcode")
-        assertEquals(listOf(3, 4, 5), inMemTags)
+        assertEquals(listOf(4, 5), inMemTags)
         assertEquals(inMemTags, binTags, "In-memory changed tags must equal binary peeked tags")
     }
 
@@ -394,7 +376,7 @@ class FeatureCodecTest : MochaPlatformTest() {
         val changedTags = computeChangedTags(newEntity, oldEntity)
 
         // When
-        val inMemorySummary = summarize(MutationOp.UPSERT, changedTags)
+        val inMemorySummary = changedTags.toBitmask().toDiagnosticTagSummary(MutationOp.UPSERT)
         val binarySummary = reconstructSummary(bytes!!)
 
         val (inMemOp, inMemTags) = parseSummary(inMemorySummary)
@@ -414,7 +396,7 @@ class FeatureCodecTest : MochaPlatformTest() {
         val changedTags = computeChangedTags(deletedEntity, oldEntity)
 
         // When
-        val inMemorySummary = summarize(MutationOp.DELETE, changedTags)
+        val inMemorySummary = changedTags.toBitmask().toDiagnosticTagSummary(MutationOp.DELETE)
         val binarySummary = reconstructSummary(bytes!!)
 
         val (inMemOp, inMemTags) = parseSummary(inMemorySummary)
@@ -476,7 +458,6 @@ class FeatureCodecTest : MochaPlatformTest() {
         // Construct a large string payload (Wire Type 2) to force multi-byte length skipping
         val largeText = "A".repeat(2048)
         val entityWithLargePayload = FeatureEntity(
-            triStateValue = TriState.TRUE,     // Tag 2
             textValue = largeText,             // Tag 3 (Wire Type 2, length 2048)
             countValue = 999                   // Tag 4 (Wire Type 0)
         )
@@ -499,17 +480,16 @@ class FeatureCodecTest : MochaPlatformTest() {
 
     @Test
     fun should_cleanlyResetBuffer_across_sequentialPeeks() = runEnv {
-        // Given Payload A: Large payload containing Tags 3, 4, and 5
+        // Given Payload A: Large payload containing Tags 4, 5
         val largeEntity = FeatureEntity(
-            triStateValue = TriState.TRUE, // Tag 3
             textValue = "Long text string to pad the buffer size", // Tag 4
             countValue = 99999 // Tag 5
         )
         val largeBytes = encode(new = largeEntity, old = null)
         assertNotNull(largeBytes)
-        // Given Payload B: Small payload containing only Tag 3
+        // Given Payload B: Small payload containing only Tag 5
         val smallEntity = largeEntity.copy(
-            triStateValue = TriState.FALSE // Tag 3
+            countValue = 3 // Tag 5
         )
         val smallBytes = encode(new = smallEntity, old = largeEntity)
         assertNotNull(smallBytes)

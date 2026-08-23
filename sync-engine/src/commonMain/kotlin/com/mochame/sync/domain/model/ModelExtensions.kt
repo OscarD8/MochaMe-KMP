@@ -8,5 +8,6 @@ internal fun SyncIntent.deriveContext() = DecodeContext(
     candidateKey,
     hlc,
     operation,
-    overflowBlobId
+    overflowBlobId,
+    changedMask
 )

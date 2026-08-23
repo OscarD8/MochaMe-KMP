@@ -1,6 +1,5 @@
 package com.mochame.bio.domain
 
-import com.mochame.sync.common.TriState
 import kotlinx.coroutines.flow.Flow
 
 internal interface DailyContextRepository {
@@ -18,7 +17,7 @@ internal interface DailyContextRepository {
      * Handles UUID generation and biological anchoring internally.
      * Prevents the UI from accidentally creating "dirty" or duplicate entries.
      */
-    suspend fun establishDay(sleepHours: Double, readinessScore: Int, isNapped: TriState) : Long
+    suspend fun upsertDay(sleepHours: Double?, readinessScore: Int?, isNapped: Boolean?) : Long
 
 //    /**
 //     * Historical record for long-term efficiency analysis.

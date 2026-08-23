@@ -9,6 +9,8 @@ import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.api.models.LocalFirstEntity
+import com.mochame.sync.common.toBitmask
+import com.mochame.sync.common.toDiagnosticTagSummary
 import com.mochame.sync.spi.infrastructure.SyncReceiver
 import com.mochame.sync.spi.infrastructure.serialization.FeatureCodec
 import com.mochame.sync.spi.infrastructure.serialization.FeatureCodecRouter
@@ -116,9 +118,10 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             persist(candidateState)
         } else {
             val hlc = deps.hlcFactory.getNextHlc()
-            val changedTags = codec.routedComputeChangedTags(candidateState, existingState)
-
             var fieldHlcMap = FieldHlcMap(existingState?.fieldHlcs ?: ByteArray(0))
+            val changedTags = codec.routedComputeChangedTags(candidateState, existingState)
+            val changedMask = changedTags.toBitmask()
+
             changedTags.forEach { tag -> fieldHlcMap = fieldHlcMap.updateTag(tag, hlc) }
 
             val stampedState = candidateState.withHlc(hlc).withFieldHlcs(fieldHlcMap.bytes)
@@ -128,7 +131,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                 op = op,
                 stampedState = stampedState,
                 existingState = existingState,
-                changedTags = changedTags,
+                changedMask = changedMask,
                 persistAction = { persist(stampedState) },
                 onSkipAction = { onSkip(stampedState) }
             )
@@ -285,14 +288,15 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         op: MutationOp,
         stampedState: T,
         existingState: T?,
-        changedTags: List<Int>,
+        changedMask: Long,
         persistAction: suspend () -> Long,
         onSkipAction: (fallback: T?) -> Long
     ): Long {
         val payload = codec.routedEncode(stampedState, existingState)
             ?: return onSkipAction(existingState)
 
-        val summary = codec.routedSummarize(op, changedTags)
+        val summary =
+            changedMask.toDiagnosticTagSummary(op).also { logger.d { "In-Memory Summary: $it" } }
         val hlc = stampedState.hlc
         val tMark = TimeSource.Monotonic.markNow()
 
@@ -315,6 +319,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                     hlc = hlc,
                     payload = if (blobId == null) payload else null,
                     blobId = blobId,
+                    changedMask = changedMask,
                     diagnosticSummary = summary
                 )
                 deps.nodeManager.updateHlcFloor(hlc)
@@ -322,7 +327,11 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             }.also {
                 dbCommitted = true
                 deps.workerHook.invalidate()
-                logger.v { "Local DB Transaction Committed [key: $candidateKey] [hlc: $hlc]".withTimer(mark) }
+                logger.v {
+                    "Local DB Transaction Committed [key: $candidateKey] [hlc: $hlc]".withTimer(
+                        mark
+                    )
+                }
             }
 
             blobId?.also {
@@ -355,6 +364,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         hlc: HLC,
         payload: ByteArray?,
         blobId: String?,
+        changedMask: Long,
         diagnosticSummary: String
     ) {
         deps.intentStore.recordIntent(
@@ -368,6 +378,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                 createdAt = Clock.System.now().toEpochMilliseconds(),
                 payload = payload,
                 overflowBlobId = blobId,
+                changedMask = changedMask,
                 diagnosticSummary = diagnosticSummary
             )
         )

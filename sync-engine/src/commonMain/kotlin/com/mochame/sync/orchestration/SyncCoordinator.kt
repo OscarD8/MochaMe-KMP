@@ -177,7 +177,7 @@ internal class SyncCoordinator(
             intent.receiver.processRemoteIntent(intentContext, intent.payload)
             true
         } catch (e: Exception) {
-            logger.w(e) { "[Key: ${intent.candidateKey}] - ${e.message}" }
+            logger.w(e) { "[Key: ${intent.candidateKey}] ${e.message}" }
             false
         }
     }

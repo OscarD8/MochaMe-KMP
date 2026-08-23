@@ -258,7 +258,8 @@ class LocalFirstRepositoryTest : MochaPlatformTest() {
                 candidateKey = candidateKey,
                 hlc = obsoleteDeleteHlc,
                 op = MutationOp.DELETE,
-                featureSchemaVersion = 1
+                featureSchemaVersion = 1,
+                changedMask = 0L
             )
 
             // Device A: Ingest remote intent
@@ -302,6 +303,7 @@ class LocalFirstRepositoryTest : MochaPlatformTest() {
                 hlc = remoteNewerHlc,
                 op = MutationOp.DELETE,
                 featureSchemaVersion = 1,
+                changedMask = 0L
             )
 
             // Device A: Ingest remote intent
@@ -333,7 +335,8 @@ class LocalFirstRepositoryTest : MochaPlatformTest() {
                 candidateKey = candidateKey,
                 hlc = remoteHlc,
                 op = MutationOp.DELETE,
-                featureSchemaVersion = 1
+                featureSchemaVersion = 1,
+                changedMask = 0L
             )
 
             // Device A: ingesting remote intent

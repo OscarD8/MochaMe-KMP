@@ -95,7 +95,12 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
             throw e
         }
 
-        val scope = FieldMergeScope(existing?.fieldHlcs ?: ByteArray(0), context.hlc, logger)
+        val scope = FieldMergeScope(
+            existingBytes = existing?.fieldHlcs ?: ByteArray(0),
+            incomingHlc = context.hlc,
+            changedMask = context.changedMask,
+            logger = logger
+        )
         val mergedEntity = scope.mergeDelta(delta, context, existing)
         val deleteState = scope.resolveDeleteState(delta.isDeleted, existing?.isDeleted, delta.id)
 
@@ -178,17 +183,6 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
         } catch (e: Exception) {
             logger.e(e) { "Packet summary reconstruction failed on payload size=${bytes.size}B" }
             "OP:CORRUPT_PACKET"
-        }
-    }
-
-    override fun summarize(op: MutationOp, changedTags: List<Int>): String {
-        val op = if (op == MutationOp.DELETE) "DELETE" else "UPSERT"
-
-        with(
-            "OP:${op} ${changedTags.joinToString(prefix = "[", postfix = "]", separator = ",")}"
-        ) {
-            logger.d { "In-Memory Summary: $this" }
-            return this
         }
     }
 

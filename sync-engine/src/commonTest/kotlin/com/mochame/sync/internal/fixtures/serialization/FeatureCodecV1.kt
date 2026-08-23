@@ -4,7 +4,6 @@ import co.touchlab.kermit.Logger
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.sync.api.models.LocalFirstDelta
-import com.mochame.sync.common.TriState
 import com.mochame.sync.spi.infrastructure.BufferProvider
 import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodec
 import com.mochame.sync.spi.infrastructure.serialization.FieldMergeScope
@@ -20,7 +19,6 @@ import org.koin.core.annotation.Single
 data class FeatureEntityDeltaV1(
     @ProtoNumber(1) override val id: Long,
     @ProtoNumber(2) override val isDeleted: Boolean? = null,
-    @ProtoNumber(3) val triStateValue: TriState? = null,
     @ProtoNumber(4) val textValue: String? = null,
     @ProtoNumber(5) val countValue: Int? = null
 ) : LocalFirstDelta
@@ -43,7 +41,6 @@ class FeatureCodecV1(
 
     override fun buildInsertDelta(entity: FeatureEntity) = FeatureEntityDeltaV1(
         id = entity.id,
-        triStateValue = entity.triStateValue,
         textValue = entity.textValue,
         countValue = entity.countValue
     )
@@ -53,16 +50,14 @@ class FeatureCodecV1(
         old: FeatureEntity,
         isRestored: Boolean
     ): FeatureEntityDeltaV1? {
-        val triStateValue = new.triStateValue diff old.triStateValue
         val textDelta = new.textValue diff old.textValue
         val countDelta = new.countValue diff old.countValue
 
-        if (textDelta == null && countDelta == null && triStateValue == null && !isRestored) return null
+        if (textDelta == null && countDelta == null && !isRestored) return null
 
         return FeatureEntityDeltaV1(
             id = new.id,
             isDeleted = false.takeIf { isRestored },
-            triStateValue = triStateValue,
             textValue = textDelta,
             countValue = countDelta,
         )
@@ -77,13 +72,11 @@ class FeatureCodecV1(
         hlc = context.hlc,
         lastModified = context.hlc.ts,
 
-        triStateValue = eval(3, delta.triStateValue, existing?.triStateValue ?: TriState.UNSET),
         textValue = eval(4, delta.textValue, existing?.textValue ?: ""),
         countValue = eval(5, delta.countValue, existing?.countValue ?: 0)
     )
 
     override fun computeDomainChangedTags(new: FeatureEntity, old: FeatureEntity?) = buildList {
-        if (old == null || new.triStateValue != old.triStateValue) add(3)
         if (old == null || new.textValue != old.textValue) add(4)
         if (old == null || new.countValue != old.countValue) add(5)
     }

@@ -11,7 +11,6 @@ import com.mochame.logger.withTags
 import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.repository.LocalFirstDependencies
 import com.mochame.sync.api.repository.LocalFirstRepository
-import com.mochame.sync.common.TriState
 import com.mochame.sync.spi.infrastructure.SyncReceiver
 import com.mochame.utils.interfaces.MochaTimeUtils
 import kotlinx.coroutines.flow.Flow
@@ -34,10 +33,10 @@ internal class DefaultDailyContextRepository(
     logger = logger.withTags(LogTags.Layer.REPO, LogTags.Domain.BIO, "BioRep")
 ), DailyContextRepository {
 
-    override suspend fun establishDay(
-        sleepHours: Double,
-        readinessScore: Int,
-        isNapped: TriState
+    override suspend fun upsertDay(
+        sleepHours: Double?,
+        readinessScore: Int?,
+        isNapped: Boolean?
     ): Long {
         val mochaDay = timeUtils.getMochaDay()
         val draftContext = DailyContext(

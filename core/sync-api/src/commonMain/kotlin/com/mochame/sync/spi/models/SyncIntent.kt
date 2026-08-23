@@ -14,6 +14,7 @@ data class SyncIntent(
     val syncStatus: SyncStatus,
     val retryCount: Int = 0,
     val createdAt: Long,
+    val changedMask: Long,
     val syncId: String? = null,
     val payload: ByteArray? = null,
     val diagnosticSummary: String? = null,
