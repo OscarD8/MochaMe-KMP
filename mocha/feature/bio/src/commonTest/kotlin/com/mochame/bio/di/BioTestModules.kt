@@ -2,8 +2,6 @@ package com.mochame.bio.di
 
 import com.mochame.bio.data.BioDao
 import com.mochame.bio.data.BioMicroSchema
-import com.mochame.platform.fixtures.di.FixturesPlatformModule
-import com.mochame.support.TestSupportModule
 import com.mochame.sync.fixtures.di.FixturesSyncModule
 import com.mochame.utils.fixtures.di.FakeMochaTimeProviderModule
 import org.koin.core.annotation.KoinApplication

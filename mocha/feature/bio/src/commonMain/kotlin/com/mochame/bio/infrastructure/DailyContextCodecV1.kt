@@ -74,6 +74,10 @@ internal class DailyContextCodecV1(
         delta: DailyContextDeltaV1,
         context: DecodeContext,
         existing: DailyContext?
+        // changedTags?
+        // If changed tag is not present, no change. If changed tag is present but
+        // delta holds null for that value, unset intent needs evaluating for hlc causality.
+        // If changed tag is present and a value is held, evaluate whether to accept new value.
     ) = DailyContext(
         id = context.candidateKey,
         hlc = context.hlc,
@@ -86,6 +90,11 @@ internal class DailyContextCodecV1(
 
     override fun computeDomainChangedTags(new: DailyContext, old: DailyContext?): List<Int> =
         buildList {
+            // unset aware (new null value is not equal to old value which is not null.
+            // If both are null no change. A change represents both unset and set possibility.)
+            // Delta value = null && tag ==unset (null on eval).
+            // Delta value = null && no tag = no change (?existing).
+            // Delta value != null = delta value (on eval)
             if (old == null || new.sleepHours != old.sleepHours) add(3)
             if (old == null || new.readinessScore != old.readinessScore) add(4)
             if (old == null || new.isNapped != old.isNapped) add(5)
