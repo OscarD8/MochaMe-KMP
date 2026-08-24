@@ -17,18 +17,27 @@ class FakeSyncIntentStore : SyncIntentStore, SyncIntentMaintenanceStore {
 
     private val lock = reentrantLock()
 
-    // TODO
+    // --- State ---
     private val _intents = linkedMapOf<HLC, SyncIntent>()
+    private val _quarantinedFlow =
+        MutableStateFlow<List<QuarantinedFeatureSummary>>(emptyList())
+
+    // --- Hooks & Telemetry ---
+    private var _failWith: Exception? = null
+    private var _onClaimHook: (suspend () -> Unit)? = null
     private val _failingBlobIds = mutableSetOf<String>()
+    private var _claimedBatchCallCount: Int = 0
 
     var failWith: Exception?
         set(value) = lock.withLock { _failWith = value }
         get() = lock.withLock { _failWith }
 
-    private var _failWith: Exception? = null
+    val claimedBatchCallCount: Int
+        get() = lock.withLock { _claimedBatchCallCount }
 
-    private val _quarantinedFlow =
-        MutableStateFlow<List<QuarantinedFeatureSummary>>(emptyList())
+    var onClaimHook: (suspend () -> Unit)?
+        get() = lock.withLock { _onClaimHook }
+        set(value) = lock.withLock { _onClaimHook = value }
 
     val intents: List<SyncIntent>
         get() = lock.withLock { _intents.values.toList() }
@@ -50,15 +59,21 @@ class FakeSyncIntentStore : SyncIntentStore, SyncIntentMaintenanceStore {
         _failingBlobIds.add(blobId)
     }
 
-    fun reset() {
-        lock.withLock { _intents.clear() }
-        _quarantinedFlow.value = emptyList()
-    }
-
-    override suspend fun getPendingByCandidateKey(candidateKey: Long): SyncIntent? =
+    fun reset() =
         lock.withLock {
-            _intents.values.find { it.candidateKey == candidateKey && it.syncStatus == SyncStatus.PENDING }
+            _intents.clear()
+            _failingBlobIds.clear()
+            _claimedBatchCallCount = 0
+            _failWith = null
+            _quarantinedFlow.value = emptyList()
+            _onClaimHook = null
         }
+
+    // --- SyncIntentStore Implementations ---
+
+    override suspend fun getPendingByCandidateKey(candidateKey: Long): SyncIntent? = lock.withLock {
+        _intents.values.find { it.candidateKey == candidateKey && it.syncStatus == SyncStatus.PENDING }
+    }
 
     override suspend fun getPendingByFeature(feature: FeatureContext): List<SyncIntent?> =
         lock.withLock {
@@ -92,21 +107,36 @@ class FakeSyncIntentStore : SyncIntentStore, SyncIntentMaintenanceStore {
         }
     }
 
-    override suspend fun claimBatch(batchId: String, limit: Int): Int = lock.withLock {
-        if (limit <= 0) return 0
-        var claimedCount = 0
+    override suspend fun claimBatch(batchId: String, limit: Int): Int {
+        val (error, hook, count) = lock.withLock {
+            _claimedBatchCallCount++
 
-        val eligible = _intents.values
-            .filter { it.syncId == null && it.syncStatus == SyncStatus.PENDING }
-            .sortedBy { it.hlc.toString() }
+            val err = failWith
+            if (err != null) {
+                return@withLock Triple(err, null, 0)
+            }
 
-        for (intent in eligible) {
-            if (claimedCount == limit) break
-            _intents[intent.hlc] =
-                intent.copy(syncStatus = SyncStatus.SYNCING, syncId = batchId)
-            claimedCount++
+            if (limit <= 0) return@withLock Triple(null, onClaimHook, 0)
+
+            var claimedCount = 0
+            val eligible = _intents.values
+                .filter { it.syncId == null && it.syncStatus == SyncStatus.PENDING }
+
+            for (intent in eligible) {
+                if (claimedCount == limit) break
+                _intents[intent.hlc] = intent.copy(
+                    syncStatus = SyncStatus.SYNCING,
+                    syncId = batchId
+                )
+                claimedCount++
+            }
+
+            Triple(null, onClaimHook, claimedCount)
         }
-        return claimedCount
+
+        error?.let { throw it }
+        hook?.invoke()
+        return count
     }
 
     override suspend fun getClaimedBatch(batchId: String): List<SyncIntent> =

@@ -2,6 +2,7 @@ package com.mochame.sync.infrastructure.serialization
 
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runUnitEnvironment
+import com.mochame.sync.common.withTag
 import com.mochame.sync.di.codec.CodecTestApp
 import com.mochame.sync.internal.fixtures.serialization.FakeFeatureCodec
 import com.mochame.sync.internal.fixtures.serialization.FeatureCodecRouterFixture
@@ -52,8 +53,8 @@ class FeatureCodecRouterTest : MochaPlatformTest() {
     @Test
     fun should_delegateToV1Codec_on_routedDecode_when_schemaVersionIs1() = runEnv {
         val legacyEntity = FeatureEntity()
-        val contextV1 = legacyEntity.deriveContext()
-        val v1Bytes = v1.encode(new = legacyEntity, old = null)!!
+        val contextV1 = legacyEntity.deriveContext(changedMask = 0L.withTag(4))
+        val v1Bytes = v1.encode(new = legacyEntity, old = null)
 
         val decoded = routedDecode(data = v1Bytes, context = contextV1, existing = null)
 
@@ -97,7 +98,7 @@ class FeatureCodecRouterTest : MochaPlatformTest() {
         // Given
         val v1Entity = FeatureEntity()
         val v1Context = v1Entity.deriveContext()
-        val v1Bytes = v1.encode(new = v1Entity, old = null)!!
+        val v1Bytes = v1.encode(new = v1Entity, old = null)
 
         val v2Entity = FakeFeatureCodec.MODEL_PRESET
         val v2Context = v2Entity.deriveContext(schemaVersion = 2)
@@ -107,7 +108,7 @@ class FeatureCodecRouterTest : MochaPlatformTest() {
         val summaryV2 = routedReconstructSummary(FakeFeatureCodec.BYTES_PRESET, v2Context)
 
         assertEquals(
-            "OP:UPSERT [3,4,5]",
+            "OP:UPSERT [4,5]",
             summaryV1,
             "routedReconstructSummary must dispatch to V1 peeking logic"
         )

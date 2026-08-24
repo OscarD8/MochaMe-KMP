@@ -1,7 +1,5 @@
 package com.mochame.sync.internal.fixtures.serialization
 
-import co.touchlab.kermit.ExperimentalKermitApi
-import co.touchlab.kermit.TestLogWriter
 import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.api.models.LocalFirstEntity
@@ -50,7 +48,3 @@ fun FeatureEntity.assertDecodeParity(original: FeatureEntity, upsertHlc: HLC? = 
         assertEquals(original.hlc, this.hlc)
     }
 }
-
-@OptIn(ExperimentalKermitApi::class)
-fun TestLogWriter.assertFieldRejectionLogCount(expectedCount: Int) =
-    assertEquals(expectedCount, this.logs.count { it.message.contains("Field Rejected") })

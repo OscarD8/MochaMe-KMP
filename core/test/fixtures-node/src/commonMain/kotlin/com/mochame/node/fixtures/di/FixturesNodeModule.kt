@@ -30,7 +30,7 @@ class FixturesNodeModule {
 @Module
 class FakeIdGeneratorModule {
     @Single(binds = [IdGenerator::class, FakeIdGenerator::class])
-    fun provideIdGenerator(): IdGenerator = FakeIdGenerator()
+    fun provideFakeIdGenerator(): IdGenerator = FakeIdGenerator()
 }
 
 object FixturesNodeConfig {

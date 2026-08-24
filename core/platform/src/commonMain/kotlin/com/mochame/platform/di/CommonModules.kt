@@ -3,7 +3,7 @@ package com.mochame.platform.di
 import androidx.sqlite.SQLiteDriver
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import co.touchlab.kermit.Logger
-import com.mochame.annotations.AppScope
+import com.mochame.annotations.AppBackgroundScope
 import com.mochame.annotations.DefaultContext
 import com.mochame.annotations.IoContext
 import com.mochame.annotations.MainContext
@@ -39,8 +39,8 @@ class CommonPlatformModule {
     fun provideDefaultContext(): CoroutineContext = Dispatchers.Default
 
     @Single
-    @AppScope
-    fun provideAppScope(@MainContext context: CoroutineContext): CoroutineScope =
+    @AppBackgroundScope
+    fun provideBackgroundAppScope(@DefaultContext context: CoroutineContext): CoroutineScope =
         CoroutineScope(context + SupervisorJob())
 
     @Single

@@ -43,13 +43,15 @@ class StaggeredDbRetryPolicy(
         repeat(maxAttempts - 1) { attempt ->
             try {
                 return block().also {
-                    if (attempt > 0) logger.i { "Recovered: ${attempt + 1} attempts".withTimer(mark) }
+                    if (attempt > 0)
+                        logger.i { "$operationTag Recovered: ${attempt + 1} attempts".withTimer(mark) }
                 }
             } catch (e: Exception) {
                 val mochaError = e.toMochaException(operationTag)
 
                 if (mochaError is MochaException.Transient.DatabaseBusy) {
-                    if (attempt == 0) logger.w { "$operationTag Database busy. Staggering retry".withTimer(mark) }
+                    if (attempt == 0)
+                        logger.w { "$operationTag Database busy. Staggering retry".withTimer(mark) }
 
                     delay(currentDelay * Random.nextDouble(1.0, 1.5))
                     currentDelay *= 2

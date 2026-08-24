@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.api.models.LocalFirstDelta
 import com.mochame.sync.api.models.LocalFirstEntity
+import com.mochame.sync.common.hasTag
 import com.mochame.sync.common.readProtobufVarint
 import com.mochame.sync.common.skipProtobufValue
 import com.mochame.sync.spi.infrastructure.BufferProvider
@@ -58,14 +59,11 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
     /**
      * Returns null on an update operation presenting no field changes.
      */
-    override fun encode(new: T, old: T?): ByteArray? {
+    override fun encode(new: T, old: T?): ByteArray {
         val delta = when {
             new.isDeleted -> buildDeleteDelta(new)
             old == null -> buildInsertDelta(new)
             else -> buildUpdateDelta(new, old, isRestored = old.isDeleted)
-        } ?: run {
-            logger.v { "No delta generated for key=${new.id}; skipping encoding" }
-            return null
         }
 
         return try {
@@ -125,7 +123,7 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
                     logger.v { "Tag[$TAG_IS_DELETED] updated [key=$candidateKey]: Marked deleted at HLC=$incomingHlc" }
                     true
                 } else {
-                    logger.v { "Tag[$TAG_IS_DELETED] update dropped [key=$candidateKey]: Local delete HLC ($localLastDeleteHlc) >= incoming ($incomingHlc)" }
+                    logger.v { "Tag[$TAG_IS_DELETED] dropped [key=$candidateKey]: Local delete HLC ($localLastDeleteHlc) >= incoming ($incomingHlc)" }
                     existingIsDeleted ?: true
                 }
             }
@@ -133,7 +131,7 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
             existingIsDeleted == true -> {
                 if (isNewer) {
                     updateTag(TAG_IS_DELETED, incomingHlc)
-                    logger.i { "Restored [key=$candidateKey]: Incoming update (HLC=$incomingHlc) overrides Tag[$TAG_IS_DELETED] (HLC=$localLastDeleteHlc)" }
+                    logger.i { "Restored [key=$candidateKey]: [tag=$TAG_IS_DELETED] Incoming update (HLC=$incomingHlc) overrides (HLC=$localLastDeleteHlc)" }
                     false
                 } else {
                     logger.v { "Field Rejected [tag=$TAG_IS_DELETED]: incoming HLC ($incomingHlc) <= local HLC ($localLastDeleteHlc)." }
@@ -144,6 +142,7 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
             else -> false
         }
     }
+
 
     /**
      * Peek (Objects no longer in memory).
@@ -204,7 +203,7 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
     // --- FEATURE REQUIREMENTS ---
     protected abstract fun buildDeleteDelta(entity: T): D
     protected abstract fun buildInsertDelta(entity: T): D
-    protected abstract fun buildUpdateDelta(new: T, old: T, isRestored: Boolean): D?
+    protected abstract fun buildUpdateDelta(new: T, old: T, isRestored: Boolean): D
 
     /**
      * Compute changed tag IDs strictly for domain fields (excluding Tags 1 [LocalFirstDelta.id] & 2 [LocalFirstDelta.isDeleted]).

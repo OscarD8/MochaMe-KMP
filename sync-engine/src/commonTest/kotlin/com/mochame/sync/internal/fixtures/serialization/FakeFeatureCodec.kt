@@ -2,6 +2,7 @@ package com.mochame.sync.internal.fixtures.serialization
 
 import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.spi.infrastructure.BufferProvider
+import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodec.Companion.TAG_IS_DELETED
 import com.mochame.sync.spi.infrastructure.serialization.FeatureCodec
 import com.mochame.sync.spi.models.DecodeContext
 import org.koin.core.annotation.Single
@@ -40,5 +41,11 @@ class FakeFeatureCodec(
     }
 
     override fun reconstructSummary(bytes: ByteArray): String = RECONSTRUCT_PRESET
-    override fun computeChangedTags(new: FeatureEntity, old: FeatureEntity?) = emptyList<Int>()
+    override fun computeChangedTags(new: FeatureEntity, old: FeatureEntity?) = buildList {
+        val deleteStateChange = new.isDeleted != (old?.isDeleted ?: false)
+        if (deleteStateChange) add(2)
+
+        if (old == null || new.textValue != old.textValue) add(4)
+        if (old == null || new.countValue != old.countValue) add(5)
+    }
 }

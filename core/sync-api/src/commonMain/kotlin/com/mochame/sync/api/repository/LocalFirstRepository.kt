@@ -10,7 +10,7 @@ import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.api.models.LocalFirstEntity
 import com.mochame.sync.common.toBitmask
-import com.mochame.sync.common.toDiagnosticTagSummary
+import com.mochame.sync.common.toTagSummary
 import com.mochame.sync.spi.infrastructure.SyncReceiver
 import com.mochame.sync.spi.infrastructure.serialization.FeatureCodec
 import com.mochame.sync.spi.infrastructure.serialization.FeatureCodecRouter
@@ -82,7 +82,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                     onSkip = onSkip
                 )
             } else {
-                deps.executor.execute("[${featureContext}_$op]") {
+                deps.executor.execute("[${featureContext}_$op-$candidateKey]") {
                     executeIntentPipeline(
                         candidateKey = candidateKey,
                         incomingHlc = incomingHlc,
@@ -122,6 +122,8 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             val changedTags = codec.routedComputeChangedTags(candidateState, existingState)
             val changedMask = changedTags.toBitmask()
 
+            if (changedMask == 0L) { return onSkip(existingState) }
+
             changedTags.forEach { tag -> fieldHlcMap = fieldHlcMap.updateTag(tag, hlc) }
 
             val stampedState = candidateState.withHlc(hlc).withFieldHlcs(fieldHlcMap.bytes)
@@ -133,7 +135,6 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                 existingState = existingState,
                 changedMask = changedMask,
                 persistAction = { persist(stampedState) },
-                onSkipAction = { onSkip(stampedState) }
             )
         }
     }
@@ -156,7 +157,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         fetchExistingState = { fetch(it) },
         computeChange = computeChange,
         persist = { save(it) },
-        onSkip = { 0L }
+        onSkip = { 0L.also { logger.v { "Skipping Upsert [ID:$candidateKey]" } } }
     )
 
     protected suspend inline fun localUpsert(
@@ -290,13 +291,10 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         existingState: T?,
         changedMask: Long,
         persistAction: suspend () -> Long,
-        onSkipAction: (fallback: T?) -> Long
     ): Long {
         val payload = codec.routedEncode(stampedState, existingState)
-            ?: return onSkipAction(existingState)
 
-        val summary =
-            changedMask.toDiagnosticTagSummary(op).also { logger.d { "In-Memory Summary: $it" } }
+        val summary = changedMask.toTagSummary(op).also { logger.d { "In-Memory Summary: $it" } }
         val hlc = stampedState.hlc
         val tMark = TimeSource.Monotonic.markNow()
 

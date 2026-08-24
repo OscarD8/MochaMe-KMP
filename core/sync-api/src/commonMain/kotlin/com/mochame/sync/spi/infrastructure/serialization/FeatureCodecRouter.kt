@@ -7,7 +7,7 @@ import com.mochame.sync.spi.infrastructure.VersionRouter
 
 interface FeatureCodecRouter<T : LocalFirstEntity<T>, TCodec : Any> :
     VersionRouter<TCodec> {
-    fun routedEncode(new: T, old: T?): ByteArray?
+    fun routedEncode(new: T, old: T?): ByteArray
     fun routedDecode(data: ByteArray, context: DecodeContext, existing: T?): T
     fun routedComputeChangedTags(new: T, old: T?): List<Int>
     fun routedReconstructSummary(data: ByteArray, context: DecodeContext): String

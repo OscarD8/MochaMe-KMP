@@ -6,14 +6,17 @@ import co.touchlab.kermit.ExperimentalKermitApi
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.api.metadata.MutationOp
+import com.mochame.sync.common.bitmaskOf
 import com.mochame.sync.common.toBitmask
-import com.mochame.sync.common.toDiagnosticTagSummary
+import com.mochame.sync.common.toTagSummary
+import com.mochame.sync.common.withTag
 import com.mochame.sync.di.codec.CodecTestApp
 import com.mochame.sync.internal.fixtures.serialization.FeatureCodecV1
 import com.mochame.sync.internal.fixtures.serialization.FeatureEntity
 import com.mochame.sync.internal.fixtures.serialization.FeatureEntityDeltaV1
 import com.mochame.sync.internal.fixtures.serialization.assertDecodeParity
 import com.mochame.sync.internal.fixtures.serialization.deriveContext
+import com.mochame.sync.spi.infrastructure.serialization.diff
 import com.mochame.sync.spi.models.DecodeContext
 import com.mochame.utils.fixtures.TestHlcFactory
 import kotlinx.coroutines.test.TestScope
@@ -89,17 +92,6 @@ class FeatureCodecTest : MochaPlatformTest() {
     }
 
     @Test
-    fun should_returnNull_when_encodingNoOpUpdate() = runEnv {
-        val entity = FeatureEntity()
-
-        val bytes = encode(new = entity, old = entity)
-        assertNull(
-            bytes,
-            "Identical entity states must return null to prevent empty outbox writes"
-        )
-    }
-
-    @Test
     fun should_encodeTombstoneOnly_when_entityIsDeleted() = runEnv {
         val oldEntity = FeatureEntity()
         val deletedEntity = oldEntity.copy(
@@ -131,8 +123,8 @@ class FeatureCodecTest : MochaPlatformTest() {
             countValue = 42,
             fieldHlcs = ByteArray(0)
         )
-        val inboundBytes = encode(new = insertEntity, old = null)!!
-        val context = insertEntity.deriveContext(op = MutationOp.UPSERT)
+        val inboundBytes = encode(new = insertEntity, old = null)
+        val context = insertEntity.deriveContext(changedMask = bitmaskOf(4,5))
 
         // When
         val hydrated = decode(bytes = inboundBytes, context = context, existing = null)
@@ -152,15 +144,15 @@ class FeatureCodecTest : MochaPlatformTest() {
         val fieldHlclessEntity =
             FeatureEntity(id = 1000L, hlc = hlcs[0], countValue = 10, textValue = "keep me")
         val initialEntity = decode(
-            bytes = encode(new = fieldHlclessEntity, old = null)!!,
-            context = fieldHlclessEntity.deriveContext(),
+            bytes = encode(new = fieldHlclessEntity, old = null),
+            context = fieldHlclessEntity.deriveContext(changedMask = bitmaskOf(4,5)),
             existing = null
         )
 
-        // Given: Remote delta mutates ONLY countValue at a newer HLC (hlcs[1] > hlcs[0])
+        // Given: Remote delta mutates only countValue at a newer HLC (hlcs[1] > hlcs[0])
         val updatedSparseEntity = initialEntity.copy(countValue = 50, hlc = hlcs[1])
-        val sparseBytes = encode(new = updatedSparseEntity, old = initialEntity)!!
-        val remoteContext = updatedSparseEntity.deriveContext()
+        val sparseBytes = encode(new = updatedSparseEntity, old = initialEntity)
+        val remoteContext = updatedSparseEntity.deriveContext(changedMask = bitmaskOf(5))
 
         // When: Decode sparse delta over existing entity
         val merged = decode(bytes = sparseBytes, context = remoteContext, existing = initialEntity)
@@ -183,13 +175,13 @@ class FeatureCodecTest : MochaPlatformTest() {
         val newerHlc = hlcs[1]
 
         val existingEntity = decode(
-            bytes = encode(new = FeatureEntity(id = 1000L, countValue = 100), old = null)!!,
+            bytes = encode(new = FeatureEntity(id = 1000L, countValue = 100), old = null),
             context = DecodeContext(
                 candidateKey = 1000L,
                 hlc = newerHlc,
                 op = MutationOp.UPSERT,
                 featureSchemaVersion = 1,
-                changedMask = 0L
+                changedMask = 0L.withTag(5)
             ),
             existing = null
         )
@@ -198,13 +190,13 @@ class FeatureCodecTest : MochaPlatformTest() {
         val staleSparseBytes = encode(
             new = existingEntity.copy(countValue = 20, hlc = olderHlc),
             old = existingEntity
-        )!!
+        )
         val staleContext = DecodeContext(
             candidateKey = existingEntity.id,
             hlc = olderHlc,
             op = MutationOp.UPSERT,
             featureSchemaVersion = 1,
-            changedMask = 0L
+            changedMask = 0L.withTag(5)
         )
 
         // When: Decode stale update against newer existing entity
@@ -226,27 +218,28 @@ class FeatureCodecTest : MochaPlatformTest() {
 
     @Test
     fun should_trackDeletionAndEnforceRestoreLww_when_processingDeletionLifecycle() = runEnv {
-        val hlcs = TestHlcFactory.chronologicalSequence(4)
+        val hlcs = TestHlcFactory.chronologicalSequence(3)
         val hlcInsert = hlcs[0]
         val hlcDelete = hlcs[1]
-        val hlcRestore = hlcs[3]
-        val initialEntity = FeatureEntity(id = 1000L, hlc = hlcInsert, textValue = "alive")
+        val hlcRestore = hlcs[2]
+        val initialEntity =
+            FeatureEntity(id = 1000L, hlc = hlcInsert, textValue = "alive", countValue = null)
 
 
         // 1. Initial Insert
         val decodedInitial = decode(
-            bytes = encode(new = initialEntity, old = null)!!,
-            context = initialEntity.deriveContext(),
+            bytes = encode(new = initialEntity, old = null),
+            context = initialEntity.deriveContext(changedMask = 0L.withTag(4)),
             existing = null
         )
         assertFalse(decodedInitial.isDeleted)
 
         // 2. Delete (hlcDelete > hlcInsert)
         val deletedEntity = decodedInitial.copy(isDeleted = true, hlc = hlcDelete)
-        val deleteBytes = encode(new = deletedEntity, old = decodedInitial)!!
+        val deleteBytes = encode(new = deletedEntity, old = decodedInitial)
         val decodedDeleted = decode(
             bytes = deleteBytes,
-            context = deletedEntity.deriveContext(),
+            context = deletedEntity.deriveContext(changedMask = 0L.withTag(2)),
             existing = decodedInitial
         )
         assertTrue(decodedDeleted.isDeleted, "Entity must be marked deleted")
@@ -254,19 +247,19 @@ class FeatureCodecTest : MochaPlatformTest() {
         // 3. Stale Upsert Attempt (hlcInsert < hlcDelete)
         val staleEntity = decodedInitial.copy(textValue = "stale edit")
         val persistedDelete = decode(
-            bytes = encode(new = staleEntity, old = null)!!,
-            context = staleEntity.deriveContext(),
+            bytes = encode(new = staleEntity, old = null),
+            context = staleEntity.deriveContext(changedMask = 0L.withTag(4)),
             existing = decodedDeleted
         )
         assertTrue(persistedDelete.isDeleted, "Stale upsert must not restore deleted entity")
 
         // 4. Valid Restore Upsert (hlcRestore > hlcDelete)
         val restoredEntity = decodedInitial.copy(textValue = "hello again", hlc = hlcRestore)
-        val restoreBytes = encode(new = restoredEntity, old = null)!!
+        val restoreBytes = encode(new = restoredEntity, old = null)
 
         val finalEntity = decode(
             bytes = restoreBytes,
-            context = restoredEntity.deriveContext(),
+            context = restoredEntity.deriveContext(changedMask = bitmaskOf(2,4)),
             existing = persistedDelete
         )
         assertFalse(finalEntity.isDeleted, "Newer update must resurrect entity")
@@ -279,18 +272,14 @@ class FeatureCodecTest : MochaPlatformTest() {
         val existingEntity = FeatureEntity()
 
         // When (Device A: User clears field)
-        val clearedEntity = existingEntity.copy(textValue = "")
-        val bytes = encode(new = clearedEntity, old = existingEntity)!!
+        val clearedEntity = existingEntity.copy(textValue = null)
+        val bytes = encode(new = clearedEntity, old = existingEntity)
 
         // When (Device B: Decode)
-        val context = clearedEntity.deriveContext()
+        val context = clearedEntity.deriveContext(changedMask = 0b00010000L)
         val decoded = decode(bytes = bytes, context = context, existing = existingEntity)
 
-        assertEquals(
-            "",
-            decoded.textValue,
-            "Empty string delta must overwrite existing non-empty value and be included in delta"
-        )
+        assertNull(decoded.textValue, "Empty string delta must set field to null")
         assertEquals(existingEntity.id, decoded.id)
     }
 
@@ -301,7 +290,7 @@ class FeatureCodecTest : MochaPlatformTest() {
 
         // When (Device A: Update and Encode)
         val updatedEntity = existingEntity.copy(hlc = hlcs[1], countValue = 6)
-        val bytes = encode(new = updatedEntity, old = existingEntity)!!
+        val bytes = encode(new = updatedEntity, old = existingEntity)
 
         // When (Device B: Decode)
         val remoteContext = DecodeContext(
@@ -346,7 +335,7 @@ class FeatureCodecTest : MochaPlatformTest() {
     }
 
     // -------------------------------------------------------------------
-    // SUMMARY PARITY (IN-MEMORY vs BINARY PEEKING)
+    // SUMMARY PARITY (IN-MEMORY vs BINARY RECONSTRUCTION)
     // -------------------------------------------------------------------
 
     @Test
@@ -356,8 +345,8 @@ class FeatureCodecTest : MochaPlatformTest() {
         val changedTags = computeChangedTags(newEntity, null)
 
         // When
-        val inMemorySummary = changedTags.toBitmask().toDiagnosticTagSummary(MutationOp.UPSERT)
-        val binarySummary = reconstructSummary(bytes!!)
+        val inMemorySummary = changedTags.toBitmask().toTagSummary(MutationOp.UPSERT)
+        val binarySummary = reconstructSummary(bytes)
 
         val (inMemOp, inMemTags) = parseSummary(inMemorySummary)
         val (binOp, binTags) = parseSummary(binarySummary)
@@ -376,8 +365,8 @@ class FeatureCodecTest : MochaPlatformTest() {
         val changedTags = computeChangedTags(newEntity, oldEntity)
 
         // When
-        val inMemorySummary = changedTags.toBitmask().toDiagnosticTagSummary(MutationOp.UPSERT)
-        val binarySummary = reconstructSummary(bytes!!)
+        val inMemorySummary = changedTags.toBitmask().toTagSummary(MutationOp.UPSERT)
+        val binarySummary = reconstructSummary(bytes)
 
         val (inMemOp, inMemTags) = parseSummary(inMemorySummary)
         val (binOp, binTags) = parseSummary(binarySummary)
@@ -396,8 +385,8 @@ class FeatureCodecTest : MochaPlatformTest() {
         val changedTags = computeChangedTags(deletedEntity, oldEntity)
 
         // When
-        val inMemorySummary = changedTags.toBitmask().toDiagnosticTagSummary(MutationOp.DELETE)
-        val binarySummary = reconstructSummary(bytes!!)
+        val inMemorySummary = changedTags.toBitmask().toTagSummary(MutationOp.DELETE)
+        val binarySummary = reconstructSummary(bytes)
 
         val (inMemOp, inMemTags) = parseSummary(inMemorySummary)
         val (binOp, binTags) = parseSummary(binarySummary)
@@ -458,24 +447,18 @@ class FeatureCodecTest : MochaPlatformTest() {
         // Construct a large string payload (Wire Type 2) to force multi-byte length skipping
         val largeText = "A".repeat(2048)
         val entityWithLargePayload = FeatureEntity(
-            textValue = largeText,             // Tag 3 (Wire Type 2, length 2048)
-            countValue = 999                   // Tag 4 (Wire Type 0)
+            textValue = largeText,             // Tag 4 (Wire Type 2, length 2048)
+            countValue = 999                   // Tag 5 (Wire Type 0)
         )
 
-        val bytes = encode(new = entityWithLargePayload, old = null)!!
+        val bytes = encode(new = entityWithLargePayload, old = null)
         assertTrue(bytes.size > 2048, "Payload must be larger than 2KB")
 
         val summary = reconstructSummary(bytes)
 
         // Verify peeking engine correctly skipped 2048 bytes of string payload and aligned to countValue tag
-        assertTrue(
-            summary.startsWith("OP:UPSERT"),
-            "Must successfully parse opcode despite skipping large length-delimited payload"
-        )
-        assertTrue(
-            summary.contains("3") && summary.contains("4") && summary.contains("5"),
-            "Summary vector must contain tag 3 (triStateValue), tag 4 (textValue), and tag 5 (countValue)"
-        )
+        assertTrue(summary.startsWith("OP:UPSERT"))
+        assertTrue(summary.contains("4") && summary.contains("5"))
     }
 
     @Test
@@ -487,6 +470,7 @@ class FeatureCodecTest : MochaPlatformTest() {
         )
         val largeBytes = encode(new = largeEntity, old = null)
         assertNotNull(largeBytes)
+
         // Given Payload B: Small payload containing only Tag 5
         val smallEntity = largeEntity.copy(
             countValue = 3 // Tag 5
@@ -494,18 +478,22 @@ class FeatureCodecTest : MochaPlatformTest() {
         val smallBytes = encode(new = smallEntity, old = largeEntity)
         assertNotNull(smallBytes)
 
-        // When 1: Peek large payload into singleSharedBuffer
         val summary1 = reconstructSummary(largeBytes)
-        assertEquals("OP:UPSERT [3,4,5]", summary1)
-        // When 2: Peek small payload into the EXACT SAME singleSharedBuffer instance
+        assertEquals("OP:UPSERT [4,5]", summary1)
         val summary2 = reconstructSummary(smallBytes)
+        assertEquals("OP:UPSERT [5]", summary2)
+    }
 
-        // Assert buffer behavior.
-        assertEquals(
-            "OP:UPSERT [3]",
-            summary2,
-            "Sequential peeking over a reused Buffer instance must cleanly wipe trailing bytes from prior executions"
-        )
+    // -------------------------------------------------------------------
+    // DIFF
+    // -------------------------------------------------------------------
+
+    @Test
+    fun diff_verification() {
+        assertEquals("new", "new" diff "old")
+        assertNull("same" diff "same")
+        assertNull(null diff "old") // Explicit unset produces null for sparse wire delta
+        assertNull(null diff null)
     }
 
 

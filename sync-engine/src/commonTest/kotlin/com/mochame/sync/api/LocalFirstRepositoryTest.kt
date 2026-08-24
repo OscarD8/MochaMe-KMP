@@ -10,6 +10,7 @@ import com.mochame.sync.api.boot.BootState
 import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.api.metadata.SyncStatus
+import com.mochame.sync.common.bitmaskOf
 import com.mochame.sync.di.api.LocalFirstRepoTestApp
 import com.mochame.sync.di.api.LocalFirstRepoTestEnv
 import com.mochame.sync.internal.fixtures.serialization.FakeFeatureCodec
@@ -168,6 +169,7 @@ class LocalFirstRepositoryTest : MochaPlatformTest() {
 
     @Test
     fun localDelete_onExistingActiveEntity_recordsDeletionIntent_andPersists() = runEnv {
+        // Given
         setupValidContext()
         val candidateKey = 104L
         val initialHlc = hlcFactory.getNextHlc()
@@ -179,10 +181,11 @@ class LocalFirstRepositoryTest : MochaPlatformTest() {
         )
         repo.seed(activeEntity)
 
+        // When
         val result = repo.delete(candidateKey)
 
+        // Then
         assertEquals(104L, result)
-
         val stored = repo.storedEntities[candidateKey]
         assertNotNull(stored)
         assertTrue(stored.isDeleted)
@@ -404,11 +407,11 @@ class LocalFirstRepositoryTest : MochaPlatformTest() {
             )
             integratedRepo.seed(initialEntity)
 
-            // localUpsert computes exact same state -> codec returns null payload diff
+            // localUpsert computes exact same state -> changeMask is 0 so skips
             val result = integratedRepo.upsert(candidateKey) { initialEntity }
 
             assertEquals(0L, result)
-            assertTrue(writer.logs.any { "skipping" in it.message })
+            assertTrue(writer.logs.any { "Skipping" in it.message })
             assertEquals(0, intentStore.intents.size)
             assertEquals(0, workerHook.invalidationCount)
             assertEquals(2, hlcFactory.getNextHlcCallCount)
@@ -494,7 +497,7 @@ class LocalFirstRepositoryTest : MochaPlatformTest() {
                 countValue = 10
             )
             val payload = integratedCodec.encode(remoteState, null)
-            val decodeContext = remoteState.deriveContext()
+            val decodeContext = remoteState.deriveContext(changedMask = bitmaskOf(4))
             assertNotNull(payload, "Payload before processRemoteIntent")
 
             // Device A: Ingest remote intent
@@ -542,11 +545,11 @@ class LocalFirstRepositoryTest : MochaPlatformTest() {
                 id = candidateKey,
                 hlc = TestHlcFactory.createWithOffset(10.seconds),
                 isDeleted = false,
-                textValue = "",
+                textValue = null,
                 countValue = 10
             )
             val payload = integratedCodec.encode(remoteState, deletedEntity)
-            val decodeContext = remoteState.deriveContext()
+            val decodeContext = remoteState.deriveContext(changedMask = bitmaskOf(4))
             assertNotNull(payload, "Payload before processRemoteIntent")
 
             // Device A: Ingest remote intent
@@ -556,7 +559,7 @@ class LocalFirstRepositoryTest : MochaPlatformTest() {
 
             // Final State
             assertFalse(finalEntity.isDeleted, "Entity restored after remote upsert")
-            assertEquals("", finalEntity.textValue, "Text value to be blank")
+            assertEquals(null, finalEntity.textValue, "Text value to be blank")
             assertEquals(initialEntity.countValue, finalEntity.countValue)
             assertNotEquals(deletedEntity.textValue, finalEntity.textValue)
             assertNotEquals(deletedEntity.fieldHlcs, finalEntity.fieldHlcs)
@@ -593,7 +596,7 @@ class LocalFirstRepositoryTest : MochaPlatformTest() {
                 countValue = 20
             )
             val payload = integratedCodec.encode(remoteState, initialEntity)
-            val decodeContext = remoteState.deriveContext()
+            val decodeContext = remoteState.deriveContext(changedMask = bitmaskOf(4, 5))
             assertNotNull(payload, "Payload before processRemoteIntent")
 
             // Device A: Performs local mutation to a separate field (tag 5) at T2 (> T1)

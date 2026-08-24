@@ -35,7 +35,7 @@ class FieldMergeScope(
             index = index.updateTag(tagId, incomingHlc)
             incomingVal
         } else {
-            logger.v { "Field conflict lost [tag=$tagId]. Local HLC ($localTagHlc) >= Inbound ($incomingHlc)" }
+            logger.v { "Field Rejected [tag=$tagId]. Local HLC ($localTagHlc) >= Inbound ($incomingHlc)" }
             existingVal
         }
     }

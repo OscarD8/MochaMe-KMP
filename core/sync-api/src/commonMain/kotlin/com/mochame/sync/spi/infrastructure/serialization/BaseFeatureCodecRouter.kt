@@ -13,7 +13,7 @@ abstract class BaseFeatureCodecRouter<T : LocalFirstEntity<T>>(
     protected val logger: Logger
 ) : FeatureCodecRouter<T, FeatureCodec<T>> {
 
-    override fun routedEncode(new: T, old: T?): ByteArray? = latestCodec.encode(new, old)
+    override fun routedEncode(new: T, old: T?): ByteArray = latestCodec.encode(new, old)
 
     override fun routedDecode(data: ByteArray, context: DecodeContext, existing: T?): T =
         getCodec(context.featureSchemaVersion, logger).decode(data, context, existing)

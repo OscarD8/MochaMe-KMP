@@ -20,7 +20,7 @@ annotation class DefaultContext
 @Target(AnnotationTarget.VALUE_PARAMETER, AnnotationTarget.FUNCTION, AnnotationTarget.TYPE)
 @Retention(AnnotationRetention.BINARY)
 @Qualifier
-annotation class AppScope
+annotation class AppBackgroundScope
 
 // -----------------------------------------------------------
 // FILE SYSTEM

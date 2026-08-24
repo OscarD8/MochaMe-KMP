@@ -48,10 +48,10 @@ interface BioDao {
     @Query("SELECT * FROM daily_context WHERE isDeleted = 0 ORDER BY id DESC")
     suspend fun getAllContexts(): List<DailyContextEntity>
 
-    @Query("SELECT * FROM daily_context WHERE isNapped = 2 AND isDeleted = 0")
+    @Query("SELECT * FROM daily_context WHERE isNapped = 1 AND isDeleted = 0")
     suspend fun getAllNappedContexts(): List<DailyContextEntity>
 
-    @Query("SELECT * FROM daily_context WHERE isNapped = 1 AND isDeleted = 0")
+    @Query("SELECT * FROM daily_context WHERE isNapped = 0 AND isDeleted = 0")
     suspend fun getAllNonNappedContexts(): List<DailyContextEntity>
 
     // --- UI OBSERVABLES (Filtered) ---
@@ -68,7 +68,7 @@ interface BioDao {
 
     // --- NAP LOGIC (Filtered) ---
 
-    @Query("SELECT * FROM daily_context WHERE isNapped = 2 AND isDeleted = 0")
+    @Query("SELECT * FROM daily_context WHERE isNapped = 1 AND isDeleted = 0")
     fun observeAllNappedContexts(): Flow<List<DailyContextEntity>>
 
     @Query("SELECT * FROM daily_context WHERE isNapped = 0 AND isDeleted = 0")

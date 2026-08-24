@@ -2,7 +2,7 @@ package com.mochame.support
 
 import androidx.room.RoomDatabase
 import androidx.room.useReaderConnection
-import com.mochame.annotations.AppScope
+import com.mochame.annotations.AppBackgroundScope
 import com.mochame.annotations.DefaultContext
 import com.mochame.annotations.IoContext
 import com.mochame.annotations.MainContext
@@ -48,7 +48,7 @@ expect class TestTargetsProviderModule()
 )
 class TestSupportModule {
     @Single
-    @AppScope
+    @AppBackgroundScope
     fun provideTestAppScope(): CoroutineScope = CoroutineScope(SupervisorJob())
 
     @Single
@@ -69,7 +69,7 @@ fun TestScope.scopeKoinModule(): Module {
         single<CoroutineContext>(qualifier<MainContext>()) { dispatcher }
         single<CoroutineContext>(qualifier<DefaultContext>()) { dispatcher }
 
-        single<CoroutineScope>(qualifier<AppScope>()) { this@scopeKoinModule }
+        single<CoroutineScope>(qualifier<AppBackgroundScope>()) { this@scopeKoinModule }
     }
 }
 

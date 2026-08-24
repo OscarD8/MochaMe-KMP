@@ -62,7 +62,7 @@ class FieldMergeScopeTest : MochaPlatformTest() {
         val scope = FieldMergeScope(
             existingBytes = ByteArray(0),
             incomingHlc = incomingHlc,
-            changedMask = 0L,
+            changedMask = 0b00001000L,
             logger
         )
 
@@ -91,7 +91,7 @@ class FieldMergeScopeTest : MochaPlatformTest() {
             FieldMergeScope(
                 existingBytes,
                 incomingHlc = higherIncomingHlc,
-                changedMask = 0L,
+                changedMask = 0b00010000L,
                 logger
             )
 
@@ -125,7 +125,7 @@ class FieldMergeScopeTest : MochaPlatformTest() {
             val scope = FieldMergeScope(
                 existingBytes = existingBytes,
                 incomingHlc = staleIncomingHlc,
-                changedMask = 0L,
+                changedMask = 0b00010000L,
                 logger
             )
 
@@ -161,7 +161,7 @@ class FieldMergeScopeTest : MochaPlatformTest() {
         val scope = FieldMergeScope(
             existingBytes = initialBytes,
             incomingHlc = incomingHlc,
-            changedMask = 0L,
+            changedMask = 0b00001110L,
             logger
         )
 

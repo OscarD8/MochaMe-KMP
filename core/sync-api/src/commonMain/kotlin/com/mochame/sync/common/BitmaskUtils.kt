@@ -23,6 +23,17 @@ fun List<Int>.toBitmask(): Long {
     return mask
 }
 
+fun bitmaskOf(vararg tags: Int): Long {
+    var mask = 0L
+    for (i in tags.indices) {
+        val tag = tags[i]
+        if (tag in 0..63) {
+            mask = mask or (1L shl tag)
+        }
+    }
+    return mask
+}
+
 // --- DIAGNOSTICS ---
 
 /**
@@ -39,7 +50,7 @@ fun Long.toTagList(): List<Int> = buildList {
 /**
  * Generates human-readable summaries for local intent queue tracking without reflection.
  */
-fun Long.toDiagnosticTagSummary(op: MutationOp): String {
+fun Long.toTagSummary(op: MutationOp): String {
     val opStr = if (op == MutationOp.DELETE) "DELETE" else "UPSERT"
     if (this == 0L) return "OP:$opStr []"
     return "OP:$opStr ${toTagList().joinToString(prefix = "[", postfix = "]", separator = ",")}"

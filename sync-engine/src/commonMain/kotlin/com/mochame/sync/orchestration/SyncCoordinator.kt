@@ -1,7 +1,7 @@
 package com.mochame.sync.orchestration
 
 import co.touchlab.kermit.Logger
-import com.mochame.annotations.AppScope
+import com.mochame.annotations.AppBackgroundScope
 import com.mochame.annotations.CoordinatorMutex
 import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.sync.spi.node.IdGenerator
@@ -9,6 +9,7 @@ import com.mochame.sync.spi.infrastructure.TransactionProvider
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.logger.withTimer
+import com.mochame.sync.api.boot.BootStatusProvider
 import com.mochame.sync.api.hlc.HlcFactory
 import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.api.metadata.FeatureContext
@@ -23,6 +24,7 @@ import com.mochame.sync.spi.node.NodeContextManager
 import com.mochame.sync.spi.policy.ExecutionPolicy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import org.koin.core.annotation.Single
@@ -38,22 +40,27 @@ internal class SyncCoordinator(
     private val executor: ExecutionPolicy,
     private val hlcFactory: HlcFactory,
     private val workerHook: SyncWorkerHook,
+    private val bootManager: BootStatusProvider,
     private val nodeManager: NodeContextManager,
     @CoordinatorMutex private val coordinatorMutex: Mutex,
-    @AppScope private val appScope: CoroutineScope,
+    @AppBackgroundScope private val appBackgroundScope: CoroutineScope,
     receivers: List<SyncReceiver>, // koin handles as long as classes are bound
     logger: Logger
 ) {
-    private val logger = logger.withTags(
-        layer = LogTags.Layer.ORCH,
-        domain = LogTags.Domain.SYNC,
-        className = "MsCord"
-    )
+    private val logger =
+        logger.withTags(LogTags.Layer.ORCH, LogTags.Domain.SYNC, "MsCord")
 
     private val receiverRoutingMap: Map<FeatureContext, SyncReceiver> =
         receivers.associateBy { it.featureContext }
 
-    fun startOutbound() = appScope.launch {
+    fun startOutbound(): Job = appBackgroundScope.launch {
+        try {
+            bootManager.awaitReady()
+        } catch (e: Exception) {
+            logger.e(e) { "Outbound sync pipeline disabled: boot readiness check failed." }
+            return@launch
+        }
+
         workerHook.signals.collect {
             try {
                 processQueueUntilExhausted()
@@ -83,7 +90,7 @@ internal class SyncCoordinator(
 
                 val batch = transactor.runImmediateTransaction {
                     val claimedRows = intentStore.claimBatch(batchId)
-                    if (claimedRows == 0) return@runImmediateTransaction emptyList() // necessary in case Janitor just performed manual sweep
+                    if (claimedRows == 0) return@runImmediateTransaction emptyList()
                     intentStore.getClaimedBatch(batchId)
                 }
 
@@ -118,6 +125,13 @@ internal class SyncCoordinator(
     }
 
     internal suspend fun onInboundBytes(inbound: ByteArray) {
+        try {
+            bootManager.awaitReady()
+        } catch (e: Exception) {
+            logger.e(e) { "Inbound batch rejected: node is not ready or failed boot." }
+            return
+        }
+
         val intents = try {
             payloadCodec.decode(inbound)
         } catch (e: Exception) {
@@ -126,7 +140,7 @@ internal class SyncCoordinator(
         }
 
         if (intents.isEmpty()) {
-            logger.e { "Empty List returned (from: ${inbound.size}B). Possible corruption after Encode and before Decode processing." }
+            logger.e { "Empty List returned (from: ${inbound.size}B)." }
             return
         }
 
@@ -142,7 +156,7 @@ internal class SyncCoordinator(
                             maxValidHlc = maxValidHlc?.let { maxOf(it, intent.hlc) } ?: intent.hlc
                         }
                     }
-                    maxValidHlc?.let { //maybe enforce
+                    maxValidHlc?.let {
                         hlcFactory.witness(it)
                         nodeManager.updateHlcFloor(it)
                     }
@@ -187,7 +201,8 @@ internal class SyncCoordinator(
         val hasBlobId = overflowBlobId != null
 
         if (hasPayload == hasBlobId) {
-            val message = if (!hasPayload) "both payload and blobId are null" else "payload and blobId are mutually exclusive"
+            val message =
+                if (!hasPayload) "both payload and blobId are null" else "payload and blobId are mutually exclusive"
             throw MochaException.Persistent.StateIssue("Data integrity violation for $candidateKey: $message")
         }
 

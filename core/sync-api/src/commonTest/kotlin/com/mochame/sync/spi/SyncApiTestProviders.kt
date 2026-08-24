@@ -38,8 +38,8 @@ internal class SyncApiTestEnv(
 // -----------------------------------------------------------
 
 internal object TestNodeId {
-    val A = NodeId(Uuid.fromLongs(1L, 100L))
-    val B = NodeId(Uuid.fromLongs(2L, 200L))
+    val A = NodeId(Uuid.fromLongs(1L, 1L))
+    val B = NodeId(Uuid.fromLongs(2L, 2L))
 }
 
 internal fun createHlc(

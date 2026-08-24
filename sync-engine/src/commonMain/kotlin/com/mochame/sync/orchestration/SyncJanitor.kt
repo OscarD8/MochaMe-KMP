@@ -1,7 +1,7 @@
 package com.mochame.sync.orchestration
 
 import co.touchlab.kermit.Logger
-import com.mochame.annotations.AppScope
+import com.mochame.annotations.AppBackgroundScope
 import com.mochame.annotations.IoContext
 import com.mochame.annotations.JanitorMutex
 import com.mochame.sync.spi.infrastructure.TransactionProvider
@@ -66,7 +66,7 @@ internal class SyncJanitor(
     private val config: JanitorMaintenanceConfig,
     private val timeUtils: TimeUtils,
     @IoContext private val ioContext: CoroutineContext,
-    @AppScope private val appScope: CoroutineScope,
+    @AppBackgroundScope private val appBackgroundScope: CoroutineScope,
     @JanitorMutex private val mutex: Mutex,
     logger: Logger
 ) {
@@ -79,7 +79,7 @@ internal class SyncJanitor(
     /**
      * The single entry point for app initialization.
      */
-    fun startupChecks(): Job = appScope.launch(ioContext) {
+    fun startupChecks(): Job = appBackgroundScope.launch(ioContext) {
         try {
             withTimeout(config.startupTimeout) {
                 executor.execute("[Startup Checks]") {
@@ -110,7 +110,6 @@ internal class SyncJanitor(
 
     private fun isValidBootState(): Boolean {
         val currentState = bootUpdater.bootState.value
-
         return currentState is BootState.Idle
     }
 
@@ -136,7 +135,7 @@ internal class SyncJanitor(
     }
 
     fun startRuntimeMaintenance(): Job {
-        return appScope.launch(ioContext) {
+        return appBackgroundScope.launch(ioContext) {
             while (isActive) {
                 delay(config.maintenanceInterval)
                 mutex.withLock {

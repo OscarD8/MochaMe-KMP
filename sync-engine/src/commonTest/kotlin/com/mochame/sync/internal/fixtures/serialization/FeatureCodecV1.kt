@@ -49,19 +49,13 @@ class FeatureCodecV1(
         new: FeatureEntity,
         old: FeatureEntity,
         isRestored: Boolean
-    ): FeatureEntityDeltaV1? {
-        val textDelta = new.textValue diff old.textValue
-        val countDelta = new.countValue diff old.countValue
+    ): FeatureEntityDeltaV1 = FeatureEntityDeltaV1(
+        id = new.id,
+        isDeleted = false.takeIf { isRestored },
+        textValue = new.textValue diff old.textValue,
+        countValue = new.countValue diff old.countValue
+    )
 
-        if (textDelta == null && countDelta == null && !isRestored) return null
-
-        return FeatureEntityDeltaV1(
-            id = new.id,
-            isDeleted = false.takeIf { isRestored },
-            textValue = textDelta,
-            countValue = countDelta,
-        )
-    }
 
     override fun FieldMergeScope.mergeDelta(
         delta: FeatureEntityDeltaV1,
@@ -72,8 +66,8 @@ class FeatureCodecV1(
         hlc = context.hlc,
         lastModified = context.hlc.ts,
 
-        textValue = eval(4, delta.textValue, existing?.textValue ?: ""),
-        countValue = eval(5, delta.countValue, existing?.countValue ?: 0)
+        textValue = eval(4, delta.textValue, existing?.textValue),
+        countValue = eval(5, delta.countValue, existing?.countValue)
     )
 
     override fun computeDomainChangedTags(new: FeatureEntity, old: FeatureEntity?) = buildList {
