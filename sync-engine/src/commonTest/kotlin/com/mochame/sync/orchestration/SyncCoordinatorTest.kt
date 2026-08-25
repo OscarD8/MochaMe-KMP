@@ -5,6 +5,7 @@ package com.mochame.sync.orchestration
 import com.mochame.annotations.AppBackgroundScope
 import com.mochame.annotations.IoContext
 import com.mochame.support.MochaPlatformTest
+import com.mochame.support.awaitCondition
 import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.api.boot.BootState
 import com.mochame.sync.api.exceptions.MochaException
@@ -26,6 +27,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
@@ -695,6 +697,7 @@ class SyncCoordinatorTest : MochaPlatformTest() {
     @Test
     fun concurrentInboundAndOutbound_withTransientDbBusy_recoversAndPersistsCorrectly() =
         runUnitEnvironment<SyncCoordinatorTestEnv>(
+            bindTestScope = false,
             koinSetup = {
                 includes(koinConfiguration<SyncCoordinatorTestApp>())
 
@@ -780,6 +783,13 @@ class SyncCoordinatorTest : MochaPlatformTest() {
             startGate.complete(Unit)
             (inboundJobs + outboundJobs).joinAll()
 
+            awaitCondition(
+                timeout = 5.seconds,
+                message = "Outbound consumer did not finish encoding all 9 intents in time"
+            ) {
+                codec.encodedInvocations.flatten().size >= expectedOutboundKeys.size
+            }
+
             // Then: Inbound
             val totalInboundOperations = inboundWorkers * operationsPerWorker
             assertEquals(totalInboundOperations, stubA.invocationCount, "All inbound transactions.")
@@ -794,7 +804,7 @@ class SyncCoordinatorTest : MochaPlatformTest() {
             assertEquals(9, intentStore.intents.size)
             assertEquals(9, workerHook.invalidationCount)
 
-            outboundJob.cancel()
+            outboundJob.cancelAndJoin()
         }
 
 

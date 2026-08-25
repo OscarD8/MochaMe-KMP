@@ -14,6 +14,7 @@ import com.mochame.sync.spi.infrastructure.BlobStore
 import com.mochame.sync.spi.infrastructure.DigestFactory
 import com.mochame.sync.spi.infrastructure.digestHex
 import com.mochame.utils.interfaces.TimeUtils
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -43,18 +44,16 @@ internal class DefaultBlobStore(
     logger: Logger
 ) : BlobStore {
 
-    private val logger = logger.withTags(
-        layer = LogTags.Layer.INFRA,
-        domain = LogTags.Domain.SYNC,
-        className = "BlobSt"
-    )
+    private val logger =
+        logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.SYNC, "BlobSt")
 
     companion object {
         val DEFAULT_STALE_AGE = 1.hours
         private val BLOB_HASH_REGEX = Regex("^[a-fA-F0-9]{64}$")
     }
 
-    private var directoriesVerified = false
+    private val directoriesVerified = atomic(false)
+    private val stagingCounter = atomic(0L)
 
     // --- STAGING ---
 
@@ -68,9 +67,10 @@ internal class DefaultBlobStore(
      */
     override suspend fun stage(source: Source): String = withContext(ioContext) {
         val mark = TimeSource.Monotonic.markNow()
+        val uniqueSequence = stagingCounter.incrementAndGet()
         val now = timeUtils.now().toEpochMilliseconds()
-        val tempPath = Path(pendingDir, "staging_${now}_${Random.nextLong()}")
-        val digest = digestFactory() // expect/actual bridge
+        val tempPath = Path(pendingDir, "staging_${now}_${uniqueSequence}_${Random.nextLong().toString(16)}")
+        val digest = digestFactory()
         var totalBytes = 0L
 
         ensureDirectoriesExist()
@@ -234,10 +234,10 @@ internal class DefaultBlobStore(
 
     // --- Helpers ---
     private suspend fun ensureDirectoriesExist() = withContext(ioContext) {
-        if (directoriesVerified) return@withContext
+        if (directoriesVerified.value) return@withContext
 
         blobMutex.withLock {
-            if (directoriesVerified) return@withLock
+            if (directoriesVerified.value) return@withLock
 
             try {
                 if (!fileSystem.exists(pendingDir)) {
@@ -254,7 +254,7 @@ internal class DefaultBlobStore(
                     }
                     logger.i { "Init Committed Dir at $committedDir" }
                 }
-                directoriesVerified = true
+                directoriesVerified.value = true
             } catch (e: Exception) {
                 throw e.toMochaException("Directory Initialization")
             }

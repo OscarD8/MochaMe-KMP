@@ -66,7 +66,7 @@ class TestSupportModule {
 /**
  * Generates the test context bindings dynamically.
  */
-fun TestScope.scopeKoinModule(): Module {
+fun TestScope.bindAsKoinModule(): Module {
     val dispatcher = this.coroutineContext[ContinuationInterceptor]
         ?: throw IllegalStateException("Error fetching the dispatcher of an established test scope.")
 
@@ -76,7 +76,7 @@ fun TestScope.scopeKoinModule(): Module {
         single<CoroutineContext>(qualifier<MainContext>()) { dispatcher }
         single<CoroutineContext>(qualifier<DefaultContext>()) { dispatcher }
 
-        single<CoroutineScope>(qualifier<AppBackgroundScope>()) { this@scopeKoinModule }
+        single<CoroutineScope>(qualifier<AppBackgroundScope>()) { this@bindAsKoinModule }
     }
 }
 

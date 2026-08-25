@@ -22,7 +22,6 @@ import com.mochame.sync.internal.fixtures.serialization.FakePayloadCodec
 import com.mochame.sync.orchestration.SyncCoordinator
 import com.mochame.sync.spi.infrastructure.SyncReceiver
 import com.mochame.sync.spi.infrastructure.serialization.PayloadCodec
-import com.mochame.sync.spi.node.NodeContextManager
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Factory
 import org.koin.core.annotation.KoinApplication

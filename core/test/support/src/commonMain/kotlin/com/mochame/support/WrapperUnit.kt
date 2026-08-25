@@ -12,13 +12,16 @@ import org.koin.dsl.koinApplication
  */
 @OptIn(KoinInternalApi::class)
 inline fun <reified E : Any> runUnitEnvironment(
+    bindTestScope: Boolean = true,
     crossinline koinSetup: KoinApplication.() -> Unit = {},
     crossinline block: suspend E.(TestScope) -> Unit
 ) = runTest {
     val koinApp = koinApplication(createEagerInstances = false) {
         allowOverride(true)
         koinSetup()
-        modules(scopeKoinModule())
+        if (bindTestScope) {
+            modules(this@runTest.bindAsKoinModule())
+        }
     }
 
     val koin = koinApp.koin

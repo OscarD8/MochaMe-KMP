@@ -26,7 +26,7 @@ import kotlin.coroutines.CoroutineContext
  * runtime isolated [TestScope] to be fetched and wired into the
  * [androidx.room.RoomDatabase.Builder.setQueryCoroutineContext] of the
  * database builder, and any components requiring a [CoroutineContext] or [CoroutineScope]
- * themselves. This is handled by the nested [TestScope.scopeKoinModule] method utilizing
+ * themselves. This is handled by the nested [TestScope.bindAsKoinModule] method utilizing
  * Koin DSL.
  *
  * By calling this method, any scopes and coroutine contexts will be aligned
@@ -53,6 +53,7 @@ import kotlin.coroutines.CoroutineContext
  * @param block The actual test block to be run once the test environment is set up.
  */
 inline fun <reified T : RoomDatabase, reified E : Any> runPersistenceEnvironment(
+    bindTestScope: Boolean = true,
     constructor: RoomDatabaseConstructor<T>,
     crossinline koinSetup: KoinApplication.() -> Unit = {},
     crossinline block: suspend E.(TestScope) -> Unit
@@ -61,7 +62,9 @@ inline fun <reified T : RoomDatabase, reified E : Any> runPersistenceEnvironment
     val koinApp = koinApplication(createEagerInstances = false) {
         allowOverride(true)
         koinSetup()
-        modules(scopeKoinModule())
+        if (bindTestScope) {
+            modules(this@runTest.bindAsKoinModule())
+        }
     }
     val koin = koinApp.koin
 
