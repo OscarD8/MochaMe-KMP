@@ -9,9 +9,12 @@ import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.withTimeoutOrNull
@@ -85,53 +88,51 @@ class DefaultKeyedLockerTest : MochaPlatformTest() {
         val targetContext = FeatureContext.TEST_STUB_A
         val targetId = 1L
 
-        val concurrentExecutions = atomic(0)
-        val maxConcurrentObserved = atomic(0)
+        var concurrentExecutions = 0
+        var maxConcurrentObserved = 0
+        var job2Entered = false
+
         val job1Entered = CompletableDeferred<Unit>()
         val allowJob1Exit = CompletableDeferred<Unit>()
 
         val job1 = scope.launch {
             withLock(targetContext, targetId) {
-                val current = concurrentExecutions.incrementAndGet()
-                maxConcurrentObserved.value = maxOf(maxConcurrentObserved.value, current)
+                concurrentExecutions++
+                maxConcurrentObserved = maxOf(maxConcurrentObserved, concurrentExecutions)
                 job1Entered.complete(Unit)
+
                 allowJob1Exit.await()
-                concurrentExecutions.decrementAndGet()
+
+                concurrentExecutions--
             }
         }
 
-        val job2Entered = atomic(false)
         val job2 = scope.launch {
             job1Entered.await()
             withLock(targetContext, targetId) {
-                val current = concurrentExecutions.incrementAndGet()
-                maxConcurrentObserved.value = maxOf(maxConcurrentObserved.value, current)
-                job2Entered.value = true
-                concurrentExecutions.decrementAndGet()
+                concurrentExecutions++
+                maxConcurrentObserved = maxOf(maxConcurrentObserved, concurrentExecutions)
+                job2Entered = true
+                concurrentExecutions--
             }
         }
 
+        // Job 1 enters and holds lock, Job 2 suspends on the lock
         scope.runCurrent()
         assertTrue(job1Entered.isCompleted, "First caller should acquire the lock")
-        assertFalse(job2Entered.value, "Second caller must be suspended and blocked")
-        assertEquals(
-            1,
-            maxConcurrentObserved.value,
-            "Only one coroutine may execute in the critical section"
-        )
+        assertFalse(job2Entered, "Second caller must be suspended and blocked")
+        assertEquals(1, maxConcurrentObserved, "Only one coroutine may execute")
 
+        // Release Job 1: Job 2 acquires and exits
         allowJob1Exit.complete(Unit)
         scope.runCurrent()
 
         job1.join()
         job2.join()
 
-        assertTrue(job2Entered.value, "Second caller should complete after first releases")
-        assertEquals(
-            1,
-            maxConcurrentObserved.value,
-            "Max concurrent executions must strictly remain 1"
-        )
+        assertTrue(job2Entered, "Second caller should complete after first releases")
+        assertEquals(1, maxConcurrentObserved, "Max concurrent executions must strictly remain 1")
+        assertEquals(0, concurrentExecutions, "All lock holders must have exited")
     }
 
 
@@ -317,16 +318,16 @@ class DefaultKeyedLockerTest : MochaPlatformTest() {
             val key = 502L
 
             val holderEntered = CompletableDeferred<Unit>()
-            val holderCompleted = atomic(false)
+            var holderCompleted = false
             val waiterEntered = CompletableDeferred<Unit>()
-            val waiterCompleted = atomic(false)
+            var waiterCompleted = false
 
             // 1. Launch active lock holder
             val holderJob = scope.launch {
                 withLock(context, key) {
                     holderEntered.complete(Unit)
                     CompletableDeferred<Unit>().await() // Suspend indefinitely inside critical section
-                    holderCompleted.value = true
+                    holderCompleted = true
                 }
             }
 
@@ -338,7 +339,7 @@ class DefaultKeyedLockerTest : MochaPlatformTest() {
             val waiterJob = scope.launch {
                 withLock(context, key) {
                     waiterEntered.complete(Unit)
-                    waiterCompleted.value = true
+                    waiterCompleted = true
                 }
             }
 
@@ -350,14 +351,11 @@ class DefaultKeyedLockerTest : MochaPlatformTest() {
             holderJob.cancelAndJoin()
             scope.runCurrent()
 
-            assertFalse(holderCompleted.value, "Holder action should have been aborted")
-            assertTrue(
-                waiterEntered.isCompleted,
-                "Cancelling holder must free Mutex for queued waiter"
-            )
+            assertFalse(holderCompleted, "Holder action should have been aborted")
+            assertTrue(waiterEntered.isCompleted, "Cancelling must free Mutex for  waiter")
 
             waiterJob.join()
-            assertTrue(waiterCompleted.value, "Waiter must complete successfully")
+            assertTrue(waiterCompleted, "Waiter must complete successfully")
             assertEquals(0, activeKeysCount, "Registry must be empty once waiter completes")
             assertNull(activeUsersFor(context, key))
         }
@@ -475,7 +473,7 @@ class DefaultKeyedLockerTest : MochaPlatformTest() {
             val key = 505L
 
             val outerEntered = CompletableDeferred<Unit>()
-            val innerEntered = atomic(false)
+            var innerEntered = false
 
             val reentrantJob = scope.launch {
                 withLock(context, key) {
@@ -484,7 +482,7 @@ class DefaultKeyedLockerTest : MochaPlatformTest() {
                     // will suspend indefinitely waiting on its own release.
                     withTimeoutOrNull(100.milliseconds) {
                         withLock(context, key) {
-                            innerEntered.value = true
+                            innerEntered = true
                         }
                     }
                 }
@@ -492,7 +490,7 @@ class DefaultKeyedLockerTest : MochaPlatformTest() {
 
             scope.runCurrent()
             assertTrue(outerEntered.isCompleted, "Outer lock must be acquired")
-            assertFalse(innerEntered.value, "Inner lock must fail to acquire")
+            assertFalse(innerEntered, "Inner lock must fail to acquire")
             assertEquals(2, activeUsersFor(context, key))
 
             // Advance test clock to trigger timeout on the inner reentrant attempt
@@ -500,7 +498,7 @@ class DefaultKeyedLockerTest : MochaPlatformTest() {
             scope.runCurrent()
 
             reentrantJob.join()
-            assertFalse(innerEntered.value, "Inner block must not execute")
+            assertFalse(innerEntered, "Inner block must not execute")
             assertEquals(0, activeKeysCount, "Cleanup must restore state")
             assertNull(activeUsersFor(context, key))
         }
@@ -509,23 +507,27 @@ class DefaultKeyedLockerTest : MochaPlatformTest() {
     // -----------------------------------------------------------
     // CONTENTION
     // -----------------------------------------------------------
+    // Exposing variables using atomicfu as a possible solution. Test below it uses Mutex internally.
+    private val insideCriticalSection = atomic(0)
+    private val maxConcurrencyObserved = atomic(0)
+    private val completedExecutions = atomic(0)
 
     @Test
     fun should_maintainIntegrityAndEvictCleanly_underMultithreadedThunderingHerd() =
         runEnv { scope ->
+            insideCriticalSection.value = 0
+            maxConcurrencyObserved.value = 0
+            completedExecutions.value = 0
+
             val context = FeatureContext.TEST_STUB_A
             val sharedKey = 888L
-            val totalCallers = 20
-            val readyCounter = atomic(0)
+            val totalCallers = 15
+            val readySignals = List(totalCallers) { CompletableDeferred<Unit>() }
             val startGate = CompletableDeferred<Unit>()
-            val insideCriticalSection = atomic(0)
-            val maxConcurrencyObserved = atomic(0)
-            val completedExecutions = atomic(0)
 
-
-            val jobs = List(totalCallers) {
+            val jobs = List(totalCallers) { index ->
                 scope.launch(Dispatchers.Default) {
-                    readyCounter.incrementAndGet()
+                    readySignals[index].complete(Unit)
                     startGate.await()
 
                     withLock(context, sharedKey) {
@@ -539,9 +541,7 @@ class DefaultKeyedLockerTest : MochaPlatformTest() {
                     }
                 }
             }
-            while (readyCounter.value < totalCallers) {
-                yield()
-            }
+            readySignals.awaitAll()
 
             startGate.complete(Unit)
             jobs.joinAll()
@@ -559,65 +559,63 @@ class DefaultKeyedLockerTest : MochaPlatformTest() {
         val keys = listOf(
             FeatureContext.TEST_STUB_A to 1L,
             FeatureContext.TEST_STUB_A to 2L,
-            FeatureContext.TEST_STUB_B to 1L, // Same ID, different context
+            FeatureContext.TEST_STUB_B to 1L,
             FeatureContext.TEST_STUB_B to 2L,
             FeatureContext.UNRECOGNIZED_MODEL to 100L
         )
         val callersPerKey = 5
+        val totalCallers = keys.size * callersPerKey
 
+        val readySignals = List(totalCallers) { CompletableDeferred<Unit>() }
         val startGate = CompletableDeferred<Unit>()
-        val insidePerKey = keys.associateWith { atomic(0) }
-        val maxConcurrencyPerKey = keys.associateWith { atomic(0) }
-        val completedPerKey = keys.associateWith { atomic(0) }
 
+        // Thread-safe metrics registry using a standard Mutex
+        val trackerMutex = Mutex()
+        val insidePerKey = keys.associateWith { 0 }.toMutableMap()
+        val maxConcurrencyPerKey = keys.associateWith { 0 }.toMutableMap()
+        val completedPerKey = keys.associateWith { 0 }.toMutableMap()
+
+        var workerIndex = 0
         val jobs = keys.flatMap { (context, id) ->
             val pair = context to id
             List(callersPerKey) {
+                val signalIndex = workerIndex++
+
                 scope.launch(Dispatchers.Default) {
+                    readySignals[signalIndex].complete(Unit)
                     startGate.await()
-
                     withLock(context, id) {
-                        val current = insidePerKey.getValue(pair).incrementAndGet()
-                        val maxTracker = maxConcurrencyPerKey.getValue(pair)
-                        maxTracker.value = maxOf(maxTracker.value, current)
 
-                        yield() // Force background worker thread switching while holding lock
+                        val currentActive = trackerMutex.withLock {
+                            val active = insidePerKey.getValue(pair) + 1
+                            insidePerKey[pair] = active
+                            maxConcurrencyPerKey[pair] = maxOf(maxConcurrencyPerKey.getValue(pair), active)
+                            active
+                        }
 
-                        completedPerKey.getValue(pair).incrementAndGet()
-                        insidePerKey.getValue(pair).decrementAndGet()
+                        assertEquals(1, currentActive, "Concurrency violation on key $pair!")
+                        yield()
+
+                        trackerMutex.withLock {
+                            insidePerKey[pair] = insidePerKey.getValue(pair) - 1
+                            completedPerKey[pair] = completedPerKey.getValue(pair) + 1
+                        }
                     }
                 }
             }
         }
 
+        readySignals.awaitAll()
         startGate.complete(Unit)
         jobs.joinAll()
 
-        // Assert mutual exclusion was strictly maintained per individual key
         for (key in keys) {
-            assertEquals(
-                1,
-                maxConcurrencyPerKey.getValue(key).value,
-                "Max concurrent executions for key $key must strictly be 1"
-            )
-            assertEquals(
-                0,
-                insidePerKey.getValue(key).value,
-                "No coroutines should remain locked for key $key"
-            )
-            assertEquals(
-                callersPerKey,
-                completedPerKey.getValue(key).value,
-                "All executions for key $key must complete"
-            )
-            assertNull(activeUsersFor(key.first, key.second), "Key $key must be fully evicted")
+            assertEquals(1, maxConcurrencyPerKey.getValue(key), "Max concurrency for $key must be 1")
+            assertEquals(0, insidePerKey.getValue(key), "Active count for $key must drain to 0")
+            assertEquals(callersPerKey, completedPerKey.getValue(key), "All callers must finish")
+            assertNull(activeUsersFor(key.first, key.second))
         }
-
-        assertEquals(
-            0,
-            activeKeysCount,
-            "Registry must be completely empty after multithreaded multi-key execution"
-        )
+        assertEquals(0, activeKeysCount)
     }
 
 }

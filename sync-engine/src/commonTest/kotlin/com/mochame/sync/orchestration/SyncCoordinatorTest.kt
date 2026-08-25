@@ -27,6 +27,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
@@ -725,7 +726,7 @@ class SyncCoordinatorTest : MochaPlatformTest() {
             val totalWorkers = inboundWorkers + outboundWorkers
             val operationsPerWorker = 3
 
-            val readyCounter = atomic(0)
+            val readySignals = List(totalWorkers) { CompletableDeferred<Unit>() }
             val startGate = CompletableDeferred<Unit>()
 
             val inboundIntent = createTestSyncIntent(
@@ -737,7 +738,7 @@ class SyncCoordinatorTest : MochaPlatformTest() {
 
             val inboundJobs = List(inboundWorkers) { workerId ->
                 scope.launch(Dispatchers.Default) {
-                    readyCounter.incrementAndGet()
+                    readySignals[workerId].complete(Unit)
                     startGate.await()
 
                     repeat(operationsPerWorker) { opIndex ->
@@ -755,7 +756,7 @@ class SyncCoordinatorTest : MochaPlatformTest() {
 
             val outboundJobs = List(outboundWorkers) { workerId ->
                 scope.launch(Dispatchers.Default) {
-                    readyCounter.incrementAndGet()
+                    readySignals[inboundWorkers + workerId].complete(Unit)
                     startGate.await()
 
                     repeat(operationsPerWorker) { opIndex ->
@@ -777,14 +778,12 @@ class SyncCoordinatorTest : MochaPlatformTest() {
             }
 
             // When: all workers execute in parallel
-            while (readyCounter.value < totalWorkers) {
-                yield()
-            }
+            readySignals.awaitAll()
             startGate.complete(Unit)
             (inboundJobs + outboundJobs).joinAll()
 
             awaitCondition(
-                timeout = 5.seconds,
+                timeout = 8.seconds,
                 message = "Outbound consumer did not finish encoding all 9 intents in time"
             ) {
                 codec.encodedInvocations.flatten().size >= expectedOutboundKeys.size

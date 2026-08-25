@@ -11,14 +11,11 @@ import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.sync.di.blob.BlobStoreTestApp
 import com.mochame.sync.di.blob.BlobStoreTestEnv
 import com.mochame.utils.fixtures.TestPayloads
-import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.test.TestScope
-import kotlinx.coroutines.yield
 import kotlinx.io.buffered
 import kotlinx.io.files.Path
 import kotlinx.io.readByteArray
@@ -148,14 +145,14 @@ internal class DefaultBlobStoreTest : MochaPlatformTest() {
                 logger = logger,
                 ioContext = Dispatchers.Default
             )
-            val readyCounter = atomic(0)
             val threadCount = 8
+            val readySignals = List(threadCount) { CompletableDeferred<Unit>() }
             val iterations = 5
             val gate = CompletableDeferred<Unit>()
 
             val workerDeferreds = List(threadCount) { workerId ->
                 scope.async(Dispatchers.Default) {
-                    readyCounter.incrementAndGet()
+                    readySignals[workerId].complete(Unit)
                     gate.await()
 
                     val localResults = mutableListOf<String>()
@@ -169,9 +166,8 @@ internal class DefaultBlobStoreTest : MochaPlatformTest() {
                     localResults
                 }
             }
-            while (readyCounter.value < threadCount) {
-                yield()
-            }
+            readySignals.awaitAll()
+
             // Act
             gate.complete(Unit)
             val allResults = workerDeferreds.awaitAll().flatten()

@@ -1,6 +1,7 @@
 plugins {
     id("mocha.convention.feature")
     alias(libs.plugins.kotlinSerialization)
+    alias(libs.plugins.atomicfu.compiler)
 }
 
 kotlin {

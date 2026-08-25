@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.androidLint)
     alias(libs.plugins.mokkery)
     alias(libs.plugins.kotlinSerialization)
+    alias(libs.plugins.atomicfu.compiler)
 }
 
 kotlin {

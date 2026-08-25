@@ -211,15 +211,15 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
     fun should_maintain_monotonicity_when_multi_threaded_push_for_nextHlc() =
         runEnv { scope ->
             // Arrange: Multi-threaded simulation suspended with CompletableDeferred
-            val readyCounter = atomic(0)
             val threadCount = 5
+            val readySignals = List(threadCount) { CompletableDeferred<Unit>() }
             val iterations = 5
             val gate = CompletableDeferred<Unit>()
             factory.hydrate(null, TestNodeId.A)
 
             val workerDeferreds = List(threadCount) { workerId ->
                 scope.async(Dispatchers.IO) {
-                    readyCounter.incrementAndGet()
+                    readySignals[workerId].complete(Unit)
                     gate.await()
 
                     val localResults = mutableListOf<HLC>()
@@ -236,9 +236,7 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
                     localResults
                 }
             }
-            while (readyCounter.value < threadCount) {
-                yield()
-            }
+            readySignals.awaitAll()
 
             gate.complete(Unit)
             val allResults = workerDeferreds.awaitAll().flatten()
@@ -323,21 +321,20 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
     @Test
     fun should_only_initialize_one_new_install_when_init_under_contention() =
         runEnv { scope ->
-            val readyCounter = atomic(0)
             val threadCount = 8
+            val readySignals = List(threadCount) { CompletableDeferred<Unit>() }
             val gate = CompletableDeferred<Unit>()
             val nodeId = TestNodeId.A
 
-            val jobs = List(threadCount) {
+            val jobs = List(threadCount) { index ->
                 scope.launch(Dispatchers.IO) {
-                    readyCounter.incrementAndGet()
+                    readySignals[index].complete(Unit)
                     gate.await() // THE STARTING GUN (gemini)
                     factory.hydrate(null, nodeId)
                 }
             }
-            while (readyCounter.value < threadCount) {
-                yield()
-            }
+            readySignals.awaitAll()
+
             gate.complete(Unit)
             jobs.joinAll()
 
@@ -744,12 +741,12 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
                 TestHlcFactory.DEFAULT_NODE
             )
 
-            val readyCounter = atomic(0)
             val threadCount = 8
             val iterationsPerThread = 5
             val totalOperations = threadCount * iterationsPerThread
             val targetTs = baseTs + 1_000L
             val gate = CompletableDeferred<Unit>()
+            val readySignals = List(threadCount) { CompletableDeferred<Unit>() }
 
             val concurrentHlcs = TestHlcFactory.concurrentSequence(
                 size = totalOperations,
@@ -759,7 +756,7 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
             // When - Multi-threaded witness updates at identical timestamps
             val workerJobs = List(threadCount) { threadId ->
                 scope.launch(Dispatchers.Default) {
-                    readyCounter.incrementAndGet()
+                    readySignals[threadId].complete(Unit)
                     gate.await()
 
                     val startIndex = threadId * iterationsPerThread
@@ -769,9 +766,7 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
                     }
                 }
             }
-            while (readyCounter.value < threadCount) {
-                yield()
-            }
+            readySignals.awaitAll()
 
             gate.complete(Unit)
             workerJobs.joinAll()
@@ -790,18 +785,18 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
                 TestHlcFactory.create(),
                 TestHlcFactory.DEFAULT_NODE
             )
-            val readyCounter = atomic(0)
             val threadCount = 8
             val iterationsPerThread = 5
             val totalOperations = threadCount * iterationsPerThread
 
+            val readySignals = List(threadCount) { CompletableDeferred<Unit>() }
             val gate = CompletableDeferred<Unit>()
             val hlcSequence = TestHlcFactory.chronologicalSequence(size = totalOperations)
             val maxExpectedTs = hlcSequence.last().ts
 
             val workerJobs = List(threadCount) { threadId ->
                 scope.launch(Dispatchers.Default) {
-                    readyCounter.incrementAndGet()
+                    readySignals[threadId].complete(Unit)
                     gate.await()
 
                     val startIndex = threadId * iterationsPerThread
@@ -811,9 +806,7 @@ class EngineHlcFactoryTest : MochaPlatformTest() {
                     }
                 }
             }
-            while (readyCounter.value < threadCount) {
-                yield()
-            }
+            readySignals.awaitAll()
 
             gate.complete(Unit)
             workerJobs.joinAll()

@@ -19,17 +19,16 @@ import com.mochame.sync.internal.fixtures.serialization.deriveContext
 import com.mochame.sync.spi.models.DecodeContext
 import com.mochame.utils.fixtures.TestHlcFactory
 import com.mochame.utils.fixtures.TestNodeId
-import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
-import kotlinx.coroutines.yield
 import kotlinx.io.IOException
 import org.koin.dsl.includes
 import org.koin.plugin.module.dsl.koinConfiguration
@@ -934,12 +933,12 @@ class LocalFirstRepositoryTest : MochaPlatformTest() {
             val key2Workers = 3
             val totalWorkers = key1Workers + key2Workers
             val operationsPerWorker = 3
-            val readyCounter = atomic(0)
+            val readySignals = List(totalWorkers) { CompletableDeferred<Unit>() }
             val startGate = CompletableDeferred<Unit>()
 
-            val key1Jobs = List(key1Workers) {
+            val key1Jobs = List(key1Workers) { index ->
                 scope.launch(Dispatchers.Default) {
-                    readyCounter.incrementAndGet()
+                    readySignals[index].complete(Unit)
                     startGate.await()
 
                     repeat(operationsPerWorker) {
@@ -950,9 +949,9 @@ class LocalFirstRepositoryTest : MochaPlatformTest() {
                     }
                 }
             }
-            val key2Jobs = List(key2Workers) {
+            val key2Jobs = List(key2Workers) { index ->
                 scope.launch(Dispatchers.Default) {
-                    readyCounter.incrementAndGet()
+                    readySignals[key1Workers + index].complete(Unit)
                     startGate.await()
 
                     repeat(operationsPerWorker) {
@@ -963,9 +962,7 @@ class LocalFirstRepositoryTest : MochaPlatformTest() {
                     }
                 }
             }
-            while (readyCounter.value < totalWorkers) {
-                yield()
-            }
+            readySignals.awaitAll()
 
             startGate.complete(Unit)
             (key1Jobs + key2Jobs).joinAll()

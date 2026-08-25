@@ -39,17 +39,19 @@ class BufferProviderTest : MochaPlatformTest() {
         )
     }
 
+    private val threadBFinished = atomic(false)
+
     @Test
     fun should_returnDistinctInstances_when_calledFromDifferentThreads() = runEnv { scope ->
         val threadAClaimed = CompletableDeferred<Unit>()
-        val threadBFinished = atomic(false)
+        threadBFinished.value = false
 
         val deferredA = scope.async(Dispatchers.Default) {
             val buffer = get()
             threadAClaimed.complete(Unit)
 
             while (!threadBFinished.value) {
-                // Keep thread alive until Thread B acquires on a different worker
+             // Busy-wait prevents thread release
             }
             buffer
         }
@@ -57,7 +59,6 @@ class BufferProviderTest : MochaPlatformTest() {
         val deferredB = scope.async(Dispatchers.Default) {
             threadAClaimed.await()
 
-            // Because Worker Thread 1 is busy, the dispatcher must assign Thread B to Worker Thread 2
             val buffer = get()
             threadBFinished.value = true
             buffer

@@ -1,5 +1,6 @@
 plugins {
     id("mocha.convention.provider")
+    alias(libs.plugins.atomicfu.compiler)
 }
 
 kotlin {
