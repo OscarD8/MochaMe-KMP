@@ -33,6 +33,8 @@ class FakeSyncReceiver(
     // --- Backing Fields ---
     private var _failure: Throwable? = null
     private val _invocations = mutableListOf<ReceivedIntent>()
+    private var _onProcessHook: (suspend (DecodeContext, ByteArray?) -> Unit)? = null
+
 
     // --- Inspection ---
     val invocations: List<ReceivedIntent>
@@ -49,17 +51,23 @@ class FakeSyncReceiver(
         get() = lock.withLock { _failure }
         set(value) = lock.withLock { _failure = value }
 
+    var onProcessHook: (suspend (DecodeContext, ByteArray?) -> Unit)?
+        get() = lock.withLock { _onProcessHook }
+        set(value) = lock.withLock { _onProcessHook = value }
+
     fun reset() = lock.withLock {
         _failure = null
+        _onProcessHook = null
         _invocations.clear()
     }
 
     override suspend fun processRemoteIntent(context: DecodeContext, payload: ByteArray?) {
-        val error = lock.withLock {
+        val (error, hook) = lock.withLock {
             _invocations.add(ReceivedIntent(context, payload))
-            _failure
+            Pair(_failure, _onProcessHook)
         }
 
         error?.let { throw it }
+        hook?.invoke(context, payload)
     }
 }

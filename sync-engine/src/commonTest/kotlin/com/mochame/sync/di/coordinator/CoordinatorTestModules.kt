@@ -9,6 +9,7 @@ import com.mochame.node.fixtures.di.FixturesNodeModule
 import com.mochame.platform.fixtures.FakeTransactionProvider
 import com.mochame.platform.fixtures.di.FixturesPlatformModule
 import com.mochame.sync.api.metadata.FeatureContext
+import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.common.InternalTestApi
 import com.mochame.sync.di.SyncConcurrencyModule
 import com.mochame.sync.di.SyncOrchestrationModule
@@ -28,6 +29,8 @@ import org.koin.core.annotation.KoinApplication
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Named
 import org.koin.core.annotation.Single
+import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 
 
 @KoinApplication(modules = [CoordinatorTestModules::class])
@@ -59,7 +62,7 @@ class CoordinatorTestModules {
 }
 
 @Factory
-internal class SyncCoordinatorTestEnv (
+internal class SyncCoordinatorTestEnv(
     val coordinator: SyncCoordinator,
     @Named("stubA") val stubA: FakeSyncReceiver,
     @Named("stubB") val stubB: FakeSyncReceiver,
@@ -70,4 +73,44 @@ internal class SyncCoordinatorTestEnv (
     val workerHook: SpySyncWorkerHook,
     val bootManager: SpyBootStatusManager,
     val nodeManager: FakeNodeContextManager
-)
+) {
+    fun assertIntentsProperlyBatched(expectedKeys: Set<Long>) {
+        val storedIntents = intentStore.intents
+        val encodedIntents = codec.encodedInvocations.flatten()
+
+        val storedKeys = storedIntents.map { it.candidateKey }.toSet()
+        val encodedKeys = encodedIntents.map { it.candidateKey }.toSet()
+
+        assertEquals(
+            expectedKeys,
+            storedKeys,
+            "All seeded candidateKeys must exist in the intent store"
+        )
+        assertEquals(
+            expectedKeys,
+            encodedKeys,
+            "All seeded candidateKeys must have been encoded across batch sweeps"
+        )
+        assertEquals(
+            expectedKeys.size,
+            encodedIntents.size,
+            "Total encoded intents count must match seeded count exactly"
+        )
+
+        storedIntents.forEach { intent ->
+            assertEquals(
+                SyncStatus.SYNCING,
+                intent.syncStatus,
+                "Intent for key ${intent.candidateKey} must be in SYNCING status"
+            )
+            assertNotNull(
+                intent.syncId,
+                "Intent for key ${intent.candidateKey} must hold a non-null batchId (syncId)"
+            )
+            assertNotNull(
+                intent.leasedAt,
+                "Intent for key ${intent.candidateKey} must hold a valid leasedAt timestamp"
+            )
+        }
+    }
+}

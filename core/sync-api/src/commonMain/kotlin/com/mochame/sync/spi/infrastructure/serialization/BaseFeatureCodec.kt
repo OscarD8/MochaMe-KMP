@@ -1,13 +1,14 @@
 package com.mochame.sync.spi.infrastructure.serialization
 
 import co.touchlab.kermit.Logger
-import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.api.models.LocalFirstDelta
 import com.mochame.sync.api.models.LocalFirstEntity
-import com.mochame.sync.common.hasTag
 import com.mochame.sync.common.readProtobufVarint
 import com.mochame.sync.common.skipProtobufValue
 import com.mochame.sync.spi.infrastructure.BufferProvider
+import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodec.Companion.FIRST_DOMAIN_TAG
+import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodec.Companion.TAG_IS_DELETED
+import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodec.Companion.TAG_PRIMARY_KEY
 import com.mochame.sync.spi.models.DecodeContext
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer

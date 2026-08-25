@@ -8,8 +8,12 @@ import com.mochame.annotations.IoContext
 import com.mochame.annotations.MainContext
 import com.mochame.logger.test.TestLoggerModule
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.koin.core.annotation.Configuration
 import org.koin.core.annotation.Single
 import org.koin.core.module.Module
@@ -18,6 +22,9 @@ import org.koin.dsl.module
 import kotlin.coroutines.ContinuationInterceptor
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 // -----------------------------------------------------------
 // MODULES / PLATFORM BRIDGES
@@ -97,6 +104,27 @@ fun Exception.reportAndThrowFailure(): Nothing {
 
     println(" ====================================================== \n")
     throw this
+}
+
+suspend fun awaitCondition(
+    timeout: Duration = 5.seconds,
+    pollInterval: Duration = 10.milliseconds,
+    message: String = "Condition was not met within $timeout",
+    condition: suspend () -> Boolean
+) {
+    withContext(Dispatchers.Default.limitedParallelism(1)) {
+        try {
+            withTimeout(timeout) {
+                while (!condition()) {
+                    delay(pollInterval)
+                }
+            }
+        }
+        catch (e: Exception){
+            println(message)
+            throw e
+        }
+    }
 }
 
 fun interface TestTeardownHook {

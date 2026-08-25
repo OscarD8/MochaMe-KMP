@@ -33,7 +33,8 @@ class SyncInternalFixturesModule {
     ): SpyHlcFactory = SpyHlcFactory(clock, logger)
 
     @Single(binds = [SyncIntentMaintenanceStore::class, SyncIntentStore::class])
-    fun provideFakeSyncIntentStore(): FakeSyncIntentStore = FakeSyncIntentStore()
+    fun provideFakeSyncIntentStore(fakeClock: FakeTimeUtils): FakeSyncIntentStore =
+        FakeSyncIntentStore(fakeClock)
 
     @Single(binds = [SyncWorkerHook::class])
     fun provideSpySyncWorkerHook(): SpySyncWorkerHook = SpySyncWorkerHook()

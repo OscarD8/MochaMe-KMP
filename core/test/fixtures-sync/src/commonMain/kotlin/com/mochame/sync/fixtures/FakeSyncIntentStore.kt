@@ -7,13 +7,15 @@ import com.mochame.sync.spi.domain.SyncIntentMaintenanceStore
 import com.mochame.sync.spi.infrastructure.SyncIntentStore
 import com.mochame.sync.spi.models.QuarantinedFeatureSummary
 import com.mochame.sync.spi.models.SyncIntent
+import com.mochame.utils.fixtures.FakeTimeUtils
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-class FakeSyncIntentStore : SyncIntentStore, SyncIntentMaintenanceStore {
+class FakeSyncIntentStore(private val fakeClock: FakeTimeUtils) :
+    SyncIntentStore, SyncIntentMaintenanceStore {
 
     private val lock = reentrantLock()
 
@@ -126,7 +128,8 @@ class FakeSyncIntentStore : SyncIntentStore, SyncIntentMaintenanceStore {
                 if (claimedCount == limit) break
                 _intents[intent.hlc] = intent.copy(
                     syncStatus = SyncStatus.SYNCING,
-                    syncId = batchId
+                    syncId = batchId,
+                    leasedAt = fakeClock.now().toEpochMilliseconds()
                 )
                 claimedCount++
             }
@@ -134,7 +137,10 @@ class FakeSyncIntentStore : SyncIntentStore, SyncIntentMaintenanceStore {
             Triple(null, onClaimHook, claimedCount)
         }
 
-        error?.let { throw it }
+        error?.let {
+            _failWith = null
+            throw it
+        }
         hook?.invoke()
         return count
     }

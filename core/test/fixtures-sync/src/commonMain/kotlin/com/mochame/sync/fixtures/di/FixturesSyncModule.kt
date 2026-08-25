@@ -14,7 +14,7 @@ import com.mochame.sync.fixtures.FakeBlobStore
 import com.mochame.sync.fixtures.FakeKeyedLocker
 import com.mochame.sync.fixtures.FakeSyncIntentStore
 import com.mochame.sync.fixtures.FakeSyncWorkerHook
-import com.mochame.sync.fixtures.hlc.FakeHlcFactory
+import com.mochame.sync.fixtures.FakeHlcFactory
 import com.mochame.sync.spi.domain.SyncIntentMaintenanceStore
 import com.mochame.sync.spi.infrastructure.BlobStore
 import com.mochame.sync.spi.infrastructure.KeyedLocker
@@ -46,16 +46,16 @@ class FixturesSyncModule {
         FakeBlobStore(digestFactory)
 
     @Single(binds = [SyncIntentStore::class, SyncIntentMaintenanceStore::class, FakeSyncIntentStore::class])
-    fun provideFakeSyncIntentStore(): FakeSyncIntentStore =
-        FakeSyncIntentStore()
+    fun provideFakeSyncIntentStore(fakeClock: FakeTimeUtils): FakeSyncIntentStore =
+        FakeSyncIntentStore(fakeClock)
 
     @Single(binds = [SyncWorkerHook::class, FakeSyncWorkerHook::class])
     fun provideFakeWorkerHook(): FakeSyncWorkerHook =
         FakeSyncWorkerHook()
 
     @Single(binds = [HlcFactory::class, FakeHlcFactory::class])
-    fun provideFakeHlcFactory(timeProvider: FakeTimeUtils): FakeHlcFactory =
-        FakeHlcFactory(timeProvider)
+    fun provideFakeHlcFactory(fakeClock: FakeTimeUtils): FakeHlcFactory =
+        FakeHlcFactory(fakeClock)
 
     @Single(binds = [KeyedLocker::class, FakeKeyedLocker::class])
     fun provideFakeKeyedLocker(): FakeKeyedLocker =

@@ -63,11 +63,12 @@ internal class SyncCoordinator(
 
         workerHook.signals.collect {
             try {
+                logger.v { "Processing outbound batch..." }
                 processQueueUntilExhausted()
             } catch (e: Exception) {
                 logger.e(e) {
-                    "Failure inside outbound orchestration worker step. " +
-                            "Isolating error to preserve background stream lifecycle."
+                    "Failure during outbound batch processing: ${e.message}. " +
+                            "Preserving outbound pipeline state."
                 }
             }
         }
