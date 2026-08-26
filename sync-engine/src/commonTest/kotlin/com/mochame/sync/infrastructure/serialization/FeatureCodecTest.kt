@@ -5,6 +5,7 @@ package com.mochame.sync.infrastructure.serialization
 import co.touchlab.kermit.ExperimentalKermitApi
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runUnitEnvironment
+import com.mochame.sync.api.hlc.instant
 import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.common.bitmaskOf
 import com.mochame.sync.common.toBitmask
@@ -18,6 +19,7 @@ import com.mochame.sync.internal.fixtures.serialization.FeatureEntity
 import com.mochame.sync.internal.fixtures.serialization.FeatureEntityDeltaV1
 import com.mochame.sync.internal.fixtures.serialization.assertDecodeParity
 import com.mochame.sync.internal.fixtures.serialization.deriveContext
+import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodec.Companion.TAG_CREATED_AT
 import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodec.Companion.TAG_IS_DELETED
 import com.mochame.sync.spi.infrastructure.serialization.diff
 import com.mochame.sync.spi.models.DecodeContext
@@ -37,6 +39,7 @@ import kotlin.test.assertNotSame
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 
 
 // -----------------------------------------------------------
@@ -67,6 +70,8 @@ class FeatureCodecTest : MochaPlatformTest() {
         assertEquals(newEntity.textValue, delta.textValue)
         assertEquals(newEntity.countValue, delta.countValue)
         assertNull(delta.isDeleted)
+        assertNotNull(delta.createdAt)
+        assertEquals(newEntity.createdAt, Instant.fromEpochMilliseconds(delta.createdAt))
     }
 
     @Test
@@ -95,7 +100,7 @@ class FeatureCodecTest : MochaPlatformTest() {
     }
 
     @Test
-    fun should_encodeTombstoneOnly_when_entityIsDeleted() = runEnv {
+    fun should_encodeDeletionOnly_when_entityIsDeleted() = runEnv {
         val oldEntity = FeatureEntity()
         val deletedEntity = oldEntity.copy(
             textValue = "modified but deleted",
@@ -293,6 +298,124 @@ class FeatureCodecTest : MochaPlatformTest() {
     }
 
     @Test
+    fun should_resolveToEarlierCreatedAt_when_concurrentOfflineInsertsOccur() = runEnv {
+        val candidateKey = 306L
+        val earlyInstant = Instant.fromEpochMilliseconds(1_700_000_000_000L)
+        val lateInstant = Instant.fromEpochMilliseconds(1_700_000_300_000L)
+
+        // Given (Device B: Created entity offline with a later timestamp)
+        val localEntityOnDeviceB = FeatureEntity(
+            id = candidateKey,
+            createdAt = lateInstant,
+            textValue = "DEVICE_B_INSERT"
+        )
+
+        // Given (Device A: Created entity offline earlier)
+        val remoteEntityOnDeviceA = FeatureEntity(
+            id = candidateKey,
+            createdAt = earlyInstant,
+            textValue = "DEVICE_A_INSERT"
+        )
+
+        // When (Device A: Encodes its initial insert delta)
+        val bytes = encode(new = remoteEntityOnDeviceA, old = null)
+
+        // When (Device B: Receives and decodes Device A's insert against its existing offline record)
+        val context = remoteEntityOnDeviceA.deriveContext()
+        val decoded = decode(bytes = bytes, context = context, existing = localEntityOnDeviceB)
+
+        // Then
+        assertEquals(earlyInstant, decoded.createdAt)
+        assertEquals(candidateKey, decoded.id)
+    }
+
+    @Test
+    fun should_adoptRemoteCreatedAt_when_insertDeltaDecodedAgainstNullExisting() = runEnv {
+        val candidateKey = 306L
+        val remoteInstant = Instant.fromEpochMilliseconds(1_700_000_000_000L)
+
+        // Given (Device A: Remote entity created with specific timestamp)
+        val remoteEntityOnDeviceA = FeatureEntity(
+            id = candidateKey,
+            createdAt = remoteInstant,
+            textValue = "DEVICE_A_INSERT"
+        )
+
+        // When (Device A: Encodes initial insert delta)
+        val bytes = encode(new = remoteEntityOnDeviceA, old = null)
+
+        // When (Device B: Receives and decodes Device A's delta with no local existing entity)
+        val context = remoteEntityOnDeviceA.deriveContext(changedMask = 0L.withTag(TAG_TEXT_VALUE))
+        val decoded = decode(bytes = bytes, context = context, existing = null)
+
+        // Then
+        assertEquals(remoteInstant, decoded.createdAt)
+        assertEquals(candidateKey, decoded.id)
+        assertEquals("DEVICE_A_INSERT", decoded.textValue)
+    }
+
+    @Test
+    fun should_maintainOriginalCreatedAt_when_updateDeltaOmitsCreatedAt() = runEnv {
+        val candidateKey = 306L
+        val originalInstant = Instant.fromEpochMilliseconds(1_700_000_000_000L)
+
+        // Given (Both devices share the same initial baseline state)
+        val existingEntity = FeatureEntity(
+            id = candidateKey,
+            createdAt = originalInstant,
+            textValue = "INITIAL_VALUE"
+        )
+
+        // When (Device B: Mutates domain field; buildUpdateDelta omits createdAt)
+        val updatedOnDeviceB = existingEntity.copy(textValue = "UPDATED_VALUE")
+        val bytes = encode(new = updatedOnDeviceB, old = existingEntity)
+
+        // When (Device A: Decodes Device B's delta against its existing entity)
+        val context = updatedOnDeviceB.deriveContext(changedMask = 0L.withTag(TAG_TEXT_VALUE))
+        val decoded = decode(bytes = bytes, context = context, existing = existingEntity)
+
+        // Then
+        assertEquals(originalInstant, decoded.createdAt)
+        assertEquals("UPDATED_VALUE", decoded.textValue, "Domain field must apply successfully")
+        assertEquals(candidateKey, decoded.id)
+    }
+
+    @Test
+    fun should_fallbackToHlcAndHealCreatedAt_when_updateDeltaArrivesBeforeInsert() = runEnv {
+        val candidateKey = 306L
+        val originalInstant = Instant.fromEpochMilliseconds(1_700_000_000_000L)
+        val hlcs = TestHlcFactory.chronologicalSequence(2)
+
+        // Given (Device B creates entity initially, then updates it)
+        val originalEntity = FeatureEntity(
+            id = candidateKey,
+            hlc = hlcs[0],
+            createdAt = originalInstant,
+            textValue = "INITIAL_VALUE"
+        )
+        val insertBytes = encode(new = originalEntity, old = null)
+        val insertContext = originalEntity.deriveContext()
+
+        val updatedEntity = originalEntity.copy(textValue = "OUT_OF_ORDER_UPDATE", hlc = hlcs[1])
+        val updateBytes = encode(new = updatedEntity, old = originalEntity)
+        val updateContext = updatedEntity.deriveContext(changedMask = 0L.withTag(TAG_TEXT_VALUE))
+
+        // When (Step 1: Device A receives update first with no existing record)
+        val interimDecoded = decode(bytes = updateBytes, context = updateContext, existing = null)
+
+        assertEquals(updateContext.hlc.instant, interimDecoded.createdAt)
+        assertEquals("OUT_OF_ORDER_UPDATE", interimDecoded.textValue)
+
+        // When (Step 2: Device A receives the delayed INSERT and merges against interim state)
+        val finalDecoded =
+            decode(bytes = insertBytes, context = insertContext, existing = interimDecoded)
+
+        assertEquals(originalInstant, finalDecoded.createdAt)
+        assertEquals(candidateKey, finalDecoded.id)
+        assertEquals("OUT_OF_ORDER_UPDATE", finalDecoded.textValue)
+    }
+
+    @Test
     fun should_applyContextTimestamps_during_hydration() = runEnv {
         val hlcs = TestHlcFactory.chronologicalSequence(2)
         val existingEntity = FeatureEntity(hlc = hlcs[0])
@@ -353,6 +476,7 @@ class FeatureCodecTest : MochaPlatformTest() {
         val bytes = encode(new = newEntity, old = null)
         val changedTags = computeChangedTags(newEntity, null)
 
+
         // When
         val inMemorySummary = changedTags.toBitmask().toTagSummary(MutationOp.UPSERT)
         val binarySummary = reconstructSummary(bytes)
@@ -362,7 +486,7 @@ class FeatureCodecTest : MochaPlatformTest() {
 
         assertEquals(MutationOp.UPSERT.name, inMemOp, "Opcode must be UPSERT")
         assertEquals(inMemOp, binOp, "In-memory opcode must match binary peeking opcode")
-        assertEquals(listOf(TAG_TEXT_VALUE, TAG_COUNT_VALUE), inMemTags)
+        assertEquals(listOf(TAG_CREATED_AT, TAG_TEXT_VALUE, TAG_COUNT_VALUE), inMemTags)
         assertEquals(inMemTags, binTags, "In-memory changed tags must equal binary peeked tags")
     }
 
@@ -488,7 +612,7 @@ class FeatureCodecTest : MochaPlatformTest() {
         assertNotNull(smallBytes)
 
         val summary1 = reconstructSummary(largeBytes)
-        assertEquals("OP:UPSERT [4,5]", summary1)
+        assertEquals("OP:UPSERT [3,4,5]", summary1)
         val summary2 = reconstructSummary(smallBytes)
         assertEquals("OP:UPSERT [5]", summary2)
     }

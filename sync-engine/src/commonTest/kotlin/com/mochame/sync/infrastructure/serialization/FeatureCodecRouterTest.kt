@@ -108,7 +108,7 @@ class FeatureCodecRouterTest : MochaPlatformTest() {
         val summaryV2 = routedReconstructSummary(FakeFeatureCodec.BYTES_PRESET, v2Context)
 
         assertEquals(
-            "OP:UPSERT [4,5]",
+            "OP:UPSERT [3,4,5]",
             summaryV1,
             "routedReconstructSummary must dispatch to V1 peeking logic"
         )

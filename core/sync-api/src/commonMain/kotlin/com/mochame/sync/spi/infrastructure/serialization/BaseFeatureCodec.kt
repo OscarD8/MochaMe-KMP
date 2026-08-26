@@ -189,6 +189,10 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
      * Peek (Objects no longer in memory).
      * Extracts tags from raw bits without full value decoding.
      * Uses source.peek().
+     *
+     *
+     * Every Protobuf message must begin with a Key.
+     * That key is an unsigned Varint.
      */
     override fun reconstructSummary(bytes: ByteArray): String {
         if (bytes.isEmpty()) {
@@ -208,10 +212,14 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
             val tags = buildList {
                 while (!peekSource.exhausted()) {
                     val key = peekSource.readProtobufVarint(logger)
-                    val tag = key shr 3
+                    val tag = (key ushr 3).toInt()
+                    val wireType = (key and 0x07L).toInt()
+
                     if (tag == TAG_IS_DELETED) add(tag).also { isDeleted = true }
+                    if (tag == TAG_CREATED_AT) add(tag)
                     if (tag >= FIRST_DOMAIN_TAG) add(tag)
-                    peekSource.skipProtobufValue(key and 0x07, logger)
+
+                    peekSource.skipProtobufValue(wireType, logger)
                 }
             }
 

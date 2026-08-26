@@ -64,11 +64,9 @@ class FeatureCodecV1(
     ): FeatureEntityDeltaV1 = FeatureEntityDeltaV1(
         id = new.id,
         isDeleted = false.takeIf { isRestored },
-        createdAt = old.createdAt.toEpochMilliseconds(),
         textValue = new.textValue diff old.textValue,
         countValue = new.countValue diff old.countValue
     )
-
 
     override fun FieldMergeScope.mergeDomainDelta(
         delta: FeatureEntityDeltaV1,

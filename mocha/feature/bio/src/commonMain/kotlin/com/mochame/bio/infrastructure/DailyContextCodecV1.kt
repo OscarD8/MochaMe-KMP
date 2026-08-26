@@ -71,7 +71,6 @@ internal class DailyContextCodecV1(
     ): DailyContextDeltaV1 = DailyContextDeltaV1(
         id = new.id,
         isDeleted = false.takeIf { isRestored },
-        createdAt = old.createdAt.toEpochMilliseconds(),
         sleepHours = new.sleepHours diff old.sleepHours,
         readinessScore = new.readinessScore diff old.readinessScore,
         isNapped = new.isNapped diff old.isNapped
