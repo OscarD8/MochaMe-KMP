@@ -185,7 +185,6 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
         }
     }
 
-
     /**
      * Peek (Objects no longer in memory).
      * Extracts tags from raw bits without full value decoding.
@@ -205,18 +204,18 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
         return try {
             val peekSource = buffer.peek()
 
-            var isTombstone = false
+            var isDeleted = false
             val tags = buildList {
                 while (!peekSource.exhausted()) {
                     val key = peekSource.readProtobufVarint(logger)
                     val tag = key shr 3
-                    if (tag == TAG_IS_DELETED) add(tag).also { isTombstone = true }
+                    if (tag == TAG_IS_DELETED) add(tag).also { isDeleted = true }
                     if (tag >= FIRST_DOMAIN_TAG) add(tag)
                     peekSource.skipProtobufValue(key and 0x07, logger)
                 }
             }
 
-            val opCode = if (isTombstone) "DELETE" else "UPSERT"
+            val opCode = if (isDeleted) "DELETE" else "UPSERT"
             with("OP:$opCode [${tags.distinct().sorted().joinToString(",")}]") {
                 logger.d { "Reconstructed Summary: $this" }
                 return this
@@ -259,6 +258,19 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
     /**
      * Maps the decoded protobuf delta [D] onto domain entity [T] using [DecodeContext] and optional [existing] state.
      * Features only work from [FIRST_DOMAIN_TAG]+
+     *
+     * ```kotlin
+     *     override fun FieldMergeScope.mergeDomainDelta(
+     *         delta: FeatureEntityDeltaV1,
+     *         context: DecodeContext,
+     *         existing: FeatureEntity?
+     *     ): FeatureEntity = FeatureEntity(
+     *         id = context.candidateKey,
+     *
+     *         textValue = eval(TAG_TEXT_VALUE, delta.textValue, existing?.textValue),
+     *         countValue = eval(TAG_COUNT_VALUE, delta.countValue, existing?.countValue)
+     *     )
+     * ```
      */
     protected abstract fun FieldMergeScope.mergeDomainDelta(
         delta: D,

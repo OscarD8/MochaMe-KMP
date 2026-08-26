@@ -5,6 +5,15 @@ import co.touchlab.kermit.Logger
 import com.mochame.sync.api.exceptions.MochaException
 import kotlinx.io.Source
 
+/**
+ * Conditions required for this to work:
+ * * Every Protobuf message must begin with a Key.
+ * * That key is an unsigned Varint.
+ * * WireType 0 (Varint): Call readProtobufVarint() again on the value until MSB = 0.
+ * * WireType 1 (Fixed 64-bit): Unconditionally skip 8 bytes.
+ * * WireType 2 (Length-delimited): Read a Varint for length L, then skip L bytes.
+ * * WireType 5 (Fixed 32-bit): Unconditionally skip 4 bytes.
+ */
 fun Source.readProtobufVarint(logger: Logger): Int {
     var value = 0
     var shift = 0

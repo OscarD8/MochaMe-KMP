@@ -4,6 +4,8 @@ import co.touchlab.kermit.Logger
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.sync.api.models.LocalFirstDelta
+import com.mochame.sync.internal.fixtures.serialization.FeatureCodecV1.Companion.TAG_COUNT_VALUE
+import com.mochame.sync.internal.fixtures.serialization.FeatureCodecV1.Companion.TAG_TEXT_VALUE
 import com.mochame.sync.spi.infrastructure.BufferProvider
 import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodec
 import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodec.Companion.TAG_CREATED_AT
@@ -23,8 +25,8 @@ data class FeatureEntityDeltaV1(
     @ProtoNumber(TAG_PRIMARY_KEY) override val id: Long,
     @ProtoNumber(TAG_IS_DELETED) override val isDeleted: Boolean? = null,
     @ProtoNumber(TAG_CREATED_AT) override val createdAt: Long? = null,
-    @ProtoNumber(4) val textValue: String? = null,
-    @ProtoNumber(5) val countValue: Int? = null
+    @ProtoNumber(TAG_TEXT_VALUE) val textValue: String? = null,
+    @ProtoNumber(TAG_COUNT_VALUE) val countValue: Int? = null
 ) : LocalFirstDelta
 
 @Single
@@ -37,6 +39,11 @@ class FeatureCodecV1(
     deltaSerializer = FeatureEntityDeltaV1.serializer(),
     logger = logger.withTags(LogTags.Layer.SERI, LogTags.Domain.SYNC, "TeCdc1")
 ) {
+
+    companion object {
+        const val TAG_TEXT_VALUE = 4
+        const val TAG_COUNT_VALUE = 5
+    }
 
     override fun buildDeleteDelta(entity: FeatureEntity) = FeatureEntityDeltaV1(
         id = entity.id,
@@ -70,13 +77,13 @@ class FeatureCodecV1(
     ): FeatureEntity = FeatureEntity(
         id = context.candidateKey,
 
-        textValue = eval(4, delta.textValue, existing?.textValue),
-        countValue = eval(5, delta.countValue, existing?.countValue)
+        textValue = eval(TAG_TEXT_VALUE, delta.textValue, existing?.textValue),
+        countValue = eval(TAG_COUNT_VALUE, delta.countValue, existing?.countValue)
     )
 
     override fun computeDomainChangedTags(new: FeatureEntity, old: FeatureEntity?) = buildList {
-        if (old == null || new.textValue != old.textValue) add(4)
-        if (old == null || new.countValue != old.countValue) add(5)
+        if (old == null || new.textValue != old.textValue) add(TAG_TEXT_VALUE)
+        if (old == null || new.countValue != old.countValue) add(TAG_COUNT_VALUE)
     }
 
 }

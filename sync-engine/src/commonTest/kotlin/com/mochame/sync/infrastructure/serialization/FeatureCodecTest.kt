@@ -12,10 +12,13 @@ import com.mochame.sync.common.toTagSummary
 import com.mochame.sync.common.withTag
 import com.mochame.sync.di.codec.CodecTestApp
 import com.mochame.sync.internal.fixtures.serialization.FeatureCodecV1
+import com.mochame.sync.internal.fixtures.serialization.FeatureCodecV1.Companion.TAG_COUNT_VALUE
+import com.mochame.sync.internal.fixtures.serialization.FeatureCodecV1.Companion.TAG_TEXT_VALUE
 import com.mochame.sync.internal.fixtures.serialization.FeatureEntity
 import com.mochame.sync.internal.fixtures.serialization.FeatureEntityDeltaV1
 import com.mochame.sync.internal.fixtures.serialization.assertDecodeParity
 import com.mochame.sync.internal.fixtures.serialization.deriveContext
+import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodec.Companion.TAG_IS_DELETED
 import com.mochame.sync.spi.infrastructure.serialization.diff
 import com.mochame.sync.spi.models.DecodeContext
 import com.mochame.utils.fixtures.TestHlcFactory
@@ -124,7 +127,8 @@ class FeatureCodecTest : MochaPlatformTest() {
             fieldHlcs = ByteArray(0)
         )
         val inboundBytes = encode(new = insertEntity, old = null)
-        val context = insertEntity.deriveContext(changedMask = bitmaskOf(4,5))
+        val context =
+            insertEntity.deriveContext(changedMask = bitmaskOf(TAG_TEXT_VALUE, TAG_COUNT_VALUE))
 
         // When
         val hydrated = decode(bytes = inboundBytes, context = context, existing = null)
@@ -145,14 +149,17 @@ class FeatureCodecTest : MochaPlatformTest() {
             FeatureEntity(id = 1000L, hlc = hlcs[0], countValue = 10, textValue = "keep me")
         val initialEntity = decode(
             bytes = encode(new = fieldHlclessEntity, old = null),
-            context = fieldHlclessEntity.deriveContext(changedMask = bitmaskOf(4,5)),
+            context = fieldHlclessEntity.deriveContext(
+                changedMask = bitmaskOf(TAG_TEXT_VALUE, TAG_COUNT_VALUE)
+            ),
             existing = null
         )
 
         // Given: Remote delta mutates only countValue at a newer HLC (hlcs[1] > hlcs[0])
         val updatedSparseEntity = initialEntity.copy(countValue = 50, hlc = hlcs[1])
         val sparseBytes = encode(new = updatedSparseEntity, old = initialEntity)
-        val remoteContext = updatedSparseEntity.deriveContext(changedMask = bitmaskOf(5))
+        val remoteContext =
+            updatedSparseEntity.deriveContext(changedMask = bitmaskOf(TAG_COUNT_VALUE))
 
         // When: Decode sparse delta over existing entity
         val merged = decode(bytes = sparseBytes, context = remoteContext, existing = initialEntity)
@@ -181,7 +188,7 @@ class FeatureCodecTest : MochaPlatformTest() {
                 hlc = newerHlc,
                 op = MutationOp.UPSERT,
                 featureSchemaVersion = 1,
-                changedMask = 0L.withTag(5)
+                changedMask = 0L.withTag(TAG_COUNT_VALUE)
             ),
             existing = null
         )
@@ -196,7 +203,7 @@ class FeatureCodecTest : MochaPlatformTest() {
             hlc = olderHlc,
             op = MutationOp.UPSERT,
             featureSchemaVersion = 1,
-            changedMask = 0L.withTag(5)
+            changedMask = 0L.withTag(TAG_COUNT_VALUE)
         )
 
         // When: Decode stale update against newer existing entity
@@ -229,7 +236,7 @@ class FeatureCodecTest : MochaPlatformTest() {
         // 1. Initial Insert
         val decodedInitial = decode(
             bytes = encode(new = initialEntity, old = null),
-            context = initialEntity.deriveContext(changedMask = 0L.withTag(4)),
+            context = initialEntity.deriveContext(changedMask = 0L.withTag(TAG_TEXT_VALUE)),
             existing = null
         )
         assertFalse(decodedInitial.isDeleted)
@@ -239,7 +246,7 @@ class FeatureCodecTest : MochaPlatformTest() {
         val deleteBytes = encode(new = deletedEntity, old = decodedInitial)
         val decodedDeleted = decode(
             bytes = deleteBytes,
-            context = deletedEntity.deriveContext(changedMask = 0L.withTag(2)),
+            context = deletedEntity.deriveContext(changedMask = 0L.withTag(TAG_IS_DELETED)),
             existing = decodedInitial
         )
         assertTrue(decodedDeleted.isDeleted, "Entity must be marked deleted")
@@ -248,7 +255,7 @@ class FeatureCodecTest : MochaPlatformTest() {
         val staleEntity = decodedInitial.copy(textValue = "stale edit")
         val persistedDelete = decode(
             bytes = encode(new = staleEntity, old = null),
-            context = staleEntity.deriveContext(changedMask = 0L.withTag(4)),
+            context = staleEntity.deriveContext(changedMask = 0L.withTag(TAG_TEXT_VALUE)),
             existing = decodedDeleted
         )
         assertTrue(persistedDelete.isDeleted, "Stale upsert must not restore deleted entity")
@@ -259,7 +266,9 @@ class FeatureCodecTest : MochaPlatformTest() {
 
         val finalEntity = decode(
             bytes = restoreBytes,
-            context = restoredEntity.deriveContext(changedMask = bitmaskOf(2,4)),
+            context = restoredEntity.deriveContext(
+                changedMask = bitmaskOf(TAG_IS_DELETED, TAG_TEXT_VALUE)
+            ),
             existing = persistedDelete
         )
         assertFalse(finalEntity.isDeleted, "Newer update must resurrect entity")
@@ -353,7 +362,7 @@ class FeatureCodecTest : MochaPlatformTest() {
 
         assertEquals(MutationOp.UPSERT.name, inMemOp, "Opcode must be UPSERT")
         assertEquals(inMemOp, binOp, "In-memory opcode must match binary peeking opcode")
-        assertEquals(listOf(4, 5), inMemTags)
+        assertEquals(listOf(TAG_TEXT_VALUE, TAG_COUNT_VALUE), inMemTags)
         assertEquals(inMemTags, binTags, "In-memory changed tags must equal binary peeked tags")
     }
 
@@ -373,7 +382,7 @@ class FeatureCodecTest : MochaPlatformTest() {
 
         assertEquals("UPSERT", inMemOp)
         assertEquals(inMemOp, binOp)
-        assertEquals(listOf(5), inMemTags, "Only countValue (Tag 5) should be present")
+        assertEquals(listOf(TAG_COUNT_VALUE), inMemTags)
         assertEquals(inMemTags, binTags)
     }
 
@@ -458,7 +467,7 @@ class FeatureCodecTest : MochaPlatformTest() {
 
         // Verify peeking engine correctly skipped 2048 bytes of string payload and aligned to countValue tag
         assertTrue(summary.startsWith("OP:UPSERT"))
-        assertTrue(summary.contains("4") && summary.contains("5"))
+        assertTrue(summary.contains("$TAG_TEXT_VALUE") && summary.contains("$TAG_COUNT_VALUE"))
     }
 
     @Test
