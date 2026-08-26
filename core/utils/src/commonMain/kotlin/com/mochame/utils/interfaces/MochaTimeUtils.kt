@@ -1,5 +1,6 @@
 package com.mochame.utils.interfaces
 
+import kotlinx.datetime.TimeZone
 import kotlin.time.Duration
 import kotlin.time.Instant
 
@@ -8,6 +9,14 @@ import kotlin.time.Instant
  */
 interface MochaTimeUtils : TimeUtils {
     fun getMochaDay(): Long
-    fun calculateMochaEpochDay(instant: Instant): Long
-    override fun getMillisAgo(duration: Duration): Long
+
+    fun calculateMochaEpochDay(
+        instant: Instant,
+        timeZone: TimeZone = TimeZone.currentSystemDefault()
+    ): Long
+
+    override fun getMillisAgo(
+        duration: Duration,
+        timeZone: TimeZone
+    ): Long
 }

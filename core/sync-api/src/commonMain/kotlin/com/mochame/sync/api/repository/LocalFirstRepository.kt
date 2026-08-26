@@ -126,7 +126,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
 
             changedTags.forEach { tag -> fieldHlcMap = fieldHlcMap.updateTag(tag, hlc) }
 
-            val stampedState = candidateState.withHlc(hlc).withFieldHlcs(fieldHlcMap.bytes)
+            val stampedState = candidateState.withHlcMetadata(hlc, fieldHlcMap.bytes)
 
             handleLocalCommit(
                 candidateKey = candidateKey,

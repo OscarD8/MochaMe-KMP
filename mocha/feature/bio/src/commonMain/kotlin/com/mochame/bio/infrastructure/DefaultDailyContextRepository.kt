@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.koin.core.annotation.Provided
 import org.koin.core.annotation.Single
+import kotlin.time.Instant
 
 
 @Single([DailyContextRepository::class, SyncReceiver::class])
@@ -43,6 +44,7 @@ internal class DefaultDailyContextRepository(
             id = mochaDay,
             sleepHours = sleepHours,
             readinessScore = readinessScore,
+            createdAt = Instant.fromEpochMilliseconds(mochaDay),
             isNapped = isNapped
         )
 
@@ -69,13 +71,15 @@ internal class DefaultDailyContextRepository(
         sleepHours = newState.sleepHours,
         readinessScore = newState.readinessScore,
         isNapped = newState.isNapped,
-        lastModified = newState.lastModified
+        lastModified = newState.lastModified,
+        createdAt = existing.createdAt
     ) ?: DailyContext(
         id = newState.id,
         sleepHours = newState.sleepHours,
         readinessScore = newState.readinessScore,
         isNapped = newState.isNapped,
-        lastModified = newState.lastModified
+        lastModified = newState.lastModified,
+        createdAt = newState.createdAt
     )
 }
 

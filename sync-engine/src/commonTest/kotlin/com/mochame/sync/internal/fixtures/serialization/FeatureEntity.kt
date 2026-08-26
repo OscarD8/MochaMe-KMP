@@ -6,19 +6,39 @@ import com.mochame.sync.api.models.LocalFirstEntity
 import com.mochame.sync.spi.models.DecodeContext
 import com.mochame.utils.fixtures.TestHlcFactory
 import kotlin.test.assertEquals
+import kotlin.time.Instant
 
 data class FeatureEntity(
     override val id: Long = 1000L,
     override val hlc: HLC = TestHlcFactory.create(),
     override val lastModified: Long = TestHlcFactory.create().ts,
+    override val createdAt: Instant = Instant.fromEpochMilliseconds(TestHlcFactory.create().ts),
     override val isDeleted: Boolean = false,
     override val fieldHlcs: ByteArray = ByteArray(0),
     val textValue: String? = "default-text",
     val countValue: Int? = 1,
 ) : LocalFirstEntity<FeatureEntity> {
-    override fun withHlc(hlc: HLC): FeatureEntity = copy(hlc = hlc)
+
+    override fun withHlcMetadata(hlc: HLC, fieldBlob: ByteArray): FeatureEntity = copy(
+        hlc = hlc,
+        lastModified = hlc.ts,
+        fieldHlcs = fieldBlob
+    )
     override fun withDeleteState(state: Boolean): FeatureEntity = copy(isDeleted = state)
-    override fun withFieldHlcs(blob: ByteArray) = copy(fieldHlcs = blob)
+
+    override fun withSyncHeader(
+        hlc: HLC,
+        lastModified: Long,
+        createdAt: Instant,
+        isDeleted: Boolean,
+        fieldHlcs: ByteArray
+    ): FeatureEntity = copy(
+        hlc = hlc,
+        lastModified = lastModified,
+        createdAt = createdAt,
+        isDeleted = isDeleted,
+        fieldHlcs = fieldHlcs
+    )
 }
 
 fun FeatureEntity.deriveContext(
@@ -40,6 +60,7 @@ fun FeatureEntity.assertDecodeParity(original: FeatureEntity, upsertHlc: HLC? = 
     assertEquals(original.isDeleted, this.isDeleted)
     assertEquals(original.textValue, this.textValue)
     assertEquals(original.countValue, this.countValue)
+    assertEquals(original.createdAt, this.createdAt)
 
     upsertHlc?.let{
         assertEquals(it, this.hlc)

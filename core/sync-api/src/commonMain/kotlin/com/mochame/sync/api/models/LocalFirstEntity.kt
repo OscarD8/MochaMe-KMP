@@ -1,6 +1,7 @@
 package com.mochame.sync.api.models
 
 import com.mochame.sync.api.hlc.HLC
+import kotlin.time.Instant
 
 
 /**
@@ -20,8 +21,15 @@ interface LocalFirstEntity<T : LocalFirstEntity<T>> {
     val isDeleted: Boolean
     val hlc: HLC
     val fieldHlcs: ByteArray
+    val createdAt: Instant
     val lastModified: Long
-    fun withHlc(hlc: HLC): T
-    fun withFieldHlcs(blob: ByteArray): T
+    fun withHlcMetadata(hlc: HLC, fieldBlob: ByteArray): T
     fun withDeleteState(state: Boolean): T
+    fun withSyncHeader(
+        hlc: HLC,
+        lastModified: Long,
+        createdAt: Instant,
+        isDeleted: Boolean,
+        fieldHlcs: ByteArray
+    ): T
 }

@@ -2,11 +2,17 @@ package com.mochame.bio.infrastructure
 
 import co.touchlab.kermit.Logger
 import com.mochame.bio.domain.DailyContext
+import com.mochame.bio.infrastructure.DailyContextCodecV1.Companion.TAG_IS_NAPPED
+import com.mochame.bio.infrastructure.DailyContextCodecV1.Companion.TAG_READINESS_SCORE
+import com.mochame.bio.infrastructure.DailyContextCodecV1.Companion.TAG_SLEEP_HOURS
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.sync.api.models.LocalFirstDelta
 import com.mochame.sync.spi.infrastructure.BufferProvider
 import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodec
+import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodec.Companion.TAG_CREATED_AT
+import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodec.Companion.TAG_IS_DELETED
+import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodec.Companion.TAG_PRIMARY_KEY
 import com.mochame.sync.spi.infrastructure.serialization.FieldMergeScope
 import com.mochame.sync.spi.infrastructure.serialization.diff
 import com.mochame.sync.spi.models.DecodeContext
@@ -18,11 +24,12 @@ import org.koin.core.annotation.Single
 @ExperimentalSerializationApi
 @Serializable
 data class DailyContextDeltaV1(
-    @ProtoNumber(1) override val id: Long,
-    @ProtoNumber(2) override val isDeleted: Boolean? = null,
-    @ProtoNumber(3) val sleepHours: Double? = null,
-    @ProtoNumber(4) val readinessScore: Int? = null,
-    @ProtoNumber(5) val isNapped: Boolean? = null,
+    @ProtoNumber(TAG_PRIMARY_KEY) override val id: Long,
+    @ProtoNumber(TAG_IS_DELETED) override val isDeleted: Boolean? = null,
+    @ProtoNumber(TAG_CREATED_AT) override val createdAt: Long? = null,
+    @ProtoNumber(TAG_SLEEP_HOURS) val sleepHours: Double? = null,
+    @ProtoNumber(TAG_READINESS_SCORE) val readinessScore: Int? = null,
+    @ProtoNumber(TAG_IS_NAPPED) val isNapped: Boolean? = null,
 ) : LocalFirstDelta
 
 
@@ -37,13 +44,21 @@ internal class DailyContextCodecV1(
     logger = logger.withTags(LogTags.Layer.SERI, LogTags.Domain.BIO, "DyCdc1")
 ) {
 
+    companion object {
+        const val TAG_SLEEP_HOURS = 4
+        const val TAG_READINESS_SCORE = 5
+        const val TAG_IS_NAPPED = 6
+    }
+
     override fun buildDeleteDelta(entity: DailyContext) = DailyContextDeltaV1(
         id = entity.id,
-        isDeleted = true
+        isDeleted = true,
+        createdAt = entity.createdAt.toEpochMilliseconds()
     )
 
     override fun buildInsertDelta(entity: DailyContext) = DailyContextDeltaV1(
         id = entity.id,
+        createdAt = entity.createdAt.toEpochMilliseconds(),
         sleepHours = entity.sleepHours,
         readinessScore = entity.readinessScore,
         isNapped = entity.isNapped
@@ -56,31 +71,30 @@ internal class DailyContextCodecV1(
     ): DailyContextDeltaV1 = DailyContextDeltaV1(
         id = new.id,
         isDeleted = false.takeIf { isRestored },
+        createdAt = old.createdAt.toEpochMilliseconds(),
         sleepHours = new.sleepHours diff old.sleepHours,
         readinessScore = new.readinessScore diff old.readinessScore,
         isNapped = new.isNapped diff old.isNapped
     )
 
 
-    override fun FieldMergeScope.mergeDelta(
+    override fun FieldMergeScope.mergeDomainDelta(
         delta: DailyContextDeltaV1,
         context: DecodeContext,
         existing: DailyContext?
     ) = DailyContext(
         id = context.candidateKey,
-        hlc = context.hlc,
-        lastModified = context.hlc.ts,
 
-        sleepHours = eval(3, delta.sleepHours, existing?.sleepHours),
-        readinessScore = eval(4, delta.readinessScore, existing?.readinessScore),
-        isNapped = eval(5, delta.isNapped, existing?.isNapped),
+        sleepHours = eval(TAG_SLEEP_HOURS, delta.sleepHours, existing?.sleepHours),
+        readinessScore = eval(TAG_READINESS_SCORE, delta.readinessScore, existing?.readinessScore),
+        isNapped = eval(TAG_IS_NAPPED, delta.isNapped, existing?.isNapped)
     )
 
     override fun computeDomainChangedTags(new: DailyContext, old: DailyContext?): List<Int> =
         buildList {
-            if (old == null || new.sleepHours != old.sleepHours) add(3)
-            if (old == null || new.readinessScore != old.readinessScore) add(4)
-            if (old == null || new.isNapped != old.isNapped) add(5)
+            if (old == null || new.sleepHours != old.sleepHours) add(TAG_SLEEP_HOURS)
+            if (old == null || new.readinessScore != old.readinessScore) add(TAG_READINESS_SCORE)
+            if (old == null || new.isNapped != old.isNapped) add(TAG_IS_NAPPED)
         }
 
 }

@@ -1,20 +1,25 @@
 package com.mochame.sync.api.models
 
 import com.mochame.sync.spi.infrastructure.serialization.FieldHlcMap
+import com.mochame.sync.spi.models.DecodeContext
 
 /**
  * Feature Implementations are to assign:
  * * [id]: ProtoNumber 1
  * * [isDeleted]: ProtoNumber 2
+ * * [createdAt]: ProtoNumber 3
  *
- * Max Tag Count: 127 ([FieldHlcMap] stores the ProtoNumber as a single [Byte]).
+ * Max Tag Count: 63 ([FieldHlcMap] stores the ProtoNumber as a single [Byte]
+ * & [DecodeContext.changedMask] stores all possible tag changes in a single [Long]).
  *
  * ```kotlin
- *     @ProtoNumber(1) override val id: Long,
- *     @ProtoNumber(2) override val isDeleted: Boolean? = null,
+    @ProtoNumber(TAG_PRIMARY_KEY) override val id: Long,
+    @ProtoNumber(TAG_IS_DELETED) override val isDeleted: Boolean? = null,
+    @ProtoNumber(TAG_CREATED_AT) override val createdAt: Long? = null,
  * ```
  */
 interface LocalFirstDelta {
     val id: Long
     val isDeleted: Boolean?
+    val createdAt: Long?
 }

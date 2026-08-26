@@ -17,21 +17,22 @@ open class DefaultMochaTimeUtils : MochaTimeUtils {
 
     override fun now(): Instant = Clock.System.now()
 
-    override fun getMochaDay(): Long {
-        return calculateMochaEpochDay(now())
-    }
+    override fun getMochaDay(): Long = calculateMochaEpochDay(now())
 
-    override fun calculateMochaEpochDay(instant: Instant): Long {
-        val timeZone = TimeZone.currentSystemDefault()
+    override fun calculateMochaEpochDay(
+        instant: Instant,
+        timeZone: TimeZone
+    ): Long {
         val biologicalInstant = instant.minus(4.hours)
         return biologicalInstant.toLocalDateTime(timeZone).date.toEpochDays()
     }
 
-    override fun getMillisAgo(duration: Duration): Long {
-        val timeZone = TimeZone.currentSystemDefault()
+    override fun getMillisAgo(
+        duration: Duration,
+        timeZone: TimeZone
+    ): Long {
         val targetMochaDay = getMochaDay() - duration.inWholeDays
         val targetDate = LocalDate.fromEpochDays(targetMochaDay.toInt())
-
         return targetDate.atTime(hour = 4, minute = 0)
             .toInstant(timeZone)
             .toEpochMilliseconds()

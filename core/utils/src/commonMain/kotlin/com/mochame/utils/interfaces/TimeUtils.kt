@@ -9,9 +9,10 @@ import kotlin.time.Instant
 interface TimeUtils {
     fun now(): Instant
 
-    fun getMillisAgo(duration: Duration): Long {
-        return (now() - duration).toEpochMilliseconds()
-    }
+    fun getMillisAgo(
+        duration: Duration,
+        timeZone: TimeZone = TimeZone.currentSystemDefault()
+    ): Long = (now() - duration).toEpochMilliseconds()
 
     fun formatEpochDay(epochDay: Long): String {
         val date = LocalDate.fromEpochDays(epochDay.toInt())

@@ -6,6 +6,9 @@ import com.mochame.logger.withTags
 import com.mochame.sync.api.models.LocalFirstDelta
 import com.mochame.sync.spi.infrastructure.BufferProvider
 import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodec
+import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodec.Companion.TAG_CREATED_AT
+import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodec.Companion.TAG_IS_DELETED
+import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodec.Companion.TAG_PRIMARY_KEY
 import com.mochame.sync.spi.infrastructure.serialization.FieldMergeScope
 import com.mochame.sync.spi.infrastructure.serialization.diff
 import com.mochame.sync.spi.models.DecodeContext
@@ -17,8 +20,9 @@ import org.koin.core.annotation.Single
 @Serializable
 @ExperimentalSerializationApi
 data class FeatureEntityDeltaV1(
-    @ProtoNumber(1) override val id: Long,
-    @ProtoNumber(2) override val isDeleted: Boolean? = null,
+    @ProtoNumber(TAG_PRIMARY_KEY) override val id: Long,
+    @ProtoNumber(TAG_IS_DELETED) override val isDeleted: Boolean? = null,
+    @ProtoNumber(TAG_CREATED_AT) override val createdAt: Long? = null,
     @ProtoNumber(4) val textValue: String? = null,
     @ProtoNumber(5) val countValue: Int? = null
 ) : LocalFirstDelta
@@ -41,8 +45,9 @@ class FeatureCodecV1(
 
     override fun buildInsertDelta(entity: FeatureEntity) = FeatureEntityDeltaV1(
         id = entity.id,
+        createdAt = entity.createdAt.toEpochMilliseconds(),
         textValue = entity.textValue,
-        countValue = entity.countValue
+        countValue = entity.countValue,
     )
 
     override fun buildUpdateDelta(
@@ -52,19 +57,18 @@ class FeatureCodecV1(
     ): FeatureEntityDeltaV1 = FeatureEntityDeltaV1(
         id = new.id,
         isDeleted = false.takeIf { isRestored },
+        createdAt = old.createdAt.toEpochMilliseconds(),
         textValue = new.textValue diff old.textValue,
         countValue = new.countValue diff old.countValue
     )
 
 
-    override fun FieldMergeScope.mergeDelta(
+    override fun FieldMergeScope.mergeDomainDelta(
         delta: FeatureEntityDeltaV1,
         context: DecodeContext,
         existing: FeatureEntity?
     ): FeatureEntity = FeatureEntity(
         id = context.candidateKey,
-        hlc = context.hlc,
-        lastModified = context.hlc.ts,
 
         textValue = eval(4, delta.textValue, existing?.textValue),
         countValue = eval(5, delta.countValue, existing?.countValue)

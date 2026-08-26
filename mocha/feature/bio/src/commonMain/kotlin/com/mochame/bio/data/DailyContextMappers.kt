@@ -2,6 +2,7 @@ package com.mochame.bio.data
 
 import com.mochame.bio.domain.DailyContext
 import com.mochame.sync.api.hlc.HLC
+import kotlin.time.Instant
 
 /**
  * Entity -> Domain
@@ -15,6 +16,7 @@ fun DailyContextEntity.toDomain() = DailyContext(
     isNapped = isNapped,
     isDeleted = isDeleted,
     lastModified = lastModified,
+    createdAt = Instant.fromEpochMilliseconds(createdAt),
     fieldHlcs = fieldHlcs
 )
 
@@ -30,5 +32,6 @@ fun DailyContext.toEntity() = DailyContextEntity(
     isNapped = isNapped,
     isDeleted = isDeleted,
     lastModified = lastModified,
+    createdAt = createdAt.toEpochMilliseconds(),
     fieldHlcs = fieldHlcs
 )

@@ -1,6 +1,7 @@
 package com.mochame.sync.spi.infrastructure.serialization
 
 import co.touchlab.kermit.Logger
+import com.mochame.sync.api.hlc.instant
 import com.mochame.sync.api.models.LocalFirstDelta
 import com.mochame.sync.api.models.LocalFirstEntity
 import com.mochame.sync.common.readProtobufVarint
@@ -13,6 +14,7 @@ import com.mochame.sync.spi.models.DecodeContext
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.protobuf.ProtoBuf
+import kotlin.time.Instant
 
 /**
  * Centralizes standard domain delta logic.
@@ -39,9 +41,10 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
     init {
         val descriptor = deltaSerializer.descriptor
         try {
-            require(descriptor.elementsCount >= 2) { "Schema Error: ${descriptor.serialName} needs at least 2 properties." }
+            require(descriptor.elementsCount >= 3) { "Schema Error: ${descriptor.serialName} needs at least 3 properties." }
             require(descriptor.getElementName(0) == "id") { "Schema Error: Tag 1 in ${descriptor.serialName} must be 'id'." }
             require(descriptor.getElementName(1) == "isDeleted") { "Schema Error: Tag 2 in ${descriptor.serialName} must be 'isDeleted'." }
+            require(descriptor.getElementName(2) == "createdAt") { "Schema Error: Tag 3 in ${descriptor.serialName} must be 'createdAt'." }
         } catch (e: IllegalArgumentException) {
             logger.e(e) { "Invalid Feature Delta Schema Contract: ${descriptor.serialName}" }
             throw e
@@ -51,7 +54,8 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
     companion object {
         const val TAG_PRIMARY_KEY = 1
         const val TAG_IS_DELETED = 2
-        const val FIRST_DOMAIN_TAG = 3
+        const val TAG_CREATED_AT = 3
+        const val FIRST_DOMAIN_TAG = 4
     }
 
     // -----------------------------------------------------------------
@@ -100,13 +104,18 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
             changedMask = context.changedMask,
             logger = logger
         )
-        val mergedEntity = scope.mergeDelta(delta, context, existing)
-        val deleteState = scope.resolveDeleteState(delta.isDeleted, existing?.isDeleted, delta.id)
 
-        return mergedEntity
-            .withFieldHlcs(scope.buildResultBlob())
-            .withDeleteState(deleteState)
-            .also { logger.v { "Decoding finalized. key=${it.id}" } }
+        val createdAt = resolveCreatedAt(delta.createdAt, existing?.createdAt, context)
+        val deleteState = scope.resolveDeleteState(delta.isDeleted, existing?.isDeleted, delta.id)
+        val mergedDomain = scope.mergeDomainDelta(delta, context, existing)
+
+        return mergedDomain.withSyncHeader(
+            hlc = context.hlc,
+            lastModified = context.hlc.ts,
+            createdAt = createdAt,
+            isDeleted = deleteState,
+            fieldHlcs = scope.buildResultBlob()
+        ).also { logger.v { "Decoding finalized. key=${it.id}" } }
     }
 
     private fun FieldMergeScope.resolveDeleteState(
@@ -141,6 +150,38 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
             }
 
             else -> false
+        }
+    }
+
+    protected fun resolveCreatedAt(
+        deltaCreatedAt: Long?,
+        existingCreatedAt: Instant?,
+        context: DecodeContext
+    ): Instant {
+
+        return when {
+            existingCreatedAt == null && deltaCreatedAt != null -> {
+                Instant.fromEpochMilliseconds(deltaCreatedAt)
+            }
+
+            existingCreatedAt != null && deltaCreatedAt == null -> {
+                existingCreatedAt
+            }
+
+            existingCreatedAt != null && deltaCreatedAt != null -> {
+                val incoming = Instant.fromEpochMilliseconds(deltaCreatedAt)
+                logger.d { "Conflict [tag=$TAG_CREATED_AT]: using min(in=$incoming, local=$existingCreatedAt)" }
+                minOf(existingCreatedAt, incoming)
+            }
+
+            else -> {
+                logger.w {
+                    "Out-of-order intent detected [key=${context.candidateKey}]: " +
+                            "Received field upsert intent with no local existing record and missing createdAt. " +
+                            "Falling back to HLC timestamp (${context.hlc.ts}); expecting override when origin insert arrives."
+                }
+                context.hlc.instant
+            }
         }
     }
 
@@ -187,8 +228,8 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
     }
 
     /**
-     * Automatically computes Tags 1 & 2 (id, isDeleted)
-     * and delegates domain field diffing (Tag 3+) to [computeDomainChangedTags].
+     * Automatically computes Tags 1, 2 and 3 (id, isDeleted, createdAt)
+     * and delegates domain field diffing ([FIRST_DOMAIN_TAG]) to [computeDomainChangedTags].
      */
     override fun computeChangedTags(new: T, old: T?): List<Int> = buildList {
         val deleteStateChange = new.isDeleted != (old?.isDeleted ?: false)
@@ -196,7 +237,10 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
         if (deleteStateChange) add(TAG_IS_DELETED)
 
         if (!new.isDeleted) {
-            if (old == null) add(TAG_PRIMARY_KEY)
+            if (old == null) {
+                add(TAG_PRIMARY_KEY)
+                add(TAG_CREATED_AT)
+            }
             addAll(computeDomainChangedTags(new, old))
         }
     }
@@ -207,15 +251,16 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
     protected abstract fun buildUpdateDelta(new: T, old: T, isRestored: Boolean): D
 
     /**
-     * Compute changed tag IDs strictly for domain fields (excluding Tags 1 [LocalFirstDelta.id] & 2 [LocalFirstDelta.isDeleted]).
-     * Features only work from [FIRST_DOMAIN_TAG]+
+     * Compute changed tag IDs strictly for domain fields.
+     * Features only work with their [TAG_PRIMARY_KEY], and from [FIRST_DOMAIN_TAG]+
      */
     protected abstract fun computeDomainChangedTags(new: T, old: T?): List<Int>
 
     /**
      * Maps the decoded protobuf delta [D] onto domain entity [T] using [DecodeContext] and optional [existing] state.
+     * Features only work from [FIRST_DOMAIN_TAG]+
      */
-    protected abstract fun FieldMergeScope.mergeDelta(
+    protected abstract fun FieldMergeScope.mergeDomainDelta(
         delta: D,
         context: DecodeContext,
         existing: T?

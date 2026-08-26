@@ -20,6 +20,10 @@ private inline fun runEnv(crossinline block: DefaultDailyContextRepository.(Test
 
 class DefaultDailyContextRepositoryTest : MochaPlatformTest() {
 
+    // -----------------------------------------------------------
+    // BOOT STATE GUARD
+    // -----------------------------------------------------------
+
     @Test
     fun yay_or_nay() = runEnv {
         assertNotNull(this)
