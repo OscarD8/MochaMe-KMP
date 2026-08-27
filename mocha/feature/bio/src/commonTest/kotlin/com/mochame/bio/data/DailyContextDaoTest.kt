@@ -1,7 +1,7 @@
 package com.mochame.bio.data
 
 import app.cash.turbine.test
-import com.mochame.bio.di.BioDaoTestApp
+import com.mochame.bio.di.BioInfraTestApp
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runPersistenceEnvironment
 import com.mochame.utils.fixtures.TestHlcFactory
@@ -17,14 +17,14 @@ import kotlin.test.assertNull
 // -----------------------------------------------------------
 // SUT ENVIRONMENT
 // -----------------------------------------------------------
-private inline fun runEnv(crossinline block: suspend BioDao.(TestScope) -> Unit) =
-    runPersistenceEnvironment<BioMicroSchema, BioDao>(
+private inline fun runEnv(crossinline block: suspend DailyContextDao.(TestScope) -> Unit) =
+    runPersistenceEnvironment<BioMicroSchema, DailyContextDao>(
         constructor = BioMicroSchemaConstructor,
-        koinSetup = { includes(koinConfiguration<BioDaoTestApp>()) },
+        koinSetup = { includes(koinConfiguration<BioInfraTestApp>()) },
         block = block
     )
 
-private suspend fun BioDao.markAsDeleted(id: Long, hlc: String, lastModified: Long) {
+private suspend fun DailyContextDao.markAsDeleted(id: Long, hlc: String, lastModified: Long) {
     val existing = getContextById(id)
     if (existing != null) {
         upsert(existing.copy(isDeleted = true, hlc = hlc, lastModified = lastModified))
@@ -33,7 +33,7 @@ private suspend fun BioDao.markAsDeleted(id: Long, hlc: String, lastModified: Lo
 
 
 @ExperimentalCoroutinesApi
-class BioDaoTest : MochaPlatformTest() {
+class DailyContextDaoTest : MochaPlatformTest() {
 
     @Test
     fun should_updateToLatestData_when_newerTimestampProvidedForExistingDay() = runEnv {

@@ -1,7 +1,7 @@
 package com.mochame.bio.infrastructure
 
 import co.touchlab.kermit.Logger
-import com.mochame.bio.data.BioDao
+import com.mochame.bio.data.DailyContextDao
 import com.mochame.bio.data.toDomain
 import com.mochame.bio.data.toEntity
 import com.mochame.bio.domain.DailyContext
@@ -23,7 +23,7 @@ import kotlin.time.Instant
 @Single([DailyContextRepository::class, SyncReceiver::class])
 internal class DefaultDailyContextRepository(
     private val timeUtils: MochaTimeUtils,
-    @Provided private val bioDao: BioDao,
+    @Provided private val dailyContextDao: DailyContextDao,
     codecRouter: DailyContextCodecRouter,
     logger: Logger,
     @Provided deps: LocalFirstDependencies
@@ -56,14 +56,14 @@ internal class DefaultDailyContextRepository(
     override suspend fun deleteContext(epochDay: Long) = localDelete(candidateKey = epochDay)
 
     override fun observeContext(epochDay: Long): Flow<DailyContext?> =
-        bioDao.observeContext(epochDay).map { it?.toDomain() }
+        dailyContextDao.observeContext(epochDay).map { it?.toDomain() }
 
 
     // --- MAINTENANCE / SYNC ---
-    override suspend fun hardDelete(cutoff: Long) = bioDao.hardDeletePruning(cutoff)
-    override suspend fun getTombstoneCount() = bioDao.getTombstoneCount()
-    override suspend fun fetch(id: Long) = bioDao.getContextById(id)?.toDomain()
-    override suspend fun save(entity: DailyContext) = bioDao.upsert(entity.toEntity())
+    override suspend fun hardDelete(cutoff: Long) = dailyContextDao.hardDeletePruning(cutoff)
+    override suspend fun getTombstoneCount() = dailyContextDao.getTombstoneCount()
+    override suspend fun fetch(id: Long) = dailyContextDao.getContextById(id)?.toDomain()
+    override suspend fun save(entity: DailyContext) = dailyContextDao.upsert(entity.toEntity())
     override suspend fun compactState(
         newState: DailyContext,
         existing: DailyContext?

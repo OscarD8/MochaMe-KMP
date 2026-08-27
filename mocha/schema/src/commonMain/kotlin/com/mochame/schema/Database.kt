@@ -5,7 +5,7 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
 import androidx.room.TypeConverters
-import com.mochame.bio.data.BioDao
+import com.mochame.bio.data.DailyContextDao
 import com.mochame.bio.data.DailyContextEntity
 import com.mochame.node.data.NodeContextDao
 import com.mochame.node.data.NodeContextEntity
@@ -50,7 +50,7 @@ abstract class MochaMeDatabase : RoomDatabase() {
     abstract fun syncIntentDao(): SyncIntentDao
     abstract fun telemetryDao(): TelemetryDao
     abstract fun resonanceDao(): ResonanceDao
-    abstract fun bioDao(): BioDao
+    abstract fun bioDao(): DailyContextDao
 }
 
 @Suppress("NO_ACTUAL_FOR_EXPECT")

@@ -76,7 +76,6 @@ internal class DailyContextCodecV1(
         isNapped = new.isNapped diff old.isNapped
     )
 
-
     override fun FieldMergeScope.mergeDomainDelta(
         delta: DailyContextDeltaV1,
         context: DecodeContext,

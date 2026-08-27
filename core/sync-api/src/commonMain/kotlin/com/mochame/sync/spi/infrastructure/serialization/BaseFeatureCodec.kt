@@ -24,14 +24,14 @@ import kotlin.time.Instant
  * * Domain Fields: [FIRST_DOMAIN_TAG]+
  * ```kotlin
  * internal data class FeatureEntityDeltaV1(
- *     @ProtoNumber(1) val id: Long,
- *     @ProtoNumber(2) val isDeleted: Boolean? = null,
+ *     @ProtoNumber(TAG_PRIMARY_KEY) val id: Long,
+ *     @ProtoNumber(TAG_IS_DELETED) val isDeleted: Boolean? = null,
+ *     @ProtoNumber(TAG_CREATED_AT) val createdAt: Long? = null
  * ```
  *
  * * [T] = Main Domain Entity (e.g. DailyContext)
  * * [D] = Serializable Protobuf Delta Schema (e.g. DailyContextDeltaV1)
  */
-@ExperimentalSerializationApi
 abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
     override val bufferProvider: BufferProvider,
     private val deltaSerializer: KSerializer<D>,
@@ -64,6 +64,7 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
     /**
      * Returns null on an update operation presenting no field changes.
      */
+    @OptIn(ExperimentalSerializationApi::class)
     override fun encode(new: T, old: T?): ByteArray {
         val delta = when {
             new.isDeleted -> buildDeleteDelta(new)
@@ -84,6 +85,7 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
     // -----------------------------------------------------------------
     // DECODE: Bytes -> D -> T
     // -----------------------------------------------------------------
+    @OptIn(ExperimentalSerializationApi::class)
     override fun decode(
         bytes: ByteArray,
         context: DecodeContext,
@@ -255,6 +257,24 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
     // --- FEATURE REQUIREMENTS ---
     protected abstract fun buildDeleteDelta(entity: T): D
     protected abstract fun buildInsertDelta(entity: T): D
+
+    /**
+     * Feature implementation example:
+     *
+     * ```kotlin
+     *     override fun buildUpdateDelta(
+     *         new: FeatureEntity,
+     *         old: FeatureEntity,
+     *         isRestored: Boolean
+     *     ): FeatureEntityDeltaV1 = FeatureEntityDeltaV1(
+     *         id = new.id,
+     *         isDeleted = false.takeIf { isRestored },
+     *
+     *         // Domain fields follow
+     *         textValue = new.textValue diff old.textValue,
+     *         countValue = new.countValue diff old.countValue
+     * ```
+     */
     protected abstract fun buildUpdateDelta(new: T, old: T, isRestored: Boolean): D
 
     /**

@@ -2,12 +2,11 @@ package com.mochame.bio.data
 
 import androidx.room.Dao
 import androidx.room.Query
-import androidx.room.Transaction
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
 @Dao
-interface BioDao {
+interface DailyContextDao {
 
     /**
      * The Standard Write: Persists local changes.

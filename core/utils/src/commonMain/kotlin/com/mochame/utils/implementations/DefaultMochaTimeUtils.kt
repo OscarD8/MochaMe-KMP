@@ -1,21 +1,22 @@
 package com.mochame.utils.implementations
 
 import com.mochame.utils.interfaces.MochaTimeUtils
+import com.mochame.utils.interfaces.TimeUtils
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atTime
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import org.koin.core.annotation.Single
-import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
 
-@Single(binds = [MochaTimeUtils::class])
-open class DefaultMochaTimeUtils : MochaTimeUtils {
 
-    override fun now(): Instant = Clock.System.now()
+@Single(binds = [MochaTimeUtils::class])
+open class DefaultMochaTimeUtils(
+    private val timeUtils: TimeUtils = DefaultTimeUtils()
+) : MochaTimeUtils, TimeUtils by timeUtils {
 
     override fun getMochaDay(): Long = calculateMochaEpochDay(now())
 
@@ -37,6 +38,5 @@ open class DefaultMochaTimeUtils : MochaTimeUtils {
             .toInstant(timeZone)
             .toEpochMilliseconds()
     }
-
 }
 

@@ -13,7 +13,7 @@ import androidx.room.RoomDatabaseConstructor
 )
 abstract class BioMicroSchema : RoomDatabase() {
 
-    abstract fun bioDao(): BioDao
+    abstract fun bioDao(): DailyContextDao
 
     companion object {
         const val NAME = "bio_micro_schema.db"
