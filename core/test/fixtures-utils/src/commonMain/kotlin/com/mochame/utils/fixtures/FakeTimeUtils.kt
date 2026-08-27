@@ -33,4 +33,16 @@ class MochaFakeTimeUtils(
     fun advanceTime(duration: Duration) = baseClock.advanceTime(duration)
     fun reverseTime(duration: Duration) = baseClock.reverseTime(duration)
     fun setTime(instant: Instant) = baseClock.setTime(instant)
+
+    /**
+     * Sets Clock instant based on base day
+     *
+     * @param baseDay Instant for test orientation. Defaults to August 27, 2026 (00:00:00 UTC).
+     * @return [fakeClock.calculateMochaDay] equivalent
+     */
+    fun wind(baseDay: Long = 20693L): Long {
+        val baseInstant = Instant.fromEpochSeconds(baseDay * 86_400L)
+        setTime(baseInstant)
+        return calculateMochaEpochDay(baseInstant)
+    }
 }

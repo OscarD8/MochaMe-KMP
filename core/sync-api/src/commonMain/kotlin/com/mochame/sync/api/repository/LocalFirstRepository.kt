@@ -57,6 +57,12 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
      * * [R] Return type of any persistence definition, allowing differentiation between
      * the type of data being processed and the type to be returned (e.g. a delete count).
      * * [T] The defined [LocalFirstEntity] involved in processing existing model confirmation, compaction, [HLC] stamping, and local persistence.
+     *
+     *
+     * @return Long representing the result of the final SQLite operation:
+     * * onSkip - 0L
+     * * upserts/deletes on existing - -1L (throws [MochaException.Persistent.StateIssue] if locally deleting non-existent record)
+     * * inserts - the rowId
      */
     @PublishedApi
     internal suspend inline fun processIntent(

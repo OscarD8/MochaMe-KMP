@@ -34,5 +34,5 @@ internal interface DailyContextRepository {
 //    suspend fun upsertContext(context: DailyContext)
 
     suspend fun hardDelete(cutoff: Long)
-    suspend fun getTombstoneCount(): Int
+    suspend fun countSoftDeleted(): Int
 }

@@ -1,5 +1,6 @@
 package com.mochame.bio.infrastructure
 
+import app.cash.turbine.test
 import com.mochame.bio.data.BioMicroSchema
 import com.mochame.bio.data.BioMicroSchemaConstructor
 import com.mochame.bio.di.BioInfraTestApp
@@ -19,7 +20,9 @@ import org.koin.dsl.includes
 import org.koin.plugin.module.dsl.koinConfiguration
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Instant
 
@@ -45,9 +48,7 @@ class DefaultDailyContextRepositoryTest : MochaPlatformTest() {
     @Test
     fun shouldPersistAndRoundtripLosslessTelemetry() = runEnv {
         // August 27, 2026 (00:00:00 UTC)
-        val baseDay = 20692L
-        val mochaDay = 20691L
-        fakeClock.setTime(Instant.fromEpochSeconds(baseDay * 86_400L))
+        val mochaDay = fakeClock.wind()
 
         val rowId = contextRepo.upsertDay(
             sleepHours = 8.5,
@@ -68,18 +69,14 @@ class DefaultDailyContextRepositoryTest : MochaPlatformTest() {
 
     @Test
     fun shouldIndexByEpochDayAndLinkToIntent() = runEnv {
-        val baseDay = 20693L
-        val mochaDay = 20692L
-        fakeClock.setTime(Instant.fromEpochSeconds(baseDay * 86_400L))
+        val mochaDay = fakeClock.wind()
 
-        // Act
         contextRepo.upsertDay(
             sleepHours = 7.0,
             readinessScore = 80,
             isNapped = false
         )
 
-        // Assert
         val entity = contextDao.getContextById(mochaDay)
         assertNotNull(entity)
         assertEquals(mochaDay, entity.id)
@@ -100,6 +97,95 @@ class DefaultDailyContextRepositoryTest : MochaPlatformTest() {
                 TAG_IS_NAPPED
             )
         )
+    }
+
+    @Test
+    fun shouldMergeAndUnsetFieldLevelMutationsWithoutClobbering() = runEnv { // no clobber
+        val mochaDay = fakeClock.wind()
+
+        contextRepo.upsertDay(
+            sleepHours = 6.5,
+            readinessScore = null,
+            isNapped = null
+        )
+
+        val initialEntity = contextDao.getContextById(mochaDay)
+        assertNotNull(initialEntity)
+        val initialCreatedAt = initialEntity.createdAt
+
+        contextRepo.upsertDay(
+            sleepHours = null,
+            readinessScore = 75,
+            isNapped = true
+        )
+
+        val updatedFetched = contextDao.getContextById(mochaDay)
+        assertNotNull(updatedFetched)
+        assertEquals(null, updatedFetched.sleepHours)
+        assertEquals(75, updatedFetched.readinessScore)
+        assertEquals(true, updatedFetched.isNapped)
+        assertEquals(initialCreatedAt, updatedFetched.createdAt)
+    }
+
+    @Test
+    fun shouldSuppressRedundantWrites_on_noopDelta() = runEnv {
+        contextRepo.upsertDay(
+            sleepHours = 8.0,
+            readinessScore = 85,
+            isNapped = false
+        )
+
+        val initialIntentCount = intentStore.intents.size
+
+        val secondResult = contextRepo.upsertDay(
+            sleepHours = 8.0,
+            readinessScore = 85,
+            isNapped = false
+        )
+
+        // Assert: Skipped and no extra intent appended
+        assertEquals(0L, secondResult)
+        assertEquals(initialIntentCount, intentStore.intents.size)
+    }
+
+    // -----------------------------------------------------------
+    // DELETION PIPELINE
+    // -----------------------------------------------------------
+
+    @Test
+    fun shouldSetIsDeleted_on_softDeletionFlow() = runEnv {
+        val mochaDay = fakeClock.wind()
+
+        contextRepo.upsertDay(sleepHours = 7.5, readinessScore = 85, isNapped = false)
+        val deleteResult = contextRepo.deleteContext(mochaDay)
+        assertTrue(deleteResult != 0L)
+
+        // Assert
+        val entity = contextDao.getContextById(mochaDay)
+        assertNotNull(entity)
+        assertTrue(entity.isDeleted)
+
+        val deletionIntent = intentStore.intents.last()
+        assertEquals(mochaDay, deletionIntent.candidateKey)
+        assertEquals(MutationOp.DELETE, deletionIntent.operation)
+    }
+
+    @Test
+    fun shouldOmitDeletedRecords_on_uiInvalidationOnDelete() = runEnv {
+        val mochaDay = fakeClock.wind()
+
+        contextRepo.upsertDay(sleepHours = 8.0, readinessScore = 90, isNapped = true)
+
+        contextRepo.observeContext(mochaDay).test {
+            val initial = awaitItem()
+            assertNotNull(initial)
+            assertFalse(initial.isDeleted)
+
+            contextRepo.deleteContext(mochaDay)
+
+            val deletedEmission = awaitItem()
+            assertNull(deletedEmission)
+        }
     }
 
 }

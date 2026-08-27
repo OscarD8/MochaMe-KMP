@@ -61,7 +61,7 @@ internal class DefaultDailyContextRepository(
 
     // --- MAINTENANCE / SYNC ---
     override suspend fun hardDelete(cutoff: Long) = dailyContextDao.hardDeletePruning(cutoff)
-    override suspend fun getTombstoneCount() = dailyContextDao.getTombstoneCount()
+    override suspend fun countSoftDeleted() = dailyContextDao.countSoftDeleted()
     override suspend fun fetch(id: Long) = dailyContextDao.getContextById(id)?.toDomain()
     override suspend fun save(entity: DailyContext) = dailyContextDao.upsert(entity.toEntity())
     override suspend fun compactState(

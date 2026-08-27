@@ -32,7 +32,7 @@ interface DailyContextDao {
      * Returns the count of tombstones currently being held.
      */
     @Query("SELECT COUNT(*) FROM daily_context WHERE isDeleted = 1")
-    suspend fun getTombstoneCount(): Int
+    suspend fun countSoftDeleted(): Int
 
 
     // --- LOOKUPS ---
