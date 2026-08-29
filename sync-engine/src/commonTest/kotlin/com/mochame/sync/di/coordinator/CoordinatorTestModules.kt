@@ -2,6 +2,7 @@
 
 package com.mochame.sync.di.coordinator
 
+import com.mochame.logger.test.TestLoggerModule
 import com.mochame.node.di.StaggeredDbRetryPolicyModule
 import com.mochame.node.fixtures.FakeNodeContextManager
 import com.mochame.node.fixtures.SpyBootStatusManager
@@ -42,7 +43,8 @@ object SyncCoordinatorTestApp
         SyncConcurrencyModule::class,
         FixturesPlatformModule::class,
         FixturesNodeModule::class,
-        StaggeredDbRetryPolicyModule::class
+        StaggeredDbRetryPolicyModule::class,
+        TestLoggerModule::class
     ]
 )
 @ComponentScan("com.mochame.sync.di.coordinator")

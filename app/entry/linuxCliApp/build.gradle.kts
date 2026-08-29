@@ -9,17 +9,19 @@ kotlin {
     linuxX64 {
         binaries {
             executable {
-                entryPoint = "com.mochame.cli.main"
+                entryPoint = "com.mochame.app.entry.linux"
             }
         }
     }
 
     sourceSets {
-        commonMain.dependencies {
-            implementation(project(":app:assembly"))
-            implementation(project(":mocha:schema"))
+        linuxX64Main.dependencies {
+            implementation(project(":app:schema"))
+            implementation(project(":feature:bio"))
+            implementation(project(":node"))
             implementation(project(":sync-engine"))
-            implementation(project(":core:platform"))
+
+//            implementation(project(":mocha:feature:bio"))
 
             implementation(libs.room.runtime)
             implementation(libs.sqlite.bundled)

@@ -5,7 +5,6 @@ import androidx.room.Transactor
 import androidx.room.useWriterConnection
 import com.mochame.sync.spi.infrastructure.TransactionProvider
 import org.koin.core.annotation.Provided
-import org.koin.core.annotation.Single
 
 /**
  * This was initially added to reduce boilerplate and specifically to abstract Room from this
@@ -13,7 +12,6 @@ import org.koin.core.annotation.Single
  * entities, the sync-engine has now been coupled to Room by design. Keeping this method here
  * for now purely as a boilerplate reduction (may not be best practice?)
  */
-@Single(binds = [TransactionProvider::class])
 class RoomImmediateTransProvider(@Provided private val db: RoomDatabase) : TransactionProvider {
     override suspend fun <R> runImmediateTransaction(block: suspend () -> R): R {
         return db.useWriterConnection { conn ->

@@ -1,5 +1,7 @@
 package com.mochame.platform.di
 
+import androidx.sqlite.SQLiteDriver
+import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.mochame.annotations.CommittedDir
 import com.mochame.annotations.PendingDir
 import com.mochame.logger.LogTags
@@ -19,10 +21,17 @@ import org.koin.core.component.get
 import org.koin.core.parameter.parametersOf
 import platform.posix.getenv
 
+actual class PlatformContext
 
 // REVIEW THIS
 @Module
 actual class InternalPlatformModule : KoinComponent {
+
+    @Single
+    fun providePlatformContext(): PlatformContext = PlatformContext()
+
+    @Single
+    fun provideSQLiteDriver(): SQLiteDriver = BundledSQLiteDriver()
 
     @Single
     fun provideFileSystem(): FileSystem = SystemFileSystem

@@ -1,12 +1,10 @@
-import com.android.build.api.dsl.ApplicationExtension
-
 plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeCompiler)
 }
 
-configure<ApplicationExtension> {
-    namespace = "com.mochame.androidapp"
+android {
+    namespace = "com.mochame.app.entry.android"
 
     compileSdk = libs.versions.android.sdk.compile.get().toInt()
 
@@ -35,28 +33,20 @@ configure<ApplicationExtension> {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
+    buildFeatures {
+        compose = true
+    }
 }
 
 dependencies {
-    implementation(project(":mocha:schema"))
+    implementation(project(":app:ui"))
     implementation(project(":core:platform"))
     implementation(project(":core:logger"))
 
     implementation(libs.koin.android)
-    implementation(libs.koin.compose)
-    implementation(libs.koin.compose.viewmodel)
-    implementation(libs.material.v1120)
 
-    implementation(libs.androidx.appcompat)
     implementation(libs.androidx.activity.compose)
-    implementation(libs.compose.ui)
-    implementation(libs.compose.material3)
     implementation(libs.androidx.core.ktx)
-//    implementation(libs.sqlite.bundled)
 
-
-    // Testing
-//    testImplementation(libs.junit)
-//    androidTestImplementation(libs.androidx.testExt.junit)
-//    androidTestImplementation(libs.androidx.espresso.core)
 }

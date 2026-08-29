@@ -1,0 +1,21 @@
+plugins {
+    id("mocha.convention.assembler")
+}
+
+kotlin {
+    android { namespace = "com.mochame.app.schema" }
+
+    sourceSets {
+        commonMain.dependencies {
+            implementation(project(":core:platform"))
+            implementation(project(":core:sync-api"))
+            implementation(project(":node"))
+            implementation(project(":sync-engine"))
+
+            implementation(project(":feature:bio"))
+            implementation(project(":feature:telemetry"))
+            implementation(project(":feature:resonance"))
+        }
+    }
+}
+

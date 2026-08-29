@@ -23,6 +23,7 @@ interface LocalFirstEntity<T : LocalFirstEntity<T>> {
     val fieldHlcs: ByteArray
     val createdAt: Instant
     val lastModified: Long
+
     fun withHlcMetadata(hlc: HLC, fieldBlob: ByteArray): T
     fun withDeleteState(state: Boolean): T
     fun withSyncHeader(

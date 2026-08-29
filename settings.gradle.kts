@@ -33,19 +33,17 @@ plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
 
-
 include(":app:entry:androidApp")
 include(":app:entry:linuxCliApp")
 include(":app:entry:jvmApp")
-include(":app:assembly")
+include(":app:schema")
+include(":app:ui")
 
 include(":core:annotations")
 include(":core:sync-api")
 include(":core:logger")
 include(":core:utils")
 include(":core:platform")
-
-include(":node")
 
 include(":core:test:support")
 include(":core:test:test-logger")
@@ -54,10 +52,10 @@ include(":core:test:fixtures-utils")
 include(":core:test:fixtures-platform")
 include(":core:test:fixtures-sync")
 
+include(":node")
 include(":sync-engine")
 
-include(":mocha:feature:bio")
-include(":mocha:feature:telemetry")
-include(":mocha:feature:resonance")
-include(":mocha:ui")
-include(":mocha:schema")
+include("feature:bio")
+include("feature:bio:ui")
+include("feature:telemetry")
+include("feature:resonance")

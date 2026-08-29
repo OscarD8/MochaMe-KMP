@@ -53,6 +53,14 @@ internal class SyncCoordinator(
     private val receiverRoutingMap: Map<FeatureContext, SyncReceiver> =
         receivers.associateBy { it.featureContext }
 
+    private val SyncIntent.receiver: SyncReceiver
+        get() = receiverRoutingMap[featureContext] ?: run {
+            logger.e { "Routing failure for feature context '$featureContext'" }
+            throw MochaException.Persistent.Internal(
+                "No SyncReceiver for feature context '$featureContext'"
+            )
+        }
+
     fun startOutbound(): Job = appBackgroundScope.launch {
         try {
             bootManager.awaitReady()
@@ -214,13 +222,5 @@ internal class SyncCoordinator(
 
         return this
     }
-
-    private val SyncIntent.receiver: SyncReceiver
-        get() = receiverRoutingMap[featureContext] ?: run {
-            logger.e { "Routing failure for feature context '$featureContext'" }
-            throw MochaException.Persistent.Internal(
-                "No SyncReceiver for feature context '$featureContext'"
-            )
-        }
 
 }

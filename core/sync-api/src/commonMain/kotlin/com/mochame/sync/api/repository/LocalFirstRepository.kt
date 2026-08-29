@@ -34,7 +34,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     @PublishedApi internal val deps: LocalFirstDependencies,
     @Provided @PublishedApi internal val codec: FeatureCodecRouter<T, FeatureCodec<T>>,
     protected val logger: Logger
-) : SyncReceiver { // I regret not using composition
+) : SyncReceiver {
 
     /**
      * All local persistence performed by any feature's repository funnels through this method,
@@ -62,7 +62,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
      * @return Long representing the result of the final SQLite operation:
      * * onSkip - 0L
      * * upserts/deletes on existing - -1L (throws [MochaException.Persistent.StateIssue] if locally deleting non-existent record)
-     * * inserts - the rowId
+     * * inserts - [T.id]
      */
     @PublishedApi
     internal suspend inline fun processIntent(

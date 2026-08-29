@@ -20,7 +20,7 @@ import kotlin.test.assertSame
 
 private inline fun runEnv(crossinline block: suspend BufferProvider.(TestScope) -> Unit) =
     runUnitEnvironment<BufferProvider>(
-        koinSetup = { modules(TestLoggerModule::class, PlatformProviderModule::class) },
+        koinSetup = { modules(PlatformProviderModule::class, TestLoggerModule::class) },
         block = block
     )
 

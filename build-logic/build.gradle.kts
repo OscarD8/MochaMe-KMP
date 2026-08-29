@@ -8,4 +8,6 @@ dependencies {
     api(libs.kotlin.gradle.plugin)
     api(libs.room.gradle.plugin)
     api(libs.androidKmpLibrary)
+    api(libs.compose.gradlePlugin)
+    api(libs.kotlin.composeCompilerPlugin)
 }

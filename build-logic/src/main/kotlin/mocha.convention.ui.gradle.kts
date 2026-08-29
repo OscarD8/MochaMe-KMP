@@ -1,0 +1,64 @@
+import com.mochame.gradle.getLibrary
+import com.mochame.gradle.getVersionAsInt
+import com.mochame.gradle.getVersionAsString
+import com.mochame.gradle.isMac
+import com.mochame.gradle.libs
+import com.mochame.gradle.standardConfigurations
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
+plugins {
+    id("org.jetbrains.kotlin.multiplatform")
+    id("com.android.kotlin.multiplatform.library")
+    id("org.jetbrains.kotlin.plugin.compose")
+    id("org.jetbrains.compose")
+    id("org.jetbrains.compose.hot-reload")
+}
+
+standardConfigurations()
+
+kotlin {
+    jvm()
+
+    android {
+        compileSdk = libs.getVersionAsInt("android-sdk-compile")
+        minSdk = libs.getVersionAsInt("android-sdk-min")
+
+        androidResources {
+            enable = true
+        }
+
+        compilerOptions {
+            jvmTarget.set(JvmTarget.fromTarget(libs.getVersionAsString("java-jvmTarget")))
+        }
+    }
+
+    sourceSets {
+        commonMain.dependencies {
+//                implementation(libs.compose.material3.adaptive.layout)
+//                implementation(libs.compose.material3.adaptive.navigation)
+            implementation(libs.getLibrary("compose-material3-adaptive-navigation-suite"))
+            implementation(libs.getLibrary("navigation-compose"))
+//          implementation(libs.getLibrary("compose-material3"))
+
+            implementation(libs.getLibrary("androidx-lifecycle-viewmodel"))
+            implementation(libs.getLibrary("androidx-lifecycle-runtimeCompose"))
+            implementation(libs.getLibrary("androidx-lifecycle-viewmodelCompose"))
+            implementation(libs.getLibrary("androidx-lifecycle-viewmodelCompose"))
+
+            implementation(libs.getLibrary("koin-compose-viewmodel"))
+            implementation(libs.getLibrary("koin-compose"))
+        }
+        jvmMain.dependencies {
+            implementation(libs.getLibrary("compose-uiTooling"))
+        }
+    }
+
+    if (project.isMac) {
+        iosArm64()
+        iosSimulatorArm64()
+    }
+
+    compilerOptions {
+        freeCompilerArgs.add("-Xexpect-actual-classes")
+    }
+}
