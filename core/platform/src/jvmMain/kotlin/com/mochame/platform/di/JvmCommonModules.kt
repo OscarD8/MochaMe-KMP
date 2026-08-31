@@ -1,15 +1,13 @@
 package com.mochame.platform.di
 
 
-import androidx.sqlite.SQLiteDriver
-import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.mochame.annotations.CommittedDir
 import com.mochame.annotations.PendingDir
 import com.mochame.logger.LogTags
 import com.mochame.platform.providers.AppPathsProvider
-import com.mochame.sync.spi.infrastructure.BufferProvider
 import com.mochame.platform.providers.DatabaseLocation
 import com.mochame.platform.providers.JvmBufferProvider
+import com.mochame.sync.spi.infrastructure.BufferProvider
 import kotlinx.io.files.FileSystem
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
@@ -26,9 +24,6 @@ actual class InternalPlatformModule : KoinComponent {
 
     @Single
     fun providePlatformContext(): PlatformContext = PlatformContext()
-
-    @Single
-    fun provideSQLiteDriver(): SQLiteDriver = BundledSQLiteDriver()
 
     @Single
     fun provideFileSystem(): FileSystem = SystemFileSystem

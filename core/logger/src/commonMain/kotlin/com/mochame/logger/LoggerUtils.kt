@@ -17,6 +17,8 @@ object LogTags {
         const val TELEMETRY = "Tele"
         const val PRUNE = "Prun"
         const val POLICY = "Plcy"
+        const val BOOT = "Boot"
+
     }
 
     object Layer {
@@ -27,7 +29,6 @@ object LogTags {
         const val INFRA = "Infr"
         const val SERI = "Seri"
         const val ORCH = "Orch"
-        const val BOOT = "Boot"
     }
 }
 

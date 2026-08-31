@@ -4,7 +4,7 @@ sealed class BootState {
     object Idle : BootState() {
         override fun toString() = "Idle"
     }
-    object Initializing : BootState() {
+    object Init : BootState() {
         override fun toString() = "Init"
     }
     object Ready : BootState() {

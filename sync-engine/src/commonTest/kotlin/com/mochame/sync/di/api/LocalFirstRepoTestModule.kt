@@ -140,6 +140,6 @@ internal class LocalFirstRepoTestEnv(
 
     suspend fun setupValidContext(hlc: HLC? = null) {
         hlcFactory.hydrate(hlc, TestNodeId.A)
-        bootProvider.updateBootState(BootState.Ready)
+        bootProvider.updateState(BootState.Ready)
     }
 }

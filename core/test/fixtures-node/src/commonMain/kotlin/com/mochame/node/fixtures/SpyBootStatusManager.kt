@@ -20,16 +20,16 @@ class SpyBootStatusManager(
     val history: List<BootState>
         get() = lock.withLock { _history.toList() }
 
-    override fun updateBootState(newState: BootState) {
+    override fun updateState(newState: BootState) {
         lock.withLock {
             _history.add(newState)
         }
-        delegate.updateBootState(newState)
+        delegate.updateState(newState)
     }
 
     fun reset(initialState: BootState = BootState.Idle) = lock.withLock {
         _history.clear()
         _history.add(initialState)
-        delegate.updateBootState(initialState)
+        delegate.updateState(initialState)
     }
 }

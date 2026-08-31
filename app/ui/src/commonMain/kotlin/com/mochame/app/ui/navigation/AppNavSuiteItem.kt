@@ -14,23 +14,15 @@ sealed interface Destination {
     data class DailyContext(val epochDay: Long? = null) : Destination
 }
 
-sealed class AppNavSuiteItem(
-    val label: String,
-    val defaultDestination: Destination
-) {
+sealed class AppNavSuiteItem() {
     abstract fun isSelected(currentDestination: NavDestination?): Boolean
 
-    data object Dashboard : AppNavSuiteItem(
-        label = "Dashboard",
-        defaultDestination = Destination.Dashboard
-    ) {
+    data object Dashboard : AppNavSuiteItem() {
         override fun isSelected(currentDestination: NavDestination?): Boolean =
             currentDestination?.hasRoute<Destination.Dashboard>() == true
     }
 
     data object Bio : AppNavSuiteItem(
-        label = "Daily Context",
-        defaultDestination = Destination.DailyContext()
     ) {
         override fun isSelected(currentDestination: NavDestination?): Boolean =
             currentDestination?.hasRoute<Destination.DailyContext>() == true
@@ -38,15 +30,5 @@ sealed class AppNavSuiteItem(
 
     companion object {
         val entries: List<AppNavSuiteItem> = listOf(Dashboard, Bio)
-    }
-}
-
-fun NavHostController.navigateToSuiteItem(destination: Destination) {
-    navigate(destination) {
-        popUpTo(graph.findStartDestination().id) {
-            saveState = true
-        }
-        launchSingleTop = true
-        restoreState = true
     }
 }

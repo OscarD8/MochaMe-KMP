@@ -16,6 +16,7 @@ import com.mochame.sync.di.janitor.JanitorTestEnv
 import com.mochame.sync.internal.fixtures.createTestSyncIntent
 import com.mochame.sync.spi.node.NodeContext
 import com.mochame.sync.spi.node.NodeId
+import com.mochame.utils.fixtures.TestNodeId
 import com.mochame.utils.fixtures.TestPayloads
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
@@ -46,7 +47,7 @@ private inline fun runEnv(crossinline block: suspend JanitorTestEnv.(TestScope) 
 
 
 @ExperimentalCoroutinesApi
-class SyncJanitorTest : MochaPlatformTest() {
+class DefaultSyncJanitorTest : MochaPlatformTest() {
 
     // -----------------------------------------------------------
     // BOOT LIFECYCLE & EXCEPTIONS / STATE GUARDS (HLC/BOOT)
@@ -65,8 +66,8 @@ class SyncJanitorTest : MochaPlatformTest() {
     fun should_transitionBootStateAndHydrateHlcFactory_when_executingAgainstValidStartupState() =
         runEnv { scope ->
             // Given
-            assertEquals(BootState.Idle, bootUpdater.bootState.value)
-            nodeManager.forcedNextNodeId = NodeId.ZERO
+            bootUpdater.updateState(BootState.Init)
+            nodeManager.forcedNextNodeId = TestNodeId.A
 
             // When
             janitor.startupChecks()
@@ -74,7 +75,7 @@ class SyncJanitorTest : MochaPlatformTest() {
 
             // Then
             assertEquals(
-                listOf(BootState.Idle, BootState.Initializing, BootState.Ready),
+                listOf(BootState.Idle, BootState.Init),
                 bootUpdater.history
             )
             assertEquals(
@@ -83,17 +84,17 @@ class SyncJanitorTest : MochaPlatformTest() {
                 "HLC factory must be hydrated exactly once during startup."
             )
             assertEquals(
-                NodeId.ZERO,
+                TestNodeId.A,
                 hlcFactory.lastHydratedNodeId,
                 "HLC factory must be hydrated with the current node ID."
             )
         }
 
     @Test
-    fun should_abortStartupChecksAndSkipHydration_when_bootStateIsInitializing() =
+    fun should_abortStartupChecksAndSkipHydration_when_bootStateIsIdle() =
         runEnv { scope ->
             // Given
-            bootUpdater.updateBootState(BootState.Initializing)
+            bootUpdater.updateState(BootState.Idle)
 
             // When
             janitor.startupChecks()
@@ -117,7 +118,7 @@ class SyncJanitorTest : MochaPlatformTest() {
     fun should_abortStartupChecks_when_bootStatIsInCriticalFailure() =
         runEnv { scope ->
             val failure = MochaException.Persistent.ClockSkew(5.seconds)
-            bootUpdater.updateBootState(BootState.CriticalFailure("Failed", failure))
+            bootUpdater.updateState(BootState.CriticalFailure("Failed", failure))
 
             // When
             janitor.startupChecks()
@@ -130,6 +131,7 @@ class SyncJanitorTest : MochaPlatformTest() {
     @Test
     fun should_enterCriticalBootFailure_when_lastHlcIsFromTheFuture() = runEnv {
         // Arrange
+        bootUpdater.updateState(BootState.Init)
         // Seed a Future HLC (2040-01-01...)
         val futureTs = fakeClock.now().plus(1.hours)
         val futureHlc = TestHlcFactory.create(ts = futureTs)
@@ -141,11 +143,8 @@ class SyncJanitorTest : MochaPlatformTest() {
 
         // Assert
         bootUpdater.bootState.test {
-            // Skip Idle
-            assertEquals(BootState.Idle, awaitItem())
-
             // Skip Initializing
-            assertTrue(awaitItem() is BootState.Initializing)
+            assertTrue(awaitItem() is BootState.Init)
 
             // Capture the Critical Failure
             val finalState = awaitItem()
@@ -165,13 +164,14 @@ class SyncJanitorTest : MochaPlatformTest() {
     fun should_reportTransientFailure_when_bootHydrationTimesOut() =
         runEnv { scope ->
             // Arrange - simulate the manager being locked
+            bootUpdater.updateState(BootState.Init)
             nodeManager.simulatedDelay = 6.seconds
 
             // Act
             janitor.startupChecks()
             // janitor stalls on hydration, locked from fetching device context
             scope.runCurrent()
-            assertEquals(BootState.Initializing, bootUpdater.bootState.value)
+            assertEquals(BootState.Init, bootUpdater.bootState.value)
             scope.advanceTimeBy(5001.milliseconds)
 
             // Assert
@@ -214,6 +214,7 @@ class SyncJanitorTest : MochaPlatformTest() {
     fun should_catchAndTransitionToCriticalFailure_when_executionPolicyThrowsDatabaseErrorWithinBootTimeAllocation() =
         runEnv { scope ->
             // Given
+            bootUpdater.updateState(BootState.Init)
             val dbLockException = IllegalStateException("Database locked / busy")
             executor.failConsecutively(count = 1, exception = dbLockException)
 
@@ -226,16 +227,8 @@ class SyncJanitorTest : MochaPlatformTest() {
             assertTrue(executor.executionHistory.contains("[Startup Checks]"))
 
             val history = bootUpdater.history
-            assertEquals(
-                2,
-                history.size,
-                "Boot history should only record Idle and CriticalFailure."
-            )
-            assertEquals(BootState.Idle, history[0])
-            assertTrue(
-                history[1] is BootState.CriticalFailure,
-                "Final boot state must be CriticalFailure. Got: ${history[1]}"
-            )
+            assertEquals(3, history.size)
+            assertTrue(history[2] is BootState.CriticalFailure)
 
             val errorLog =
                 writer.logs.find { it.message.contains("Critical boot failure") }
@@ -249,6 +242,7 @@ class SyncJanitorTest : MochaPlatformTest() {
     @Test
     fun should_pipeNodeContextToHlcFactory_when_hydrating() = runEnv { scope ->
         // Given
+        bootUpdater.updateState(BootState.Init)
         val nodeId = NodeId.ZERO
 
         val seededHlc = TestHlcFactory.create(
@@ -279,6 +273,7 @@ class SyncJanitorTest : MochaPlatformTest() {
     fun should_transitionToTransientFailure_when_startupThrowsTransientMochaException() =
         runEnv { scope ->
             // Given
+            bootUpdater.updateState(BootState.Init)
             intentStore.failWith = MochaException.Transient.DatabaseBusy()
 
             // When
@@ -297,6 +292,7 @@ class SyncJanitorTest : MochaPlatformTest() {
     fun should_transitionToPersistentFailure_when_startupThrowsPersistentMochaException() =
         runEnv { scope ->
             // Given
+            bootUpdater.updateState(BootState.Init)
             intentStore.failWith = MochaException.Persistent.DiskFull()
 
             // When
@@ -332,6 +328,8 @@ class SyncJanitorTest : MochaPlatformTest() {
     @Test
     fun should_clearStaleLocksAndResetIntentsToPending_when_staleIntentsExistOnStartup() =
         runEnv { scope ->
+            bootUpdater.updateState(BootState.Init)
+
             // Given: Seed intent store with intents stuck in SYNCING with active syncIds (simulating process crash)
             val hlc1 = TestHlcFactory.create(ts = 100L, count = 0)
             val hlc2 = TestHlcFactory.create(ts = 200L, count = 0)
@@ -400,6 +398,7 @@ class SyncJanitorTest : MochaPlatformTest() {
     fun should_commitStrandedBlob_when_matchingMetadataExistsInIntentStore() =
         runEnv { scope ->
             // Given
+            bootUpdater.updateState(BootState.Init)
             val blobId = blobStore.stage(TestPayloads.defaultSource())
 
             intentStore.seedIntents(
@@ -437,6 +436,7 @@ class SyncJanitorTest : MochaPlatformTest() {
     fun should_abortOrphanedBlob_when_noMatchingMetadataExistsInIntentStore() =
         runEnv { scope ->
             // Given
+            bootUpdater.updateState(BootState.Init)
             val blobId = blobStore.stage(TestPayloads.defaultSource())
 
             // When
@@ -462,6 +462,8 @@ class SyncJanitorTest : MochaPlatformTest() {
     fun should_continueReconciliationAndComplete_when_individualBlobReconciliationThrows() =
         runEnv { scope ->
             // Given: Stage two distinct blobs
+            bootUpdater.updateState(BootState.Init)
+
             val payloadA = byteArrayOf(0x01, 0x02)
             val payloadB = byteArrayOf(0x03, 0x04)
             val blobA = blobStore.stage(Buffer().apply { write(payloadA) })

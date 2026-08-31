@@ -3,7 +3,7 @@
 //import androidx.room.RoomDatabase
 //import androidx.sqlite.SQLiteConnection
 //
-//// CURRENTLY NOT IN USE - SYNC SYSTEM DOES NOT NEED TOMBSTONES ANYMORE,
+//// CURRENTLY NOT IN USE - SYNC SYSTEM DOES NOT NEED THIS, BUT KEEPING EXAMPLE OF TRIGGERS
 //
 //object DatabaseTriggerFactory {
 //    fun createAllTriggers(): List<String> = listOf(

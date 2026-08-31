@@ -27,8 +27,6 @@ actual class InternalPlatformModule : KoinComponent {
     @Single
     fun provideContext(androidContext: Context): PlatformContext = PlatformContext(androidContext)
 
-    @Single
-    fun provideSQLiteDriver(): SQLiteDriver = BundledSQLiteDriver()
 
     @Single
     fun provideFileSystem(): FileSystem = SystemFileSystem

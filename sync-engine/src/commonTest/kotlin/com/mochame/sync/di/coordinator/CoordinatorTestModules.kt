@@ -20,7 +20,7 @@ import com.mochame.sync.internal.fixtures.FakeSyncReceiver
 import com.mochame.sync.internal.fixtures.SpyHlcFactory
 import com.mochame.sync.internal.fixtures.SpySyncWorkerHook
 import com.mochame.sync.internal.fixtures.serialization.FakePayloadCodec
-import com.mochame.sync.orchestration.SyncCoordinator
+import com.mochame.sync.orchestration.DefaultSyncCoordinator
 import com.mochame.sync.spi.infrastructure.SyncReceiver
 import com.mochame.sync.spi.infrastructure.serialization.PayloadCodec
 import org.koin.core.annotation.ComponentScan
@@ -64,7 +64,7 @@ class CoordinatorTestModules {
 
 @Factory
 internal class SyncCoordinatorTestEnv(
-    val coordinator: SyncCoordinator,
+    val coordinator: DefaultSyncCoordinator,
     @Named("stubA") val stubA: FakeSyncReceiver,
     @Named("stubB") val stubB: FakeSyncReceiver,
     val intentStore: FakeSyncIntentStore,

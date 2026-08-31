@@ -38,8 +38,8 @@ internal class DefaultPayloadCodec(
 
             val bytes = ProtoBuf.encodeToByteArray(VersionedPayload.serializer(), delta)
 
-            logger.v {
-                "Encoded outer wire payload: ${payload.size} intents -> ${bytes.size}B " +
+            logger.d {
+                "Encoded complete wire payload: ${payload.size} intents -> ${bytes.size}B " +
                         "(batch schema v$version, payload blob ${encodedPayload.size}B)"
             }
 

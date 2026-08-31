@@ -21,6 +21,7 @@ import com.mochame.sync.spi.infrastructure.SyncIntentStore
 import com.mochame.sync.spi.infrastructure.SyncReceiver
 import com.mochame.sync.spi.infrastructure.SyncWorkerHook
 import com.mochame.sync.spi.node.NodeContextManager
+import com.mochame.sync.spi.orchestration.SyncCoordinator
 import com.mochame.sync.spi.policy.ExecutionPolicy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
@@ -31,8 +32,8 @@ import org.koin.core.annotation.Single
 import kotlin.time.TimeSource
 
 
-@Single
-internal class SyncCoordinator(
+@Single(binds = [SyncCoordinator::class])
+internal class DefaultSyncCoordinator(
     private val intentStore: SyncIntentStore,
     private val transactor: TransactionProvider,
     private val payloadCodec: PayloadCodec,
@@ -46,7 +47,7 @@ internal class SyncCoordinator(
     @AppBackgroundScope private val appBackgroundScope: CoroutineScope,
     receivers: List<SyncReceiver>, // koin handles as long as classes are bound
     logger: Logger
-) {
+): SyncCoordinator {
     private val logger =
         logger.withTags(LogTags.Layer.ORCH, LogTags.Domain.SYNC, "MsCord")
 
@@ -61,12 +62,19 @@ internal class SyncCoordinator(
             )
         }
 
-    fun startOutbound(): Job = appBackgroundScope.launch {
+    override fun startOutbound(): Job = appBackgroundScope.launch {
         try {
             bootManager.awaitReady()
         } catch (e: Exception) {
             logger.e(e) { "Outbound sync pipeline disabled: boot readiness check failed." }
             return@launch
+        }
+
+        try {
+            logger.v { "Executing boot outbound intent flush..." }
+            processQueueUntilExhausted()
+        } catch (e: Exception) {
+            logger.e(e) { "Boot flush failed: ${e.message}" }
         }
 
         workerHook.signals.collect {
@@ -92,7 +100,7 @@ internal class SyncCoordinator(
      * invalidation and the batch process.
      */
     @OptIn(FlowPreview::class)
-    suspend fun processQueueUntilExhausted() {
+    override suspend fun processQueueUntilExhausted() {
         coordinatorMutex.tryWithLock {
             while (true) {
                 val batchId = idGenerator.nextId()
@@ -133,7 +141,7 @@ internal class SyncCoordinator(
         }
     }
 
-    internal suspend fun onInboundBytes(inbound: ByteArray) {
+    override suspend fun onInboundBytes(inbound: ByteArray) {
         try {
             bootManager.awaitReady()
         } catch (e: Exception) {

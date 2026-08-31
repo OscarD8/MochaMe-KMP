@@ -23,6 +23,7 @@ import com.mochame.sync.spi.node.NodeContext
 import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.domain.config.JanitorMaintenanceConfig
+import com.mochame.sync.spi.orchestration.SyncJanitor
 import com.mochame.utils.interfaces.TimeUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -53,8 +54,8 @@ import kotlin.time.TimeSource
  * * [NodeContext]
  * * [HLC]
  */
-@Single(createdAtStart = true)
-internal class SyncJanitor(
+@Single(binds = [SyncJanitor::class])
+internal class DefaultSyncJanitor(
     private val bootUpdater: BootStatusUpdater,
     private val transactor: TransactionProvider,
     private val pruneUseCase: PruneIntentsUseCase,
@@ -69,17 +70,14 @@ internal class SyncJanitor(
     @AppBackgroundScope private val appBackgroundScope: CoroutineScope,
     @JanitorMutex private val mutex: Mutex,
     logger: Logger
-) {
-    private val logger = logger.withTags(
-        layer = LogTags.Layer.ORCH,
-        domain = LogTags.Domain.SYNC,
-        className = "DrJntr"
-    )
+): SyncJanitor {
+    private val logger =
+        logger.withTags(LogTags.Layer.ORCH, LogTags.Domain.SYNC, "DrJntr")
 
     /**
      * The single entry point for app initialization.
      */
-    fun startupChecks(): Job = appBackgroundScope.launch(ioContext) {
+    override fun startupChecks(): Job = appBackgroundScope.launch(ioContext) {
         try {
             withTimeout(config.startupTimeout) {
                 executor.execute("[Startup Checks]") {
@@ -89,14 +87,10 @@ internal class SyncJanitor(
                             return@withLock
                         }
 
-                        logger.i { "Initiating boot sequence..." }
-                        bootUpdater.updateBootState(BootState.Initializing)
-
                         metadataMaintenance()
                         initHydration()
                         blobReconciliation()
 
-                        bootUpdater.updateBootState(BootState.Ready)
                         logger.i { "Janitor Start Up checks finalized." }
                     }
                 }
@@ -110,7 +104,7 @@ internal class SyncJanitor(
 
     private fun isValidBootState(): Boolean {
         val currentState = bootUpdater.bootState.value
-        return currentState is BootState.Idle
+        return currentState is BootState.Init
     }
 
     private suspend fun initHydration() = withTimeout(5.seconds) {
@@ -134,7 +128,7 @@ internal class SyncJanitor(
         logger.d { "Boot metadata maintenance complete".withTimer(mark) }
     }
 
-    fun startRuntimeMaintenance(): Job {
+    override fun startRuntimeMaintenance(): Job {
         return appBackgroundScope.launch(ioContext) {
             while (isActive) {
                 delay(config.maintenanceInterval)
@@ -244,7 +238,7 @@ internal class SyncJanitor(
     // ----- EXCEPTION HELPERS -----
     private fun handleBootFailure(error: MochaException): MochaException {
         val failureState = error.toBootState()
-        bootUpdater.updateBootState(failureState)
+        bootUpdater.updateState(failureState)
 
         if (failureState is BootState.CriticalFailure) {
             logger.e(error) { "Critical boot failure: ${error.message}" }

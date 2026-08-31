@@ -1,4 +1,4 @@
-package com.mochame.app.schema
+package com.mochame.app.assembly
 
 import androidx.room.TypeConverter
 import com.mochame.resonance.domain.Resonance

@@ -1,13 +1,11 @@
 package com.mochame.node.di
 
 import co.touchlab.kermit.Logger
-import com.mochame.annotations.NodeManagerMutex
 import com.mochame.logger.LoggerModule
 import com.mochame.node.policies.StaggeredDbRetryPolicy
 import com.mochame.platform.di.CommonPlatformModule
 import com.mochame.sync.spi.policy.ExecutionPolicy
 import com.mochame.utils.di.UtilsModule
-import kotlinx.coroutines.sync.Mutex
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
@@ -17,16 +15,11 @@ import org.koin.core.annotation.Single
         UtilsModule::class,
         LoggerModule::class,
         StaggeredDbRetryPolicyModule::class,
-        CommonPlatformModule::class
+        CommonPlatformModule::class,
     ]
 )
 @ComponentScan("com.mochame.node")
-class NodeProductionModule {
-
-    @Single
-    @NodeManagerMutex
-    fun provideNodeManagerMutex(): Mutex = Mutex()
-}
+class NodeProductionModule
 
 @Module(includes = [LoggerModule::class])
 class StaggeredDbRetryPolicyModule {
@@ -34,3 +27,17 @@ class StaggeredDbRetryPolicyModule {
     fun provideStaggeredDbPolicyModule(logger: Logger): ExecutionPolicy =
         StaggeredDbRetryPolicy(logger = logger)
 }
+
+/*
+    Having an issue with declaring the same type return based on Qualifier
+    usage between different modules. MochaAssemblyModule fails if this
+    loads after SyncConcurrencyModule, and passes that module. Or fails that
+    module and passes this module if this is listed as the first resolved
+    module. Not using this for now. If testing needs it, revisit.
+ */
+//@Module
+//class NodeConcurrencyModule {
+//    @Single
+//    @NodeManagerMutex
+//    fun provideNodeManagerMutex(): Mutex = Mutex()
+//}

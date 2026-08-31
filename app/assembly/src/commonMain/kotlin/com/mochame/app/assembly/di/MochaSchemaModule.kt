@@ -1,18 +1,18 @@
-package com.mochame.app.schema.di
+package com.mochame.app.assembly.di
 
 import androidx.room.RoomDatabase
 import androidx.sqlite.SQLiteDriver
-import com.mochame.bio.data.DailyContextDao
 import com.mochame.annotations.IoContext
+import com.mochame.app.schema.MochaMeDatabase
+import com.mochame.app.schema.MochaMeDatabaseConstructor
+import com.mochame.bio.data.DailyContextDao
 import com.mochame.node.data.NodeContextDao
-import com.mochame.platform.di.CommonPlatformModule
+import com.mochame.platform.di.PlatformContext
+import com.mochame.platform.di.PlatformProductionModule
 import com.mochame.platform.providers.DatabaseLocation
 import com.mochame.platform.providers.RoomImmediateTransProvider
 import com.mochame.platform.providers.platformBuilder
 import com.mochame.resonance.data.ResonanceDao
-import com.mochame.app.schema.MochaMeDatabase
-import com.mochame.app.schema.MochaMeDatabaseConstructor
-import com.mochame.platform.di.PlatformContext
 import com.mochame.sync.data.SyncIntentDao
 import com.mochame.sync.spi.infrastructure.TransactionProvider
 import com.mochame.telemetry.data.TelemetryDao
@@ -22,7 +22,7 @@ import org.koin.core.annotation.Single
 import kotlin.coroutines.CoroutineContext
 
 
-@Module(includes = [CommonPlatformModule::class])
+@Module(includes = [PlatformProductionModule::class])
 class MochaSchemaModule {
 
     @Single(binds = [MochaMeDatabase::class, RoomDatabase::class])

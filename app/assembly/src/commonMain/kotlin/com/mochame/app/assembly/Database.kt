@@ -5,6 +5,7 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
 import androidx.room.TypeConverters
+import com.mochame.app.assembly.MochaConverters
 import com.mochame.bio.data.DailyContextDao
 import com.mochame.bio.data.DailyContextEntity
 import com.mochame.node.data.NodeContextDao

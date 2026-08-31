@@ -8,12 +8,10 @@ import com.mochame.sync.api.boot.BootState
 import com.mochame.sync.api.boot.BootStatusProvider
 import com.mochame.sync.api.exceptions.MochaException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import org.koin.dsl.includes
@@ -49,10 +47,10 @@ class BootStatusManagerTest : MochaPlatformTest() {
 
     @Test
     fun should_updateStateCorrectly_when_passedState() = runEnv {
-        updateBootState(BootState.Initializing)
-        assertEquals(BootState.Initializing, bootState.value)
+        updateState(BootState.Init)
+        assertEquals(BootState.Init, bootState.value)
 
-        updateBootState(BootState.Ready)
+        updateState(BootState.Ready)
         assertEquals(BootState.Ready, bootState.value)
     }
 
@@ -61,7 +59,7 @@ class BootStatusManagerTest : MochaPlatformTest() {
         val errorException = MochaException.Transient.BootTimeout("Connection timed out")
         val failureState = BootState.TransientFailure("Network error", errorException)
 
-        updateBootState(failureState)
+        updateState(failureState)
 
         assertEquals(failureState, bootState.value)
         assertEquals(errorException, failureState.exception)
@@ -78,8 +76,8 @@ class BootStatusManagerTest : MochaPlatformTest() {
             testScope.runCurrent()
 
             // When - rapid, distinct updates
-            updateBootState(BootState.Initializing)
-            updateBootState(BootState.Ready)
+            updateState(BootState.Init)
+            updateState(BootState.Ready)
             testScope.runCurrent()
 
             // Then - the collector collected conflation of initialized and ready status
@@ -102,13 +100,13 @@ class BootStatusManagerTest : MochaPlatformTest() {
             }
 
             // When
-            updateBootState(BootState.Initializing)
-            updateBootState(BootState.Ready)
+            updateState(BootState.Init)
+            updateState(BootState.Ready)
 
             // Then
             val expectedStates = listOf(
                 BootState.Idle,
-                BootState.Initializing,
+                BootState.Init,
                 BootState.Ready
             )
             assertEquals(expectedStates, emittedStates)
@@ -117,11 +115,11 @@ class BootStatusManagerTest : MochaPlatformTest() {
     @Test
     fun awaitReady_whenBootTakesTime_suspendsNaturallyUntilWorkerEmitsReady() =
         runEnv { scope ->
-            updateBootState(BootState.Initializing)
+            updateState(BootState.Init)
 
             scope.launch {
                 delay(350.milliseconds)
-                updateBootState(BootState.Ready)
+                updateState(BootState.Ready)
             }
 
             var completed = false
@@ -150,7 +148,7 @@ class BootStatusManagerTest : MochaPlatformTest() {
         // Given
         val provider = this as BootStatusProvider
         // When
-        updateBootState(BootState.Ready)
+        updateState(BootState.Ready)
         // Then
         assertEquals(BootState.Ready, provider.bootState.value)
     }

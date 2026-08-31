@@ -1,4 +1,4 @@
-package com.mochame.ui.screens
+package com.mochame.app.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -17,13 +17,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.mochame.utils.interfaces.MochaTimeUtils
-import org.koin.compose.koinInject
 
 @Composable
 fun DashboardScreen(
     onNavigateToBio: (epochDay: Long) -> Unit,
     modifier: Modifier = Modifier,
-    timeProvider: MochaTimeUtils = koinInject()
+    timeProvider: MochaTimeUtils
 ) {
     val today = timeProvider.getMochaDay()
     val yesterday = today - 1
@@ -38,7 +37,7 @@ fun DashboardScreen(
             style = MaterialTheme.typography.headlineMedium
         )
         Text(
-            text = "Day: $today",
+            text = timeProvider.formatRelativeMochaDay(today),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

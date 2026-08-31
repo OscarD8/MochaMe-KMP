@@ -31,7 +31,7 @@ class DefaultBootStatusManager(
     private val _state = MutableStateFlow<BootState>(BootState.Idle)
     override val bootState: StateFlow<BootState> = _state.asStateFlow()
 
-    override fun updateBootState(newState: BootState) {
+    override fun updateState(newState: BootState) {
         _state.value = newState
     }
 
@@ -44,7 +44,7 @@ class DefaultBootStatusManager(
         try {
             withTimeout(timeout) {
                 val state =
-                    bootState.first { it !is BootState.Initializing && it !is BootState.Idle }
+                    bootState.first { it !is BootState.Init && it !is BootState.Idle }
 
                 if (state is BootState.CriticalFailure) {
                     throw state.exception

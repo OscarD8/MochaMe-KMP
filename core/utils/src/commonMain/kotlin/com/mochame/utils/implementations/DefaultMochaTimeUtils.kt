@@ -5,6 +5,11 @@ import com.mochame.utils.interfaces.TimeUtils
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atTime
+import kotlinx.datetime.format
+import kotlinx.datetime.format.DayOfWeekNames
+import kotlinx.datetime.format.MonthNames
+import kotlinx.datetime.format.Padding
+import kotlinx.datetime.format.char
 import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import org.koin.core.annotation.Single
@@ -33,10 +38,48 @@ open class DefaultMochaTimeUtils(
         timeZone: TimeZone
     ): Long {
         val targetMochaDay = getMochaDay() - duration.inWholeDays
-        val targetDate = LocalDate.fromEpochDays(targetMochaDay.toInt())
+        val targetDate = LocalDate.fromEpochDays(targetMochaDay)
         return targetDate.atTime(hour = 4, minute = 0)
             .toInstant(timeZone)
             .toEpochMilliseconds()
     }
+
+    override fun formatMochaDay(epochDay: Long): String {
+        val date = LocalDate.fromEpochDays(epochDay)
+        return date.format(MochaHeaderDateFormat)
+    }
+
+    override fun formatMochaDay(instant: Instant, timeZone: TimeZone): String {
+        val epochDay = calculateMochaEpochDay(instant, timeZone)
+        return formatMochaDay(epochDay)
+    }
+
+    override fun formatRelativeMochaDay(epochDay: Long): String {
+        val today = getMochaDay()
+        val date = LocalDate.fromEpochDays(epochDay)
+        val shortDate = date.format(MochaShortDateFormat)
+
+        return when (epochDay) {
+            today -> "Today • $shortDate"
+            today - 1L -> "Yesterday • $shortDate"
+            today + 1L -> "Tomorrow • $shortDate"
+            else -> formatMochaDay(epochDay)
+        }
+    }
 }
 
+private val MochaHeaderDateFormat = LocalDate.Format {
+    dayOfWeek(DayOfWeekNames.ENGLISH_ABBREVIATED)
+    chars(", ")
+    monthName(MonthNames.ENGLISH_ABBREVIATED)
+    char(' ')
+    day()
+    chars(", ")
+    year()
+}
+
+private val MochaShortDateFormat = LocalDate.Format {
+    monthName(MonthNames.ENGLISH_ABBREVIATED)
+    char(' ')
+    day()
+}

@@ -3,6 +3,8 @@ package com.mochame.sync.di
 import com.mochame.annotations.BlobMutex
 import com.mochame.annotations.CoordinatorMutex
 import com.mochame.annotations.JanitorMutex
+import com.mochame.logger.LoggerModule
+import com.mochame.utils.di.UtilsModule
 import kotlinx.coroutines.sync.Mutex
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Module
@@ -10,11 +12,15 @@ import org.koin.core.annotation.Single
 
 @Module(
     includes = [
+        LoggerModule::class,
+        UtilsModule::class,
+
+        SyncDataModule::class,
         SyncDomainModule::class,
         SyncConcurrencyModule::class,
         SyncInfraModule::class,
         SyncOrchestrationModule::class,
-        SyncStoresModule::class
+        SyncStoresModule::class,
     ]
 )
 class SyncProductionModule

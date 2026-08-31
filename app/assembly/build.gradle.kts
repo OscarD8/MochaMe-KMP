@@ -3,7 +3,7 @@ plugins {
 }
 
 kotlin {
-    android { namespace = "com.mochame.app.schema" }
+    android { namespace = "com.mochame.app.assembly" }
 
     sourceSets {
         commonMain.dependencies {
@@ -11,6 +11,9 @@ kotlin {
             implementation(project(":core:sync-api"))
             implementation(project(":node"))
             implementation(project(":sync-engine"))
+            implementation(project(":core:logger"))
+            implementation(project(":core:annotations"))
+            implementation(project(":core:utils"))
 
             implementation(project(":feature:bio"))
             implementation(project(":feature:telemetry"))

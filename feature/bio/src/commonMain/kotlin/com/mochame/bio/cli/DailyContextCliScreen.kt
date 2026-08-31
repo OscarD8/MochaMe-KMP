@@ -9,7 +9,7 @@ import com.mochame.utils.cli.ScreenResult
 import com.mochame.utils.interfaces.MochaTimeUtils
 import org.koin.core.annotation.Factory
 
-@Factory
+@Factory(binds = [DailyContextCliScreen::class, InteractiveScreen::class])
 class DailyContextCliScreen(
     private val repository: DailyContextRepository,
     private val saveUseCase: SaveDailyContextUseCase,
@@ -19,7 +19,7 @@ class DailyContextCliScreen(
     private var activeEpochDay: Long = timeProvider.getMochaDay()
 
     override val title: String
-        get() = "Daily Context (Epoch Day: $activeEpochDay)"
+        get() = "Daily Context (${timeProvider.formatRelativeMochaDay(activeEpochDay)})"
 
     override suspend fun renderAndHandleInput(): ScreenResult {
         val currentEntity = repository.getContext(activeEpochDay)

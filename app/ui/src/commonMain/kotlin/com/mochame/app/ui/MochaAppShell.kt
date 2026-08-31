@@ -6,17 +6,17 @@ import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
-import com.mochame.app.ui.navigation.AppNavSuiteItem
 import com.mochame.app.ui.navigation.Destination
-import com.mochame.app.ui.navigation.navigateToSuiteItem
+import com.mochame.app.ui.screens.DashboardScreen
 import com.mochame.bio.ui.DailyContextRoute
-import com.mochame.ui.screens.DashboardScreen
 import com.mochame.utils.interfaces.MochaTimeUtils
 import org.koin.compose.koinInject
 
@@ -31,20 +31,32 @@ fun MochaComposeAppShell(
 
     NavigationSuiteScaffold(
         navigationSuiteItems = {
-            AppNavSuiteItem.entries.forEach { item ->
                 item(
-                    selected = item.isSelected(currentDestination),
+                    selected = currentDestination?.hasRoute<Destination.Dashboard>() == true,
                     onClick = {
-                        val destination = when (item) {
-                            AppNavSuiteItem.Bio -> Destination.DailyContext(timeProvider.getMochaDay())
-                            else -> item.defaultDestination
+                        navController.navigate(Destination.Dashboard) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
                         }
-                        navController.navigateToSuiteItem(destination)
                     },
-                    icon = { Text(item.label.take(1)) },
-                    label = { Text(item.label) }
+                    icon = { Text("H") }
                 )
-            }
+
+                item(
+                    selected = currentDestination?.hasRoute<Destination.DailyContext>() == true,
+                    onClick = {
+                        val today = timeProvider.getMochaDay()
+                        navController.navigate(Destination.DailyContext(today)) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                        }
+                    },
+                    icon = { Text("D") }
+                )
         },
         modifier = modifier.fillMaxSize()
     ) {
@@ -57,7 +69,8 @@ fun MochaComposeAppShell(
                 DashboardScreen(
                     onNavigateToBio = { targetDay ->
                         navController.navigate(Destination.DailyContext(targetDay))
-                    }
+                    },
+                    timeProvider = timeProvider
                 )
             }
 
@@ -65,7 +78,7 @@ fun MochaComposeAppShell(
                 val route = backStackEntry.toRoute<Destination.DailyContext>()
                 val resolvedDay = route.epochDay ?: timeProvider.getMochaDay()
 
-                DailyContextRoute(epochDay = resolvedDay)
+                DailyContextRoute(epochDay = resolvedDay, timeUtils = timeProvider)
             }
         }
     }

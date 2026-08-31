@@ -34,8 +34,9 @@ class FakeSyncIntentStore(private val fakeClock: FakeTimeUtils) :
         set(value) = lock.withLock { _failWith = value }
         get() = lock.withLock { _failWith }
 
-    val claimedBatchCallCount: Int
+    var claimedBatchCallCount: Int
         get() = lock.withLock { _claimedBatchCallCount }
+        set(value) = lock.withLock { _claimedBatchCallCount = value }
 
     var onClaimHook: (suspend () -> Unit)?
         get() = lock.withLock { _onClaimHook }

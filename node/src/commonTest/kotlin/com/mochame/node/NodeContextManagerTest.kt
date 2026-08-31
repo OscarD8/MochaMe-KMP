@@ -18,6 +18,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.test.TestScope
 import org.koin.dsl.includes
 import org.koin.plugin.module.dsl.koinConfiguration
@@ -109,7 +110,7 @@ class NodeContextManagerTest : MochaPlatformTest() {
     fun should_initialize_single_id_when_async_polls_to_manager() =
         runEnv { scope ->
             val defaultManager =
-                DefaultNodeContextManager(dao, idGen, Dispatchers.IO, managerMutex, logger)
+                DefaultNodeContextManager(dao, idGen, Dispatchers.IO, Mutex(), logger)
             val threads = 8
             val readySignals = List(threads) { CompletableDeferred<Unit>() }
             val gate = CompletableDeferred<Unit>()

@@ -36,7 +36,7 @@ plugins {
 include(":app:entry:androidApp")
 include(":app:entry:linuxCliApp")
 include(":app:entry:jvmApp")
-include(":app:schema")
+include(":app:assembly")
 include(":app:ui")
 
 include(":core:annotations")
@@ -54,6 +54,7 @@ include(":core:test:fixtures-sync")
 
 include(":node")
 include(":sync-engine")
+include(":server")
 
 include("feature:bio")
 include("feature:bio:ui")

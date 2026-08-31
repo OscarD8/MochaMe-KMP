@@ -10,6 +10,7 @@ plugins {
     id("org.jetbrains.kotlin.multiplatform")
     id("com.android.kotlin.multiplatform.library")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("io.insert-koin.compiler.plugin")
     id("org.jetbrains.compose")
     id("org.jetbrains.compose.hot-reload")
 }
@@ -34,6 +35,8 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            implementation(project(":core:annotations"))
+
 //                implementation(libs.compose.material3.adaptive.layout)
 //                implementation(libs.compose.material3.adaptive.navigation)
             implementation(libs.getLibrary("compose-material3-adaptive-navigation-suite"))

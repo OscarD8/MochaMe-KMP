@@ -5,7 +5,6 @@ package com.mochame.node.di
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Logger
 import co.touchlab.kermit.TestLogWriter
-import com.mochame.annotations.NodeManagerMutex
 import com.mochame.logger.test.TestLoggerModule
 import com.mochame.node.data.NodeContextDao
 import com.mochame.node.data.NodeContextMicroSchema
@@ -14,7 +13,6 @@ import com.mochame.node.policies.TestStaggerConfig
 import com.mochame.support.TestSupportModule
 import com.mochame.sync.spi.node.IdGenerator
 import com.mochame.sync.spi.node.NodeContextManager
-import kotlinx.coroutines.sync.Mutex
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Factory
 import org.koin.core.annotation.KoinApplication
@@ -87,8 +85,8 @@ data class NodeContextIntTestEnv(
     val idGen: IdGenerator,
     val manager: NodeContextManager,
     val logger: Logger,
-    val writer: TestLogWriter,
-    @NodeManagerMutex val managerMutex: Mutex
+    val writer: TestLogWriter
+//    @NodeManagerMutex val managerMutex: Mutex
 )
 
 @Factory

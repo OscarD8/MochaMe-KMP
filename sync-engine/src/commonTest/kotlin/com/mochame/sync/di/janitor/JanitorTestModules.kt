@@ -17,7 +17,7 @@ import com.mochame.sync.domain.config.JanitorMaintenanceConfig
 import com.mochame.sync.fixtures.FakeSyncIntentStore
 import com.mochame.sync.infrastructure.stores.DefaultBlobStore
 import com.mochame.sync.internal.fixtures.SpyHlcFactory
-import com.mochame.sync.orchestration.SyncJanitor
+import com.mochame.sync.orchestration.DefaultSyncJanitor
 import com.mochame.utils.fixtures.FakeTimeUtils
 import com.mochame.utils.fixtures.di.FakeTimeProviderModule
 import kotlinx.coroutines.sync.Mutex
@@ -57,7 +57,7 @@ internal class SyncJanitorTestModule {
 @Factory
 @ExperimentalKermitApi
 internal data class JanitorTestEnv(
-    val janitor: SyncJanitor,
+    val janitor: DefaultSyncJanitor,
     val config: JanitorMaintenanceConfig,
     val writer: TestLogWriter,
     val fakeClock: FakeTimeUtils,

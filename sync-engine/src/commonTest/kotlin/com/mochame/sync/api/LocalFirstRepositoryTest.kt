@@ -63,7 +63,7 @@ class LocalFirstRepositoryTest : MochaPlatformTest() {
     fun awaitReady_onCriticalFailureWithException_unwrapsAndThrowsException() =
         runEnv {
             val rootCause = IllegalStateException("Corrupt local database")
-            bootProvider.updateBootState(
+            bootProvider.updateState(
                 BootState.CriticalFailure(
                     message = "DB_CORRUPT",
                     exception = rootCause
@@ -80,7 +80,7 @@ class LocalFirstRepositoryTest : MochaPlatformTest() {
     @Test
     fun awaitReady_whenInitializingOrIdle_suspendsUntilTransitionToActive() = runEnv {
         hlcFactory.hydrate(null, TestNodeId.A)
-        bootProvider.updateBootState(BootState.Initializing)
+        bootProvider.updateState(BootState.Init)
         repo.seed(FeatureEntity(id = 1L))
 
         var completed = false
@@ -93,11 +93,11 @@ class LocalFirstRepositoryTest : MochaPlatformTest() {
         assertEquals(false, completed)
         assertEquals(false, deferred.isCompleted)
 
-        bootProvider.updateBootState(BootState.Idle)
+        bootProvider.updateState(BootState.Idle)
         it.runCurrent()
         assertEquals(false, completed)
 
-        bootProvider.updateBootState(BootState.Ready)
+        bootProvider.updateState(BootState.Ready)
         it.runCurrent()
 
         assertTrue(completed)
@@ -106,7 +106,7 @@ class LocalFirstRepositoryTest : MochaPlatformTest() {
 
     @Test
     fun awaitReady_whenRemainingInitializing_timesOutAndThrows() = runEnv {
-        bootProvider.updateBootState(BootState.Initializing)
+        bootProvider.updateState(BootState.Init)
 
         val error = assertFailsWith<MochaException.Persistent.BootInitializationError> {
             repo.delete(1L)

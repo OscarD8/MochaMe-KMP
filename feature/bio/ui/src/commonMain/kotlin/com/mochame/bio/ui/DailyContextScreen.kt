@@ -23,6 +23,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
@@ -31,12 +32,14 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.mochame.utils.interfaces.MochaTimeUtils
 import org.koin.compose.viewmodel.koinViewModel
 import org.koin.core.parameter.parametersOf
 
 @Composable
 fun DailyContextRoute(
     epochDay: Long,
+    timeUtils: MochaTimeUtils,
     modifier: Modifier = Modifier
 ) {
     val viewModel: DailyContextViewModel = koinViewModel(
@@ -48,6 +51,7 @@ fun DailyContextRoute(
     DailyContextScreen(
         state = state,
         onIntent = viewModel::dispatch,
+        timeUtils = timeUtils,
         modifier = modifier
     )
 }
@@ -56,6 +60,7 @@ fun DailyContextRoute(
 fun DailyContextScreen(
     state: DailyContextUiState,
     onIntent: (DailyContextIntent) -> Unit,
+    timeUtils: MochaTimeUtils,
     modifier: Modifier = Modifier
 ) {
     if (state.isLoading) {
@@ -73,6 +78,9 @@ fun DailyContextScreen(
 
     val focusManager = LocalFocusManager.current
     val scrollState = rememberScrollState()
+    val readableDate = remember(state.epochDay) {
+        timeUtils.formatRelativeMochaDay(state.epochDay)
+    }
 
     BoxWithConstraints(
         modifier = modifier
@@ -88,14 +96,13 @@ fun DailyContextScreen(
                 .padding(24.dp)
         ) {
             Text(
-                text = "Daily Context: Day ${state.epochDay}",
+                text = readableDate,
                 style = MaterialTheme.typography.headlineMedium
             )
 
             Spacer(modifier = Modifier.height(24.dp))
 
             if (isWideLayout) {
-                // Two-Column Grid for Desktop JVM / Tablets
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(24.dp)
@@ -118,7 +125,6 @@ fun DailyContextScreen(
                     }
                 }
             } else {
-                // Single Column for Mobile
                 SleepInputField(
                     value = state.sleepHoursInput,
                     onIntent = onIntent,

@@ -1,4 +1,4 @@
-package com.mochame.node
+package com.mochame.node.managers
 
 import com.mochame.sync.spi.node.IdGenerator
 import org.koin.core.annotation.Single
@@ -8,5 +8,3 @@ import kotlin.uuid.Uuid
 class DefaultIdGenerator : IdGenerator {
     override fun nextId(): String = Uuid.random().toString()
 }
-
-

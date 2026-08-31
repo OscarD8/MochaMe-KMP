@@ -1,13 +1,13 @@
 package com.mochame.app.entry.linux
 
-import com.mochame.bio.cli.DailyContextCliScreen
+import com.mochame.bio.cli.DailyContextCliScreenFactory
 import com.mochame.utils.cli.InteractiveScreen
 import com.mochame.utils.cli.ScreenResult
 import org.koin.core.annotation.Single
 
 @Single
 class MainMenuCliScreen(
-    private val bioScreen: DailyContextCliScreen
+    private val dailyContextScreenFactory: DailyContextCliScreenFactory
 ) : InteractiveScreen {
 
     override val title: String = "Main Context Selector"
@@ -19,7 +19,7 @@ class MainMenuCliScreen(
         print("\nSelect Option > ")
 
         return when (readlnOrNull()?.trim()?.lowercase()) {
-            "1" -> ScreenResult.NavigateTo(bioScreen)
+            "1" -> ScreenResult.NavigateTo(dailyContextScreenFactory.create())
             "q", "quit", "exit" -> ScreenResult.ExitApp
             else -> {
                 println("[ERROR] Invalid choice.")

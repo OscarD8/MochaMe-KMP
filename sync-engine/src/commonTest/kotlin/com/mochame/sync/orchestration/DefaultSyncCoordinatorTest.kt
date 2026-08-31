@@ -20,7 +20,6 @@ import com.mochame.sync.internal.fixtures.ReceivedIntent
 import com.mochame.sync.internal.fixtures.createTestSyncIntent
 import com.mochame.utils.fixtures.TestHlcFactory
 import com.mochame.utils.fixtures.TestNodeId
-import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -35,7 +34,6 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runCurrent
-import kotlinx.coroutines.yield
 import org.koin.core.qualifier.named
 import org.koin.dsl.includes
 import org.koin.dsl.module
@@ -56,7 +54,7 @@ private inline fun runEnv(crossinline block: suspend SyncCoordinatorTestEnv.(Tes
     )
 
 @ExperimentalCoroutinesApi
-class SyncCoordinatorTest : MochaPlatformTest() {
+class DefaultSyncCoordinatorTest : MochaPlatformTest() {
 
     // -------------------------------------------------------------------------
     // Boot Readiness
@@ -64,7 +62,7 @@ class SyncCoordinatorTest : MochaPlatformTest() {
 
     @Test
     fun should_abortInboundProcessing_when_bootReadinessFails() = runEnv {
-        bootManager.updateBootState(
+        bootManager.updateState(
             BootState.CriticalFailure(
                 "Critical boot failure",
                 IllegalStateException("Node boot corrupted")
@@ -81,7 +79,7 @@ class SyncCoordinatorTest : MochaPlatformTest() {
 
     @Test
     fun should_abortInboundProcessingAndKeepScopeAlive_when_payloadDecodingFails() = runEnv {
-        bootManager.updateBootState(BootState.Ready)
+        bootManager.updateState(BootState.Ready)
         codec.decodeError = IllegalStateException("Malformed protobuf payload")
 
         coordinator.onInboundBytes(ByteArray(0))
@@ -93,7 +91,7 @@ class SyncCoordinatorTest : MochaPlatformTest() {
 
     @Test
     fun should_earlyExitCleanly_when_decodedBatchIsEmpty() = runEnv {
-        bootManager.updateBootState(BootState.Ready)
+        bootManager.updateState(BootState.Ready)
         coordinator.onInboundBytes(ByteArray(0))
 
         assertEquals(1, codec.decodeCallCount)
@@ -104,7 +102,7 @@ class SyncCoordinatorTest : MochaPlatformTest() {
 
     @Test
     fun should_abortOutboundPipeline_when_bootReadinessFails() = runEnv { scope ->
-        bootManager.updateBootState(
+        bootManager.updateState(
             BootState.CriticalFailure(
                 "Critical boot failure",
                 IllegalStateException("Node boot corrupted")
@@ -127,7 +125,7 @@ class SyncCoordinatorTest : MochaPlatformTest() {
 
     @Test
     fun should_routeIntentsToCorrectReceivers_and_deriveExactDecodeContext() = runEnv {
-        bootManager.updateBootState(BootState.Ready)
+        bootManager.updateState(BootState.Ready)
 
         val hlcA = TestHlcFactory.create(ts = 1000L, count = 0)
         val hlcB = TestHlcFactory.create(ts = 1000L, count = 1)
@@ -171,7 +169,7 @@ class SyncCoordinatorTest : MochaPlatformTest() {
 
     @Test
     fun should_isolateFailingReceiver_and_allowSubsequentIntentsToSucceed() = runEnv {
-        bootManager.updateBootState(BootState.Ready)
+        bootManager.updateState(BootState.Ready)
 
         val hlcA = TestHlcFactory.create(ts = 1000L, count = 0)
         val hlcB = TestHlcFactory.create(ts = 2000L, count = 0)
@@ -202,7 +200,7 @@ class SyncCoordinatorTest : MochaPlatformTest() {
 
     @Test
     fun should_isolateUnregisteredFeatureContext_withoutPoisoningBatch() = runEnv {
-        bootManager.updateBootState(BootState.Ready)
+        bootManager.updateState(BootState.Ready)
 
         val hlcB = TestHlcFactory.create(ts = 5000L, count = 0)
 
@@ -228,7 +226,7 @@ class SyncCoordinatorTest : MochaPlatformTest() {
 
     @Test
     fun should_retryAndRecover_when_transactorThrowsDatabaseBusy() = runEnv { scope ->
-        bootManager.updateBootState(BootState.Ready)
+        bootManager.updateState(BootState.Ready)
 
         val hlc = TestHlcFactory.create(ts = 1000L)
         val intent = createTestSyncIntent(
@@ -252,7 +250,7 @@ class SyncCoordinatorTest : MochaPlatformTest() {
     @Test
     fun should_processConcurrentInboundCalls_and_advanceAllHlcFloorsWithoutLoss() =
         runEnv { scope ->
-            bootManager.updateBootState(BootState.Ready)
+            bootManager.updateState(BootState.Ready)
             hlcFactory.hydrate(null, TestNodeId.A)
 
             val hlc1 = TestHlcFactory.createWithOffset(1.seconds)
@@ -309,7 +307,7 @@ class SyncCoordinatorTest : MochaPlatformTest() {
 
     @Test
     fun should_rejectIntent_when_bothPayloadAndOverflowBlobIdAreNull() = runEnv {
-        bootManager.updateBootState(BootState.Ready)
+        bootManager.updateState(BootState.Ready)
 
         val invalidIntent = createTestSyncIntent(
             candidateKey = 301L,
@@ -328,7 +326,7 @@ class SyncCoordinatorTest : MochaPlatformTest() {
 
     @Test
     fun should_rejectIntent_when_bothPayloadAndOverflowBlobIdArePresent() = runEnv {
-        bootManager.updateBootState(BootState.Ready)
+        bootManager.updateState(BootState.Ready)
 
         val invalidIntent = createTestSyncIntent(
             candidateKey = 302L,
@@ -347,7 +345,7 @@ class SyncCoordinatorTest : MochaPlatformTest() {
 
     @Test
     fun should_stageInStore_and_dispatchToReceiver_when_intentIsLegitimateOverflow() = runEnv {
-        bootManager.updateBootState(BootState.Ready)
+        bootManager.updateState(BootState.Ready)
 
         val overflowIntent = createTestSyncIntent(
             candidateKey = 303L,
@@ -372,7 +370,7 @@ class SyncCoordinatorTest : MochaPlatformTest() {
 
     @Test
     fun should_advanceHlcFloorToMaxSuccessfulTimestamp_when_orderIsInterleaved() = runEnv {
-        bootManager.updateBootState(BootState.Ready)
+        bootManager.updateState(BootState.Ready)
 
         val hlc1 = TestHlcFactory.create(ts = 1000L, count = 0)
         val hlc2Failing = TestHlcFactory.create(ts = 5000L, count = 0)
@@ -407,7 +405,7 @@ class SyncCoordinatorTest : MochaPlatformTest() {
 
     @Test
     fun should_notAdvanceHlcFloor_when_allIntentsInBatchFail() = runEnv {
-        bootManager.updateBootState(BootState.Ready)
+        bootManager.updateState(BootState.Ready)
 
         val hlcA = TestHlcFactory.create(ts = 1000L, count = 0)
         val invalidIntent = createTestSyncIntent(
@@ -431,7 +429,7 @@ class SyncCoordinatorTest : MochaPlatformTest() {
 
     @Test
     fun should_exitCleanly_withoutEncoding_when_claimBatchReturnsZeroRows() = runEnv { scope ->
-        bootManager.updateBootState(BootState.Ready)
+        bootManager.updateState(BootState.Ready)
 
         val outboundJob = coordinator.startOutbound()
         scope.runCurrent()
@@ -439,7 +437,7 @@ class SyncCoordinatorTest : MochaPlatformTest() {
         workerHook.invalidate()
         scope.runCurrent()
 
-        assertEquals(1, intentStore.claimedBatchCallCount)
+        assertEquals(2, intentStore.claimedBatchCallCount, "Boot flush & invalidation")
         assertEquals(0, codec.encodeCallCount)
 
         outboundJob.cancel()
@@ -447,7 +445,7 @@ class SyncCoordinatorTest : MochaPlatformTest() {
 
     @Test
     fun should_processAllAvailableBatches_until_queueIsEmpty() = runEnv {
-        bootManager.updateBootState(BootState.Ready)
+        bootManager.updateState(BootState.Ready)
         val hlc1 = TestHlcFactory.create(ts = 100)
         val hlc2 = TestHlcFactory.create(ts = 200)
 
@@ -470,7 +468,7 @@ class SyncCoordinatorTest : MochaPlatformTest() {
     @Test
     fun should_coalesceInvalidationBurst_and_processNewlyAddedIntentsInSameSweep() =
         runEnv { scope ->
-            bootManager.updateBootState(BootState.Ready)
+            bootManager.updateState(BootState.Ready)
 
             val outboundJob = coordinator.startOutbound()
             scope.runCurrent()
@@ -537,10 +535,12 @@ class SyncCoordinatorTest : MochaPlatformTest() {
     @Test
     fun should_isolateDownstreamException_and_preserveStreamLifecycleForSubsequentInvalidations() =
         runEnv { scope ->
-            bootManager.updateBootState(BootState.Ready)
+            bootManager.updateState(BootState.Ready)
 
             val outboundJob = coordinator.startOutbound()
             scope.runCurrent()
+            assertEquals(1, intentStore.claimedBatchCallCount)
+            intentStore.claimedBatchCallCount = 0
             assertTrue(outboundJob.isActive, "Outbound pipeline collector must be active")
 
             // Given a failed intent
@@ -586,7 +586,7 @@ class SyncCoordinatorTest : MochaPlatformTest() {
     @Test
     fun should_isolateCodecSerializationError_and_drainPendingQueueOnNextSignal() =
         runEnv { scope ->
-            bootManager.updateBootState(BootState.Ready)
+            bootManager.updateState(BootState.Ready)
 
             val outboundJob = coordinator.startOutbound()
             scope.runCurrent()
@@ -636,11 +636,12 @@ class SyncCoordinatorTest : MochaPlatformTest() {
 
     @Test
     fun should_abortInFlightBatchCleanly_when_jobCancelledDuringExecution() = runEnv { scope ->
-        bootManager.updateBootState(BootState.Ready)
+        bootManager.updateState(BootState.Ready)
 
         // Given Coordinator is suspended on outbound pipeline
         val outboundJob = coordinator.startOutbound()
         scope.runCurrent()
+        intentStore.claimedBatchCallCount = 0
 
         val intent = createTestSyncIntent(candidateKey = 20L)
         intentStore.seedIntents(intent)
@@ -670,11 +671,13 @@ class SyncCoordinatorTest : MochaPlatformTest() {
 
     @Test
     fun should_stopCollectingSignals_immediatelyAfterJobCancellation() = runEnv { scope ->
-        bootManager.updateBootState(BootState.Ready)
+        bootManager.updateState(BootState.Ready)
 
-        // Given canceled job
+        // Given canceled job after boot process
         val outboundJob = coordinator.startOutbound()
         scope.runCurrent()
+        assertEquals(1, intentStore.claimedBatchCallCount)
+        intentStore.claimedBatchCallCount = 0
 
         outboundJob.cancel()
         scope.runCurrent()
@@ -715,7 +718,7 @@ class SyncCoordinatorTest : MochaPlatformTest() {
                 )
             }
         ) { scope ->
-            bootManager.updateBootState(BootState.Ready)
+            bootManager.updateState(BootState.Ready)
             hlcFactory.hydrate(null, TestNodeId.A)
             intentStore.failWith = MochaException.Transient.DatabaseBusy("Database busy")
             val outboundJob = coordinator.startOutbound()
@@ -798,7 +801,8 @@ class SyncCoordinatorTest : MochaPlatformTest() {
             assertIntentsProperlyBatched(expectedKeys = expectedOutboundKeys)
 
             // Then: Side-Effects
-            val expectedMaxHlc = TestHlcFactory.createWithOffset((outboundWorkers * operationsPerWorker).seconds)
+            val expectedMaxHlc =
+                TestHlcFactory.createWithOffset((outboundWorkers * operationsPerWorker).seconds)
             assertEquals(expectedMaxHlc, hlcFactory.getCurrentHlc())
             assertEquals(9, intentStore.intents.size)
             assertEquals(9, workerHook.invalidationCount)
