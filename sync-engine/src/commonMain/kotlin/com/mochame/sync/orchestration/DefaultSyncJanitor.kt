@@ -224,10 +224,7 @@ internal class DefaultSyncJanitor(
                     )
                     logger.w { "Quarantined Intent [HLC: ${intent.hlc}] [Key: ${intent.candidateKey}]" }
                 } else {
-                    intentStore.resetLease(
-                        hlc = intent.hlc,
-                        retryCount = newRetryCount
-                    )
+                    intentStore.resetLease(hlc = intent.hlc)
                     logger.i { "Reset Intent [HLC: ${intent.hlc}] [Key: ${intent.candidateKey}] [Retries: ${intent.retryCount}]" }
                 }
             }

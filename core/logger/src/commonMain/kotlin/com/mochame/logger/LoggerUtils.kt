@@ -22,6 +22,7 @@ object LogTags {
     }
 
     object Layer {
+        const val TRANSPORT = "Trans"
         const val UI = "UI.."
         const val REPO = "Repo"
         const val DOMAIN = "Domn"

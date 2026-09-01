@@ -459,10 +459,10 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         // Iteration 2: Queue empty, claims 0 rows, breaks while-loop
         val encodedBatch = codec.encodedInvocations.first()
         assertEquals(1, codec.encodeCallCount)
-        assertEquals(2, encodedBatch.size)
+        assertEquals(2, encodedBatch.size, "batch size")
         assertEquals(SyncStatus.SYNCING, encodedBatch.first().syncStatus)
         assertEquals(SyncStatus.SYNCING, encodedBatch.last().syncStatus)
-        assertEquals(2, intentStore.claimedBatchCallCount)
+        assertEquals(2, intentStore.claimedBatchCallCount, "batch call count")
     }
 
     @Test

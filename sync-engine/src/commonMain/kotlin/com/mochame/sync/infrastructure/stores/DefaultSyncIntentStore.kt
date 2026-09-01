@@ -69,8 +69,12 @@ internal class DefaultSyncIntentStore(
     override suspend fun clearAllLocksAndResetToPending(): Int =
         dao.clearAllLocksAndResetToPending()
 
-    override suspend fun resetLease(hlc: HLC, retryCount: Int) =
-        dao.resetLease(hlc.toString(), retryCount)
+    override suspend fun resetLease(hlc: HLC) =
+        dao.resetLease(hlc.toString())
+
+    override suspend fun releaseBatch(batchId: String) = dao.resetLease(
+        syncId = batchId,
+    )
 
     override suspend fun pruneOldSynced(pruneAfter: Long, limit: Int) =
         dao.pruneOldSynced(

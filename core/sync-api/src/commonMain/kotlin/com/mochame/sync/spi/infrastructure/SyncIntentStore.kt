@@ -15,4 +15,5 @@ interface SyncIntentStore {
 
     suspend fun acknowledgeSuccess(hlcList: List<HLC>)
     suspend fun stampLastError(hlcs: List<HLC>, message: String)
+    suspend fun releaseBatch(batchId: String)
 }

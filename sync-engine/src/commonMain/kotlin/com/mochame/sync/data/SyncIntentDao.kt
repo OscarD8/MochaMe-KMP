@@ -185,13 +185,12 @@ interface SyncIntentDao {
     @Query(
         """
         UPDATE SyncIntentEntity
-        SET retryCount = :retryCount, syncStatus = :resetStatus, syncId = NULL, leasedAt = null
-        WHERE hlc = :hlc
+        SET retryCount = retryCount + 1, syncStatus = :resetStatus, syncId = NULL, leasedAt = null
+        WHERE syncId = :syncId
     """
     )
     suspend fun resetLease(
-        hlc: String,
-        retryCount: Int,
+        syncId: String,
         resetStatus: SyncStatus = SyncStatus.PENDING
     )
 

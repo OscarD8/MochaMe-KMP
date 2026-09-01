@@ -384,25 +384,17 @@ class SyncIntentDaoTest : MochaPlatformTest() {
         assertEquals(0, initialClaim)
 
         // When
-        // Business logic telling the DAO to reset the lease and bump retries to 1
-        resetLease(hlc = hlc.toString(), retryCount = 1)
+        resetLease("active-session-123")
 
         // Then
-        // Rows should be claimable by a new batch
         val rowsClaimed = claimBatch(id = "verification-session", limit = 1)
         val updatedEntities = getClaimedBatch(id = "verification-session")
 
         assertEquals(1, rowsClaimed)
         val verifiedRecord = updatedEntities.first()
         assertEquals(1, verifiedRecord.retryCount)
-        assertEquals(
-            SyncStatus.SYNCING,
-            verifiedRecord.syncStatus
-        ) // Flipped back to syncing via the new claim
-        assertEquals(
-            "verification-session",
-            verifiedRecord.syncId
-        )   // Carries the new owner ID
+        assertEquals(SyncStatus.SYNCING, verifiedRecord.syncStatus)
+        assertEquals("verification-session", verifiedRecord.syncId)
     }
 
     @Test

@@ -15,6 +15,7 @@ kotlin {
             implementation(libs.kotlinx.io.core)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.sqlite.bundled)
+            implementation(libs.bundles.ktor.common)
         }
 
         commonTest.dependencies {

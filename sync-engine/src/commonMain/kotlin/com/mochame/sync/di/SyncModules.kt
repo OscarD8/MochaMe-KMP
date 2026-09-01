@@ -4,6 +4,7 @@ import com.mochame.annotations.BlobMutex
 import com.mochame.annotations.CoordinatorMutex
 import com.mochame.annotations.JanitorMutex
 import com.mochame.logger.LoggerModule
+import com.mochame.sync.domain.model.SyncConfig
 import com.mochame.utils.di.UtilsModule
 import kotlinx.coroutines.sync.Mutex
 import org.koin.core.annotation.ComponentScan
@@ -21,6 +22,7 @@ import org.koin.core.annotation.Single
         SyncInfraModule::class,
         SyncOrchestrationModule::class,
         SyncStoresModule::class,
+        SyncConfigModule::class
     ]
 )
 class SyncProductionModule
@@ -40,6 +42,12 @@ class SyncStoresModule
 @Module
 @ComponentScan("com.mochame.sync.domain")
 class SyncDomainModule
+
+@Module
+class SyncConfigModule {
+    @Single
+    fun provideSyncConfig(): SyncConfig = SyncConfig()
+}
 
 @Module
 @ComponentScan("com.mochame.sync.orchestration")

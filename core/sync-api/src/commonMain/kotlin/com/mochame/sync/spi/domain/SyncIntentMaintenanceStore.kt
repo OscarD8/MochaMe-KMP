@@ -16,6 +16,6 @@ interface SyncIntentMaintenanceStore {
      * Sets status to pending, applying the retry attempts whilst nullifying the syncId,
      * freeing the entity for a new batch, applied by the [com.mochame.sync.orchestration.SyncCoordinator].
      */
-    suspend fun resetLease(hlc: HLC, retryCount: Int)
+    suspend fun resetLease(hlc: HLC)
     suspend fun observeQuarantinedCountByModule(): Flow<List<QuarantinedFeatureSummary>>
 }

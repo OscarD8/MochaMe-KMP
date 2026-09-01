@@ -176,16 +176,26 @@ class FakeSyncIntentStore(private val fakeClock: FakeTimeUtils) :
         return alteredCount
     }
 
-    override suspend fun resetLease(hlc: HLC, retryCount: Int) {
+    override suspend fun resetLease(hlc: HLC) {
         lock.withLock {
             _intents[hlc]?.let { intent ->
                 _intents[hlc] = intent.copy(
-                    retryCount = retryCount,
+                    retryCount = intent.retryCount + 1,
                     syncStatus = SyncStatus.PENDING,
                     syncId = null,
                     leasedAt = null
                 )
             }
+        }
+    }
+    // Sort this
+    override suspend fun releaseBatch(batchId: String) = lock.withLock {
+        _intents.values.filter { it.syncId == batchId }.forEach { intent ->
+            _intents[intent.hlc] = intent.copy(
+                syncId = null,
+                syncStatus = SyncStatus.PENDING,
+                leasedAt = null
+            )
         }
     }
 

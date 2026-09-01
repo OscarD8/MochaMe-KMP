@@ -20,6 +20,7 @@ import com.mochame.sync.spi.infrastructure.serialization.PayloadCodec
 import com.mochame.sync.spi.infrastructure.SyncIntentStore
 import com.mochame.sync.spi.infrastructure.SyncReceiver
 import com.mochame.sync.spi.infrastructure.SyncWorkerHook
+import com.mochame.sync.spi.network.SyncTransport
 import com.mochame.sync.spi.node.NodeContextManager
 import com.mochame.sync.spi.orchestration.SyncCoordinator
 import com.mochame.sync.spi.policy.ExecutionPolicy
@@ -36,6 +37,7 @@ import kotlin.time.TimeSource
 internal class DefaultSyncCoordinator(
     private val intentStore: SyncIntentStore,
     private val transactor: TransactionProvider,
+    private val syncTransport: SyncTransport,
     private val payloadCodec: PayloadCodec,
     private val idGenerator: IdGenerator,
     private val executor: ExecutionPolicy,
@@ -116,23 +118,20 @@ internal class DefaultSyncCoordinator(
                 try {
                     val payload = payloadCodec.encode(batch)
 
-//                            val response = networkApi.push(payload)
-//                            val accepted = response.results.filter { it.accepted }.map { it.hlc }
-//                            val rejected = response.results.filter { !it.accepted }
+                    val sent = syncTransport.send(payload)
 
-//                            intentStore.acknowledgeSuccess(accepted.map { it.hlc })
-//
-//                            rejected.forEach { result ->
-//                                intentStore.stampLastError(
-//                                    hlcs = listOf(result.hlc),
-//                                    message = result.errorMessage ?: "Server rejected intent"
-//                                )
-//                            }
-//                              is this where the outbound flow suspends and waits to get some kind of server
-//                              ack, and then calls node manager to recognizeResponse? Or separate method the server pings?
-
+                    if (!sent) {
+                        logger.w { "Outbound: Failed to send batch with HLC ${batch.map { it.hlc }}" }
+                    } else {
+                        logger.i { "Outbound: Sent batch with HLC ${batch.map { it.hlc }}" }
+                        intentStore.acknowledgeSuccess(batch.map { it.hlc })
+                    }
                 } catch (e: Exception) {
                     logger.w(e) { "Transmission failed for session: $batchId. ${e.message}" }
+                    transactor.runImmediateTransaction {
+                        intentStore.releaseBatch(batchId)
+                        // Or: intentStore.markAsPending(batch.map { it.hlc })
+                    }
 
                     break // Break loop; Janitor repairs stranded lease rows later.
                     // This is currently where all failed encoding/network attempts propagate, and then get silenced.
@@ -142,6 +141,8 @@ internal class DefaultSyncCoordinator(
     }
 
     override suspend fun onInboundBytes(inbound: ByteArray) {
+        logger.v { "Inbound: Received batch with ${inbound.size}B..." }
+
         try {
             bootManager.awaitReady()
         } catch (e: Exception) {
@@ -232,3 +233,22 @@ internal class DefaultSyncCoordinator(
     }
 
 }
+
+/*
+    Consider:
+//       val response = networkApi.push(payload)
+//       val accepted = response.results.filter { it.accepted }.map { it.hlc }
+//       val rejected = response.results.filter { !it.accepted }
+
+//       intentStore.acknowledgeSuccess(accepted.map { it.hlc })
+//
+//       rejected.forEach { result ->
+//           intentStore.stampLastError(
+//               hlcs = listOf(result.hlc),
+//               message = result.errorMessage ?: "Server rejected intent"
+//           )
+//       }
+//         is this where the outbound flow suspends and waits to get some kind of server
+//         ack, and then calls node manager to recognizeResponse? Or separate method the server pings?
+
+ */
