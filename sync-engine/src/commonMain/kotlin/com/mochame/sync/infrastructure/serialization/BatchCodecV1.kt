@@ -77,7 +77,7 @@ internal class BatchCodecV1(
         val totalEnvelopes = batchPayload.envelopes.size
         logger.v {
             "Decoding batch payload: ${bytes.size}B container, " +
-                    "$totalEnvelopes envelopes, intentSchemaVersion=v${batchPayload.intentSchemaVersion}"
+                    "$totalEnvelopes envelopes, intentSchemaVersion=v${batchPayload.intentSchemaVersion}..."
         }
 
         val decodedIntents = ArrayList<SyncIntent>(totalEnvelopes)

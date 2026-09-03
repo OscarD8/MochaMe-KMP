@@ -7,10 +7,7 @@ import org.gradle.api.artifacts.VersionCatalog
 /**
  * Lifecycle-safe testing environment provider using lazy providers.
  */
-fun KotlinMultiplatformExtension.configureTestTargets(
-    project: Project,
-    libs: VersionCatalog
-) {
+fun KotlinMultiplatformExtension.configureTestTargets(libs: VersionCatalog) {
     sourceSets.apply {
         val commonTestProvider = named("commonTest")
 
@@ -23,7 +20,7 @@ fun KotlinMultiplatformExtension.configureTestTargets(
                 implementation(libs.getLibrary("koin-test"))
                 implementation(libs.getLibrary("kermit-test"))
 
-                implementation(project.project(":core:test:support"))
+                implementation(project(":core:test:support"))
             }
         }
 

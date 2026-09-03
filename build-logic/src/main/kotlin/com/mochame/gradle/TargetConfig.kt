@@ -53,7 +53,7 @@ fun KotlinMultiplatformExtension.configureTargets(
     }
 
     if (includeTestBuilders) {
-        configureTestTargets(project, libs)
+        configureTestTargets(libs)
     }
 
     compilerOptions {

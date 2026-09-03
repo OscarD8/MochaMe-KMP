@@ -91,7 +91,7 @@ abstract class BaseFeatureCodec<T : LocalFirstEntity<T>, D : LocalFirstDelta>(
         context: DecodeContext,
         existing: T?
     ): T {
-        logger.v { "Decoding $deltaName [${bytes.size}B] key=${context.candidateKey} hlc=${context.hlc}" }
+        logger.v { "Decoding $deltaName [${bytes.size}B] key=${context.candidateKey} hlc=${context.hlc}..." }
 
         val delta = try {
             ProtoBuf.decodeFromByteArray(deltaSerializer, bytes)
