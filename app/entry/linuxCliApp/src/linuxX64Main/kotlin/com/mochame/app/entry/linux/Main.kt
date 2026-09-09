@@ -1,6 +1,6 @@
 package com.mochame.app.entry.linux
 
-import com.mochame.utils.cli.CliScreenNavigator
+import com.mochame.utils.ui.CliScreenNavigator
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.runBlocking
 import org.koin.core.context.stopKoin

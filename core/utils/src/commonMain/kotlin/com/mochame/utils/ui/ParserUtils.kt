@@ -1,4 +1,4 @@
-package com.mochame.utils.cli
+package com.mochame.utils.ui
 
 object InputSanitizer {
     private val MULTI_SPACE_REGEX = Regex("\\s+")

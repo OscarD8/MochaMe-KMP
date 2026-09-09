@@ -4,8 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mochame.bio.domain.DailyContextRepository
 import com.mochame.bio.domain.SaveDailyContextUseCase
-import com.mochame.utils.cli.PrimitiveParsers
-import com.mochame.utils.cli.Update
+import com.mochame.utils.ui.PrimitiveParsers
+import com.mochame.utils.ui.Update
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow

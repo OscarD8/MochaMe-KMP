@@ -1,4 +1,4 @@
-package com.mochame.utils.cli
+package com.mochame.utils.ui
 
 
 sealed interface ScreenResult {

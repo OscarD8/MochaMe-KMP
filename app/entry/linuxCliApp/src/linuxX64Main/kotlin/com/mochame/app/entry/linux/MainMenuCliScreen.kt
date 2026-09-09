@@ -1,8 +1,8 @@
 package com.mochame.app.entry.linux
 
 import com.mochame.bio.cli.DailyContextCliScreenFactory
-import com.mochame.utils.cli.InteractiveScreen
-import com.mochame.utils.cli.ScreenResult
+import com.mochame.utils.ui.InteractiveScreen
+import com.mochame.utils.ui.ScreenResult
 import org.koin.core.annotation.Single
 
 @Single

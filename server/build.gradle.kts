@@ -10,6 +10,7 @@ dependencies {
     implementation(project(":core:logger"))
 
     implementation(libs.bundles.ktor.server)
+    implementation(libs.sqlite.jdbc)
     implementation(libs.koin.annotations)
     implementation(libs.kotlinx.coroutines.core)
 }

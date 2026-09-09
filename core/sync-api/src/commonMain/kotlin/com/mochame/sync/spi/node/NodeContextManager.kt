@@ -16,13 +16,14 @@ interface NodeContextManager {
     suspend fun getNodeId(): NodeId?
 
     suspend fun getLastServerSyncTime(): Long?
+    suspend fun getLastWatermark(): Long?
 
     suspend fun getLastLocalMutationTime(): Long?
 
     suspend fun updateHlcFloor(hlc: HLC)
 
     suspend fun recogniseServerResponse(
-        watermark: String,
+        watermark: Long,
         timestamp: Long,
     )
 

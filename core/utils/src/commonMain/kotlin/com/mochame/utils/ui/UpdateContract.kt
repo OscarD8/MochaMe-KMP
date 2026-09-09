@@ -1,4 +1,4 @@
-package com.mochame.utils.cli
+package com.mochame.utils.ui
 
 sealed interface Update<out T> {
     data object Unchanged : Update<Nothing>

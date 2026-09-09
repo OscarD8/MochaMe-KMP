@@ -1,7 +1,7 @@
 package com.mochame.bio.domain
 
-import com.mochame.utils.cli.Update
-import com.mochame.utils.cli.resolve
+import com.mochame.utils.ui.Update
+import com.mochame.utils.ui.resolve
 import org.koin.core.annotation.Factory
 
 @Factory

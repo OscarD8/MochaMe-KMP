@@ -30,6 +30,7 @@ class DefaultNodeContextManager(
     private val mutex: Mutex = Mutex(),
     logger: Logger
 ) : NodeContextManager {
+
     private val logger = logger.withTags(
         layer = LogTags.Layer.ORCH,
         domain = LogTags.Domain.NODE,
@@ -40,7 +41,7 @@ class DefaultNodeContextManager(
     private var cachedContext: NodeContext? = null
 
     /**
-     * Guarantees a node identity existsInCommitted and applies the provided app version if a new
+     * Guarantees a node identity exists in the database and applies the provided app version if a new
      * node context is triggered.
      *
      * @param baseVersion Defaults to 0.
@@ -73,24 +74,61 @@ class DefaultNodeContextManager(
                 cachedContext = cachedContext?.copy(appVersion = targetVersion)
             }
         }
-    override suspend fun updateHlcFloor(hlc: HLC) = withContext(ioContext) {
-        val rowsUpdated = dao.setMaxHlc(hlc.toString())
-        if (rowsUpdated == 0) {
-            logger.d { "HLC floor update ignored. Stored value is already newer than $hlc." }
+
+    override suspend fun updateHlcFloor(hlc: HLC) =
+        withContext(ioContext) {
+            mutex.withLock {
+                val rowsUpdated = dao.setMaxHlc(hlc.toString())
+                if (rowsUpdated == 0) {
+                    logger.d { "HLC floor update ignored. Stored value is already newer than $hlc." }
+                } else {
+                    cachedContext = cachedContext?.copy(maxHlc = hlc)
+                }
+            }
+        }
+
+    override suspend fun recogniseServerResponse(
+        watermark: Long,
+        timestamp: Long
+    ) = withContext(ioContext) {
+        mutex.withLock {
+            dao.setWatermarkAndTimestamp(watermark, timestamp)
+            cachedContext = cachedContext?.copy(
+                lastServerWatermark = watermark,
+                lastServerSyncTime = timestamp
+            )
         }
     }
 
-    // Does it need a mutex?
-    override suspend fun recogniseServerResponse(
-        watermark: String,
-        timestamp: Long
-    ) = dao.setWatermarkAndTimestamp(watermark, timestamp)
+    override suspend fun getLastBootedAppVersion(): Int? =
+        cachedContext?.appVersion ?: withContext(ioContext) {
+            dao.getLastBootedVersion()
+        }
 
-    override suspend fun getLastBootedAppVersion() = dao.getLastBootedVersion()
-    override suspend fun getLastServerSyncTime() = dao.getLastServerSyncTime()
-    override suspend fun getLastLocalMutationTime() = dao.getLastLocalMutationTime()
-    override suspend fun getNodeId(): NodeId? = cachedContext?.nodeId ?: dao.getNodeId()?.let { NodeId.parse(it) }
-    override suspend fun getMaxHlc() = dao.getMaxHlc()?.let { HLC.parse(it) }
+    override suspend fun getLastServerSyncTime(): Long? =
+        cachedContext?.lastServerSyncTime ?: withContext(ioContext) {
+            dao.getLastServerSyncTime()
+        }
+
+    override suspend fun getLastLocalMutationTime(): Long? =
+        cachedContext?.lastLocalMutationTime ?: withContext(ioContext) {
+            dao.getLastLocalMutationTime()
+        }
+
+    override suspend fun getLastWatermark(): Long? =
+        cachedContext?.lastServerWatermark ?: withContext(ioContext) {
+            dao.getLastWatermark()
+        }
+
+    override suspend fun getNodeId(): NodeId? =
+        cachedContext?.nodeId ?: withContext(ioContext) {
+            dao.getNodeId()?.let { NodeId.parse(it) }
+        }
+
+    override suspend fun getMaxHlc(): HLC? =
+        cachedContext?.maxHlc ?: withContext(ioContext) {
+            dao.getMaxHlc()?.let { HLC.parse(it) }
+        }
 
     override suspend fun overwriteNodeContext(nodeContext: NodeContext) =
         withContext(ioContext) {
@@ -99,5 +137,4 @@ class DefaultNodeContextManager(
                 cachedContext = nodeContext
             }
         }
-
 }

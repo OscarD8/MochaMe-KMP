@@ -7,7 +7,7 @@ data class NodeContext(
     val nodeId: NodeId,
     val appVersion: Int,
     val createdAt: Long = Clock.System.now().toEpochMilliseconds(),
-    val lastServerWatermark: String? = null,
+    val lastServerWatermark: Long? = null,
     val maxHlc: HLC? = null,
     val lastServerSyncTime: Long? = null,
     val lastLocalMutationTime: Long? = null

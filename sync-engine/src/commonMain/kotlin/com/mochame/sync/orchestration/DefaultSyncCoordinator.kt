@@ -64,6 +64,9 @@ internal class DefaultSyncCoordinator(
             )
         }
 
+    /**
+     * No Mutex here.
+     */
     override fun startOutbound(): Job = appBackgroundScope.launch {
         try {
             bootManager.awaitReady()

@@ -13,7 +13,7 @@ fun createTestNodeContextEntity(
     nodeId: String = TestNodeId.A.toString(),
     appVersion: Int = 1,
     createdAt: Long = TestHlcFactory.BASE_TEST_TIME,
-    lastServerWatermark: String? = null,
+    lastServerWatermark: Long? = null,
     maxHlc: String? = null,
     lastServerSyncTime: Long? = null,
     lastLocalMutationTime: Long? = null
@@ -35,7 +35,7 @@ fun createTestNodeContext(
     nodeId: NodeId = TestNodeId.A,
     appVersion: Int = 1,
     createdAt: Long = TestHlcFactory.BASE_TEST_TIME,
-    lastServerWatermark: String? = null,
+    lastServerWatermark: Long? = null,
     maxHlc: HLC? = null,
     lastServerSyncTime: Long? = null,
     lastLocalMutationTime: Long? = null

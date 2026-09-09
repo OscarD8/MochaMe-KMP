@@ -5,9 +5,17 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.lifecycle.ProcessLifecycleOwner
 import com.mochame.app.ui.MochaComposeAppShell
 import com.mochame.app.ui.di.initKoinCompose
 import org.koin.android.ext.koin.androidContext
+import org.koin.core.annotation.ComponentScan
+import org.koin.core.annotation.Module
+import org.koin.plugin.module.dsl.modules
+
+@Module
+@ComponentScan("com.mochame.app.entry.android")
+class AndroidLifecycleModule
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -23,8 +31,14 @@ class MainActivity : ComponentActivity() {
 class MochaAndroidApp : Application() {
     override fun onCreate() {
         super.onCreate()
-        initKoinCompose {
+
+        val koin = initKoinCompose {
             androidContext(this@MochaAndroidApp)
-        }
+            modules(AndroidLifecycleModule::class)
+        }.koin
+
+        ProcessLifecycleOwner.get().lifecycle.addObserver(
+            koin.get<AndroidAppLifecycleObserver>()
+        )
     }
 }

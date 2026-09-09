@@ -5,18 +5,17 @@ import com.mochame.annotations.AppBackgroundScope
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.sync.api.boot.BootState
-import com.mochame.sync.domain.model.SyncConfig
+import com.mochame.sync.domain.config.ConnectionEndPoint
 import com.mochame.sync.spi.boot.BootStatusUpdater
 import com.mochame.sync.spi.network.SyncTransport
 import com.mochame.sync.spi.node.NodeContextManager
 import com.mochame.sync.spi.orchestration.SyncCoordinator
 import com.mochame.sync.spi.orchestration.SyncJanitor
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.koin.core.annotation.Provided
 import org.koin.core.annotation.Single
-import kotlin.time.Duration.Companion.seconds
 
 interface AppInitializer {
     fun startBootSequence()
@@ -29,7 +28,7 @@ internal class DefaultAppInitializer(
     @Provided private val bootUpdater: BootStatusUpdater,
     @Provided private val nodeContextManager: NodeContextManager,
     @Provided private val transport: SyncTransport,
-    @Provided private val syncConfig: SyncConfig,
+    @Provided private val connectionEndPoint: ConnectionEndPoint,
     @AppBackgroundScope private val appBackgroundScope: CoroutineScope,
     logger: Logger
 ) : AppInitializer {
@@ -61,23 +60,21 @@ internal class DefaultAppInitializer(
                 }
 
                 transport.setOnConnectedListener {
-                    logger.i { "Transport connection established..." }
+                    logger.i { "Flushing pending intents to session..." }
                     coordinator.processQueueUntilExhausted()
                 }
 
+                coordinator.startOutbound()
+
                 transport.connect(
-                    host = syncConfig.serverHost,
-                    port = syncConfig.serverPort,
-                    groupId = syncConfig.syncGroupId,
+                    host = connectionEndPoint.serverHost,
+                    port = connectionEndPoint.serverPort,
+                    groupId = connectionEndPoint.syncGroupId,
                     nodeId = nodeId.value.toString()
                 )
 
-                delay(3.seconds)
-
-                coordinator.startOutbound()
-
             } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) throw e
+                if (e is CancellationException) throw e
 
                 logger.e(e) { "Boot sequence encountered a critical failure." }
                 bootUpdater.updateState(BootState.CriticalFailure(e.message ?: "Unknown error", e))
