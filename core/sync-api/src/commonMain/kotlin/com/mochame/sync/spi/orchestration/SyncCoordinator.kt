@@ -9,7 +9,7 @@ interface SyncCoordinator {
     /**
      * Starts listening for sync trigger signals and processes outbound intent batches.
      */
-    fun startOutbound(): Job
+    fun startOutboundListener(): Job
 
     /**
      * Processes the pending sync intent queue until exhausted.
@@ -19,5 +19,5 @@ interface SyncCoordinator {
     /**
      * Ingests and processes raw inbound bytes received from the remote sync server.
      */
-    suspend fun onInboundBytes(inbound: ByteArray)
+    suspend fun onInboundBytes(watermark: Long, inbound: ByteArray)
 }

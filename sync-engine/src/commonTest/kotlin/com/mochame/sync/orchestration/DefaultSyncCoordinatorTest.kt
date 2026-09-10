@@ -69,7 +69,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
             )
         )
 
-        coordinator.onInboundBytes(ByteArray(0))
+        coordinator.onInboundBytes(0L, ByteArray(0))
 
         assertEquals(0, codec.decodeCallCount)
         assertEquals(0, stubA.invocationCount)
@@ -82,7 +82,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         bootManager.updateState(BootState.Ready)
         codec.decodeError = IllegalStateException("Malformed protobuf payload")
 
-        coordinator.onInboundBytes(ByteArray(0))
+        coordinator.onInboundBytes(0L, ByteArray(0))
 
         assertEquals(0, stubA.invocationCount)
         assertEquals(0, stubB.invocationCount)
@@ -92,7 +92,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
     @Test
     fun should_earlyExitCleanly_when_decodedBatchIsEmpty() = runEnv {
         bootManager.updateState(BootState.Ready)
-        coordinator.onInboundBytes(ByteArray(0))
+        coordinator.onInboundBytes(0L, ByteArray(0))
 
         assertEquals(1, codec.decodeCallCount)
         assertEquals(0, stubA.invocationCount)
@@ -108,7 +108,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
                 IllegalStateException("Node boot corrupted")
             )
         )
-        val job = coordinator.startOutbound()
+        val job = coordinator.startOutboundListener()
         scope.runCurrent()
 
         assertFalse(job.isActive)
@@ -154,7 +154,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         val contextB = intentB.deriveContext()
 
         codec.nextDecodeResult = listOf(intentA, intentB)
-        coordinator.onInboundBytes(ByteArray(0))
+        coordinator.onInboundBytes(0L, ByteArray(0))
 
         // Verify Stub A Invocations
         assertEquals(ReceivedIntent(contextA, payloadA), stubA.lastInvocation)
@@ -189,7 +189,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         codec.nextDecodeResult = listOf(failingIntent, successfulIntent)
         stubA.shouldFail = RuntimeException("Database constraint violation in Receiver A")
 
-        coordinator.onInboundBytes(ByteArray(0))
+        coordinator.onInboundBytes(0L, ByteArray(0))
 
         assertEquals(1, stubA.invocationCount)
         assertEquals(1, stubB.invocationCount)
@@ -217,7 +217,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         )
         codec.nextDecodeResult = listOf(unroutableIntent, validIntent)
 
-        coordinator.onInboundBytes(ByteArray(0))
+        coordinator.onInboundBytes(0L, ByteArray(0))
 
         assertEquals(0, stubA.invocationCount)
         assertEquals(1, stubB.invocationCount)
@@ -238,7 +238,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         transactor.shouldThrow = MochaException.Transient.DatabaseBusy("SQLite database locked")
         val initialTime = scope.currentTime
 
-        coordinator.onInboundBytes(byteArrayOf(0x01))
+        coordinator.onInboundBytes(0L, byteArrayOf(0x01))
 
         assertEquals(2, transactor.executionCount, "Retry plus Success")
         assertTrue(scope.currentTime > initialTime, "Staggered Retry")
@@ -278,7 +278,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
             }
 
             scope.launch {
-                coordinator.onInboundBytes(byteArrayOf(0))
+                coordinator.onInboundBytes(0L, byteArrayOf(0))
             }
             firstCallSuspended.await()
 
@@ -287,7 +287,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
             codec.nextDecodeResult = listOf(intent2)
 
             scope.launch {
-                coordinator.onInboundBytes(byteArrayOf(0))
+                coordinator.onInboundBytes(0L, byteArrayOf(0))
             }
             scope.runCurrent()
 
@@ -317,7 +317,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         )
 
         codec.nextDecodeResult = listOf(invalidIntent)
-        coordinator.onInboundBytes(ByteArray(0))
+        coordinator.onInboundBytes(0L, ByteArray(0))
 
         assertEquals(0, stubA.invocationCount)
         assertEquals(0, intentStore.intents.size)
@@ -336,7 +336,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         )
 
         codec.nextDecodeResult = listOf(invalidIntent)
-        coordinator.onInboundBytes(ByteArray(0))
+        coordinator.onInboundBytes(0L, ByteArray(0))
 
         assertEquals(0, stubA.invocationCount)
         assertEquals(0, intentStore.intents.size)
@@ -355,7 +355,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         )
 
         codec.nextDecodeResult = listOf(overflowIntent)
-        coordinator.onInboundBytes(ByteArray(0))
+        coordinator.onInboundBytes(0L, ByteArray(0))
 
         assertEquals(1, intentStore.intents.size)
         assertEquals(303L, intentStore.intents.first().candidateKey)
@@ -397,7 +397,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         )
         codec.nextDecodeResult = listOf(intent1, intent2, intent3)
 
-        coordinator.onInboundBytes(ByteArray(0))
+        coordinator.onInboundBytes(0L, ByteArray(0))
 
         assertEquals(listOf(hlc3), nodeManager.updatedHlcFloors)
         assertEquals(listOf(hlc3), hlcFactory.witnessedHlcs)
@@ -417,7 +417,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         )
         codec.nextDecodeResult = listOf(invalidIntent)
 
-        coordinator.onInboundBytes(ByteArray(0))
+        coordinator.onInboundBytes(0L, ByteArray(0))
 
         assertEquals(0, nodeManager.updatedHlcFloors.size)
         assertEquals(0, hlcFactory.witnessedHlcs.size)
@@ -431,7 +431,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
     fun should_exitCleanly_withoutEncoding_when_claimBatchReturnsZeroRows() = runEnv { scope ->
         bootManager.updateState(BootState.Ready)
 
-        val outboundJob = coordinator.startOutbound()
+        val outboundJob = coordinator.startOutboundListener()
         scope.runCurrent()
 
         workerHook.invalidate()
@@ -470,7 +470,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         runEnv { scope ->
             bootManager.updateState(BootState.Ready)
 
-            val outboundJob = coordinator.startOutbound()
+            val outboundJob = coordinator.startOutboundListener()
             scope.runCurrent()
 
             // Arrange Batch 1
@@ -537,7 +537,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         runEnv { scope ->
             bootManager.updateState(BootState.Ready)
 
-            val outboundJob = coordinator.startOutbound()
+            val outboundJob = coordinator.startOutboundListener()
             scope.runCurrent()
             assertEquals(1, intentStore.claimedBatchCallCount)
             intentStore.claimedBatchCallCount = 0
@@ -588,7 +588,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         runEnv { scope ->
             bootManager.updateState(BootState.Ready)
 
-            val outboundJob = coordinator.startOutbound()
+            val outboundJob = coordinator.startOutboundListener()
             scope.runCurrent()
 
             // Given incoming encoding exception
@@ -639,7 +639,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         bootManager.updateState(BootState.Ready)
 
         // Given Coordinator is suspended on outbound pipeline
-        val outboundJob = coordinator.startOutbound()
+        val outboundJob = coordinator.startOutboundListener()
         scope.runCurrent()
         intentStore.claimedBatchCallCount = 0
 
@@ -674,7 +674,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         bootManager.updateState(BootState.Ready)
 
         // Given canceled job after boot process
-        val outboundJob = coordinator.startOutbound()
+        val outboundJob = coordinator.startOutboundListener()
         scope.runCurrent()
         assertEquals(1, intentStore.claimedBatchCallCount)
         intentStore.claimedBatchCallCount = 0
@@ -721,7 +721,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
             bootManager.updateState(BootState.Ready)
             hlcFactory.hydrate(null, TestNodeId.A)
             intentStore.failWith = MochaException.Transient.DatabaseBusy("Database busy")
-            val outboundJob = coordinator.startOutbound()
+            val outboundJob = coordinator.startOutboundListener()
 
             // Given: 3 inbound workers, 3 outbound workers - all staged
             val inboundWorkers = 3
@@ -746,7 +746,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
 
                     repeat(operationsPerWorker) { opIndex ->
                         val payload = byteArrayOf(workerId.toByte(), opIndex.toByte())
-                        coordinator.onInboundBytes(payload)
+                        coordinator.onInboundBytes(0L, payload)
                     }
                 }
             }

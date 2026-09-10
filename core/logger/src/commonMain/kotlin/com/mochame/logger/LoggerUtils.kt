@@ -12,7 +12,7 @@ object LogTags {
         const val SYNC = "Sync"
         const val AUTH = "Auth"
         const val PLATFORM = "Plat"
-        const val BIO = "Bio"
+        const val BIO = "Bio."
         const val SIGNAL = "Sign"
         const val TELEMETRY = "Tele"
         const val PRUNE = "Prun"
@@ -22,7 +22,7 @@ object LogTags {
     }
 
     object Layer {
-        const val TRANSPORT = "Trans"
+        const val TRANSPORT = "Sock"
         const val UI = "UI.."
         const val REPO = "Repo"
         const val DOMAIN = "Domn"

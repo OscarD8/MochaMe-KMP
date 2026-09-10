@@ -4,8 +4,6 @@ import co.touchlab.kermit.Logger
 import co.touchlab.kermit.Severity
 import co.touchlab.kermit.StaticConfig
 import com.mochame.logger.CleanLogWriter
-import com.mochame.server.database.ServerDatabase
-import com.mochame.server.database.dbPath
 import com.mochame.sync.spi.network.SyncWireFrame
 import io.ktor.server.application.install
 import io.ktor.server.cio.CIO
@@ -22,13 +20,17 @@ import io.ktor.websocket.close
 import io.ktor.websocket.readBytes
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
@@ -42,7 +44,7 @@ private val logger = Logger(
     tag = "RelayServer"
 )
 
-private class RelayGroupManager(private val serverScope: CoroutineScope) {
+private class RelayGroupManager {
 
     private val mutex = Mutex()
     private val groups = mutableMapOf<String, MutableMap<String, DefaultWebSocketServerSession>>()
@@ -91,23 +93,40 @@ private class RelayGroupManager(private val serverScope: CoroutineScope) {
         }
     }
 
-    fun broadcast(groupId: String, senderNodeId: String, data: ByteArray) {
-        serverScope.launch {
-            val targets = mutex.withLock {
-                groups[groupId]
-                    ?.filter { (nodeId, _) -> nodeId != senderNodeId }
-                    ?.values
-                    ?.toList() ?: emptyList()
-            }
+    suspend fun broadcast(groupId: String, senderNodeId: String, frameData: ByteArray) {
+        val targets = mutex.withLock {
+            groups[groupId]
+                ?.filter { (nodeId, _) -> nodeId != senderNodeId }
+                ?.toList() ?: emptyList()
+        }
 
-            for (session in targets) {
+        if (targets.isEmpty()) return
+
+        coroutineScope {
+            for ((nodeId, session) in targets) {
                 launch {
-                    try {
+                    val sent = try {
                         withTimeoutOrNull(500.milliseconds) {
-                            session.send(Frame.Binary(fin = true, data = data))
-                        }
+                            session.send(Frame.Binary(fin = true, data = frameData))
+                            true
+                        } ?: false
                     } catch (e: Exception) {
-                        logger.w(e) { "Delivery failed to peer in group '$groupId'" }
+                        logger.w(e) { "Socket error sending to node '$nodeId' in group '$groupId'. Closing session." }
+                        false
+                    }
+
+                    if (!sent) {
+                        try {
+                            session.close(
+                                CloseReason(
+                                    CloseReason.Codes.VIOLATED_POLICY,
+                                    "Frame dropped. Cannot skip watermark."
+                                )
+                            )
+                        } catch (_: Exception) {
+                        }
+
+                        unregister(groupId, nodeId, session)
                     }
                 }
             }
@@ -118,20 +137,9 @@ private class RelayGroupManager(private val serverScope: CoroutineScope) {
 fun main() {
     val database = ServerDatabase(dbPath)
     val serverScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    val relayManager = RelayGroupManager(serverScope)
+    val relayManager = RelayGroupManager()
 
-    serverScope.launch {
-        while (isActive) {
-            try {
-                val cutoff = System.currentTimeMillis() - 30.days.inWholeMilliseconds
-                val pruned = database.pruneExpiredDeltas(cutoff)
-                if (pruned > 0) logger.i { "Pruned $pruned expired deltas from log." }
-            } catch (e: Exception) {
-                logger.e(e) { "Log compaction task failed" }
-            }
-            delay(1.hours)
-        }
-    }
+    serverScope.launchLogCompactor(database, logger, retention = 40.days, interval = 1.hours)
 
     logger.i { "Starting Sync Relay Server on 0.0.0.0:8080..." }
 
@@ -147,55 +155,101 @@ fun main() {
             webSocket("/sync/{groupId}/{nodeId}") {
                 val groupId = call.parameters["groupId"] ?: return@webSocket close()
                 val nodeId = call.parameters["nodeId"] ?: return@webSocket close()
-                val sinceWatermark = call.request.queryParameters["since"]?.toLongOrNull() ?: 0L
+                val sinceWatermark =
+                    call.request.queryParameters["since"]?.toLongOrNull() ?: 0L
 
                 val minWatermark = database.getMinWatermark(groupId)
                 if (sinceWatermark > 0 && minWatermark != null && sinceWatermark < minWatermark) {
                     logger.w { "Node '$nodeId' watermark $sinceWatermark is older than min retained $minWatermark" }
-                    close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "DELTA_HISTORY_EXPIRED"))
+                    close(
+                        CloseReason(
+                            CloseReason.Codes.VIOLATED_POLICY,
+                            "DELTA_HISTORY_EXPIRED"
+                        )
+                    )
                     return@webSocket
                 }
 
                 relayManager.register(groupId, nodeId, this)
 
-                try {
-                    val catchupDeltas = database.getDeltasSince(
-                        groupId = groupId,
-                        excludeNodeId = nodeId,
-                        sinceWatermark = sinceWatermark
-                    )
+                val catchupDeltas = database.getDeltasSince(
+                    groupId = groupId,
+                    excludeNodeId = nodeId,
+                    sinceWatermark = sinceWatermark
+                )
 
+                try {
                     if (catchupDeltas.isNotEmpty()) {
                         logger.i { "Streaming ${catchupDeltas.size} backlogged deltas to '$nodeId'" }
                         for (delta in catchupDeltas) {
-                            try {
-                                send(
-                                    Frame.Binary(
-                                        fin = true,
-                                        data = SyncWireFrame.delta(delta.watermark, delta.payload)
+                            send(
+                                Frame.Binary(
+                                    fin = true,
+                                    data = SyncWireFrame.delta(
+                                        delta.watermark,
+                                        delta.payload
                                     )
                                 )
-                            } catch (e: Exception) {
-                                logger.w(e) { "Failed to transmit delta. Watermark: ${delta.watermark}. ${e.message}" }
-                            }
+                            )
                         }
                     }
 
                     send(Frame.Binary(fin = true, data = SyncWireFrame.backfillComplete()))
+                } catch (e: Exception) {
+                    logger.w(e) { "Catch-up stream failed for node '$nodeId'. Aborting session to force clean retry." }
+                    return@webSocket
+                }
 
+                try {
                     for (frame in incoming) {
                         if (frame is Frame.Binary) {
+                            val rawPayload = frame.readBytes()
+
+                            val assignedWatermark = database.insertDelta(
+                                groupId = groupId,
+                                originNodeId = nodeId,
+                                payload = rawPayload
+                            ).also { logger.v { "Intent by $nodeId. Assigned watermark: $it" } }
+
+                            send(Frame.Binary(true, SyncWireFrame.ack(assignedWatermark)))
+
+                            val peerFrame = SyncWireFrame.delta(assignedWatermark, rawPayload)
                             relayManager.broadcast(
                                 groupId = groupId,
                                 senderNodeId = nodeId,
-                                data = frame.readBytes()
+                                frameData = peerFrame
                             )
                         }
                     }
+                } catch (e: CancellationException) {
+                    logger.i { "Session cancelled for node '$nodeId'" }
+                    throw e
+                } catch (e: Exception) {
+                    logger.w(e) { "Live loop error for node '$nodeId' in group '$groupId': ${e.message}" }
                 } finally {
                     relayManager.unregister(groupId, nodeId, this)
                 }
             }
         }
     }.start(wait = true)
+}
+
+fun CoroutineScope.launchLogCompactor(
+    database: ServerDatabase,
+    logger: Logger,
+    retention: Duration = 30.days,
+    interval: Duration = 1.hours,
+): Job = launch {
+    while (isActive) {
+        try {
+            val cutoff = System.currentTimeMillis() - retention.inWholeMilliseconds
+            val pruned = database.pruneExpiredDeltas(cutoff)
+            if (pruned > 0) {
+                logger.i { "Pruned $pruned expired deltas from log." }
+            }
+        } catch (e: Exception) {
+            logger.e(e) { "Log compaction task failed." }
+        }
+        delay(interval)
+    }
 }

@@ -30,6 +30,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import org.koin.core.annotation.Single
+import kotlin.time.Clock
 import kotlin.time.TimeSource
 
 
@@ -49,7 +50,7 @@ internal class DefaultSyncCoordinator(
     @AppBackgroundScope private val appBackgroundScope: CoroutineScope,
     receivers: List<SyncReceiver>, // koin handles as long as classes are bound
     logger: Logger
-): SyncCoordinator {
+) : SyncCoordinator {
     private val logger =
         logger.withTags(LogTags.Layer.ORCH, LogTags.Domain.SYNC, "MsCord")
 
@@ -67,19 +68,12 @@ internal class DefaultSyncCoordinator(
     /**
      * No Mutex here.
      */
-    override fun startOutbound(): Job = appBackgroundScope.launch {
+    override fun startOutboundListener(): Job = appBackgroundScope.launch {
         try {
             bootManager.awaitReady()
         } catch (e: Exception) {
             logger.e(e) { "Outbound sync pipeline disabled: boot readiness check failed." }
             return@launch
-        }
-
-        try {
-            logger.v { "Executing boot outbound intent flush..." }
-            processQueueUntilExhausted()
-        } catch (e: Exception) {
-            logger.e(e) { "Boot flush failed: ${e.message}" }
         }
 
         workerHook.signals.collect {
@@ -95,9 +89,6 @@ internal class DefaultSyncCoordinator(
         }
     }
 
-
-    // awaiting implementation of the server
-    // Called by the app's lifecycle owner on startup
     /**
      * Intended behavior should ensure regular batches are made when feature repositories
      * perform local changes, these batches being small. The UI design must be considered
@@ -125,6 +116,9 @@ internal class DefaultSyncCoordinator(
 
                     if (!sent) {
                         logger.w { "Outbound: Failed to send batch with HLC ${batch.map { it.hlc }}" }
+                        transactor.runImmediateTransaction {
+                            intentStore.releaseBatch(batchId)
+                        }
                     } else {
                         logger.i { "Outbound: Sent batch with HLC ${batch.map { it.hlc }}" }
                         intentStore.acknowledgeSuccess(batch.map { it.hlc })
@@ -143,7 +137,7 @@ internal class DefaultSyncCoordinator(
         }
     }
 
-    override suspend fun onInboundBytes(inbound: ByteArray) {
+    override suspend fun onInboundBytes(watermark: Long, inbound: ByteArray) {
         logger.v { "Inbound: Received batch with ${inbound.size}B..." }
 
         try {
@@ -181,22 +175,18 @@ internal class DefaultSyncCoordinator(
                         hlcFactory.witness(it)
                         nodeManager.updateHlcFloor(it)
                     }
+                    nodeManager.recogniseServerResponse(
+                        watermark,
+                        Clock.System.now().toEpochMilliseconds()
+                    )
                 }
             }
         } catch (e: Exception) {
-            logger.e { "Caught Exception processing intents: ${e.message}. Inbound (${inbound.size}B)." }
-            // Handle server logic here.
+            logger.e(e) { "Failed processing inbound intents. Watermark $watermark rollbacked." }
             return
         }
 
-
-        logger.i { "Batch processing finalized".withTimer(mark) }
-
-        // is this where the server logic should ultimately lead to a call to nodeContextManager
-        // to call its recognizeServerResponse method? When doing this consider if this is the
-        // only place that makes the call, is it possible to provide data that has a lower
-        // timestamp than the database holds at any given moment? I am not implementing any checks
-        // there right now.
+        logger.i { "Batch processing finalized for watermark $watermark".withTimer(mark) }
     }
 
     /**

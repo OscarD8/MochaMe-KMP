@@ -4,7 +4,7 @@ import com.mochame.annotations.BlobMutex
 import com.mochame.annotations.CoordinatorMutex
 import com.mochame.annotations.JanitorMutex
 import com.mochame.logger.LoggerModule
-import com.mochame.sync.domain.config.ConnectionEndPoint
+import com.mochame.sync.spi.network.NetworkConfig
 import com.mochame.utils.di.UtilsModule
 import kotlinx.coroutines.sync.Mutex
 import org.koin.core.annotation.ComponentScan
@@ -46,7 +46,7 @@ class SyncDomainModule
 @Module
 class SyncConfigModule {
     @Single
-    fun provideSyncConfig(): ConnectionEndPoint = ConnectionEndPoint()
+    fun provideSyncConfig(): NetworkConfig = NetworkConfig()
 }
 
 @Module

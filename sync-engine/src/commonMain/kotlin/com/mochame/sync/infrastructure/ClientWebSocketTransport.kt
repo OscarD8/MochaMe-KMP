@@ -4,7 +4,10 @@ import co.touchlab.kermit.Logger
 import com.mochame.annotations.AppBackgroundScope
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
+import com.mochame.sync.spi.network.InboundWireFrame
 import com.mochame.sync.spi.network.SyncTransport
+import com.mochame.sync.spi.network.SyncWireFrame
+import com.mochame.sync.spi.node.NodeContextManager
 import io.ktor.client.*
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.websocket.*
@@ -14,17 +17,20 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.koin.core.annotation.Single
 import kotlin.concurrent.Volatile
+import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+
 
 @Single(binds = [SyncTransport::class])
 internal class ClientWebSocketTransport(
     @AppBackgroundScope private val backgroundScope: CoroutineScope,
+    private val nodeManager: NodeContextManager,
     logger: Logger
 ) : SyncTransport {
 
     private val logger =
-        logger.withTags(LogTags.Layer.TRANSPORT, LogTags.Domain.SYNC, "MrKtor")
+        logger.withTags(LogTags.Layer.TRANSPORT, LogTags.Domain.SYNC, "ClSock")
 
     private val client = HttpClient(CIO) {
         install(WebSockets)
@@ -46,7 +52,7 @@ internal class ClientWebSocketTransport(
     private var activeSession: DefaultClientWebSocketSession? = null
 
     @Volatile
-    private var inboundHandler: (suspend (ByteArray) -> Unit)? = null
+    private var inboundHandler: (suspend (Long, ByteArray) -> Unit)? = null
 
     @Volatile
     private var onConnectedListener: (suspend () -> Unit)? = null
@@ -59,13 +65,18 @@ internal class ClientWebSocketTransport(
         this.onConnectedListener = onConnected
     }
 
-    override fun registerInboundHandler(onReceived: suspend (ByteArray) -> Unit) {
+    override fun registerInboundHandler(onReceived: suspend (Long, ByteArray) -> Unit) {
         this.inboundHandler = onReceived
     }
 
-    override suspend fun connect(host: String, port: Int, groupId: String, nodeId: String) {
+    override suspend fun connect(
+        host: String,
+        port: Int,
+        groupId: String
+    ) {
         lifecycleMutex.withLock {
-            val newEndpoint = ConnectionEndpoint(host, port, groupId, nodeId)
+            val nodeId = nodeManager.getNodeId() ?: error("Node Context is not initialized.")
+            val newEndpoint = ConnectionEndpoint(host, port, groupId, nodeId.value.toString())
             if (endpoint == newEndpoint && connectionJob?.isActive == true && !isPaused) {
                 return@withLock
             }
@@ -129,7 +140,6 @@ internal class ClientWebSocketTransport(
                     session.close(CloseReason(CloseReason.Codes.NORMAL, "App backgrounded"))
                 }
             } catch (_: Exception) {
-                // Suppress transport-level teardown exceptions
             }
         }
 
@@ -143,30 +153,49 @@ internal class ClientWebSocketTransport(
         connectionJob = backgroundScope.launch {
             while (isActive && !isPaused) {
                 try {
+                    val currentWatermark = nodeManager.getLastWatermark() ?: 0L
+
                     client.webSocket(
                         host = target.host,
                         port = target.port,
-                        path = "/sync/${target.groupId}/${target.nodeId}"
+                        path = "/sync/${target.groupId}/${target.nodeId}?since=$currentWatermark"
                     ) {
                         activeSession = this
                         try {
-                            logger.i { "WebSocket connected to ${target.host}:${target.port} (Group: ${target.groupId}, Node: ${target.nodeId})" }
-
-                            backgroundScope.launch {
-                                try {
-                                    // HOLD UNTIL THE WATERMARK ESTABLISHMENT IS CLEARED
-                                    onConnectedListener?.invoke()
-                                } catch (e: Exception) {
-                                    logger.e(e) { "Outbound queue flush failed on connection ready" }
-                                }
-                            }
+                            logger.i { "WebSocket connected to ${target.host}:${target.port} (Since Watermark: $currentWatermark)" }
 
                             for (frame in incoming) {
                                 if (frame is Frame.Binary) {
-                                    try {
-                                        inboundHandler?.invoke(frame.readBytes())
-                                    } catch (e: Exception) {
-                                        logger.e(e) { "Failed to process inbound binary frame. Preserving connection." }
+                                    when (val wireFrame =
+                                        SyncWireFrame.unwrap(frame.readBytes())) {
+                                        is InboundWireFrame.BackfillComplete -> {
+                                            logger.i { "Backfill complete. Triggering outbound pipeline flush." }
+                                            backgroundScope.launch {
+                                                try {
+                                                    onConnectedListener?.invoke()
+                                                } catch (e: Exception) {
+                                                    logger.e(e) { "Outbound queue flush failed on ready" }
+                                                }
+                                            }
+                                        }
+
+                                        is InboundWireFrame.Ack -> {
+                                            nodeManager.recogniseServerResponse(
+                                                wireFrame.watermark,
+                                                Clock.System.now().toEpochMilliseconds()
+                                            )
+                                        }
+
+                                        is InboundWireFrame.Delta -> {
+                                            try {
+                                                inboundHandler?.invoke(
+                                                    wireFrame.watermark,
+                                                    wireFrame.payload
+                                                )
+                                            } catch (e: Exception) {
+                                                logger.e(e) { "Failed to process inbound delta frame" }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -178,8 +207,8 @@ internal class ClientWebSocketTransport(
                     activeSession = null
                     if (e is CancellationException) break
 
-                    logger.w(e) { "WebSocket disconnected: [${e::class.simpleName}] ${e.message}. Retrying in 3s..." }
-                    delay(3.seconds)
+                    logger.w(e) { "WebSocket not connected: [${e::class.simpleName}] ${e.message}. Retrying in 3s..." }
+                    delay(10.seconds)
                 }
             }
         }

@@ -185,7 +185,7 @@ private fun SleepInputField(
     OutlinedTextField(
         value = value,
         onValueChange = { onIntent(DailyContextIntent.UpdateSleepInput(it)) },
-        label = { Text("Sleep Hours (0.0 - 72.0)") },
+        label = { Text("Sleep Hours (1 - 12)") },
         placeholder = { Text("e.g. 7.5") },
         keyboardOptions = KeyboardOptions(
             keyboardType = KeyboardType.Decimal,

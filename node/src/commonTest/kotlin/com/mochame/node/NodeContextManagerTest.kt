@@ -73,7 +73,6 @@ class NodeContextManagerTest : MochaPlatformTest() {
             nodeId = TestNodeId.A,
             appVersion = 12,
             createdAt = 1000L,
-            lastServerWatermark = "server-sync-token-xyz",
             maxHlc = expectedHlc,
             lastServerSyncTime = 8888L,
             lastLocalMutationTime = 9999L

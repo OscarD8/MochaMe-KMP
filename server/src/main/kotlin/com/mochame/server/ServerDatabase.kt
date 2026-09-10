@@ -1,4 +1,4 @@
-package com.mochame.server.database
+package com.mochame.server
 
 import java.io.File
 import java.sql.Connection

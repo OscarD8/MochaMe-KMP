@@ -21,7 +21,7 @@ class FakeNodeContextManager(
     private var _forcedNextNodeId: NodeId? = null
 
     private val _updatedHlcFloors = mutableListOf<HLC>()
-    private val _recognizedServerResponses = mutableListOf<Pair<String, Long>>()
+    private val _recognizedServerResponses = mutableListOf<Pair<Long, Long>>()
     private var _getOrEstablishCallCount = 0
     private var _setAppVersionCallCount = 0
     private var _simulatedDelay: Duration? = null
@@ -30,7 +30,7 @@ class FakeNodeContextManager(
     val updatedHlcFloors: List<HLC>
         get() = lock.withLock { _updatedHlcFloors.toList() }
 
-    val recognizedServerResponses: List<Pair<String, Long>>
+    val recognizedServerResponses: List<Pair<Long, Long>>
         get() = lock.withLock { _recognizedServerResponses.toList() }
 
     val getOrEstablishCallCount: Int
@@ -106,6 +106,10 @@ class FakeNodeContextManager(
         _seededContext?.lastServerSyncTime
     }
 
+    override suspend fun getLastWatermark(): Long? = lock.withLock {
+        _seededContext?.lastServerWatermark
+    }
+
     override suspend fun getLastLocalMutationTime(): Long? = lock.withLock {
         _seededContext?.lastLocalMutationTime
     }
@@ -127,7 +131,7 @@ class FakeNodeContextManager(
         _seededContext = nodeContext
     }
 
-    override suspend fun recogniseServerResponse(watermark: String, timestamp: Long) =
+    override suspend fun recogniseServerResponse(watermark: Long, timestamp: Long) =
         lock.withLock {
             _recognizedServerResponses.add(watermark to timestamp)
             _seededContext = getOrInitializeLocked().copy(
