@@ -56,7 +56,6 @@ internal class DefaultAppInitializer(
                 }
 
                 transport.setOnConnectedListener {
-                    logger.i { "Flushing pending intents to session..." }
                     coordinator.processQueueUntilExhausted()
                 }
 

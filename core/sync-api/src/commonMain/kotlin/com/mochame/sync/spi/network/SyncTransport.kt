@@ -5,6 +5,7 @@ import com.mochame.sync.common.writeLongAt
 
 
 interface SyncTransport {
+    val isConnected: Boolean
     suspend fun connect(host: String, port: Int, groupId: String)
 
     suspend fun send(payload: ByteArray): Boolean

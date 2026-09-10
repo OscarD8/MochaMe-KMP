@@ -137,10 +137,14 @@ class DailyContextCliScreen(
         )
     }
 
-    private suspend fun handleNapToggle(currentValue: Boolean?) {
-        val nextValue = !(currentValue ?: false)
-        saveUseCase(activeEpochDay, isNapped = Update.Set(nextValue)).fold(
-            onSuccess = { println("[SUCCESS] Nap status updated to: " + if (nextValue) "Yes" else "No") },
+    private suspend fun handleNapToggle(current: Boolean?) {
+        val update = promptNap(current) ?: return
+        if (update is Update.Unchanged) {
+            println("[INFO] Napped state unchanged.")
+            return
+        }
+        saveUseCase(activeEpochDay, isNapped = update).fold(
+            onSuccess = { println("[SUCCESS] Nap status updated.") },
             onFailure = { println("[ERROR] ${it.message}") }
         )
     }

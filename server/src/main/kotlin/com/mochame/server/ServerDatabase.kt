@@ -15,10 +15,10 @@ data class StoredDelta(
 val dbPath: String = "${System.getProperty("user.home")}/.mochame/sync_server.db"
 
 class ServerDatabase(path: String = dbPath) {
-    private val url = "jdbc:sqlite:$dbPath"
+    private val url = "jdbc:sqlite:$path"
 
     init {
-        File(dbPath).parentFile?.mkdirs()
+        File(path).parentFile?.mkdirs()
         getConnection().use { conn ->
             conn.createStatement().use { stmt ->
                 stmt.execute("PRAGMA journal_mode = WAL;")

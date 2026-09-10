@@ -17,12 +17,14 @@ import com.mochame.sync.di.SyncOrchestrationModule
 import com.mochame.sync.di.fixtures.SyncInternalFixturesModule
 import com.mochame.sync.fixtures.FakeSyncIntentStore
 import com.mochame.sync.internal.fixtures.FakeSyncReceiver
+import com.mochame.sync.internal.fixtures.FakeSyncTransport
 import com.mochame.sync.internal.fixtures.SpyHlcFactory
 import com.mochame.sync.internal.fixtures.SpySyncWorkerHook
 import com.mochame.sync.internal.fixtures.serialization.FakePayloadCodec
 import com.mochame.sync.orchestration.DefaultSyncCoordinator
 import com.mochame.sync.spi.infrastructure.SyncReceiver
 import com.mochame.sync.spi.infrastructure.serialization.PayloadCodec
+import com.mochame.sync.spi.network.SyncTransport
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Factory
 import org.koin.core.annotation.KoinApplication
@@ -53,6 +55,9 @@ class CoordinatorTestModules {
     @Single(binds = [PayloadCodec::class])
     fun provideFakePayloadCodec(): FakePayloadCodec = FakePayloadCodec()
 
+    @Single(binds = [SyncTransport::class])
+    fun provideFakeSyncTransport(): FakeSyncTransport = FakeSyncTransport()
+
     @Named("stubA")
     @Single(binds = [SyncReceiver::class, FakeSyncReceiver::class])
     fun provideFakeSyncReceiverA(): FakeSyncReceiver = FakeSyncReceiver(FeatureContext.TEST_STUB_A)
@@ -73,7 +78,8 @@ internal class SyncCoordinatorTestEnv(
     val transactor: FakeTransactionProvider,
     val workerHook: SpySyncWorkerHook,
     val bootManager: SpyBootStatusManager,
-    val nodeManager: FakeNodeContextManager
+    val nodeManager: FakeNodeContextManager,
+    val syncTransport: FakeSyncTransport
 ) {
     fun assertIntentsProperlyBatched(expectedKeys: Set<Long>) {
         val storedIntents = intentStore.intents

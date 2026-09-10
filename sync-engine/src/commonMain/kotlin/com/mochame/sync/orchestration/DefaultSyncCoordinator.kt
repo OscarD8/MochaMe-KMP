@@ -98,6 +98,12 @@ internal class DefaultSyncCoordinator(
     @OptIn(FlowPreview::class)
     override suspend fun processQueueUntilExhausted() {
         coordinatorMutex.tryWithLock {
+
+            if (!syncTransport.isConnected) {
+                logger.v { "Outbound: Transport disconnected. Skipping queue processing." }
+                return
+            }
+
             while (true) {
                 val batchId = idGenerator.nextId()
 
@@ -109,29 +115,21 @@ internal class DefaultSyncCoordinator(
 
                 if (batch.isEmpty()) break
 
-                try {
-                    val payload = payloadCodec.encode(batch)
-
-                    val sent = syncTransport.send(payload)
-
-                    if (!sent) {
-                        logger.w { "Outbound: Failed to send batch with HLC ${batch.map { it.hlc }}" }
-                        transactor.runImmediateTransaction {
-                            intentStore.releaseBatch(batchId)
-                        }
-                    } else {
-                        logger.i { "Outbound: Sent batch with HLC ${batch.map { it.hlc }}" }
-                        intentStore.acknowledgeSuccess(batch.map { it.hlc })
-                    }
+                val payload = try {
+                    payloadCodec.encode(batch)
                 } catch (e: Exception) {
-                    logger.w(e) { "Transmission failed for session: $batchId. ${e.message}" }
+                    logger.e(e) { "Outbound: Serialization failed for batch $batchId. Janitor to check." }
+                    break
+                }
+
+                val sent = syncTransport.send(payload)
+
+                if (!sent) {
+                    logger.w { "Outbound: Failed to send batch with HLC ${batch.map { it.hlc }}. Stopping pipeline." }
                     transactor.runImmediateTransaction {
                         intentStore.releaseBatch(batchId)
-                        // Or: intentStore.markAsPending(batch.map { it.hlc })
                     }
-
-                    break // Break loop; Janitor repairs stranded lease rows later.
-                    // This is currently where all failed encoding/network attempts propagate, and then get silenced.
+                    break
                 }
             }
         }

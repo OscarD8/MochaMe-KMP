@@ -185,10 +185,7 @@ fun main() {
                             send(
                                 Frame.Binary(
                                     fin = true,
-                                    data = SyncWireFrame.delta(
-                                        delta.watermark,
-                                        delta.payload
-                                    )
+                                    data = SyncWireFrame.delta(delta.watermark, delta.payload)
                                 )
                             )
                         }

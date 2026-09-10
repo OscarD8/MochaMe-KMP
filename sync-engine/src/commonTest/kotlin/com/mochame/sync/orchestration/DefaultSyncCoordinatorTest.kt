@@ -437,7 +437,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         workerHook.invalidate()
         scope.runCurrent()
 
-        assertEquals(2, intentStore.claimedBatchCallCount, "Boot flush & invalidation")
+        assertEquals(1, intentStore.claimedBatchCallCount, "One invalidation")
         assertEquals(0, codec.encodeCallCount)
 
         outboundJob.cancel()
@@ -539,7 +539,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
 
             val outboundJob = coordinator.startOutboundListener()
             scope.runCurrent()
-            assertEquals(1, intentStore.claimedBatchCallCount)
+            assertEquals(0, intentStore.claimedBatchCallCount)
             intentStore.claimedBatchCallCount = 0
             assertTrue(outboundJob.isActive, "Outbound pipeline collector must be active")
 
@@ -676,7 +676,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         // Given canceled job after boot process
         val outboundJob = coordinator.startOutboundListener()
         scope.runCurrent()
-        assertEquals(1, intentStore.claimedBatchCallCount)
+        assertEquals(0, intentStore.claimedBatchCallCount)
         intentStore.claimedBatchCallCount = 0
 
         outboundJob.cancel()

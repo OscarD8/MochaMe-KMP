@@ -33,7 +33,9 @@ internal class ClientWebSocketTransport(
         logger.withTags(LogTags.Layer.TRANSPORT, LogTags.Domain.SYNC, "ClSock")
 
     private val client = HttpClient(CIO) {
-        install(WebSockets)
+        install(WebSockets) {
+            pingInterval = 15.seconds
+        }
     }
 
     private data class ConnectionEndpoint(
@@ -60,6 +62,9 @@ internal class ClientWebSocketTransport(
     private var connectionJob: Job? = null
     private var pauseDebounceJob: Job? = null
     private var isPaused: Boolean = false
+
+    override val isConnected: Boolean
+        get() = activeSession?.isActive == true
 
     override fun setOnConnectedListener(onConnected: suspend () -> Unit) {
         this.onConnectedListener = onConnected
@@ -166,8 +171,7 @@ internal class ClientWebSocketTransport(
 
                             for (frame in incoming) {
                                 if (frame is Frame.Binary) {
-                                    when (val wireFrame =
-                                        SyncWireFrame.unwrap(frame.readBytes())) {
+                                    when (val wireFrame = SyncWireFrame.unwrap(frame.readBytes())) {
                                         is InboundWireFrame.BackfillComplete -> {
                                             logger.i { "Backfill complete. Triggering outbound pipeline flush." }
                                             backgroundScope.launch {
@@ -203,11 +207,16 @@ internal class ClientWebSocketTransport(
                             activeSession = null
                         }
                     }
+
+                    if (isActive && !isPaused) {
+                        logger.i { "WebSocket channel closed remotely. Reconnecting in 30s..." }
+                        delay(30.seconds)
+                    }
                 } catch (e: Exception) {
                     activeSession = null
                     if (e is CancellationException) break
 
-                    logger.w(e) { "WebSocket not connected: [${e::class.simpleName}] ${e.message}. Retrying in 3s..." }
+                    logger.w(e) { "WebSocket not connected: [${e::class.simpleName}] ${e.message}. Retrying in 10s..." }
                     delay(10.seconds)
                 }
             }
