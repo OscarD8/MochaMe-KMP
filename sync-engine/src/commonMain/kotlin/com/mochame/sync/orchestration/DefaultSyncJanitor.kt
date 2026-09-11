@@ -70,7 +70,7 @@ internal class DefaultSyncJanitor(
     @AppBackgroundScope private val appBackgroundScope: CoroutineScope,
     @JanitorMutex private val mutex: Mutex,
     logger: Logger
-): SyncJanitor {
+) : SyncJanitor {
     private val logger =
         logger.withTags(LogTags.Layer.ORCH, LogTags.Domain.SYNC, "DrJntr")
 
@@ -87,9 +87,8 @@ internal class DefaultSyncJanitor(
                             return@withLock
                         }
 
-                        metadataMaintenance()
+                        staleStateMaintenance()
                         initHydration()
-                        blobReconciliation()
 
                         logger.i { "Janitor Start Up checks finalized." }
                     }
@@ -107,25 +106,17 @@ internal class DefaultSyncJanitor(
         return currentState is BootState.Init
     }
 
-    private suspend fun initHydration() = withTimeout(5.seconds) {
+    private suspend fun initHydration() = withTimeout(5.seconds) { // just testing timeouts?
         val nodeContext = nodeManager.getOrEstablishContext()
-
-        logger.i { "Hydrating HLC Factory | Last Known Local HLC: ${nodeContext.maxHlc ?: "NONE"} | NodeID: ${nodeContext.nodeId}" }
-
+        logger.v { "Hydrating HLC | Last Known Local HLC: ${nodeContext.maxHlc ?: "NONE"} | NodeID: ${nodeContext.nodeId}" }
         hlcFactory.hydrate(nodeContext.maxHlc, nodeContext.nodeId)
-
     }
 
-    private suspend fun metadataMaintenance() = withContext(NonCancellable) {
+    private suspend fun staleStateMaintenance() = withContext(NonCancellable) {
         val mark = TimeSource.Monotonic.markNow()
-
-        transactor.runImmediateTransaction {
-            intentStore.clearAllLocksAndResetToPending().takeIf { it > 0 }?.let {
-                logger.w { "Cleared $it stale intents on boot." }
-            }
-        }
-
-        logger.d { "Boot metadata maintenance complete".withTimer(mark) }
+        intentReconciliation()
+        blobReconciliation()
+        logger.i { "Stale state maintenance complete".withTimer(mark) }
     }
 
     override fun startRuntimeMaintenance(): Job {
@@ -137,13 +128,13 @@ internal class DefaultSyncJanitor(
                     logger.v { "Runtime maintenance cycle starting..." }
 
                     try {
-                        assessStaleLeases()
+                        intentReconciliation()
                     } catch (e: Exception) {
-                        logger.e(e) { "Stale lease assessment encountered error: ${e.message}" }
+                        logger.e(e) { "Intent reconciliation encountered error: ${e.message}" }
                     }
 
                     try {
-                        pruneIntents()
+                        pruneAgedIntents()
                     } catch (e: Exception) {
                         logger.e(e) { "Intent pruning encountered error: ${e.message}" }
                     }
@@ -159,7 +150,7 @@ internal class DefaultSyncJanitor(
      * [PruneIntentsUseCase.Companion.DEFAULT_LIMIT] and the cutoff period of
      * [PruneIntentsUseCase.Companion.DEFAULT_PRUNE_DAYS].
      */
-    private suspend fun pruneIntents() {
+    private suspend fun pruneAgedIntents() {
         pruneUseCase()
     }
 
@@ -170,8 +161,6 @@ internal class DefaultSyncJanitor(
      * If there was a crash prior to the database commit,
      */
     private suspend fun blobReconciliation() = withContext(ioContext) {
-        val mark = TimeSource.Monotonic.markNow()
-
         val pendingHashes = try {
             blobStore.listPendingHashes()
         } catch (e: Exception) {
@@ -182,7 +171,7 @@ internal class DefaultSyncJanitor(
         pendingHashes.forEach { hash ->
             try {
                 if (intentStore.existsForBlob(hash)) {
-                    logger.i { "Recovering stranded blob $hash. Finalizing commit." }
+                    logger.i { "Recovering stranded blob: $hash. Finalizing commit." }
                     blobStore.commit(hash)
                 } else {
                     logger.w { "Found orphaned pending blob $hash with no metadata. Purging." }
@@ -200,33 +189,30 @@ internal class DefaultSyncJanitor(
         } catch (e: Exception) {
             logger.w(e) { "Purging incomplete staged files terminated: ${e.message}" }
         }
-
-        logger.i { "Blob Reconciliation Complete".withTimer(mark) }
     }
 
     /**
-     * Janitor owns the retry lifecycle of payloads. It is the only component that sees
+     * Janitor owns the retry lifecycle of payloads. It's the only component that sees
      * the full history of an intent across multiple sync attempts.
      */
-    private suspend fun assessStaleLeases() {
+    private suspend fun intentReconciliation() {
         val cutoff = timeUtils.getMillisAgo(config.staleThreshold)
 
         transactor.runImmediateTransaction {
-            val staleLeases = intentStore.getStaleLeasedIntents(cutoff)
+            val quarantined = intentStore.quarantineStaleLeases(
+                cutOff = cutoff,
+                retryThreshold = config.retryThreshold
+            )
+            if (quarantined > 0) {
+                logger.w { "Quarantined $quarantined stale intent(s) exceeding retry threshold." }
+            }
 
-            staleLeases.forEach { intent ->
-                val newRetryCount = intent.retryCount + 1
-
-                if (newRetryCount >= config.retryThreshold) {
-                    intentStore.quarantine(
-                        hlc = intent.hlc,
-                        retryCount = newRetryCount
-                    )
-                    logger.w { "Quarantined Intent [HLC: ${intent.hlc}] [Key: ${intent.candidateKey}]" }
-                } else {
-                    intentStore.resetLease(hlc = intent.hlc)
-                    logger.i { "Reset Intent [HLC: ${intent.hlc}] [Key: ${intent.candidateKey}] [Retries: ${intent.retryCount}]" }
-                }
+            val reset = intentStore.resetStaleLeases(
+                cutOff = cutoff,
+                retryThreshold = config.retryThreshold
+            )
+            if (reset > 0) {
+                logger.i { "Batch reset $reset stale intent lease(s) back to PENDING." }
             }
         }
     }

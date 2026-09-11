@@ -11,14 +11,14 @@ data class SyncIntent(
     val candidateKey: Long,
     val featureContext: FeatureContext,
     val operation: MutationOp,
-    val syncStatus: SyncStatus,
-    val retryCount: Int = 0,
     val createdAt: Long,
     val changedMask: Long,
-    val syncId: String? = null,
+    val batchId: String? = null,
     val payload: ByteArray? = null,
     val diagnosticSummary: String? = null,
     val overflowBlobId: String? = null,
+    val syncStatus: SyncStatus,
+    val retryCount: Int = 0,
     val leasedAt: Long? = null,
     val lastErrorMessage: String? = null
 )

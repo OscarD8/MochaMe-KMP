@@ -2,10 +2,12 @@ package com.mochame.sync.data
 
 import androidx.room.Dao
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Upsert
 import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.spi.models.QuarantinedFeatureSummary
 import kotlinx.coroutines.flow.Flow
+import kotlin.time.Clock
 
 /**
  * The purpose of this DAO is to ensure the system can maintain a reliable, predictable
@@ -24,6 +26,9 @@ import kotlinx.coroutines.flow.Flow
  */
 @Dao
 interface SyncIntentDao {
+
+    @Upsert
+    suspend fun upsert(entry: SyncIntentEntity)
 
     /**
      * Compaction Lookup. Finds an unsynced mutation for a specific record.
@@ -56,10 +61,10 @@ interface SyncIntentDao {
     @Query(
         """
         UPDATE SyncIntentEntity 
-        SET syncId = :id, syncStatus = :syncingStatus
+        SET batchId = :id, syncStatus = :syncingStatus, leasedAt = :leasedAt
         WHERE hlc IN (
             SELECT hlc FROM SyncIntentEntity
-            WHERE syncId IS NULL 
+            WHERE batchId IS NULL 
             AND syncStatus = :pendingStatus
             ORDER BY hlc ASC
             LIMIT :limit
@@ -69,36 +74,101 @@ interface SyncIntentDao {
     suspend fun claimBatch(
         id: String,
         limit: Int,
+        leasedAt: Long,
         pendingStatus: SyncStatus = SyncStatus.PENDING,
-        syncingStatus: SyncStatus = SyncStatus.SYNCING
+        syncingStatus: SyncStatus = SyncStatus.SYNCING,
     ): Int
 
-    @Query("SELECT * FROM SyncIntentEntity WHERE syncId = :id ORDER BY hlc ASC")
+    @Query("SELECT * FROM SyncIntentEntity WHERE batchId = :id ORDER BY hlc ASC")
     suspend fun getClaimedBatch(id: String): List<SyncIntentEntity>
 
+    @Transaction
+    suspend fun claimAndGetBatch(
+        id: String,
+        limit: Int,
+        leasedAt: Long = Clock.System.now().toEpochMilliseconds(),
+        pendingStatus: SyncStatus = SyncStatus.PENDING,
+        syncingStatus: SyncStatus = SyncStatus.SYNCING
+    ): List<SyncIntentEntity> {
+        val claimed = claimBatch(id, limit, leasedAt, pendingStatus, syncingStatus)
+        if (claimed == 0) return emptyList()
+        return getClaimedBatch(id)
+    }
+
     @Query(
         """
-        UPDATE SyncIntentEntity 
-        SET syncStatus = :status, syncId = NULL 
-        WHERE hlc IN (:hlcs)
+            UPDATE SyncIntentEntity 
+            SET syncStatus = :status
+            WHERE batchId = :batchId 
+              AND syncStatus = :expectedCurrentStatus
     """
     )
-    suspend fun markAsSynced(
-        hlcs: List<String>,
-        status: SyncStatus = SyncStatus.SUCCESS
-    )
+    suspend fun updateBatchStatus(
+        batchId: String,
+        status: SyncStatus,
+        expectedCurrentStatus: SyncStatus
+    ): Int
 
     @Query(
         """
-            UPDATE SyncIntentEntity
-            SET syncStatus = :status
-            WHERE hlc = :hlc    
-        """
+        UPDATE SyncIntentEntity
+        SET lastErrorMessage = :message
+        WHERE batchId = :batchId
+    """
     )
-    suspend fun setStatus(hlc: String, status: SyncStatus)
+    suspend fun stampLastError(batchId: String, message: String)
 
+    // ----- CLEAN UP (Janitor Support) ------
     @Query("SELECT EXISTS(SELECT 1 FROM SyncIntentEntity WHERE overflowBlobId = :blobId)")
-    suspend fun existsByBlobId(blobId: String): Boolean
+    suspend fun existsForBlobId(blobId: String): Boolean
+
+    @Query(
+        """
+    UPDATE SyncIntentEntity
+    SET retryCount = retryCount + 1,
+        syncStatus = :quarantineStatus
+    WHERE batchId IS NOT NULL 
+      AND syncStatus = :targetStatus 
+      AND leasedAt <= :cutOff
+      AND (retryCount + 1) >= :retryThreshold
+    """
+    )
+    suspend fun quarantineStaleLeases(
+        cutOff: Long,
+        retryThreshold: Int,
+        targetStatus: SyncStatus = SyncStatus.SYNCING,
+        quarantineStatus: SyncStatus = SyncStatus.QUARANTINED
+    ): Int
+
+    @Query(
+        """
+    UPDATE SyncIntentEntity
+    SET retryCount = retryCount + 1,
+        syncStatus = :resetStatus,
+        batchId = NULL,
+        leasedAt = NULL
+    WHERE batchId IS NOT NULL 
+      AND syncStatus = :targetStatus 
+      AND leasedAt <= :cutOff
+      AND (retryCount + 1) < :retryThreshold
+    """
+    )
+    suspend fun resetStaleLeases(
+        cutOff: Long,
+        retryThreshold: Int,
+        targetStatus: SyncStatus = SyncStatus.SYNCING,
+        resetStatus: SyncStatus = SyncStatus.PENDING
+    ): Int
+
+    @Query(
+        """
+        SELECT featureContext, COUNT(*) AS count
+        FROM SyncIntentEntity
+        WHERE syncStatus = :quarantinedStatus 
+        GROUP BY featureContext
+    """
+    )
+    fun observeQuarantinedCountByFeature(quarantinedStatus: SyncStatus = SyncStatus.QUARANTINED): Flow<List<QuarantinedFeatureSummary>>
 
     @Query(
         """
@@ -111,96 +181,10 @@ interface SyncIntentDao {
         )
     """
     )
-    suspend fun pruneOldSynced(
+    suspend fun pruneByCutOff(
         cutoffMs: Long,
         status: SyncStatus = SyncStatus.SUCCESS,
         limit: Int
     ): Int
 
-    @Upsert
-    suspend fun upsert(entry: SyncIntentEntity)
-
-    @Query("DELETE FROM SyncIntentEntity WHERE hlc = :hlc")
-    suspend fun deleteByHlc(hlc: String)
-
-    // ----- CLEAN UP (Janitor Support) ------
-    /**
-     * If any row in the entire ledger has a syncId, its stale and the result of a crash.
-     * No sync should be active.
-     */
-    @Query(
-        """
-        UPDATE SyncIntentEntity 
-        SET syncId = NULL, syncStatus = :desiredStatus
-        WHERE syncId IS NOT NULL
-    """
-    )
-    suspend fun clearAllLocksAndResetToPending(
-        desiredStatus: SyncStatus = SyncStatus.PENDING
-    ): Int
-
-    @Query(
-        """
-        UPDATE SyncIntentEntity
-        SET lastErrorMessage = :message
-        WHERE hlc IN (:hlcs)
-    """
-    )
-    suspend fun stampLastError(hlcs: List<String>, message: String)
-
-    @Query(
-        """
-        UPDATE SyncIntentEntity
-        SET syncStatus = :status, retryCount = :retryCount
-        WHERE hlc = :hlc    
-        """
-    )
-    suspend fun quarantineIntent(
-        hlc: String,
-        retryCount: Int,
-        status: SyncStatus = SyncStatus.QUARANTINED
-    )
-
-    /**
-     * Useful for targeting intents that may have switched to a syncing status but
-     * never shipped due to an application crash for example. The cutoff is
-     * what determines whether the intent is still perceived to be part of an active
-     * process, or is now recognized as stale.
-     */
-    @Query(
-        """
-        SELECT * FROM SyncIntentEntity
-        WHERE syncId IS NOT NULL AND syncStatus = :targetStatus AND leasedAt < :cutOff
-        """
-    )
-    suspend fun getStaleLeasedIntents(
-        cutOff: Long,
-        targetStatus: SyncStatus = SyncStatus.SYNCING,
-    ): List<SyncIntentEntity>
-
-    /**
-     * Updates the retry count as requested, and defaults to setting the status back to
-     * [SyncStatus.PENDING].
-     */
-    @Query(
-        """
-        UPDATE SyncIntentEntity
-        SET retryCount = retryCount + 1, syncStatus = :resetStatus, syncId = NULL, leasedAt = null
-        WHERE syncId = :syncId
-    """
-    )
-    suspend fun resetLease(
-        syncId: String,
-        resetStatus: SyncStatus = SyncStatus.PENDING
-    )
-
-    @Query(
-        """
-        SELECT featureContext, COUNT(*) AS count
-        FROM SyncIntentEntity
-        WHERE syncStatus = :quarantinedStatus 
-        GROUP BY featureContext
-    """
-    )
-    fun observeQuarantinedCountByModule(quarantinedStatus: SyncStatus = SyncStatus.QUARANTINED): Flow<List<QuarantinedFeatureSummary>>
 }

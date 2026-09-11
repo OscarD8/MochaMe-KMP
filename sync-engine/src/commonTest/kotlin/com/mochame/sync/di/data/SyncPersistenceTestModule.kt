@@ -33,7 +33,7 @@ internal class SyncPersistenceTestModule {
 }
 
 @Factory
-internal data class IntentComponentEnv(
+internal data class SyncIntentTestEnv(
     val intentStore: DefaultSyncIntentStore,
     val intentDao: SyncIntentDao,
 )

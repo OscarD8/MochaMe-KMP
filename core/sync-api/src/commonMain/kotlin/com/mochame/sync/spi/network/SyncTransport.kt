@@ -8,13 +8,19 @@ interface SyncTransport {
     val isConnected: Boolean
     suspend fun connect(host: String, port: Int, groupId: String)
 
-    suspend fun send(payload: ByteArray): Boolean
+    suspend fun send(payload: ByteArray): SendResult
 
     fun pause()
     fun resume()
 
     fun registerInboundHandler(onReceived: suspend (Long, ByteArray) -> Unit)
     fun setOnConnectedListener(onConnected: suspend () -> Unit)
+}
+
+sealed interface SendResult {
+    data object Success : SendResult
+    data object NoConnection : SendResult
+    data class Failure(val cause: Throwable) : SendResult
 }
 
 sealed interface InboundWireFrame {

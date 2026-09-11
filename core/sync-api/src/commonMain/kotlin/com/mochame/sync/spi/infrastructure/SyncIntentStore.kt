@@ -9,11 +9,8 @@ interface SyncIntentStore {
 
     suspend fun recordIntent(entry: SyncIntent)
     suspend fun getPendingByFeature(feature: FeatureContext): List<SyncIntent?>
-    suspend fun discardIntent(hlc: HLC)
-    suspend fun claimBatch(batchId: String, limit: Int = 50): Int
-    suspend fun getClaimedBatch(batchId: String): List<SyncIntent>
+    suspend fun claimAndGetBatch(batchId: String, limit: Int = 50): List<SyncIntent>
 
-    suspend fun acknowledgeSuccess(hlcList: List<HLC>)
-    suspend fun stampLastError(hlcs: List<HLC>, message: String)
-    suspend fun releaseBatch(batchId: String)
+    suspend fun acknowledgeSuccess(batchId: String): Int
+    suspend fun stampLastError(batchId: String, message: String)
 }

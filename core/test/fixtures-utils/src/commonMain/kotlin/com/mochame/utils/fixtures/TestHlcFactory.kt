@@ -13,6 +13,7 @@ import kotlin.time.Instant
 object TestHlcFactory {
 
     val DEFAULT_NODE = TestNodeId.A
+
     val BASE_TEST_TIME = HLC.APP_RELEASE_TIME.plus(1.days).toEpochMilliseconds()
 
 

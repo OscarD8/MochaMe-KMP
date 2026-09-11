@@ -53,7 +53,7 @@ class FakeSyncIntentStore(private val fakeClock: FakeTimeUtils) :
     fun seedIntents(entries: Collection<SyncIntent>) {
         val summaries = lock.withLock {
             entries.forEach { _intents[it.hlc] = it }
-            calculateQuarantinedSummariesLocked()
+            calculateQuarantinedSummaries()
         }
         _quarantinedFlow.value = summaries
     }
@@ -88,162 +88,154 @@ class FakeSyncIntentStore(private val fakeClock: FakeTimeUtils) :
     override suspend fun recordIntent(entry: SyncIntent) {
         val updatedSummaries = lock.withLock {
             _intents[entry.hlc] = entry
-            calculateQuarantinedSummariesLocked()
+            calculateQuarantinedSummaries()
         }
         _quarantinedFlow.value = updatedSummaries
     }
 
-    override suspend fun discardIntent(hlc: HLC) {
-        val updatedSummaries = lock.withLock {
-            _intents.remove(hlc)
-            calculateQuarantinedSummariesLocked()
-        }
-        _quarantinedFlow.value = updatedSummaries
-    }
-
-    override suspend fun stampLastError(hlcs: List<HLC>, message: String) {
-        lock.withLock {
-            val hlcSet = hlcs.toSet()
-            _intents.values.filter { it.hlc in hlcSet }.forEach { intent ->
-                _intents[intent.hlc] = intent.copy(lastErrorMessage = message)
-            }
-        }
-    }
-
-    override suspend fun claimBatch(batchId: String, limit: Int): Int {
-        val (error, hook, count) = lock.withLock {
+    override suspend fun claimAndGetBatch(batchId: String, limit: Int): List<SyncIntent> {
+        val (error, hook, claimedBatch) = lock.withLock {
             _claimedBatchCallCount++
 
-            val err = failWith
+            val err = _failWith
             if (err != null) {
-                return@withLock Triple(err, null, 0)
+                return@withLock Triple(err, null, emptyList())
             }
 
-            if (limit <= 0) return@withLock Triple(null, onClaimHook, 0)
+            if (limit <= 0) return@withLock Triple(null, _onClaimHook, emptyList())
 
-            var claimedCount = 0
             val eligible = _intents.values
-                .filter { it.syncId == null && it.syncStatus == SyncStatus.PENDING }
+                .filter { it.batchId == null && it.syncStatus == SyncStatus.PENDING }
+                .sortedBy { it.hlc }
+                .take(limit)
 
-            for (intent in eligible) {
-                if (claimedCount == limit) break
-                _intents[intent.hlc] = intent.copy(
+            val now = fakeClock.now().toEpochMilliseconds()
+            val claimed = eligible.map { intent ->
+                val updated = intent.copy(
                     syncStatus = SyncStatus.SYNCING,
-                    syncId = batchId,
-                    leasedAt = fakeClock.now().toEpochMilliseconds()
+                    batchId = batchId,
+                    leasedAt = now
                 )
-                claimedCount++
+                _intents[intent.hlc] = updated
+                updated
             }
 
-            Triple(null, onClaimHook, claimedCount)
+            Triple(null, _onClaimHook, claimed)
         }
 
         error?.let {
+            lock.withLock { _failWith = null }
+            throw it
+        }
+
+        hook?.invoke()
+        return claimedBatch
+    }
+
+    override suspend fun acknowledgeSuccess(batchId: String): Int = lock.withLock {
+        var updatedCount = 0
+        _intents.values
+            .filter { it.batchId == batchId && it.syncStatus == SyncStatus.SYNCING }
+            .forEach { intent ->
+                _intents[intent.hlc] = intent.copy(syncStatus = SyncStatus.SUCCESS)
+                updatedCount++
+            }
+        updatedCount
+    }
+
+    override suspend fun stampLastError(batchId: String, message: String) = lock.withLock {
+        _intents.values
+            .filter { it.batchId == batchId }
+            .forEach { intent ->
+                _intents[intent.hlc] = intent.copy(lastErrorMessage = message)
+            }
+    }
+
+    // --- SyncIntentMaintenanceStore Implementations ---
+
+    override suspend fun resetStaleLeases(cutOff: Long, retryThreshold: Int): Int = lock.withLock {
+        _failWith?.let {
             _failWith = null
             throw it
         }
-        hook?.invoke()
+
+        var resetCount = 0
+        _intents.values
+            .filter {
+                it.batchId != null &&
+                        it.syncStatus == SyncStatus.SYNCING &&
+                        it.leasedAt != null && it.leasedAt!! <= cutOff &&
+                        (it.retryCount + 1) < retryThreshold
+            }
+            .forEach { intent ->
+                _intents[intent.hlc] = intent.copy(
+                    retryCount = intent.retryCount + 1,
+                    syncStatus = SyncStatus.PENDING,
+                    batchId = null,
+                    leasedAt = null
+                )
+                resetCount++
+            }
+        resetCount
+    }
+
+    override suspend fun quarantineStaleLeases(cutOff: Long, retryThreshold: Int): Int {
+        val (error, summaries, count) = lock.withLock {
+            val err = _failWith
+            if (err != null) {
+                _failWith = null
+                return@withLock Triple(err, null, 0)
+            }
+
+            var quarantinedCount = 0
+            _intents.values
+                .filter {
+                    it.batchId != null &&
+                            it.syncStatus == SyncStatus.SYNCING &&
+                            it.leasedAt != null && it.leasedAt!! < cutOff &&
+                            (it.retryCount + 1) >= retryThreshold
+                }
+                .forEach { intent ->
+                    _intents[intent.hlc] = intent.copy(
+                        retryCount = intent.retryCount + 1,
+                        syncStatus = SyncStatus.QUARANTINED,
+                        batchId = null,
+                        leasedAt = null
+                    )
+                    quarantinedCount++
+                }
+
+            val updated = if (quarantinedCount > 0) calculateQuarantinedSummaries() else null
+            Triple(null, updated, quarantinedCount)
+        }
+
+        error?.let { throw it }
+
+        if (summaries != null) {
+            _quarantinedFlow.value = summaries
+        }
         return count
     }
 
-    override suspend fun getClaimedBatch(batchId: String): List<SyncIntent> =
-        lock.withLock {
-            _intents.values
-                .filter { it.syncId == batchId }
-                .sortedBy { it.hlc.toString() }
-        }
-
-    override suspend fun acknowledgeSuccess(hlcList: List<HLC>) {
-        lock.withLock {
-            for (hlc in hlcList) {
-                _intents[hlc]?.let { intent ->
-                    _intents[hlc] =
-                        intent.copy(syncStatus = SyncStatus.SUCCESS, syncId = null)
-                }
-            }
-        }
-    }
-
-    override suspend fun clearAllLocksAndResetToPending(): Int = lock.withLock {
+    override suspend fun pruneAgedIntents(pruneAfter: Long, limit: Int): Int = lock.withLock {
         _failWith?.let { throw it }
 
-        var alteredCount = 0
-        _intents.values.filter { it.syncId != null }.forEach { intent ->
-            _intents[intent.hlc] =
-                intent.copy(syncId = null, syncStatus = SyncStatus.PENDING)
-            alteredCount++
+        var pruned = 0
+        val candidates = _intents.values
+            .filter { it.syncStatus == SyncStatus.SUCCESS && it.createdAt < pruneAfter }
+            .sortedBy { it.hlc.toString() }
+
+        for (intent in candidates) {
+            if (pruned >= limit) break
+            _intents.remove(intent.hlc)
+            pruned++
         }
-        return alteredCount
-    }
-
-    override suspend fun resetLease(hlc: HLC) {
-        lock.withLock {
-            _intents[hlc]?.let { intent ->
-                _intents[hlc] = intent.copy(
-                    retryCount = intent.retryCount + 1,
-                    syncStatus = SyncStatus.PENDING,
-                    syncId = null,
-                    leasedAt = null
-                )
-            }
-        }
-    }
-    // Sort this
-    override suspend fun releaseBatch(batchId: String) = lock.withLock {
-        _intents.values.filter { it.syncId == batchId }.forEach { intent ->
-            _intents[intent.hlc] = intent.copy(
-                syncId = null,
-                syncStatus = SyncStatus.PENDING,
-                leasedAt = null
-            )
-        }
-    }
-
-    override suspend fun pruneOldSynced(pruneAfter: Long, limit: Int): Int =
-        lock.withLock {
-            _failWith?.let { throw it }
-
-            var pruned = 0
-            val keysToRemove = mutableListOf<HLC>()
-
-            val candidates = _intents.values
-                .filter { it.syncStatus == SyncStatus.SUCCESS && it.createdAt < pruneAfter }
-                .sortedBy { it.hlc.toString() }
-
-            for (intent in candidates) {
-                if (pruned >= limit) break
-                keysToRemove.add(intent.hlc)
-                pruned++
-            }
-
-            keysToRemove.forEach { _intents.remove(it) }
-            pruned
-        }
-
-    override suspend fun quarantine(hlc: HLC, retryCount: Int) {
-        val updatedSummaries = lock.withLock {
-            _intents[hlc]?.let { intent ->
-                _intents[hlc] = intent.copy(
-                    syncStatus = SyncStatus.QUARANTINED,
-                    retryCount = retryCount
-                )
-            }
-            calculateQuarantinedSummariesLocked()
-        }
-        _quarantinedFlow.value = updatedSummaries
+        pruned
     }
 
     override suspend fun observeQuarantinedCountByModule(): Flow<List<QuarantinedFeatureSummary>> {
         return _quarantinedFlow.asStateFlow()
     }
-
-    override suspend fun getStaleLeasedIntents(olderThan: Long): List<SyncIntent> =
-        lock.withLock {
-            _intents.values.filter { intent ->
-                intent.syncId != null && intent.syncStatus == SyncStatus.SYNCING &&
-                        intent.leasedAt != null && intent.leasedAt!! < olderThan
-            }
-        }
 
     override suspend fun existsForBlob(blobId: String): Boolean {
         if (blobId in _failingBlobIds) {
@@ -252,7 +244,8 @@ class FakeSyncIntentStore(private val fakeClock: FakeTimeUtils) :
         return intents.any { it.overflowBlobId == blobId }
     }
 
-    private fun calculateQuarantinedSummariesLocked(): List<QuarantinedFeatureSummary> {
+    // --- Test Utils ---
+    private fun calculateQuarantinedSummaries(): List<QuarantinedFeatureSummary> {
         return _intents.values
             .filter { it.syncStatus == SyncStatus.QUARANTINED }
             .groupBy { it.featureContext }

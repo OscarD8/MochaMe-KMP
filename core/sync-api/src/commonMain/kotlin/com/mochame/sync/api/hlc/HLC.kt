@@ -83,6 +83,7 @@ data class HLC(
         const val MAX_COUNTER_INT = 65535
         const val MAX_COUNTER_STRING = "FFFF"
         val ONE_DAY = 1.days
+        /** Saturday, March 1, 2025 (at 00:00:00 UTC). **/
         val APP_RELEASE_TIME = Instant.fromEpochMilliseconds(1740787200000L)
         val MAX_DRIFT = 60.seconds
     }

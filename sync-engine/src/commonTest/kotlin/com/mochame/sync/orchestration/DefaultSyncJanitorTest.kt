@@ -326,11 +326,13 @@ class DefaultSyncJanitorTest : MochaPlatformTest() {
     // -----------------------------------------------------------
 
     @Test
-    fun should_clearStaleLocksAndResetIntentsToPending_when_staleIntentsExistOnStartup() =
+    fun should_resetToValidStatus_when_staleIntentsExistOnStartup() =
         runEnv { scope ->
             bootUpdater.updateState(BootState.Init)
+            val baseTime = fakeClock.now()
+            val staleTime = baseTime.minus(config.staleThreshold).toEpochMilliseconds()
 
-            // Given: Seed intent store with intents stuck in SYNCING with active syncIds (simulating process crash)
+            // Given: Intents stuck in SYNCING with active syncIds (simulating process crash)
             val hlc1 = TestHlcFactory.create(ts = 100L, count = 0)
             val hlc2 = TestHlcFactory.create(ts = 200L, count = 0)
 
@@ -338,12 +340,16 @@ class DefaultSyncJanitorTest : MochaPlatformTest() {
                 createTestSyncIntent(
                     hlc = hlc1,
                     status = SyncStatus.SYNCING,
-                    syncId = "batch-stranded-1"
+                    batchId = "batch-stranded-1",
+                    leasedAt = staleTime,
+                    retryCount = 0
                 ),
                 createTestSyncIntent(
                     hlc = hlc2,
                     status = SyncStatus.SYNCING,
-                    syncId = "batch-stranded-2"
+                    batchId = "batch-stranded-2",
+                    leasedAt = staleTime,
+                    retryCount = 0
                 )
             )
 
@@ -355,17 +361,13 @@ class DefaultSyncJanitorTest : MochaPlatformTest() {
             val persistedIntents = intentStore.intents
             assertEquals(2, persistedIntents.size)
             assertTrue(
-                persistedIntents.all { it.syncId == null && it.syncStatus == SyncStatus.PENDING },
-                "Stranded locks must be cleared and reset to PENDING status."
+                persistedIntents.all { it.batchId == null && it.syncStatus == SyncStatus.PENDING },
+                "State should be reconciled."
             )
 
             // Verify audit log for lock cleanup
-            val cleanupLog =
-                writer.logs.find { it.message.contains("Cleared 2 stale") }
-            assertNotNull(
-                cleanupLog,
-                "Janitor must log the number of cleared stale locks."
-            )
+            val cleanupLog = writer.logs.find { it.message.contains("2 stale intent") }
+            assertNotNull(cleanupLog)
         }
 
     @Test
@@ -423,13 +425,9 @@ class DefaultSyncJanitorTest : MochaPlatformTest() {
                 "Stranded blob with matching metadata must have been atomically moved out of pending."
             )
 
-            val recoveryLog = writer.logs.find {
-                it.message.contains("Recovering stranded blob $blobId")
-            }
-            assertNotNull(
-                recoveryLog,
-                "Janitor must log recovery when committing stranded blobs."
-            )
+            val recoveryLog =
+                writer.logs.find { it.message.contains("Recovering stranded blob: $blobId") }
+            assertNotNull(recoveryLog, "Must log recovery when committing stranded blobs.")
         }
 
     @Test
@@ -476,36 +474,22 @@ class DefaultSyncJanitorTest : MochaPlatformTest() {
                     overflowBlobId = blobB
                 )
             )
-            // Wire FakeIntentStore to throw when Janitor queries blobA
             intentStore.failOnBlobCheck(blobA)
 
             // When
             janitor.startupChecks()
             scope.advanceUntilIdle()
 
-            // Then 1: blobA encountered an error, which was caught and logged
-            val blobAFailureLog = writer.logs.find {
-                it.message.contains("Failed to reconcile individual blob: $blobA")
-            }
+            val blobAFailureLog =
+                writer.logs.find { it.message.contains("Failed to reconcile individual blob: $blobA") }
             assertNotNull(
                 blobAFailureLog,
                 "Janitor must catch and log exception for blobA instead of crashing."
             )
 
-            // Then 2: Loop continued and successfully committed blobB
-            assertTrue(
-                blobStore.existsInCommitted(blobB),
-                "Janitor must proceed to reconcile blobB even if blobA threw an exception."
-            )
-
-            // Then 3: Full execution despite prior loop failure
-            val completionLog = writer.logs.find {
-                it.message.contains("Blob Reconciliation Complete")
-            }
-            assertNotNull(
-                completionLog,
-                "Janitor must proceed to clear incomplete staging and finish reconciliation."
-            )
+            assertTrue(blobStore.existsInCommitted(blobB))
+            assertFalse(blobStore.existsInCommitted(blobA))
+            assertTrue(blobStore.existsInPending(blobA))
         }
 
     // -----------------------------------------------------------
@@ -557,7 +541,7 @@ class DefaultSyncJanitorTest : MochaPlatformTest() {
                 status = SyncStatus.SYNCING,
                 leasedAt = staleTimestamp,
                 retryCount = initialRetryCount,
-                syncId = "testing"
+                batchId = "testing"
             )
             intentStore.seedIntents(intent)
 
@@ -584,7 +568,7 @@ class DefaultSyncJanitorTest : MochaPlatformTest() {
                 "leasedAt timestamp must be cleared on reset."
             )
             assertNull(
-                updatedIntent.syncId,
+                updatedIntent.batchId,
                 "syncId should be reset to null on lease reset."
             )
 
@@ -602,7 +586,7 @@ class DefaultSyncJanitorTest : MochaPlatformTest() {
         val intent = createTestSyncIntent(
             hlc = TestHlcFactory.create(),
             status = SyncStatus.SYNCING,
-            syncId = "test",
+            batchId = "test",
             leasedAt = staleTimestamp,
             retryCount = initialRetryCount
         )
@@ -623,9 +607,7 @@ class DefaultSyncJanitorTest : MochaPlatformTest() {
         )
         assertEquals(config.retryThreshold, updatedIntent.retryCount)
 
-        val quarantineLog = writer.logs.find {
-            it.message.startsWith("Quarantined Intent [HLC: ${intent.hlc}]")
-        }
+        val quarantineLog = writer.logs.find { it.message.startsWith("Quarantined 1 stale") }
         assertNotNull(quarantineLog, "Janitor must log quarantine escalation events.")
 
         maintenanceJob.cancel()
@@ -639,7 +621,7 @@ class DefaultSyncJanitorTest : MochaPlatformTest() {
         val intent = createTestSyncIntent(
             hlc = TestHlcFactory.create(),
             status = SyncStatus.SYNCING,
-            syncId = "test",
+            batchId = "test",
             leasedAt = leaseStamp,
             retryCount = 1
         )
@@ -684,21 +666,21 @@ class DefaultSyncJanitorTest : MochaPlatformTest() {
             val quarantineIntent = createTestSyncIntent(
                 hlc = hlcs[0],
                 status = SyncStatus.SYNCING,
-                syncId = "quarantine-target",
+                batchId = "quarantine-target",
                 leasedAt = staleTimestamp,
                 retryCount = config.retryThreshold - 1
             )
             val resetIntent = createTestSyncIntent(
                 hlc = hlcs[1],
                 status = SyncStatus.SYNCING,
-                syncId = "reset-target",
+                batchId = "reset-target",
                 leasedAt = staleTimestamp,
                 retryCount = 0
             )
             val activeIntent = createTestSyncIntent(
                 hlc = hlcs[2],
                 status = SyncStatus.SYNCING,
-                syncId = "active-target",
+                batchId = "active-target",
                 leasedAt = activeTimestamp,
                 retryCount = 1
             )
@@ -784,7 +766,7 @@ class DefaultSyncJanitorTest : MochaPlatformTest() {
             pruneLog,
             "Pruning should be visibly logged during Janitors runtime maintenance."
         )
-        val remaining = intentStore.intents.find { it.syncId == completedIntent.syncId }
+        val remaining = intentStore.intents.find { it.batchId == completedIntent.batchId }
         assertNull(remaining, "Completed intents must be pruned during maintenance tick.")
 
         maintenanceJob.cancel()
@@ -805,14 +787,9 @@ class DefaultSyncJanitorTest : MochaPlatformTest() {
         scope.advanceTimeBy(config.maintenanceInterval)
         scope.runCurrent()
 
-        val cycle1ErrorLog = writer.logs.find {
-            it.message.contains("Intent pruning encountered error")
-        }
-
-        assertNotNull(
-            cycle1ErrorLog,
-            "Janitor must catch and log pruning exception on Cycle 1."
-        )
+        val cycle1ErrorLog =
+            writer.logs.find { it.message.contains("Intent reconciliation encountered error") }
+        assertNotNull(cycle1ErrorLog, "Janitor must catch and log pruning exception on Cycle 1.")
 
         // When 2: Runtime maintenance restarts
         intentStore.failWith = null
@@ -820,11 +797,9 @@ class DefaultSyncJanitorTest : MochaPlatformTest() {
         scope.runCurrent()
 
         // Then
-        val completionLogs = writer.logs.count {
-            it.message.contains("Runtime maintenance cycle finished")
-        }
-        val pruneLogs =
-            writer.logs.any { it.message.contains("Prune Complete | Total: 1") }
+        val completionLogs =
+            writer.logs.count { it.message.contains("Runtime maintenance cycle finished") }
+        val pruneLogs = writer.logs.any { it.message.contains("Prune Complete | Total: 1") }
         assertEquals(
             completionLogs,
             2,

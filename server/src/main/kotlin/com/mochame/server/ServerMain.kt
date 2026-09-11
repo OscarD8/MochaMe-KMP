@@ -155,8 +155,7 @@ fun main() {
             webSocket("/sync/{groupId}/{nodeId}") {
                 val groupId = call.parameters["groupId"] ?: return@webSocket close()
                 val nodeId = call.parameters["nodeId"] ?: return@webSocket close()
-                val sinceWatermark =
-                    call.request.queryParameters["since"]?.toLongOrNull() ?: 0L
+                val sinceWatermark = call.request.queryParameters["since"]?.toLongOrNull() ?: 0L
 
                 val minWatermark = database.getMinWatermark(groupId)
                 if (sinceWatermark > 0 && minWatermark != null && sinceWatermark < minWatermark) {

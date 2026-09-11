@@ -5,19 +5,33 @@ import com.mochame.annotations.AppBackgroundScope
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.sync.spi.network.InboundWireFrame
+import com.mochame.sync.spi.network.SendResult
 import com.mochame.sync.spi.network.SyncTransport
 import com.mochame.sync.spi.network.SyncWireFrame
 import com.mochame.sync.spi.node.NodeContextManager
-import io.ktor.client.*
+import com.mochame.utils.interfaces.TimeUtils
+import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
-import io.ktor.client.plugins.websocket.*
-import io.ktor.websocket.*
-import kotlinx.coroutines.*
+import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
+import io.ktor.client.plugins.websocket.WebSockets
+import io.ktor.client.plugins.websocket.pingInterval
+import io.ktor.client.plugins.websocket.webSocket
+import io.ktor.websocket.CloseReason
+import io.ktor.websocket.Frame
+import io.ktor.websocket.close
+import io.ktor.websocket.readBytes
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 import org.koin.core.annotation.Single
 import kotlin.concurrent.Volatile
-import kotlin.time.Clock
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
@@ -26,6 +40,7 @@ import kotlin.time.Duration.Companion.seconds
 internal class ClientWebSocketTransport(
     @AppBackgroundScope private val backgroundScope: CoroutineScope,
     private val nodeManager: NodeContextManager,
+    private val timeUtils: TimeUtils,
     logger: Logger
 ) : SyncTransport {
 
@@ -186,7 +201,7 @@ internal class ClientWebSocketTransport(
                                         is InboundWireFrame.Ack -> {
                                             nodeManager.recogniseServerResponse(
                                                 wireFrame.watermark,
-                                                Clock.System.now().toEpochMilliseconds()
+                                                timeUtils.now().toEpochMilliseconds()
                                             )
                                         }
 
@@ -223,14 +238,17 @@ internal class ClientWebSocketTransport(
         }
     }
 
-    override suspend fun send(payload: ByteArray): Boolean {
-        val session = activeSession ?: return false
+    override suspend fun send(payload: ByteArray): SendResult {
+        val session = activeSession ?: return SendResult.NoConnection
+
         return try {
             session.send(Frame.Binary(fin = true, data = payload))
-            true
+            SendResult.Success
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logger.w(e) { "Failed to transmit binary frame over active WebSocket session" }
-            false
+            SendResult.Failure(e)
         }
     }
 }

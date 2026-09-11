@@ -237,7 +237,7 @@ class IntentCodecV1Test : MochaPlatformTest() {
         val batchLeasedAt = 1740788000000L
         val localSyncId = "batch-lease-tx-88192"
         val leasedIntent = createTestSyncIntent(
-            syncId = localSyncId,
+            batchId = localSyncId,
             leasedAt = batchLeasedAt
         )
 
@@ -250,7 +250,7 @@ class IntentCodecV1Test : MochaPlatformTest() {
             "leasedAt is local engine batch metadata and must decode as null from wire payload"
         )
         assertNull(
-            decoded.syncId,
+            decoded.batchId,
             "syncId is local batch execution metadata and must decode as null from wire payload"
         )
     }

@@ -2,7 +2,7 @@ package com.mochame.sync.infrastructure.stores
 
 
 import com.mochame.sync.api.metadata.FeatureContext
-import com.mochame.sync.api.hlc.HLC
+import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.data.SyncIntentDao
 import com.mochame.sync.data.toDomain
 import com.mochame.sync.data.toEntity
@@ -37,61 +37,40 @@ internal class DefaultSyncIntentStore(
 
     override suspend fun recordIntent(entry: SyncIntent) = dao.upsert(entry.toEntity())
 
-    override suspend fun discardIntent(hlc: HLC) = dao.deleteByHlc(hlc.toString())
+    override suspend fun claimAndGetBatch(batchId: String, limit: Int): List<SyncIntent> =
+        dao.claimAndGetBatch(batchId, limit).map { it.toDomain() }
 
-    override suspend fun stampLastError(hlcs: List<HLC>, message: String) {
-        if (hlcs.isNotEmpty()) dao.stampLastError(
-            hlcs.map { it.toString() },
-            message
+    override suspend fun acknowledgeSuccess(batchId: String): Int =
+        dao.updateBatchStatus(
+            batchId = batchId,
+            status = SyncStatus.SUCCESS,
+            expectedCurrentStatus = SyncStatus.SYNCING
         )
-    }
 
-    override suspend fun claimBatch(batchId: String, limit: Int): Int =
-        dao.claimBatch(batchId, limit)
-
-    override suspend fun getClaimedBatch(batchId: String): List<SyncIntent> =
-        dao.getClaimedBatch(batchId).map { it.toDomain() }
-
-    override suspend fun acknowledgeSuccess(hlcList: List<HLC>) =
-        dao.markAsSynced(hlcList.map { it.toString() })
+    override suspend fun stampLastError(batchId: String, message: String) =
+        dao.stampLastError(batchId, message)
 
 
     // -----------------------------------------------------------
     // MAINTENANCE
     // -----------------------------------------------------------
 
-    /**
-     * Assumes use in a stale context. No sync should be active, as it will
-     * reset all syncIds to null and the status to Pending.
-     * At the level of individual intents, this would reflect that single entries require a
-     * further attempt to sync.
-     */
-    override suspend fun clearAllLocksAndResetToPending(): Int =
-        dao.clearAllLocksAndResetToPending()
+    override suspend fun resetStaleLeases(cutOff: Long, retryThreshold: Int) =
+        dao.resetStaleLeases(cutOff, retryThreshold)
 
-    override suspend fun resetLease(hlc: HLC) =
-        dao.resetLease(hlc.toString())
+    override suspend fun quarantineStaleLeases(cutOff: Long, retryThreshold: Int) =
+        dao.quarantineStaleLeases(cutOff, retryThreshold)
 
-    override suspend fun releaseBatch(batchId: String) = dao.resetLease(
-        syncId = batchId,
-    )
-
-    override suspend fun pruneOldSynced(pruneAfter: Long, limit: Int) =
-        dao.pruneOldSynced(
+    override suspend fun pruneAgedIntents(pruneAfter: Long, limit: Int) =
+        dao.pruneByCutOff(
             cutoffMs = pruneAfter,
             limit = limit
         )
 
-    override suspend fun quarantine(hlc: HLC, retryCount: Int) =
-        dao.quarantineIntent(hlc.toString(), retryCount)
-
     override suspend fun observeQuarantinedCountByModule(): Flow<List<QuarantinedFeatureSummary>> =
-        dao.observeQuarantinedCountByModule()
-
-    override suspend fun getStaleLeasedIntents(olderThan: Long): List<SyncIntent> =
-        dao.getStaleLeasedIntents(olderThan).map { it.toDomain() }
+        dao.observeQuarantinedCountByFeature()
 
     override suspend fun existsForBlob(blobId: String) =
-        dao.existsByBlobId(blobId)
+        dao.existsForBlobId(blobId)
 
 }

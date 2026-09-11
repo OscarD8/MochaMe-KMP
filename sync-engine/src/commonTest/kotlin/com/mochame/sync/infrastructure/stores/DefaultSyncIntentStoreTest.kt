@@ -6,7 +6,7 @@ import com.mochame.utils.fixtures.TestHlcFactory
 import com.mochame.support.runPersistenceEnvironment
 import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.metadata.SyncStatus
-import com.mochame.sync.di.data.IntentComponentEnv
+import com.mochame.sync.di.data.SyncIntentTestEnv
 import com.mochame.sync.di.data.SyncPersistenceTestApp
 import com.mochame.sync.internal.fixtures.createTestIntentEntity
 import com.mochame.sync.internal.fixtures.createTestSyncIntent
@@ -26,15 +26,15 @@ import kotlin.test.assertTrue
 // -----------------------------------------------------------
 // SUT ENVIRONMENT
 // -----------------------------------------------------------
-private inline fun runEnv(crossinline block: suspend IntentComponentEnv.(TestScope) -> Unit) =
-    runPersistenceEnvironment<SyncMicroSchema, IntentComponentEnv>(
+private inline fun runEnv(crossinline block: suspend SyncIntentTestEnv.(TestScope) -> Unit) =
+    runPersistenceEnvironment<SyncMicroSchema, SyncIntentTestEnv>(
         constructor = SyncMicroSchemaConstructor,
         koinSetup = { includes(koinConfiguration<SyncPersistenceTestApp>()) },
         block = block
     )
 
 
-internal class SyncIntentStoreIntegrationTest : MochaPlatformTest() {
+internal class DefaultSyncIntentStoreTest : MochaPlatformTest() {
 
     // -----------------------------------------------------------
     // INBOUND / OUTBOUND INTEGRITY
@@ -70,7 +70,7 @@ internal class SyncIntentStoreIntegrationTest : MochaPlatformTest() {
         assertEquals(originalIntent.createdAt, retrievedIntent.createdAt)
 
         // Validate nullability preservation
-        assertNull(retrievedIntent.syncId)
+        assertNull(retrievedIntent.batchId)
         assertNull(retrievedIntent.overflowBlobId)
         assertNull(retrievedIntent.leasedAt)
         assertNull(retrievedIntent.lastErrorMessage)
@@ -96,11 +96,9 @@ internal class SyncIntentStoreIntegrationTest : MochaPlatformTest() {
         intentDao.upsert(createTestIntentEntity(hlc = hlcs[1], candidateKey = 2L))
 
         // When
-        val rowsClaimed = intentStore.claimBatch(batchId = sessionId, limit = 10)
-        val claimedDomainBatch = intentStore.getClaimedBatch(batchId = sessionId)
+        val claimedDomainBatch = intentStore.claimAndGetBatch(batchId = sessionId, limit = 10)
 
         // Then
-        assertEquals(3, rowsClaimed)
         assertEquals(3, claimedDomainBatch.size)
 
         // Confirm Chronology

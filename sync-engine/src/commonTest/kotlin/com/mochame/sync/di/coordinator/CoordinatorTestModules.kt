@@ -106,12 +106,12 @@ internal class SyncCoordinatorTestEnv(
 
         storedIntents.forEach { intent ->
             assertEquals(
-                SyncStatus.SYNCING,
+                SyncStatus.SUCCESS,
                 intent.syncStatus,
                 "Intent for key ${intent.candidateKey} must be in SYNCING status"
             )
             assertNotNull(
-                intent.syncId,
+                intent.batchId,
                 "Intent for key ${intent.candidateKey} must hold a non-null batchId (syncId)"
             )
             assertNotNull(

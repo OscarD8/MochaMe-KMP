@@ -20,10 +20,12 @@ import com.mochame.sync.spi.infrastructure.serialization.PayloadCodec
 import com.mochame.sync.spi.infrastructure.SyncIntentStore
 import com.mochame.sync.spi.infrastructure.SyncReceiver
 import com.mochame.sync.spi.infrastructure.SyncWorkerHook
+import com.mochame.sync.spi.network.SendResult
 import com.mochame.sync.spi.network.SyncTransport
 import com.mochame.sync.spi.node.NodeContextManager
 import com.mochame.sync.spi.orchestration.SyncCoordinator
 import com.mochame.sync.spi.policy.ExecutionPolicy
+import com.mochame.utils.interfaces.TimeUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
@@ -46,6 +48,7 @@ internal class DefaultSyncCoordinator(
     private val workerHook: SyncWorkerHook,
     private val bootManager: BootStatusProvider,
     private val nodeManager: NodeContextManager,
+    private val timeUtils: TimeUtils,
     @CoordinatorMutex private val coordinatorMutex: Mutex,
     @AppBackgroundScope private val appBackgroundScope: CoroutineScope,
     receivers: List<SyncReceiver>, // koin handles as long as classes are bound
@@ -106,30 +109,36 @@ internal class DefaultSyncCoordinator(
 
             while (true) {
                 val batchId = idGenerator.nextId()
-
-                val batch = transactor.runImmediateTransaction {
-                    val claimedRows = intentStore.claimBatch(batchId)
-                    if (claimedRows == 0) return@runImmediateTransaction emptyList()
-                    intentStore.getClaimedBatch(batchId)
-                }
-
+                val batch = intentStore.claimAndGetBatch(batchId)
                 if (batch.isEmpty()) break
 
                 val payload = try {
                     payloadCodec.encode(batch)
                 } catch (e: Exception) {
-                    logger.e(e) { "Outbound: Serialization failed for batch $batchId. Janitor to check." }
-                    break
+                    "Outbound: Serialization failed for batch $batchId. Janitor to reconcile intents.".run {
+                        intentStore.stampLastError(batchId, e.message ?: this)
+                        logger.e(e) { this }
+                    }
+                    continue
                 }
 
-                val sent = syncTransport.send(payload)
-
-                if (!sent) {
-                    logger.w { "Outbound: Failed to send batch with HLC ${batch.map { it.hlc }}. Stopping pipeline." }
-                    transactor.runImmediateTransaction {
-                        intentStore.releaseBatch(batchId)
+                when (val result = syncTransport.send(payload)) {
+                    is SendResult.Success -> {
+                        intentStore.acknowledgeSuccess(batchId)
                     }
-                    break
+
+                    is SendResult.NoConnection -> {
+                        logger.w { "Outbound: No connection for batch $batchId. Awaiting reconnection." }
+                        break
+                    }
+
+                    is SendResult.Failure -> {
+                        intentStore.stampLastError(
+                            batchId,
+                            result.cause.message ?: "Transmission failure"
+                        )
+                        logger.w(result.cause) { "Outbound: Failed to transmit batch $batchId. Janitor to reconcile." }
+                    }
                 }
             }
         }
@@ -166,21 +175,22 @@ internal class DefaultSyncCoordinator(
                     intents.forEach { intent ->
                         val succeeded = orchestrateIntent(intent)
                         if (succeeded) {
-                            maxValidHlc = maxValidHlc?.let { maxOf(it, intent.hlc) } ?: intent.hlc
+                            maxValidHlc =
+                                maxValidHlc?.let { maxOf(it, intent.hlc) } ?: intent.hlc
                         }
                     }
+
                     maxValidHlc?.let {
                         hlcFactory.witness(it)
                         nodeManager.updateHlcFloor(it)
                     }
                     nodeManager.recogniseServerResponse(
-                        watermark,
-                        Clock.System.now().toEpochMilliseconds()
+                        watermark, timeUtils.now().toEpochMilliseconds()
                     )
                 }
             }
         } catch (e: Exception) {
-            logger.e(e) { "Failed processing inbound intents. Watermark $watermark rollbacked." }
+            logger.e(e) { "Failed processing inbound intents. Watermark $watermark rolled back." }
             return
         }
 

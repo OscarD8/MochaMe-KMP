@@ -1,5 +1,6 @@
 package com.mochame.sync.internal.fixtures
 
+import com.mochame.sync.spi.network.SendResult
 import com.mochame.sync.spi.network.SyncTransport
 import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
@@ -12,6 +13,7 @@ class FakeSyncTransport(
     private val lock = reentrantLock()
 
     private var _isConnected: Boolean = initialConnected
+    private var _failWith: Exception? = null
     private var _sendResult: Boolean = initialSendResult
     private val _sentPayloads = mutableListOf<ByteArray>()
     private val _connectCalls = mutableListOf<ConnectCall>()
@@ -25,6 +27,10 @@ class FakeSyncTransport(
     override var isConnected: Boolean
         get() = lock.withLock { _isConnected }
         set(value) = lock.withLock { _isConnected = value }
+
+    var failWith: Exception?
+        get() = lock.withLock { _failWith }
+        set(value) = lock.withLock { _failWith = value }
 
     var sendResult: Boolean
         get() = lock.withLock { _sendResult }
@@ -51,16 +57,17 @@ class FakeSyncTransport(
         listener?.invoke()
     }
 
-    override suspend fun send(payload: ByteArray): Boolean {
-        val (canSend, result) = lock.withLock {
-            if (!_isConnected) {
-                false to false
-            } else {
-                _sentPayloads.add(payload.copyOf())
-                true to _sendResult
-            }
+    override suspend fun send(payload: ByteArray): SendResult = lock.withLock {
+        _failWith?.let {
+            _failWith = null
+            return SendResult.Failure(it)
         }
-        return canSend && result
+
+        if (!_isConnected) {
+            return SendResult.NoConnection
+        }
+
+        SendResult.Success
     }
 
     override fun pause() {
@@ -107,6 +114,7 @@ class FakeSyncTransport(
             _resumeCallCount = 0
             _isConnected = true
             _sendResult = true
+            _failWith = null
         }
     }
 }

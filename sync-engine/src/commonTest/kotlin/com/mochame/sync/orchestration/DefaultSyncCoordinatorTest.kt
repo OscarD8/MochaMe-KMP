@@ -34,6 +34,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runCurrent
+import kotlinx.io.IOException
 import org.koin.core.qualifier.named
 import org.koin.dsl.includes
 import org.koin.dsl.module
@@ -512,7 +513,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
             assertEquals(batch1Intent.candidateKey, claimed1.candidateKey)
             assertEquals(batch1Intent.hlc, claimed1.hlc)
             assertEquals(SyncStatus.SYNCING, claimed1.syncStatus)
-            assertNotNull(claimed1.syncId)
+            assertNotNull(claimed1.batchId)
 
             // Assert Batch 2 transition: state mutated to SYNCING with a distinct batch ID
             val encodedBatch2 = codec.encodedInvocations[1]
@@ -521,15 +522,41 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
             assertEquals(batch2Intent.candidateKey, claimed2.candidateKey)
             assertEquals(batch2Intent.hlc, claimed2.hlc)
             assertEquals(SyncStatus.SYNCING, claimed2.syncStatus)
-            assertNotNull(claimed2.syncId)
+            assertNotNull(claimed2.batchId)
 
-            assertTrue(claimed1.syncId != claimed2.syncId, "Claimed batch must be distinct")
+            assertTrue(claimed1.batchId != claimed2.batchId, "Claimed batch must be distinct")
 
             // Assert Side-Effects
             assertEquals(2, codec.encodeCallCount)
             assertEquals(6, workerHook.invalidationCount)
 
             outboundJob.cancel()
+        }
+
+    @Test
+    fun should_stampLastErrorAndRetainSyncingLease_when_transportFailsOnSend() = runEnv {
+            // Given SyncTransport set to fail on sending the Frame
+            val failureMessage = "Simulated transmission failure"
+            val testIntent = createTestSyncIntent(
+                hlc = TestHlcFactory.create(),
+                candidateKey = 42L,
+                status = SyncStatus.PENDING
+            )
+            intentStore.seedIntents(testIntent)
+            syncTransport.failWith = IOException(failureMessage)
+
+            // When
+            coordinator.processQueueUntilExhausted()
+
+            // Then
+            val intents = intentStore.intents
+            assertEquals(1, intents.size)
+
+            val processedIntent = intents.first()
+            assertEquals(SyncStatus.SYNCING, processedIntent.syncStatus)
+            assertNotNull(processedIntent.batchId)
+            assertNotNull(processedIntent.leasedAt)
+            assertEquals(failureMessage, processedIntent.lastErrorMessage)
         }
 
     @Test
@@ -578,7 +605,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
             val claimedExample = encodedBatch.first()
             assertEquals(recoveryIntent.candidateKey, claimedExample.candidateKey)
             assertEquals(SyncStatus.SYNCING, claimedExample.syncStatus)
-            assertNotNull(claimedExample.syncId)
+            assertNotNull(claimedExample.batchId)
 
             outboundJob.cancel()
         }
@@ -809,6 +836,4 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
 
             outboundJob.cancelAndJoin()
         }
-
-
 }

@@ -17,7 +17,7 @@ import kotlin.time.TimeSource
  * chunks. The cut-off is based on the provided [pruneDays] which defaults to
  * [DEFAULT_PRUNE_DAYS].
  *
- * The method responsible for the pruning process is [com.mochame.sync.data.SyncIntentDao.pruneOldSynced] -
+ * The method responsible for the pruning process is [com.mochame.sync.data.SyncIntentDao.pruneByCutOff] -
  * defining that the cut-off is based on the [com.mochame.sync.spi.models.SyncIntent.createdAt] field, requiring
  * a status representing synchronization success provided by the server.
  */
@@ -48,7 +48,7 @@ internal class PruneIntentsUseCase(
 
         do {
             val deleted =
-                intentStore.pruneOldSynced(timeUtils.getMillisAgo(pruneDays), limit)
+                intentStore.pruneAgedIntents(timeUtils.getMillisAgo(pruneDays), limit)
             totalDeleted += deleted
             iterations++
 

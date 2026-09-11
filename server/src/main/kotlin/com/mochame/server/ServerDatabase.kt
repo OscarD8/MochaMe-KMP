@@ -23,6 +23,7 @@ class ServerDatabase(path: String = dbPath) {
             conn.createStatement().use { stmt ->
                 stmt.execute("PRAGMA journal_mode = WAL;")
                 stmt.execute("PRAGMA synchronous = NORMAL;")
+                stmt.execute("PRAGMA busy_timeout=5000;")
                 stmt.execute(
                     """
                     CREATE TABLE IF NOT EXISTS sync_change_log (

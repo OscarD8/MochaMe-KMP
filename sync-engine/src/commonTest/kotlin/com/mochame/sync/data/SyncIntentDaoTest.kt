@@ -12,6 +12,7 @@ import org.koin.plugin.module.dsl.koinConfiguration
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -41,26 +42,20 @@ class SyncIntentDaoTest : MochaPlatformTest() {
         val (hlc1, hlc2, hlc3) = TestHlcFactory.chronologicalSequence(size = 3)
 
         // Intentionally upserting out of order to verify database index sorting
-        val intentLater =
-            createTestIntentEntity(hlc = hlc3)
-        val intentEarlier =
-            createTestIntentEntity(hlc = hlc1)
-        val intentMiddle =
-            createTestIntentEntity(hlc = hlc2)
+        val intentLater = createTestIntentEntity(hlc = hlc3)
+        val intentEarlier = createTestIntentEntity(hlc = hlc1)
+        val intentMiddle = createTestIntentEntity(hlc = hlc2)
 
         upsert(intentLater)
         upsert(intentEarlier)
         upsert(intentMiddle)
 
         // When
-        val rowsClaimed = claimBatch(id = testId, limit = 3)
-        val claimedBatch = getClaimedBatch(id = testId)
+        val claimedBatch = claimAndGetBatch(id = testId, limit = 3)
 
         // Then
-        assertEquals(3, rowsClaimed)
         assertEquals(3, claimedBatch.size)
 
-        // Causal alignment validation is completely type-safe now
         assertEquals(hlc1.toString(), claimedBatch[0].hlc)
         assertEquals(hlc2.toString(), claimedBatch[1].hlc)
         assertEquals(hlc3.toString(), claimedBatch[2].hlc)
@@ -71,10 +66,7 @@ class SyncIntentDaoTest : MochaPlatformTest() {
         // Given unordered sequence of intents against causal HLC's
         val hlcs = TestHlcFactory.chronologicalSequence(size = 5)
         val entities = hlcs.mapIndexed { index, hlc ->
-            createTestIntentEntity(
-                hlc = hlc,
-                candidateKey = index.toLong()
-            )
+            createTestIntentEntity(hlc = hlc, candidateKey = index.toLong())
         }
         entities.shuffled().forEach { entity ->
             upsert(entity)
@@ -84,25 +76,19 @@ class SyncIntentDaoTest : MochaPlatformTest() {
         val nextTestId = "next-session-id"
 
         // When
-        val rowsAffected = claimBatch(id = testId, limit = maxBatchLimit)
-        val claimedBatch = getClaimedBatch(id = testId)
+        val claimedBatch = claimAndGetBatch(id = testId, limit = maxBatchLimit)
 
         // Then
-        assertEquals(maxBatchLimit, rowsAffected)
         assertEquals(maxBatchLimit, claimedBatch.size)
-
         assertEquals(hlcs[0].toString(), claimedBatch[0].hlc)
         assertEquals(hlcs[1].toString(), claimedBatch[1].hlc)
         assertEquals(hlcs[2].toString(), claimedBatch[2].hlc)
 
         // When - Fetch the next batch from the remaining backlog
-        val nextRowsAffected = claimBatch(id = nextTestId, limit = maxBatchLimit)
-        val nextClaimedBatch = getClaimedBatch(id = nextTestId)
+        val nextClaimedBatch = claimAndGetBatch(id = nextTestId, limit = maxBatchLimit)
 
         // Then - Verify it captures the remainder of the items chronologically
-        assertEquals(2, nextRowsAffected)
         assertEquals(2, nextClaimedBatch.size)
-
         assertEquals(hlcs[3].toString(), nextClaimedBatch[0].hlc)
         assertEquals(hlcs[4].toString(), nextClaimedBatch[1].hlc)
     }
@@ -112,33 +98,23 @@ class SyncIntentDaoTest : MochaPlatformTest() {
         // Given
         val hlcs = TestHlcFactory.chronologicalSequence(size = 4)
         hlcs.forEachIndexed { index, hlc ->
-            upsert(
-                createTestIntentEntity(
-                    hlc = hlc,
-                    candidateKey = index.toLong()
-                )
-            )
+            upsert(createTestIntentEntity(hlc = hlc, candidateKey = index.toLong()))
         }
 
         val sessionAlpha = "session-alpha"
         val sessionBeta = "session-beta"
 
         // When
-        val rowsAlpha = claimBatch(id = sessionAlpha, limit = 2)
-        val batchAlpha = getClaimedBatch(id = sessionAlpha)
-
-        val rowsBeta = claimBatch(id = sessionBeta, limit = 2)
-        val batchBeta = getClaimedBatch(id = sessionBeta)
+        val batchAlpha = claimAndGetBatch(id = sessionAlpha, limit = 2)
+        val batchBeta = claimAndGetBatch(id = sessionBeta, limit = 2)
 
         // Then
         // Verify Alpha
-        assertEquals(2, rowsAlpha)
         assertEquals(2, batchAlpha.size)
         assertEquals(hlcs[0].toString(), batchAlpha[0].hlc)
         assertEquals(hlcs[1].toString(), batchAlpha[1].hlc)
 
         // Verify Beta
-        assertEquals(2, rowsBeta)
         assertEquals(2, batchBeta.size)
         assertEquals(hlcs[2].toString(), batchBeta[0].hlc)
         assertEquals(hlcs[3].toString(), batchBeta[1].hlc)
@@ -148,18 +124,13 @@ class SyncIntentDaoTest : MochaPlatformTest() {
         val betaHlcs = batchBeta.map { it.hlc }.toSet()
         val intersection = alphaHlcs.intersect(betaHlcs)
 
-        assertTrue(
-            intersection.isEmpty(),
-            "Data leakage detected: Sessions contains overlapping HLC records"
-        )
+        assertTrue(intersection.isEmpty(), "Sessions contain overlapping HLC records")
     }
 
     @Test
     fun should_skipQuarantinedIntents_when_claimingFreshBatch() = runEnv {
         // Given
-        val (hlcOldestQuarantined, hlcNewerPending) = TestHlcFactory.chronologicalSequence(
-            size = 2
-        )
+        val (hlcOldestQuarantined, hlcNewerPending) = TestHlcFactory.chronologicalSequence(size = 2)
 
         val quarantinedIntent = createTestIntentEntity(
             hlc = hlcOldestQuarantined,
@@ -167,57 +138,44 @@ class SyncIntentDaoTest : MochaPlatformTest() {
             status = SyncStatus.QUARANTINED
         )
 
-        val healthyIntent =
-            createTestIntentEntity(
-                hlc = hlcNewerPending,
-                candidateKey = 2L,
-                status = SyncStatus.PENDING
-            )
+        val healthyIntent = createTestIntentEntity(
+            hlc = hlcNewerPending,
+            candidateKey = 2L,
+            status = SyncStatus.PENDING
+        )
 
         upsert(quarantinedIntent)
         upsert(healthyIntent)
 
         // When
-        val rowsClaimed = claimBatch(id = testId, limit = 1)
-        val claimedBatch = getClaimedBatch(id = testId)
+        val claimedBatch = claimAndGetBatch(id = testId, limit = 50)
 
         // Then
-        assertEquals(1, rowsClaimed)
         assertEquals(1, claimedBatch.size)
         assertEquals(hlcNewerPending.toString(), claimedBatch[0].hlc)
         assertEquals(2L, claimedBatch[0].candidateKey)
     }
 
     @Test
-    fun should_returnZeroAffectedRows_when_backlogIsEmptyOrFullyLeased() = runEnv {
-        // Scenario A
-        // Given nada data
-        val rowsAlpha = claimBatch(id = testId, limit = 10)
-        val batchAlpha = getClaimedBatch(id = testId)
-
-        assertEquals(0, rowsAlpha)
+    fun should_returnEmptyBatch_when_backlogIsEmptyOrFullyLeased() = runEnv {
+        // Scenario A: Backlog is empty
+        val batchAlpha = claimAndGetBatch(id = testId, limit = 10)
         assertTrue(batchAlpha.isEmpty())
 
-        // Scenario B: Session Beta
-        // Given items exist, but they are already completely locked under another session
+        // Scenario B: Items exist, but are already leased under another batchId
         val targetHlc = TestHlcFactory.create()
-        val activelyLeasedIntent =
-            createTestIntentEntity(
-                hlc = targetHlc,
-                status = SyncStatus.SYNCING,
-                syncId = "session-active-owner"
-            )
+        val activelyLeasedIntent = createTestIntentEntity(
+            hlc = targetHlc,
+            status = SyncStatus.SYNCING,
+            batchId = "session-active-owner"
+        )
 
         upsert(activelyLeasedIntent)
 
-        val sessionBeta = "session-contender"
-
         // When
-        val rowsBeta = claimBatch(id = sessionBeta, limit = 10)
-        val batchBeta = getClaimedBatch(id = sessionBeta)
+        val batchBeta = claimAndGetBatch(id = "session-contender", limit = 10)
 
         // Then
-        assertEquals(0, rowsBeta)
         assertTrue(batchBeta.isEmpty())
     }
 
@@ -228,21 +186,28 @@ class SyncIntentDaoTest : MochaPlatformTest() {
 
         val intentSuccess = createTestIntentEntity(
             hlc = hlcs[0],
-            status = SyncStatus.SUCCESS
+            status = SyncStatus.SUCCESS,
+            batchId = "original-batch-id",
+            leasedAt = 1000L
         )
         val intentLeased = createTestIntentEntity(
             hlc = hlcs[1],
             status = SyncStatus.SYNCING,
-            syncId = "other-id"
+            batchId = "other-id",
+            leasedAt = 1001L
         )
         val intentPending = createTestIntentEntity(
             hlc = hlcs[2],
             candidateKey = 5L,
-            status = SyncStatus.PENDING
+            status = SyncStatus.PENDING,
+            leasedAt = null,
+            batchId = null
         )
         val intentQuarantined = createTestIntentEntity(
             hlc = hlcs[3],
-            status = SyncStatus.QUARANTINED
+            status = SyncStatus.QUARANTINED,
+            batchId = "diagnostic-id",
+            leasedAt = 999L
         )
 
         upsert(intentSuccess)
@@ -253,16 +218,13 @@ class SyncIntentDaoTest : MochaPlatformTest() {
         val currentSession = "session-extractor"
 
         // When
-        val rowsClaimed = claimBatch(id = currentSession, limit = 10)
-        val claimedBatch = getClaimedBatch(id = currentSession)
+        val claimedBatch = claimAndGetBatch(id = currentSession, limit = 10)
 
         // Then
-        assertEquals(1, rowsClaimed)
         assertEquals(1, claimedBatch.size)
         assertEquals(hlcs[2].toString(), claimedBatch[0].hlc)
         assertEquals(5L, claimedBatch[0].candidateKey)
     }
-
 
     // -----------------------------------------------------------
     // STATE MANAGEMENT
@@ -271,81 +233,58 @@ class SyncIntentDaoTest : MochaPlatformTest() {
     fun should_stampDiagnosticMessageAcrossBatch_when_batchFailureOccurs() = runEnv {
         // Given
         val hlcs = TestHlcFactory.chronologicalSequence(size = 3)
-        val entity1 = createTestIntentEntity(hlc = hlcs[0])
-        val entity2 = createTestIntentEntity(hlc = hlcs[1])
-        val entity3 = createTestIntentEntity(hlc = hlcs[2])
+        upsert(createTestIntentEntity(hlc = hlcs[0]))
+        upsert(createTestIntentEntity(hlc = hlcs[1]))
+        upsert(createTestIntentEntity(hlc = hlcs[2]))
 
-        upsert(entity1)
-        upsert(entity2)
-        upsert(entity3)
+        val verificationSession = "verification-session"
+        val untouchedSession = "untouched-session"
 
-        val targetHlcStrings = listOf(hlcs[0].toString(), hlcs[2].toString())
+        // Claim two into verificationSession and one into untouchedSession
+        claimAndGetBatch(id = verificationSession, limit = 2)
+        claimAndGetBatch(id = untouchedSession, limit = 1)
+
         val failureMessage = "HTTP 502: Bad Gateway Gateway Timeout"
 
         // When
-        // Stamping errors explicitly across a subset of the batch
-        stampLastError(hlcs = targetHlcStrings, message = failureMessage)
-        // Lock the session to pull them back out for verification
-        claimBatch(id = "verification-session", limit = 10)
-        val updatedEntities = getClaimedBatch(id = "verification-session")
+        stampLastError(batchId = verificationSession, message = failureMessage)
 
         // Then
-        val record1 = updatedEntities.find { it.hlc == hlcs[0].toString() }
-            ?: throw AssertionError()
-        val record2 = updatedEntities.find { it.hlc == hlcs[1].toString() }
-            ?: throw AssertionError()
-        val record3 = updatedEntities.find { it.hlc == hlcs[2].toString() }
-            ?: throw AssertionError()
+        val targetBatch = getClaimedBatch(id = verificationSession)
+        val otherBatch = getClaimedBatch(id = untouchedSession)
 
-        assertEquals(failureMessage, record1.lastErrorMessage)
-        assertNull(record2.lastErrorMessage)
-        assertEquals(failureMessage, record3.lastErrorMessage)
+        assertEquals(2, targetBatch.size)
+        targetBatch.forEach { entity ->
+            assertEquals(failureMessage, entity.lastErrorMessage)
+        }
+
+        assertEquals(1, otherBatch.size)
+        assertNull(otherBatch.first().lastErrorMessage)
     }
 
     @Test
-    fun should_releaseAllActiveSessionLocks_when_crashRecoveryTriggered() = runEnv {
+    fun should_updateBatchStatus_when_sessionAndExpectedStatusMatch() = runEnv {
         // Given
-        val hlcs = TestHlcFactory.chronologicalSequence(size = 3)
+        val hlc = TestHlcFactory.create()
+        upsert(createTestIntentEntity(hlc = hlc))
 
-        // Two records simulate being caught mid-upload during a power failure/crash
-        val strandedRecord1 = createTestIntentEntity(
-            hlc = hlcs[0],
-            status = SyncStatus.SYNCING,
-            syncId = "crash-session-1"
-        )
-        val strandedRecord2 = createTestIntentEntity(
-            hlc = hlcs[1],
-            status = SyncStatus.SYNCING,
-            syncId = "crash-session-1"
-        )
-        // One healthy record that was untouched
-        val untouchedRecord = createTestIntentEntity(
-            hlc = hlcs[2],
-            status = SyncStatus.PENDING,
-            syncId = null
-        )
-
-        upsert(strandedRecord1)
-        upsert(strandedRecord2)
-        upsert(untouchedRecord)
+        claimAndGetBatch(id = testId, limit = 1)
 
         // When
-        val rowsRecovered = clearAllLocksAndResetToPending()
+        val updatedRows = updateBatchStatus(
+            batchId = testId,
+            status = SyncStatus.SUCCESS,
+            expectedCurrentStatus = SyncStatus.SYNCING
+        )
 
         // Then
-        assertEquals(2, rowsRecovered)
+        assertEquals(1, updatedRows)
 
-        // Verify a completely fresh session can seamlessly claim the entire backlog now
-        val nextSessionId = "fresh-startOutbound-worker"
-        val totalClaimedCount = claimBatch(id = nextSessionId, limit = 10)
-        val currentActiveBatch = getClaimedBatch(id = nextSessionId)
-
-        assertEquals(3, totalClaimedCount)
-        currentActiveBatch.forEach { entity ->
-            assertEquals(SyncStatus.SYNCING, entity.syncStatus)
-            assertEquals(nextSessionId, entity.syncId)
-            assertNull(entity.lastErrorMessage)
-        }
+        val records = getClaimedBatch(id = testId)
+        assertEquals(1, records.size)
+        assertEquals(SyncStatus.SUCCESS, records.first().syncStatus)
+        assertNotNull(records.first().batchId)
+        assertNotNull(records.first().leasedAt)
     }
 
     @Test
@@ -354,87 +293,102 @@ class SyncIntentDaoTest : MochaPlatformTest() {
         val targetBlobId = "blob-large-payload-789"
         val hlc = TestHlcFactory.create()
 
-        val intentWithBlob =
-            createTestIntentEntity(hlc = hlc, overflowBlobId = targetBlobId)
+        val intentWithBlob = createTestIntentEntity(hlc = hlc, overflowBlobId = targetBlobId)
 
-        assertFalse(existsByBlobId(targetBlobId))
+        assertFalse(existsForBlobId(targetBlobId))
 
         // When
         upsert(intentWithBlob)
 
         // Then
-        assertTrue(existsByBlobId(targetBlobId))
-        assertFalse(existsByBlobId("non-existent-blob-id"))
+        assertTrue(existsForBlobId(targetBlobId))
+        assertFalse(existsForBlobId("non-existent-blob-id"))
     }
 
+    // -----------------------------------------------------------
+    // MAINTENANCE
+    // -----------------------------------------------------------
     @Test
-    fun should_resetLeaseState_when_resetLeaseInvoked() = runEnv {
-        // Given
-        val hlc = TestHlcFactory.create()
-        val initialActiveLease = createTestIntentEntity(
-            hlc = hlc,
-            status = SyncStatus.SYNCING,
-            syncId = "active-session-123"
-        )
-
-        upsert(initialActiveLease)
-
-        // Then
-        val initialClaim = claimBatch(id = "verification-session", limit = 1)
-        assertEquals(0, initialClaim)
-
-        // When
-        resetLease("active-session-123")
-
-        // Then
-        val rowsClaimed = claimBatch(id = "verification-session", limit = 1)
-        val updatedEntities = getClaimedBatch(id = "verification-session")
-
-        assertEquals(1, rowsClaimed)
-        val verifiedRecord = updatedEntities.first()
-        assertEquals(1, verifiedRecord.retryCount)
-        assertEquals(SyncStatus.SYNCING, verifiedRecord.syncStatus)
-        assertEquals("verification-session", verifiedRecord.syncId)
-    }
-
-    @Test
-    fun should_returnStaleLeasedIntents_when_leasedAtIsBeforeCutoff() = runEnv {
+    fun should_resetStaleLeasesBackToPending_when_leasedAtBeforeCutoffAndBelowRetryThreshold() = runEnv {
         // Given
         val hlcs = TestHlcFactory.chronologicalSequence(size = 2)
         val cutoffTime = TestHlcFactory.BASE_TEST_TIME
-        val targetBlobId = "stale-blob-marker"
 
-        // Row whose lease has expired (leasedAt is older than the cutoff)
+        // Stale lease: below retry threshold
         val staleLease = createTestIntentEntity(
             hlc = hlcs[0],
-            overflowBlobId = targetBlobId,
-            leasedAt = cutoffTime - 1000L,
             status = SyncStatus.SYNCING,
-            syncId = "dead-session"
+            batchId = "crash-session-1",
+            leasedAt = cutoffTime - 1000L,
+            retryCount = 0
         )
-
-        // Row whose lease is fresh and active (leasedAt is newer than the cutoff)
+        // Active lease: leased after the cutoff
         val activeLease = createTestIntentEntity(
             hlc = hlcs[1],
             status = SyncStatus.SYNCING,
-            syncId = "live-session",
-            leasedAt = cutoffTime + 1000L
+            batchId = "active-session-2",
+            leasedAt = cutoffTime + 1000L,
+            retryCount = 0
         )
 
         upsert(staleLease)
         upsert(activeLease)
 
         // When
-        val staleRecords = getStaleLeasedIntents(cutoffTime)
+        val resetCount = resetStaleLeases(cutOff = cutoffTime, retryThreshold = 3)
 
         // Then
-        assertEquals(1, staleRecords.size)
-        assertEquals(targetBlobId, staleRecords.first().overflowBlobId)
+        assertEquals(1, resetCount)
+
+        // Verify the reset lease can now be claimed
+        val freshSession = "fresh-session"
+        val recoveredBatch = claimAndGetBatch(id = freshSession, limit = 10)
+
+        assertEquals(1, recoveredBatch.size)
+        val recoveredRecord = recoveredBatch.first()
+        assertEquals(hlcs[0].toString(), recoveredRecord.hlc)
+        assertEquals(1, recoveredRecord.retryCount)
+        assertEquals(freshSession, recoveredRecord.batchId)
+        assertEquals(SyncStatus.SYNCING, recoveredRecord.syncStatus)
     }
 
-    // -----------------------------------------------------------
-    // MAINTENANCE
-    // -----------------------------------------------------------
+    @Test
+    fun should_quarantineStaleLeases_when_leasedAtBeforeCutoffAndRetryThresholdMet() = runEnv {
+        // Given
+        val hlcs = TestHlcFactory.chronologicalSequence(size = 2)
+        val cutoffTime = TestHlcFactory.BASE_TEST_TIME
+
+        // Reached retry threshold upon next failure
+        val exhaustedLease = createTestIntentEntity(
+            hlc = hlcs[0],
+            status = SyncStatus.SYNCING,
+            batchId = "dead-session",
+            leasedAt = cutoffTime - 1000L,
+            retryCount = 2
+        )
+        // Still below threshold
+        val retryableLease = createTestIntentEntity(
+            hlc = hlcs[1],
+            status = SyncStatus.SYNCING,
+            batchId = "recovering-session",
+            leasedAt = cutoffTime - 1000L,
+            retryCount = 0
+        )
+
+        upsert(exhaustedLease)
+        upsert(retryableLease)
+
+        // When
+        val quarantinedCount = quarantineStaleLeases(cutOff = cutoffTime, retryThreshold = 3)
+
+        // Then
+        assertEquals(1, quarantinedCount)
+
+        // Verify the quarantined intent cannot be claimed by a fresh session
+        val claimedBatch = claimAndGetBatch(id = "fresh-session", limit = 10)
+        assertTrue(claimedBatch.none { it.hlc == hlcs[0].toString() })
+    }
+
     @Test
     fun should_deleteSuccessRecord_when_olderThanCutoff() = runEnv {
         // Given
@@ -452,11 +406,11 @@ class SyncIntentDaoTest : MochaPlatformTest() {
         upsert(oldSuccess)
 
         // When
-        val rowsDeleted = pruneOldSynced(cutoffTime, limit = 10)
+        val rowsDeleted = pruneByCutOff(cutoffTime, limit = 10)
 
         // Then
         assertEquals(1, rowsDeleted)
-        assertFalse(existsByBlobId(targetBlobId))
+        assertFalse(existsForBlobId(targetBlobId))
     }
 
     @Test
@@ -476,11 +430,11 @@ class SyncIntentDaoTest : MochaPlatformTest() {
         upsert(recentSuccess)
 
         // When
-        val rowsDeleted = pruneOldSynced(cutoffTime, limit = 10)
+        val rowsDeleted = pruneByCutOff(cutoffTime, limit = 10)
 
         // Then
         assertEquals(0, rowsDeleted)
-        assertTrue(existsByBlobId(targetBlobId))
+        assertTrue(existsForBlobId(targetBlobId))
     }
 
     @Test
@@ -500,11 +454,11 @@ class SyncIntentDaoTest : MochaPlatformTest() {
         upsert(oldPending)
 
         // When
-        val rowsDeleted = pruneOldSynced(cutoffTime, limit = 10)
+        val rowsDeleted = pruneByCutOff(cutoffTime, limit = 10)
 
         // Then
         assertEquals(0, rowsDeleted)
-        assertTrue(existsByBlobId(targetBlobId))
+        assertTrue(existsForBlobId(targetBlobId))
     }
 
 }

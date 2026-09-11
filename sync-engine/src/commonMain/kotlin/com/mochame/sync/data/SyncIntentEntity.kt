@@ -1,6 +1,5 @@
 package com.mochame.sync.data
 
-import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -16,10 +15,12 @@ import kotlin.time.Clock
  */
 @Entity(
     indices = [
-        Index(value = ["syncStatus"]),
-        Index(value = ["syncStatus", "leasedAt"]),
+        Index(value = ["syncStatus", "batchId", "hlc"]),
+        Index(value = ["batchId", "syncStatus"]),
+        Index(value = ["candidateKey", "syncStatus"]),
         Index(value = ["featureContext", "syncStatus"]),
-        Index(value = ["syncId"])
+        Index(value = ["syncStatus", "leasedAt"]),
+        Index(value = ["overflowBlobId"])
     ]
 )
 data class SyncIntentEntity(
@@ -31,7 +32,7 @@ data class SyncIntentEntity(
     val payload: ByteArray?,
     val overflowBlobId: String?,
     val syncStatus: SyncStatus,
-    val syncId: String? = null,          // lease identity, diagnostic traceability
+    val batchId: String? = null,          // lease identity, diagnostic traceability
     val leasedAt: Long? = null,          // enables safe Janitor cutoff queries
     val diagnosticSummary: String?,
     val retryCount: Int = 0,              // Janitor implements threshold logic
