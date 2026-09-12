@@ -3,15 +3,14 @@ package com.mochame.sync.infrastructure.serialization
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.common.withTag
-import com.mochame.sync.di.codec.CodecTestApp
+import com.mochame.sync.di.codec.CodecTestModule
 import com.mochame.sync.internal.fixtures.serialization.FakeFeatureCodec
 import com.mochame.sync.internal.fixtures.serialization.FeatureCodecRouterFixture
 import com.mochame.sync.internal.fixtures.serialization.FeatureEntity
 import com.mochame.sync.internal.fixtures.serialization.deriveContext
 import kotlinx.coroutines.test.TestScope
 import kotlinx.serialization.SerializationException
-import org.koin.dsl.includes
-import org.koin.plugin.module.dsl.koinConfiguration
+import org.koin.plugin.module.dsl.modules
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -24,8 +23,8 @@ import kotlin.test.assertNotNull
 // SUT ENVIRONMENT
 // -------------------------------------------------------------------
 private inline fun runEnv(crossinline block: suspend FeatureCodecRouterFixture.(TestScope) -> Unit) =
-    runUnitEnvironment(
-        koinSetup = { includes(koinConfiguration<CodecTestApp>()) },
+    runUnitEnvironment<FeatureCodecRouterFixture>(
+        koinSetup = { modules(CodecTestModule::class) },
         block = block
     )
 

@@ -1,6 +1,6 @@
 package com.mochame.node
 
-import com.mochame.node.di.BootManagerUnitTestApp
+import com.mochame.node.di.NodeProductionModule
 import com.mochame.node.managers.DefaultBootStatusManager
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runUnitEnvironment
@@ -14,8 +14,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
-import org.koin.dsl.includes
-import org.koin.plugin.module.dsl.koinConfiguration
+import org.koin.plugin.module.dsl.modules
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -28,7 +27,7 @@ import kotlin.time.Duration.Companion.milliseconds
 // -----------------------------------------------------------
 private inline fun runEnv(crossinline block: suspend DefaultBootStatusManager.(TestScope) -> Unit) =
     runUnitEnvironment<DefaultBootStatusManager>(
-        koinSetup = { includes(koinConfiguration<BootManagerUnitTestApp>()) },
+        koinSetup = { modules(NodeProductionModule::class) },
         block = block
     )
 

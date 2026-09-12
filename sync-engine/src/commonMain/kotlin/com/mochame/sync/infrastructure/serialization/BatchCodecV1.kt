@@ -7,6 +7,7 @@ import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.sync.spi.models.SyncIntent
 import com.mochame.sync.spi.infrastructure.serialization.BatchCodec
 import com.mochame.sync.spi.infrastructure.serialization.IntentCodecRouter
+import io.ktor.utils.io.CancellationException
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoBuf
@@ -69,7 +70,7 @@ internal class BatchCodecV1(
         val batchPayload = try {
             ProtoBuf.decodeFromByteArray(SyncBatchPayloadV1.serializer(), bytes)
         } catch (e: Exception) {
-            logger.e(e) { "Binary Corruption: Failed decoding batch container envelope (${bytes.size} bytes)" }
+            logger.e(e) { "Failed decoding batch container envelope (${bytes.size} bytes)" }
             throw e
         }
 
@@ -91,6 +92,7 @@ internal class BatchCodecV1(
                 )
                 decodedIntents.add(intent)
             } catch (e: Exception) {
+                if (e is CancellationException){ throw e }
                 if (e is MochaException.Persistent.UnknownProtocolVersion) {
                     logger.e { "Aborting Batch Process. Batch Envelope holds invalid version: ${batchPayload.intentSchemaVersion}" }
                     return decodedIntents

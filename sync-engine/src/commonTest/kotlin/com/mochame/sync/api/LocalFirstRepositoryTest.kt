@@ -11,8 +11,8 @@ import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.common.bitmaskOf
-import com.mochame.sync.di.api.LocalFirstRepoTestApp
 import com.mochame.sync.di.api.LocalFirstRepoTestEnv
+import com.mochame.sync.di.api.LocalFirstRepoTestModule
 import com.mochame.sync.internal.fixtures.serialization.FakeFeatureCodec
 import com.mochame.sync.internal.fixtures.serialization.FeatureEntity
 import com.mochame.sync.internal.fixtures.serialization.deriveContext
@@ -30,8 +30,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.io.IOException
-import org.koin.dsl.includes
-import org.koin.plugin.module.dsl.koinConfiguration
+import org.koin.plugin.module.dsl.modules
 import kotlin.test.DefaultAsserter.assertNotNull
 import kotlin.test.Test
 import kotlin.test.assertContains
@@ -48,7 +47,7 @@ import kotlin.time.Duration.Companion.seconds
 
 private inline fun runEnv(crossinline block: suspend LocalFirstRepoTestEnv.(TestScope) -> Unit) =
     runUnitEnvironment<LocalFirstRepoTestEnv>(
-        koinSetup = { includes(koinConfiguration<LocalFirstRepoTestApp>()) },
+        koinSetup = { modules(LocalFirstRepoTestModule::class) },
         block = block
     )
 

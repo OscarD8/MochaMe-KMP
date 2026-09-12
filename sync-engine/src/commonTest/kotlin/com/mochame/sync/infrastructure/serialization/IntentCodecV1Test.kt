@@ -5,15 +5,14 @@ import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.api.metadata.SyncStatus
-import com.mochame.sync.di.codec.CodecTestApp
+import com.mochame.sync.di.codec.CodecTestModule
 import com.mochame.sync.internal.fixtures.assertDecodedIntentParity
 import com.mochame.sync.internal.fixtures.createTestSyncIntent
 import com.mochame.utils.fixtures.TestHlcFactory
 import kotlinx.coroutines.test.TestScope
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerializationException
-import org.koin.dsl.includes
-import org.koin.plugin.module.dsl.koinConfiguration
+import org.koin.plugin.module.dsl.modules
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -25,8 +24,8 @@ import kotlin.test.assertNull
 // SUT ENVIRONMENT
 // -------------------------------------------------------------------
 private inline fun runEnv(crossinline block: suspend IntentCodecV1.(TestScope) -> Unit) =
-    runUnitEnvironment(
-        koinSetup = { includes(koinConfiguration<CodecTestApp>()) },
+    runUnitEnvironment<IntentCodecV1>(
+        koinSetup = { modules(CodecTestModule::class) },
         block = block
     )
 

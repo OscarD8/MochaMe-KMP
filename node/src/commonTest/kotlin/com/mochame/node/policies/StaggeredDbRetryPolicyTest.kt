@@ -3,8 +3,8 @@
 package com.mochame.node.policies
 
 import co.touchlab.kermit.ExperimentalKermitApi
-import com.mochame.node.di.StaggeredDbPolicyTestApp
 import com.mochame.node.di.StaggeredDbPolicyTestEnv
+import com.mochame.node.di.StaggeredDbPolicyTestModule
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.api.exceptions.MochaException
@@ -13,8 +13,7 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
-import org.koin.dsl.includes
-import org.koin.plugin.module.dsl.koinConfiguration
+import org.koin.plugin.module.dsl.modules
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -28,7 +27,7 @@ import kotlin.time.Duration.Companion.milliseconds
 // -----------------------------------------------------------
 private inline fun runEnv(crossinline block: suspend StaggeredDbPolicyTestEnv.(TestScope) -> Unit) =
     runUnitEnvironment<StaggeredDbPolicyTestEnv>(
-        koinSetup = { includes(koinConfiguration<StaggeredDbPolicyTestApp>()) },
+        koinSetup = { modules(StaggeredDbPolicyTestModule::class) },
         block = block
     )
 

@@ -8,8 +8,7 @@ import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.spi.infrastructure.serialization.FieldHlcMap
 import com.mochame.sync.spi.infrastructure.serialization.FieldMergeScope
 import kotlinx.coroutines.test.TestScope
-import org.koin.dsl.includes
-import org.koin.plugin.module.dsl.koinConfiguration
+import org.koin.plugin.module.dsl.modules
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -17,7 +16,7 @@ import kotlin.test.assertNull
 
 private inline fun runEnv(crossinline block: SyncApiTestEnv.(TestScope) -> Unit) =
     runUnitEnvironment<SyncApiTestEnv>(
-        koinSetup = { includes(koinConfiguration<SyncApiTestApp>()) },
+        koinSetup = { modules(SyncApiTestModule::class) },
         block = block
     )
 

@@ -11,8 +11,8 @@ import com.mochame.support.MochaPlatformTest
 import com.mochame.utils.fixtures.TestHlcFactory
 import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.api.metadata.SyncStatus
-import com.mochame.sync.di.janitor.JanitorTestApp
 import com.mochame.sync.di.janitor.JanitorTestEnv
+import com.mochame.sync.di.janitor.SyncJanitorTestModule
 import com.mochame.sync.internal.fixtures.createTestSyncIntent
 import com.mochame.sync.spi.node.NodeContext
 import com.mochame.sync.spi.node.NodeId
@@ -24,8 +24,7 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.io.Buffer
-import org.koin.dsl.includes
-import org.koin.plugin.module.dsl.koinConfiguration
+import org.koin.plugin.module.dsl.modules
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -41,7 +40,7 @@ import kotlin.time.Duration.Companion.seconds
 // -----------------------------------------------------------
 private inline fun runEnv(crossinline block: suspend JanitorTestEnv.(TestScope) -> Unit) =
     runUnitEnvironment<JanitorTestEnv>(
-        koinSetup = { includes(koinConfiguration<JanitorTestApp>()) },
+        koinSetup = { modules(SyncJanitorTestModule::class) },
         block = block
     )
 

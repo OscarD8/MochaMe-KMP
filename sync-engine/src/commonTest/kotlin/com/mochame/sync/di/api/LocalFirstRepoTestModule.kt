@@ -18,8 +18,12 @@ import com.mochame.sync.common.InternalTestApi
 import com.mochame.sync.di.codec.CodecTestModule
 import com.mochame.sync.di.fixtures.SyncInternalFixturesModule
 import com.mochame.sync.di.infrastructure.DefaultKeyedLockerModule
+import com.mochame.sync.di.infrastructure.SyncBlobStoreTestModule
+import com.mochame.sync.di.infrastructure.SyncIntentStoreTestModule
 import com.mochame.sync.fixtures.FakeBlobStore
+import com.mochame.sync.fixtures.FakeHlcFactory
 import com.mochame.sync.fixtures.FakeSyncIntentStore
+import com.mochame.sync.fixtures.FakeSyncWorkerHook
 import com.mochame.sync.fixtures.di.FixturesSyncModule
 import com.mochame.sync.infrastructure.DefaultKeyedLocker
 import com.mochame.sync.internal.fixtures.FeatureRepository
@@ -30,12 +34,12 @@ import com.mochame.sync.internal.fixtures.serialization.FeatureCodecRouter
 import com.mochame.sync.internal.fixtures.serialization.FeatureCodecRouterFixture
 import com.mochame.sync.internal.fixtures.serialization.FeatureCodecV1
 import com.mochame.sync.spi.infrastructure.BufferProvider
+import com.mochame.sync.spi.infrastructure.KeyedLocker
 import com.mochame.utils.fixtures.FakeTimeUtils
 import com.mochame.utils.fixtures.TestNodeId
 import kotlinx.coroutines.Dispatchers
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Factory
-import org.koin.core.annotation.KoinApplication
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
 
@@ -60,9 +64,6 @@ import org.koin.core.annotation.Single
  * - KeyedLocker (DefaultKeyedLocker): Tightly coupled to functioning of repository. Mutex is required as the nested block suspends - faking unnecessary.
  */
 
-@KoinApplication(modules = [LocalFirstRepoTestModule::class])
-object LocalFirstRepoTestApp
-
 @Module(
     includes = [
         FixturesSyncModule::class,
@@ -75,8 +76,11 @@ object LocalFirstRepoTestApp
         TestLoggerModule::class
     ]
 )
-@ComponentScan("com.mochame.sync.di.api")
+@ComponentScan("com.mochame.sync.di.api", "com.mochame.sync.internal.fixtures")
 internal class LocalFirstRepoTestModule {
+
+    @Single(binds = [KeyedLocker::class])
+    fun provideRealLocker(): DefaultKeyedLocker = DefaultKeyedLocker()
 
     @OptIn(InternalTestApi::class)
     @Single

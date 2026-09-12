@@ -1,7 +1,7 @@
 package com.mochame.bio.data
 
 import app.cash.turbine.test
-import com.mochame.bio.di.BioInfraTestApp
+import com.mochame.bio.di.BioInfraTestModule
 import com.mochame.bio.di.BioTestEnv
 import com.mochame.bio.domain.DailyContext
 import com.mochame.bio.domain.DailyContextCodecV1.Companion.TAG_IS_NAPPED
@@ -15,8 +15,7 @@ import com.mochame.sync.common.bitmaskOf
 import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodec.Companion.TAG_CREATED_AT
 import com.mochame.sync.spi.infrastructure.serialization.BaseFeatureCodec.Companion.TAG_PRIMARY_KEY
 import kotlinx.coroutines.test.TestScope
-import org.koin.dsl.includes
-import org.koin.plugin.module.dsl.koinConfiguration
+import org.koin.plugin.module.dsl.modules
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -30,7 +29,7 @@ private inline fun runEnv(
     crossinline block: suspend BioTestEnv.(TestScope) -> Unit
 ) = runPersistenceEnvironment<BioMicroSchema, BioTestEnv>(
     constructor = BioMicroSchemaConstructor,
-    koinSetup = { includes(koinConfiguration<BioInfraTestApp>()) },
+    koinSetup = { modules(BioInfraTestModule::class) },
     block = { testScope ->
         if (readyUp) bootProvider.updateState(BootState.Ready)
         block(testScope)

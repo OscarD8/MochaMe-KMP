@@ -40,7 +40,7 @@ workManager = "2.11.2"
 
 koin = "4.2.2"
 koin-annotations = "4.2.2"
-koin-plugin = "1.0.1"
+koin-plugin = "1.2.1"
 ksp = "2.3.11"
 
 # The Navigation 3 Stack

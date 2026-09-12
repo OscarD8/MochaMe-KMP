@@ -29,6 +29,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.coroutines.ContinuationInterceptor
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
@@ -200,6 +201,9 @@ fun main() {
                     for (frame in incoming) {
                         if (frame is Frame.Binary) {
                             val rawPayload = frame.readBytes()
+                            val dispatcher = coroutineContext[ContinuationInterceptor]
+                            val threadName = Thread.currentThread().name
+                            logger.d { "Awoke on thread '$threadName' with dispatcher '$dispatcher'" }
 
                             val assignedWatermark = database.insertDelta(
                                 groupId = groupId,

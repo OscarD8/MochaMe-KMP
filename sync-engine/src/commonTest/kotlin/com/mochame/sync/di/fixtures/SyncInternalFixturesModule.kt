@@ -12,7 +12,6 @@ import com.mochame.sync.spi.infrastructure.SyncIntentStore
 import com.mochame.sync.spi.infrastructure.SyncWorkerHook
 import com.mochame.utils.fixtures.FakeTimeUtils
 import com.mochame.utils.fixtures.di.FakeTimeProviderModule
-import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
 
@@ -23,7 +22,6 @@ import org.koin.core.annotation.Single
         TestLoggerModule::class
     ]
 )
-@ComponentScan("com.mochame.sync.fixtures")
 class SyncInternalFixturesModule {
 
     @Single(binds = [HlcFactory::class, SpyHlcFactory::class])

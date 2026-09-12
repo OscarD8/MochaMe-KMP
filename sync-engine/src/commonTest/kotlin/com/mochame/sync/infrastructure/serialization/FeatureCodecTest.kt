@@ -11,7 +11,7 @@ import com.mochame.sync.common.bitmaskOf
 import com.mochame.sync.common.toBitmask
 import com.mochame.sync.common.toTagSummary
 import com.mochame.sync.common.withTag
-import com.mochame.sync.di.codec.CodecTestApp
+import com.mochame.sync.di.codec.CodecTestModule
 import com.mochame.sync.internal.fixtures.serialization.FeatureCodecV1
 import com.mochame.sync.internal.fixtures.serialization.FeatureCodecV1.Companion.TAG_COUNT_VALUE
 import com.mochame.sync.internal.fixtures.serialization.FeatureCodecV1.Companion.TAG_TEXT_VALUE
@@ -28,8 +28,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.protobuf.ProtoBuf
-import org.koin.dsl.includes
-import org.koin.plugin.module.dsl.koinConfiguration
+import org.koin.plugin.module.dsl.modules
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -47,7 +46,7 @@ import kotlin.time.Instant
 // -----------------------------------------------------------
 private inline fun runEnv(crossinline block: suspend FeatureCodecV1.(TestScope) -> Unit) =
     runUnitEnvironment<FeatureCodecV1>(
-        koinSetup = { includes(koinConfiguration<CodecTestApp>()) },
+        koinSetup = { modules(CodecTestModule::class) },
         block = block
     )
 

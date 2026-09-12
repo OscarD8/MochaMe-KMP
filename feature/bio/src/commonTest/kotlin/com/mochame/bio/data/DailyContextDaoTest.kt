@@ -1,14 +1,13 @@
 package com.mochame.bio.data
 
 import app.cash.turbine.test
-import com.mochame.bio.di.BioInfraTestApp
+import com.mochame.bio.di.BioInfraTestModule
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runPersistenceEnvironment
 import com.mochame.utils.fixtures.TestHlcFactory
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
-import org.koin.dsl.includes
-import org.koin.plugin.module.dsl.koinConfiguration
+import org.koin.plugin.module.dsl.modules
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -20,7 +19,7 @@ import kotlin.test.assertNull
 private inline fun runEnv(crossinline block: suspend DailyContextDao.(TestScope) -> Unit) =
     runPersistenceEnvironment<BioMicroSchema, DailyContextDao>(
         constructor = BioMicroSchemaConstructor,
-        koinSetup = { includes(koinConfiguration<BioInfraTestApp>()) },
+        koinSetup = { modules(BioInfraTestModule::class) },
         block = block
     )
 

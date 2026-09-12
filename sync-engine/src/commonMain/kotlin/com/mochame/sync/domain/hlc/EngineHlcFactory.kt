@@ -18,7 +18,7 @@ import kotlin.time.Duration.Companion.milliseconds
  * Stateful HLC Engine. Delegates logical state transitions,
  * bounds checking, and hydration reconciliation to [HlcEvaluator].
  */
-@Single(binds = [HlcFactory::class])
+@Single
 internal class EngineHlcFactory(
     private val timeUtils: TimeUtils,
     logger: Logger

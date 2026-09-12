@@ -15,22 +15,8 @@ import com.mochame.sync.spi.node.IdGenerator
 import com.mochame.sync.spi.node.NodeContextManager
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Factory
-import org.koin.core.annotation.KoinApplication
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
-
-// -----------------------------------------------------------
-// Applications
-// -----------------------------------------------------------
-
-@KoinApplication(modules = [NodeContextIntTestModule::class])
-object NodeContextIntTestApp
-
-@KoinApplication(modules = [NodeProductionModule::class])
-object BootManagerUnitTestApp
-
-@KoinApplication(modules = [StaggeredDbPolicyTestModule::class])
-object StaggeredDbPolicyTestApp
 
 
 // -----------------------------------------------------------
@@ -63,6 +49,7 @@ class NodeTestPersistenceModule {
 }
 
 @Module(includes = [TestLoggerModule::class])
+@ComponentScan("com.mochame.node.di")
 class StaggeredDbPolicyTestModule {
 
     @Single

@@ -7,8 +7,8 @@ import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.metadata.MutationOp
-import com.mochame.sync.di.codec.CodecTestApp
 import com.mochame.sync.di.codec.CodecFixtureTestEnv
+import com.mochame.sync.di.codec.CodecTestModule
 import com.mochame.sync.internal.fixtures.assertDecodedIntentParity
 import com.mochame.sync.internal.fixtures.createTestSyncIntent
 import com.mochame.sync.internal.fixtures.serialization.FakeIntentCodec
@@ -19,8 +19,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.protobuf.ProtoBuf
-import org.koin.dsl.includes
-import org.koin.plugin.module.dsl.koinConfiguration
+import org.koin.plugin.module.dsl.modules
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -29,8 +28,8 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 private inline fun runEnv(crossinline block: CodecFixtureTestEnv.(TestScope) -> Unit) =
-    runUnitEnvironment(
-        koinSetup = { includes(koinConfiguration<CodecTestApp>()) },
+    runUnitEnvironment<CodecFixtureTestEnv>(
+        koinSetup = { modules(CodecTestModule::class) },
         block = block
     )
 
@@ -329,7 +328,7 @@ internal class BatchCodecV1Test : MochaPlatformTest() {
     fun should_dispatch_envelopes_to_correct_codec_version_based_on_header_version() = runEnv {
         // Arrange: BatchCodec with MultiVersioned Router
         val multiVersionIntentRouter = realIntentCodec.toRouterWithVersion(fakeIntentCodec, logger)
-        val fixtureCodec = BatchCodecV1(multiVersionIntentRouter, logger)
+        val batchCodecFixture = BatchCodecV1(multiVersionIntentRouter, logger)
         // Payload stamped with intentSchemaVersion = 2
         val v2BatchWirePayload = SyncBatchPayloadV1(
             envelopes = listOf(FakeIntentCodec.BYTES_PRESET),
@@ -341,7 +340,7 @@ internal class BatchCodecV1Test : MochaPlatformTest() {
         )
 
         // Act
-        val decodedList = fixtureCodec.decode(v2BatchBytes)
+        val decodedList = batchCodecFixture.decode(v2BatchBytes)
 
         // Assert: FakeIntentCodec accepted bytes: require(bytes.contentEquals(BYTES_PRESET)), returning Preset
         assertEquals(FakeIntentCodec.MODEL_PRESET, decodedList[0])

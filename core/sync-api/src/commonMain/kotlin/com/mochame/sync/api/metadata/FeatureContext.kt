@@ -5,9 +5,6 @@ import com.mochame.sync.common.InternalTestApi
 import kotlinx.serialization.Serializable
 
 
-// -----------------------------------------------------------
-// IMPLEMENTATION
-// -----------------------------------------------------------
 @Serializable
 enum class FeatureContext(
     val modelId: Int,

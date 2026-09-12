@@ -8,8 +8,8 @@ import com.mochame.platform.fixtures.di.deleteRecursively
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.api.exceptions.MochaException
-import com.mochame.sync.di.blob.BlobStoreTestApp
-import com.mochame.sync.di.blob.BlobStoreTestEnv
+import com.mochame.sync.di.infrastructure.BlobStoreTestEnv
+import com.mochame.sync.di.infrastructure.SyncBlobStoreTestModule
 import com.mochame.utils.fixtures.TestPayloads
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -19,8 +19,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.io.buffered
 import kotlinx.io.files.Path
 import kotlinx.io.readByteArray
-import org.koin.dsl.includes
-import org.koin.plugin.module.dsl.koinConfiguration
+import org.koin.plugin.module.dsl.modules
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -36,7 +35,7 @@ import kotlin.time.Duration.Companion.milliseconds
 
 private inline fun runEnv(crossinline block: suspend BlobStoreTestEnv.(TestScope) -> Unit) =
     runUnitEnvironment<BlobStoreTestEnv>(
-        koinSetup = { includes(koinConfiguration<BlobStoreTestApp>()) },
+        koinSetup = { modules(SyncBlobStoreTestModule::class) },
         block = block
     )
 

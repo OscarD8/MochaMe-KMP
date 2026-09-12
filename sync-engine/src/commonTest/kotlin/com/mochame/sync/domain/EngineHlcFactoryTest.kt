@@ -9,8 +9,8 @@ import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.api.hlc.instant
+import com.mochame.sync.di.hlc.EngineHlcTestModule
 import com.mochame.sync.di.hlc.HLCTestEnvironment
-import com.mochame.sync.di.hlc.HlcTestApp
 import com.mochame.utils.fixtures.TestHlcFactory
 import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CompletableDeferred
@@ -27,8 +27,7 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
-import org.koin.dsl.includes
-import org.koin.plugin.module.dsl.koinConfiguration
+import org.koin.plugin.module.dsl.modules
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -46,7 +45,7 @@ import kotlin.time.Instant
 // -----------------------------------------------------------
 private inline fun runEnv(crossinline block: suspend HLCTestEnvironment.(TestScope) -> Unit) =
     runUnitEnvironment<HLCTestEnvironment>(
-        koinSetup = { includes(koinConfiguration<HlcTestApp>()) },
+        koinSetup = { modules(EngineHlcTestModule::class) },
         block = block
     )
 

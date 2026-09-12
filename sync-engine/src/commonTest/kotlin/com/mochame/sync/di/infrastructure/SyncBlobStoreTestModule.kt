@@ -1,4 +1,4 @@
-package com.mochame.sync.di.blob
+package com.mochame.sync.di.infrastructure
 
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.Logger
@@ -19,11 +19,7 @@ import kotlinx.io.files.FileSystem
 import kotlinx.io.files.Path
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Factory
-import org.koin.core.annotation.KoinApplication
 import org.koin.core.annotation.Module
-
-@KoinApplication(modules = [SyncBlobStoreTestModule::class])
-internal object BlobStoreTestApp
 
 @Module(
     includes = [
@@ -34,7 +30,7 @@ internal object BlobStoreTestApp
         SyncConcurrencyModule::class,
     ]
 )
-@ComponentScan("com.mochame.sync.di.blob")
+@ComponentScan("com.mochame.sync.di.infrastructure")
 internal class SyncBlobStoreTestModule
 
 @ExperimentalKermitApi

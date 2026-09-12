@@ -36,6 +36,10 @@ class SyncDataModule
 class SyncInfraModule
 
 @Module
+@ComponentScan("com.mochame.sync.infrastructure.serialization")
+class SyncSerializationModule
+
+@Module
 @ComponentScan("com.mochame.sync.infrastructure.stores")
 class SyncStoresModule
 

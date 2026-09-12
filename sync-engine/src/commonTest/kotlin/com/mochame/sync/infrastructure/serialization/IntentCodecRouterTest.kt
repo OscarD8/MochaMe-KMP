@@ -6,7 +6,7 @@ import co.touchlab.kermit.ExperimentalKermitApi
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.api.exceptions.MochaException
-import com.mochame.sync.di.codec.CodecFixtureTestApp
+import com.mochame.sync.di.codec.CodecRouterTestModule
 import com.mochame.sync.di.codec.CodecFixtureTestEnv
 import com.mochame.sync.internal.fixtures.assertDecodedIntentParity
 import com.mochame.sync.internal.fixtures.createTestSyncIntent
@@ -14,16 +14,15 @@ import com.mochame.sync.internal.fixtures.serialization.FakeIntentCodec
 import com.mochame.sync.internal.fixtures.toRouterWithVersion
 import kotlinx.coroutines.test.TestScope
 import kotlinx.serialization.ExperimentalSerializationApi
-import org.koin.dsl.includes
-import org.koin.plugin.module.dsl.koinConfiguration
+import org.koin.plugin.module.dsl.modules
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 private inline fun runEnv(crossinline block: CodecFixtureTestEnv.(TestScope) -> Unit) =
-    runUnitEnvironment(
-        koinSetup = { includes(koinConfiguration<CodecFixtureTestApp>()) },
+    runUnitEnvironment<CodecFixtureTestEnv>(
+        koinSetup = { modules(CodecRouterTestModule::class) },
         block = block
     )
 

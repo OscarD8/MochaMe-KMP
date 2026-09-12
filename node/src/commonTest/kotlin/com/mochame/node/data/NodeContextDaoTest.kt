@@ -1,7 +1,7 @@
 package com.mochame.node.data
 
-import com.mochame.node.di.NodeContextIntTestApp
 import com.mochame.node.di.NodeContextIntTestEnv
+import com.mochame.node.di.NodeContextIntTestModule
 import com.mochame.support.MochaPlatformTest
 import com.mochame.utils.fixtures.TestHlcFactory
 import com.mochame.support.getPhysicalRowCount
@@ -12,8 +12,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
-import org.koin.dsl.includes
-import org.koin.plugin.module.dsl.koinConfiguration
+import org.koin.plugin.module.dsl.modules
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -23,7 +22,7 @@ import kotlin.test.assertEquals
 private inline fun runEnv(crossinline block: suspend NodeContextIntTestEnv.(TestScope) -> Unit) =
     runPersistenceEnvironment<NodeContextMicroSchema, NodeContextIntTestEnv>(
         constructor = NodeContextMicroSchemaConstructor,
-        koinSetup = { includes(koinConfiguration<NodeContextIntTestApp>()) },
+        koinSetup = { modules(NodeContextIntTestModule::class) },
         block = block
     )
 

@@ -4,11 +4,10 @@ import com.mochame.support.MochaPlatformTest
 import com.mochame.utils.fixtures.TestHlcFactory
 import com.mochame.support.runPersistenceEnvironment
 import com.mochame.sync.api.metadata.SyncStatus
-import com.mochame.sync.di.data.SyncPersistenceTestApp
+import com.mochame.sync.di.data.SyncPersistenceTestModule
 import com.mochame.sync.internal.fixtures.createTestIntentEntity
 import kotlinx.coroutines.test.TestScope
-import org.koin.dsl.includes
-import org.koin.plugin.module.dsl.koinConfiguration
+import org.koin.plugin.module.dsl.modules
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -23,7 +22,7 @@ import kotlin.test.assertTrue
 private inline fun runEnv(crossinline block: suspend SyncIntentDao.(TestScope) -> Unit) =
     runPersistenceEnvironment<SyncMicroSchema, SyncIntentDao>(
         constructor = SyncMicroSchemaConstructor,
-        koinSetup = { includes(koinConfiguration<SyncPersistenceTestApp>()) },
+        koinSetup = { modules(SyncPersistenceTestModule::class) },
         block = block,
     )
 

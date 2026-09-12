@@ -27,16 +27,11 @@ import com.mochame.sync.spi.infrastructure.serialization.PayloadCodec
 import com.mochame.sync.spi.network.SyncTransport
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Factory
-import org.koin.core.annotation.KoinApplication
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Named
 import org.koin.core.annotation.Single
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
-
-
-@KoinApplication(modules = [CoordinatorTestModules::class])
-object SyncCoordinatorTestApp
 
 @Module(
     includes = [
@@ -50,7 +45,7 @@ object SyncCoordinatorTestApp
     ]
 )
 @ComponentScan("com.mochame.sync.di.coordinator")
-class CoordinatorTestModules {
+class CoordinatorTestModule {
 
     @Single(binds = [PayloadCodec::class])
     fun provideFakePayloadCodec(): FakePayloadCodec = FakePayloadCodec()

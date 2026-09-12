@@ -44,7 +44,7 @@ expect class TestTargetsProviderModule()
 
 
 /**
- * Global providers for testing setup.
+ * Global providers for testing setup. Expected to be overridden via [bindAsKoinModule].
  */
 @Configuration
 @org.koin.core.annotation.Module(

@@ -8,14 +8,13 @@ import com.mochame.utils.fixtures.TestHlcFactory
 import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.di.domain.PruneIntentsTestEnv
-import com.mochame.sync.di.domain.PruneIntentsUseCaseTestApp
+import com.mochame.sync.di.domain.SyncPruneIntentsTestModule
 import com.mochame.sync.internal.fixtures.createTestSyncIntent
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.yield
-import org.koin.dsl.includes
-import org.koin.plugin.module.dsl.koinConfiguration
+import org.koin.plugin.module.dsl.modules
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -28,8 +27,8 @@ import kotlin.time.Duration.Companion.days
 // SUT ENVIRONMENT
 // -----------------------------------------------------------
 private inline fun runEnv(crossinline block: suspend PruneIntentsTestEnv.(TestScope) -> Unit) =
-    runUnitEnvironment(
-        koinSetup = { includes(koinConfiguration<PruneIntentsUseCaseTestApp>()) },
+    runUnitEnvironment<PruneIntentsTestEnv>(
+        koinSetup = { modules(SyncPruneIntentsTestModule::class) },
         block = block
     )
 

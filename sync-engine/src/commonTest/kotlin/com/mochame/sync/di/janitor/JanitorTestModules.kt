@@ -23,15 +23,9 @@ import com.mochame.utils.fixtures.di.FakeTimeProviderModule
 import kotlinx.coroutines.sync.Mutex
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Factory
-import org.koin.core.annotation.KoinApplication
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
 import kotlin.time.Duration.Companion.milliseconds
-
-
-@KoinApplication(modules = [SyncJanitorTestModule::class])
-internal object JanitorTestApp
-
 
 @Module(
     includes = [

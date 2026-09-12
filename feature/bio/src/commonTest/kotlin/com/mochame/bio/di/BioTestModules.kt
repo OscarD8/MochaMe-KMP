@@ -10,12 +10,8 @@ import com.mochame.utils.fixtures.MochaFakeTimeUtils
 import com.mochame.utils.fixtures.di.FakeMochaTimeProviderModule
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Factory
-import org.koin.core.annotation.KoinApplication
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
-
-@KoinApplication(modules = [BioInfraTestModule::class])
-internal object BioInfraTestApp
 
 @Module(
     includes = [

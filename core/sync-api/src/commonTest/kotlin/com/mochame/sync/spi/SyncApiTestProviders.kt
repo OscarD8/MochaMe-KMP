@@ -10,7 +10,6 @@ import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.spi.node.NodeId
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Factory
-import org.koin.core.annotation.KoinApplication
 import org.koin.core.annotation.Module
 import kotlin.test.assertEquals
 import kotlin.uuid.Uuid
@@ -18,9 +17,6 @@ import kotlin.uuid.Uuid
 // -----------------------------------------------------------
 // DI
 // -----------------------------------------------------------
-
-@KoinApplication(modules = [SyncApiTestModule::class])
-internal object SyncApiTestApp
 
 @Module(includes = [TestLoggerModule::class])
 @ComponentScan("com.mochame.sync.spi")

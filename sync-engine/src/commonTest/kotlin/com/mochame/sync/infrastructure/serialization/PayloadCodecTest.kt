@@ -7,7 +7,7 @@ import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.sync.di.codec.CodecFixtureTestEnv
-import com.mochame.sync.di.codec.CodecTestApp
+import com.mochame.sync.di.codec.CodecTestModule
 import com.mochame.sync.internal.fixtures.assertDecodedIntentParity
 import com.mochame.sync.internal.fixtures.createTestSyncIntent
 import com.mochame.sync.internal.fixtures.serialization.FakeBatchCodec
@@ -17,8 +17,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.protobuf.ProtoBuf
-import org.koin.dsl.includes
-import org.koin.plugin.module.dsl.koinConfiguration
+import org.koin.plugin.module.dsl.modules
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
@@ -26,7 +25,7 @@ import kotlin.test.assertFailsWith
 
 private inline fun runEnv(crossinline block: CodecFixtureTestEnv.(TestScope) -> Unit) =
     runUnitEnvironment<CodecFixtureTestEnv>(
-        koinSetup = { includes(koinConfiguration<CodecTestApp>()) },
+        koinSetup = { modules(CodecTestModule::class) },
         block = block
     )
 

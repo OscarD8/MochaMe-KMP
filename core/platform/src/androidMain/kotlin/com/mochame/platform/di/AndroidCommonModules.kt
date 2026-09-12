@@ -1,8 +1,6 @@
 package com.mochame.platform.di
 
 import android.content.Context
-import androidx.sqlite.SQLiteDriver
-import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.mochame.annotations.CommittedDir
 import com.mochame.annotations.PendingDir
 import com.mochame.logger.LogTags

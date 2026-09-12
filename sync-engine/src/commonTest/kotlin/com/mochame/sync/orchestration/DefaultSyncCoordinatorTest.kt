@@ -13,7 +13,7 @@ import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.common.InternalTestApi
-import com.mochame.sync.di.coordinator.SyncCoordinatorTestApp
+import com.mochame.sync.di.coordinator.CoordinatorTestModule
 import com.mochame.sync.di.coordinator.SyncCoordinatorTestEnv
 import com.mochame.sync.domain.model.deriveContext
 import com.mochame.sync.internal.fixtures.ReceivedIntent
@@ -35,10 +35,10 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.io.IOException
+import org.koin.core.KoinApplication
 import org.koin.core.qualifier.named
-import org.koin.dsl.includes
 import org.koin.dsl.module
-import org.koin.plugin.module.dsl.koinConfiguration
+import org.koin.plugin.module.dsl.modules
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -48,11 +48,18 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
-private inline fun runEnv(crossinline block: suspend SyncCoordinatorTestEnv.(TestScope) -> Unit) =
-    runUnitEnvironment(
-        koinSetup = { includes(koinConfiguration<SyncCoordinatorTestApp>()) },
-        block = block
-    )
+private inline fun runEnv(
+    bindTestScope: Boolean = true,
+    crossinline koinSetup: KoinApplication.() -> Unit = {},
+    crossinline block: suspend SyncCoordinatorTestEnv.(TestScope) -> Unit
+) = runUnitEnvironment<SyncCoordinatorTestEnv>(
+    bindTestScope = bindTestScope,
+    koinSetup = {
+        modules(CoordinatorTestModule::class)
+        koinSetup()
+    },
+    block = block
+)
 
 @ExperimentalCoroutinesApi
 class DefaultSyncCoordinatorTest : MochaPlatformTest() {
@@ -535,29 +542,29 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
 
     @Test
     fun should_stampLastErrorAndRetainSyncingLease_when_transportFailsOnSend() = runEnv {
-            // Given SyncTransport set to fail on sending the Frame
-            val failureMessage = "Simulated transmission failure"
-            val testIntent = createTestSyncIntent(
-                hlc = TestHlcFactory.create(),
-                candidateKey = 42L,
-                status = SyncStatus.PENDING
-            )
-            intentStore.seedIntents(testIntent)
-            syncTransport.failWith = IOException(failureMessage)
+        // Given SyncTransport set to fail on sending the Frame
+        val failureMessage = "Simulated transmission failure"
+        val testIntent = createTestSyncIntent(
+            hlc = TestHlcFactory.create(),
+            candidateKey = 42L,
+            status = SyncStatus.PENDING
+        )
+        intentStore.seedIntents(testIntent)
+        syncTransport.failWith = IOException(failureMessage)
 
-            // When
-            coordinator.processQueueUntilExhausted()
+        // When
+        coordinator.processQueueUntilExhausted()
 
-            // Then
-            val intents = intentStore.intents
-            assertEquals(1, intents.size)
+        // Then
+        val intents = intentStore.intents
+        assertEquals(1, intents.size)
 
-            val processedIntent = intents.first()
-            assertEquals(SyncStatus.SYNCING, processedIntent.syncStatus)
-            assertNotNull(processedIntent.batchId)
-            assertNotNull(processedIntent.leasedAt)
-            assertEquals(failureMessage, processedIntent.lastErrorMessage)
-        }
+        val processedIntent = intents.first()
+        assertEquals(SyncStatus.SYNCING, processedIntent.syncStatus)
+        assertNotNull(processedIntent.batchId)
+        assertNotNull(processedIntent.leasedAt)
+        assertEquals(failureMessage, processedIntent.lastErrorMessage)
+    }
 
     @Test
     fun should_isolateDownstreamException_and_preserveStreamLifecycleForSubsequentInvalidations() =
@@ -727,11 +734,9 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
 
     @Test
     fun concurrentInboundAndOutbound_withTransientDbBusy_recoversAndPersistsCorrectly() =
-        runUnitEnvironment<SyncCoordinatorTestEnv>(
+        runEnv(
             bindTestScope = false,
             koinSetup = {
-                includes(koinConfiguration<SyncCoordinatorTestApp>())
-
                 modules(
                     module {
                         single<CoroutineDispatcher>(qualifier = named<IoContext>()) {
