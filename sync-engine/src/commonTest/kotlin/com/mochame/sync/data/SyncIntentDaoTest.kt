@@ -41,9 +41,9 @@ class SyncIntentDaoTest : MochaPlatformTest() {
         val (hlc1, hlc2, hlc3) = TestHlcFactory.chronologicalSequence(size = 3)
 
         // Intentionally upserting out of order to verify database index sorting
-        val intentLater = createTestIntentEntity(hlc = hlc3)
-        val intentEarlier = createTestIntentEntity(hlc = hlc1)
-        val intentMiddle = createTestIntentEntity(hlc = hlc2)
+        val intentLater = createTestIntentEntity(hlc = hlc3, candidateKey = 1)
+        val intentEarlier = createTestIntentEntity(hlc = hlc1, candidateKey = 2)
+        val intentMiddle = createTestIntentEntity(hlc = hlc2, candidateKey = 3)
 
         upsert(intentLater)
         upsert(intentEarlier)
@@ -232,9 +232,9 @@ class SyncIntentDaoTest : MochaPlatformTest() {
     fun should_stampDiagnosticMessageAcrossBatch_when_batchFailureOccurs() = runEnv {
         // Given
         val hlcs = TestHlcFactory.chronologicalSequence(size = 3)
-        upsert(createTestIntentEntity(hlc = hlcs[0]))
-        upsert(createTestIntentEntity(hlc = hlcs[1]))
-        upsert(createTestIntentEntity(hlc = hlcs[2]))
+        upsert(createTestIntentEntity(hlc = hlcs[0], candidateKey = 1))
+        upsert(createTestIntentEntity(hlc = hlcs[1], candidateKey = 2))
+        upsert(createTestIntentEntity(hlc = hlcs[2], candidateKey = 3))
 
         val verificationSession = "verification-session"
         val untouchedSession = "untouched-session"

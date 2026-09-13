@@ -49,7 +49,7 @@ fun DashboardScreen(
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(
-                    text = "Daily Biometrics & Context",
+                    text = "Daily Context",
                     style = MaterialTheme.typography.titleMedium
                 )
                 Text(

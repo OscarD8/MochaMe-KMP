@@ -17,6 +17,7 @@ import com.mochame.sync.spi.infrastructure.serialization.FeatureCodecRouter
 import com.mochame.sync.spi.infrastructure.serialization.FieldHlcMap
 import com.mochame.sync.spi.models.DecodeContext
 import com.mochame.sync.spi.models.SyncIntent
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
 import kotlinx.io.Buffer
 import org.koin.core.annotation.Provided
@@ -217,6 +218,11 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         onSkip = onSkip
     )
 
+    /**
+     * The inheritance pattern exposes this to the feature repositories.
+     * Intended use is for a synchronization component to communicate with feature
+     * pipelines on inbound payloads, and not to be used by features themselves.
+     */
     override suspend fun processRemoteIntent(context: DecodeContext, payload: ByteArray?) {
         if (payload == null) {
             val blobId = context.overflowBlobId ?: throw MochaException.Persistent.StateIssue(
@@ -354,6 +360,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                     }
                 } else {
                     logger.w(e) { "Post-Commit IO Failure: Blob $blobId in /pending. Janitor will reconcile [${e.message}]." }
+                    if (e is CancellationException) throw e
                     throw MochaException.Transient.BlobResolutionPending(blobId)
                 }
             }
@@ -362,7 +369,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         }
     }
 
-    protected suspend fun recordIntent(
+    private suspend fun recordIntent(
         candidateKey: Long,
         op: MutationOp,
         hlc: HLC,
@@ -388,24 +395,23 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
         )
     }
 
-    /**
-     * Originally existed for compaction of SyncIntent models, but
-     * as each intent only holds the implicit change in its payload,
-     * current design now does not compact pending intents before sync
-     * and will sync all changes causally.
-     */
-    protected fun resolvePruningTimestamp(
+    @Deprecated(
+        "Originally existed for compaction of SyncIntent models, but " +
+                "as each intent only holds the implicit change in an opaque payload, " +
+                "current design does not try to compact pending intents before sync " +
+                "and will sync all changes causally."
+    )
+    private fun resolvePruningTimestamp(
         pending: SyncIntent?,
         currentOp: MutationOp,
         now: Long
     ): Long {
-        return if (pending != null && currentOp == MutationOp.DELETE
-            && pending.operation == MutationOp.DELETE
-        ) {
+        return if (pending != null && currentOp == MutationOp.DELETE && pending.operation == MutationOp.DELETE) {
             // Don't reset the pruning clock for double-deletes
             pending.createdAt
         } else {
             now
         }
     }
+
 }

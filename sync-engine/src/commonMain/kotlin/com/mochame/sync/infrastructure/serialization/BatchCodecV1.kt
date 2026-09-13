@@ -14,9 +14,10 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import kotlinx.serialization.protobuf.ProtoNumber
 import org.koin.core.annotation.Single
 
-/*
-Mixed structural versioning inside a single transport batch should be impossible on the outbound path.
- */
+/**
+    Mixed intent versioning inside a single transport batch should be impossible on the outbound path.
+    Codecs always use the latest available version.
+ **/
 @ExperimentalSerializationApi
 @Serializable
 internal data class SyncBatchPayloadV1(
@@ -35,6 +36,16 @@ internal class BatchCodecV1(
         logger.withTags(LogTags.Layer.INFRA, LogTags.Domain.SYNC, "BaCdc1")
 
 
+    /**
+     * Currently no system to try and continue a batch on a single exception thrown for
+     * encoding an intent. Meaning if a single intent is corrupted, all intents
+     * coupled in the same batch, having the same retry count, will fail each retry attempt.
+     * Effectively a corrupt intent is a corrupt batch (which has cascading implications as
+     * all future intents related to those candidate keys will be rejected).
+     *
+     * The idea is that using protobuf for serialization should never really throw runtime
+     * errors in production, and any single intent can only be a valid [SyncIntent] model on persistence.
+     */
     override fun encode(intents: List<SyncIntent>): ByteArray {
         require(intents.isNotEmpty()) { "Cannot serialise an empty batch" }
 

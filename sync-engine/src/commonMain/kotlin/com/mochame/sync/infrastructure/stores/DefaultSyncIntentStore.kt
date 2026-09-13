@@ -1,6 +1,7 @@
 package com.mochame.sync.infrastructure.stores
 
 
+import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.data.SyncIntentDao
@@ -59,6 +60,25 @@ internal class DefaultSyncIntentStore(
 
     override suspend fun quarantineStaleLeases(cutOff: Long, retryThreshold: Int) =
         dao.quarantineStaleLeases(cutOff, retryThreshold)
+
+    override suspend fun quarantineIntent(
+        hlc: HLC,
+        candidateKey: Long,
+        errorMessage: String
+    ) {
+        dao.quarantineIntent(
+            hlc = hlc.toString(),
+            candidateKey = candidateKey,
+            errorMessage = errorMessage
+        )
+    }
+
+    override suspend fun releaseIntents(hlcs: List<HLC>): Int {
+        if (hlcs.isEmpty()) return 0
+        return dao.releaseIntents(hlcs.map { it.toString() })
+    }
+
+    override suspend fun cascadeQuarantine(): Int = dao.cascadeQuarantine()
 
     override suspend fun pruneAgedIntents(pruneAfter: Long, limit: Int) =
         dao.pruneByCutOff(

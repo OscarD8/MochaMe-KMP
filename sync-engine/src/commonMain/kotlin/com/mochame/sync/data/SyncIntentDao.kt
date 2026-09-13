@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
+import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.spi.models.QuarantinedFeatureSummary
 import kotlinx.coroutines.flow.Flow
@@ -58,17 +59,45 @@ interface SyncIntentDao {
         status: SyncStatus = SyncStatus.PENDING
     ): List<SyncIntentEntity>
 
+    /**
+     * For an entity to be valid for a batch (and therefore synchronization) it must:
+     * - Have no current lease
+     * - Be in a pending status
+     * - Have no prior intent in any status other than Success
+     *
+     * This is to prevent a device making multiple local mutations to a model and
+     * syncing partial states. Either a model exists in parity across the distributed
+     * system, or the local device is the only location where the corruption is held.
+     * Quarantined intents are therefore causally contagious to their model.
+     */
     @Query(
         """
-        UPDATE SyncIntentEntity 
-        SET batchId = :id, syncStatus = :syncingStatus, leasedAt = :leasedAt
-        WHERE hlc IN (
-            SELECT hlc FROM SyncIntentEntity
-            WHERE batchId IS NULL 
-            AND syncStatus = :pendingStatus
-            ORDER BY hlc ASC
-            LIMIT :limit
-        )
+    UPDATE SyncIntentEntity 
+    SET batchId = :id, 
+        syncStatus = :syncingStatus, 
+        leasedAt = :leasedAt
+    WHERE hlc IN (
+        SELECT candidate.hlc 
+        FROM SyncIntentEntity candidate
+        WHERE candidate.batchId IS NULL 
+          AND candidate.syncStatus = :pendingStatus
+          
+          AND NOT EXISTS (
+              SELECT 1 FROM SyncIntentEntity q
+              WHERE q.candidateKey = candidate.candidateKey
+                AND q.syncStatus = :quarantinedStatus
+          )
+          
+          AND NOT EXISTS (
+              SELECT 1 FROM SyncIntentEntity prior
+              WHERE prior.candidateKey = candidate.candidateKey
+                AND prior.hlc < candidate.hlc
+                AND prior.syncStatus != :successStatus
+          )
+          
+        ORDER BY candidate.hlc ASC
+        LIMIT :limit
+    )
     """
     )
     suspend fun claimBatch(
@@ -77,6 +106,8 @@ interface SyncIntentDao {
         leasedAt: Long,
         pendingStatus: SyncStatus = SyncStatus.PENDING,
         syncingStatus: SyncStatus = SyncStatus.SYNCING,
+        quarantinedStatus: SyncStatus = SyncStatus.QUARANTINED,
+        successStatus: SyncStatus = SyncStatus.SUCCESS
     ): Int
 
     @Query("SELECT * FROM SyncIntentEntity WHERE batchId = :id ORDER BY hlc ASC")
@@ -118,6 +149,35 @@ interface SyncIntentDao {
     )
     suspend fun stampLastError(batchId: String, message: String)
 
+    @Query(
+        """
+    UPDATE SyncIntentEntity
+    SET syncStatus = :quarantineStatus,
+        lastErrorMessage = :errorMessage
+    WHERE hlc = :hlc AND candidateKey = :candidateKey
+    """
+    )
+    suspend fun quarantineIntent(
+        hlc: String,
+        candidateKey: Long,
+        errorMessage: String,
+        quarantineStatus: SyncStatus = SyncStatus.QUARANTINED
+    ): Int
+
+    @Query(
+        """
+    UPDATE SyncIntentEntity
+    SET syncStatus = :pendingStatus,
+        batchId = NULL,
+        leasedAt = NULL
+    WHERE hlc IN (:hlcs)
+    """
+    )
+    suspend fun releaseIntents(
+        hlcs: List<String>,
+        pendingStatus: SyncStatus = SyncStatus.PENDING
+    ): Int
+
     // ----- CLEAN UP (Janitor Support) ------
     @Query("SELECT EXISTS(SELECT 1 FROM SyncIntentEntity WHERE overflowBlobId = :blobId)")
     suspend fun existsForBlobId(blobId: String): Boolean
@@ -137,6 +197,24 @@ interface SyncIntentDao {
         cutOff: Long,
         retryThreshold: Int,
         targetStatus: SyncStatus = SyncStatus.SYNCING,
+        quarantineStatus: SyncStatus = SyncStatus.QUARANTINED
+    ): Int
+
+    @Query(
+        """
+    UPDATE SyncIntentEntity
+    SET syncStatus = :quarantineStatus,
+        lastErrorMessage = 'Cascaded quarantine: causal predecessor failed on candidateKey'
+    WHERE syncStatus = :pendingStatus
+      AND candidateKey IN (
+          SELECT DISTINCT candidateKey 
+          FROM SyncIntentEntity 
+          WHERE syncStatus = :quarantineStatus
+      )
+    """
+    )
+    suspend fun cascadeQuarantine(
+        pendingStatus: SyncStatus = SyncStatus.PENDING,
         quarantineStatus: SyncStatus = SyncStatus.QUARANTINED
     ): Int
 

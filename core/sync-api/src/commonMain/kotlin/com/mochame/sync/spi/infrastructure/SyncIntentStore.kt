@@ -12,5 +12,5 @@ interface SyncIntentStore {
     suspend fun claimAndGetBatch(batchId: String, limit: Int = 50): List<SyncIntent>
 
     suspend fun acknowledgeSuccess(batchId: String): Int
-    suspend fun stampLastError(batchId: String, message: String)
+
 }

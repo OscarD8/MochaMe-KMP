@@ -34,3 +34,5 @@ interface LocalFirstEntity<T : LocalFirstEntity<T>> {
         fieldHlcs: ByteArray
     ): T
 }
+
+// would be useful to have a permanent indication that the instance is synced

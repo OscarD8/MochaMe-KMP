@@ -2,11 +2,11 @@ package com.mochame.bio.cli
 
 import com.mochame.bio.domain.DailyContextRepository
 import com.mochame.bio.domain.SaveDailyContextUseCase
-import com.mochame.utils.ui.PrimitiveParsers
-import com.mochame.utils.ui.Update
-import com.mochame.utils.ui.InteractiveScreen
-import com.mochame.utils.ui.ScreenResult
 import com.mochame.utils.interfaces.MochaTimeUtils
+import com.mochame.utils.ui.InteractiveScreen
+import com.mochame.utils.ui.PrimitiveParsers
+import com.mochame.utils.ui.ScreenResult
+import com.mochame.utils.ui.Update
 import org.koin.core.annotation.Factory
 
 @Factory(binds = [DailyContextCliScreen::class, InteractiveScreen::class])
@@ -62,6 +62,7 @@ class DailyContextCliScreen(
             }
             "5" -> {
                 handleDelete()
+                handleDelete()
                 ScreenResult.Stay
             }
             "b", "back" -> ScreenResult.GoBack
@@ -71,6 +72,7 @@ class DailyContextCliScreen(
             }
         }
     }
+
 
     // --- Batch Wizard ---
 

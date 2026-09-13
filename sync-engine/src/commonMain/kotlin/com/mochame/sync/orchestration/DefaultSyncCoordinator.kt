@@ -12,10 +12,12 @@ import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.api.hlc.HlcFactory
 import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.domain.model.deriveContext
+import com.mochame.sync.spi.domain.SyncIntentMaintenanceStore
 import com.mochame.sync.spi.infrastructure.SyncIntentStore
 import com.mochame.sync.spi.infrastructure.SyncReceiver
 import com.mochame.sync.spi.infrastructure.SyncWorkerHook
 import com.mochame.sync.spi.infrastructure.TransactionProvider
+import com.mochame.sync.spi.infrastructure.serialization.IntentCodec
 import com.mochame.sync.spi.infrastructure.serialization.PayloadCodec
 import com.mochame.sync.spi.models.SyncIntent
 import com.mochame.sync.spi.network.SendResult
@@ -37,10 +39,10 @@ import kotlin.time.TimeSource
 
 @Single(binds = [SyncCoordinator::class])
 internal class DefaultSyncCoordinator(
-    private val intentStore: SyncIntentStore,
     private val transactor: TransactionProvider,
     private val syncTransport: SyncTransport,
     private val payloadCodec: PayloadCodec,
+    private val intentCodec: IntentCodec,
     private val idGenerator: IdGenerator,
     private val executor: ExecutionPolicy,
     private val hlcFactory: HlcFactory,
@@ -48,6 +50,7 @@ internal class DefaultSyncCoordinator(
     private val bootManager: BootStatusProvider,
     private val nodeManager: NodeContextManager,
     private val timeUtils: TimeUtils,
+    private val intentStore: SyncIntentMaintenanceStore,
     @CoordinatorMutex private val coordinatorMutex: Mutex,
     @AppBackgroundScope private val appBackgroundScope: CoroutineScope,
     receivers: List<SyncReceiver>, // koin handles as long as classes are bound
@@ -114,10 +117,30 @@ internal class DefaultSyncCoordinator(
                 val payload = try {
                     payloadCodec.encode(batch)
                 } catch (e: Exception) {
-                    "Outbound: Serialization failed for batch $batchId. Janitor to reconcile intents.".run {
-                        intentStore.stampLastError(batchId, e.message ?: this)
-                        logger.e(e) { this }
+                    logger.e(e) { "Outbound: Batch $batchId encoding failed. Isolating corrupt intents." }
+
+                    transactor.runImmediateTransaction {
+                        val healthyIntents = mutableListOf<SyncIntent>()
+
+                        for (intent in batch) {
+                            try {
+                                intentCodec.encode(intent)
+                                healthyIntents.add(intent)
+                            } catch (e: Exception) {
+                                logger.e(e) { "Outbound: Quarantining corrupt intent [key=${intent.candidateKey}]" }
+                                intentStore.quarantineIntent(
+                                    hlc = intent.hlc,
+                                    candidateKey = intent.candidateKey,
+                                    errorMessage = e.message ?: "Codec serialization failure"
+                                )
+                            }
+                        }
+
+                        if (healthyIntents.isNotEmpty()) {
+                            intentStore.releaseIntents(healthyIntents.map { it.hlc })
+                        }
                     }
+
                     continue
                 }
 

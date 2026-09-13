@@ -99,35 +99,55 @@ class FakeSyncIntentStore(private val fakeClock: FakeTimeUtils) :
 
             val err = _failWith
             if (err != null) {
-                return@withLock Triple(err, null, emptyList())
+                _failWith = null
+                return@withLock Triple(err, null, emptyList<SyncIntent>())
             }
 
             if (limit <= 0) return@withLock Triple(null, _onClaimHook, emptyList())
 
-            val eligible = _intents.values
+            val allIntents = _intents.values
+
+            val quarantinedKeys = allIntents
+                .filter { it.syncStatus == SyncStatus.QUARANTINED }
+                .map { it.candidateKey }
+                .toSet()
+
+            val pendingCandidates = allIntents
                 .filter { it.batchId == null && it.syncStatus == SyncStatus.PENDING }
                 .sortedBy { it.hlc }
-                .take(limit)
 
+            val claimed = mutableListOf<SyncIntent>()
             val now = fakeClock.now().toEpochMilliseconds()
-            val claimed = eligible.map { intent ->
-                val updated = intent.copy(
+
+            for (candidate in pendingCandidates) {
+                if (claimed.size == limit) break
+
+                if (candidate.candidateKey in quarantinedKeys) {
+                    continue
+                }
+
+                val hasUnfinishedPrior = allIntents.any { prior ->
+                    prior.candidateKey == candidate.candidateKey &&
+                            prior.hlc < candidate.hlc &&
+                            prior.syncStatus != SyncStatus.SUCCESS
+                }
+                if (hasUnfinishedPrior) {
+                    continue
+                }
+
+                val updated = candidate.copy(
                     syncStatus = SyncStatus.SYNCING,
                     batchId = batchId,
                     leasedAt = now
                 )
-                _intents[intent.hlc] = updated
-                updated
+                _intents[candidate.hlc] = updated
+                claimed.add(updated)
             }
 
             Triple(null, _onClaimHook, claimed)
         }
 
-        error?.let {
-            lock.withLock { _failWith = null }
-            throw it
-        }
-
+        error?.let { throw it }
         hook?.invoke()
         return claimedBatch
     }
@@ -215,6 +235,93 @@ class FakeSyncIntentStore(private val fakeClock: FakeTimeUtils) :
             _quarantinedFlow.value = summaries
         }
         return count
+    }
+
+    override suspend fun cascadeQuarantine(): Int {
+        val (error, summaries, count) = lock.withLock {
+            val err = _failWith
+            if (err != null) {
+                _failWith = null
+                return@withLock Triple(err, null, 0)
+            }
+
+            val quarantinedKeys = _intents.values
+                .filter { it.syncStatus == SyncStatus.QUARANTINED }
+                .map { it.candidateKey }
+                .toSet()
+
+            var cascadedCount = 0
+            _intents.values
+                .filter { it.syncStatus == SyncStatus.PENDING && it.candidateKey in quarantinedKeys }
+                .forEach { intent ->
+                    _intents[intent.hlc] = intent.copy(
+                        syncStatus = SyncStatus.QUARANTINED,
+                        lastErrorMessage = "Cascaded quarantine: causal predecessor failed on candidateKey"
+                    )
+                    cascadedCount++
+                }
+
+            val updated = if (cascadedCount > 0) calculateQuarantinedSummaries() else null
+            Triple(null, updated, cascadedCount)
+        }
+
+        error?.let { throw it }
+
+        if (summaries != null) {
+            _quarantinedFlow.value = summaries
+        }
+        return count
+    }
+
+    override suspend fun quarantineIntent(
+        hlc: HLC,
+        candidateKey: Long,
+        errorMessage: String
+    ) {
+        val (error, summaries) = lock.withLock {
+            val err = _failWith
+            if (err != null) {
+                _failWith = null
+                return@withLock Pair(err, null)
+            }
+
+            val existing = _intents[hlc]
+            if (existing != null && existing.candidateKey == candidateKey) {
+                _intents[hlc] = existing.copy(
+                    syncStatus = SyncStatus.QUARANTINED,
+                    lastErrorMessage = errorMessage
+                )
+            }
+
+            Pair(null, calculateQuarantinedSummaries())
+        }
+
+        error?.let { throw it }
+
+        if (summaries != null) {
+            _quarantinedFlow.value = summaries
+        }
+    }
+
+    override suspend fun releaseIntents(hlcs: List<HLC>): Int = lock.withLock {
+        _failWith?.let {
+            _failWith = null
+            throw it
+        }
+
+        var releasedCount = 0
+        val targetHlcs = hlcs.toSet()
+
+        for (hlc in targetHlcs) {
+            val intent = _intents[hlc] ?: continue
+            _intents[hlc] = intent.copy(
+                syncStatus = SyncStatus.PENDING,
+                batchId = null,
+                leasedAt = null
+            )
+            releasedCount++
+        }
+        releasedCount
     }
 
     override suspend fun pruneAgedIntents(pruneAfter: Long, limit: Int): Int = lock.withLock {

@@ -23,6 +23,7 @@ import com.mochame.sync.spi.node.NodeContext
 import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.domain.config.JanitorMaintenanceConfig
+import com.mochame.sync.spi.infrastructure.SyncWorkerHook
 import com.mochame.sync.spi.orchestration.SyncJanitor
 import com.mochame.utils.interfaces.TimeUtils
 import kotlinx.coroutines.CoroutineScope
@@ -66,6 +67,7 @@ internal class DefaultSyncJanitor(
     private val intentStore: SyncIntentMaintenanceStore,
     private val config: JanitorMaintenanceConfig,
     private val timeUtils: TimeUtils,
+    private val workerHook: SyncWorkerHook,
     @IoContext private val ioContext: CoroutineContext,
     @AppBackgroundScope private val appBackgroundScope: CoroutineScope,
     @JanitorMutex private val mutex: Mutex,
@@ -207,12 +209,18 @@ internal class DefaultSyncJanitor(
                 logger.w { "Quarantined $quarantined stale intent(s) exceeding retry threshold." }
             }
 
+            val cascaded = intentStore.cascadeQuarantine()
+            if (cascaded > 0) {
+                logger.w { "Cascade-quarantined $cascaded dependent pending intent(s)." }
+            }
+
             val reset = intentStore.resetStaleLeases(
                 cutOff = cutoff,
                 retryThreshold = config.retryThreshold
             )
             if (reset > 0) {
                 logger.i { "Batch reset $reset stale intent lease(s) back to PENDING." }
+                workerHook.invalidate()
             }
         }
     }

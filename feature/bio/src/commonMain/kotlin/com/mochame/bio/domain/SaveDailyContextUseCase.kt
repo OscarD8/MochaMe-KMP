@@ -1,5 +1,6 @@
 package com.mochame.bio.domain
 
+import com.mochame.utils.runCatchingCancellable
 import com.mochame.utils.ui.Update
 import com.mochame.utils.ui.resolve
 import org.koin.core.annotation.Factory
@@ -13,7 +14,7 @@ class SaveDailyContextUseCase(
         sleepHours: Update<Double> = Update.Unchanged,
         readinessScore: Update<Int> = Update.Unchanged,
         isNapped: Update<Boolean> = Update.Unchanged
-    ): Result<Unit> = runCatching {
+    ): Result<Unit> = runCatchingCancellable {
         val existing = repository.getContext(epochDay)
 
         val updatedEntity = DailyContext(

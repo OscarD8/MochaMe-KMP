@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mochame.bio.domain.DailyContextRepository
 import com.mochame.bio.domain.SaveDailyContextUseCase
+import com.mochame.utils.runCatchingCancellable
 import com.mochame.utils.ui.PrimitiveParsers
 import com.mochame.utils.ui.Update
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,7 +30,7 @@ class DailyContextViewModel(
     private val errorMessage = MutableStateFlow<String?>(null)
 
     val state: StateFlow<DailyContextUiState> = combine(
-        repository.observeContext(epochDay),
+        repository.observeContext(epochDay), // currently allows error propagation to cancel collectAtStateWithLifecycle() and up - can try a .catch{e -> _ } ?
         userInputs,
         isSaving,
         errorMessage
@@ -119,14 +120,13 @@ class DailyContextViewModel(
         viewModelScope.launch {
             isSaving.value = true
             errorMessage.value = null
-            try {
+            runCatchingCancellable {
                 repository.softDeleteContext(epochDay)
-                userInputs.value = TransientInput()
-            } catch (e: Exception) {
-                errorMessage.value = e.message ?: "Deletion failure."
-            } finally {
-                isSaving.value = false
-            }
+            }.fold(
+                onSuccess = { userInputs.value = TransientInput() },
+                onFailure = { errorMessage.value = it.message ?: "Deletion failure." }
+            )
+            isSaving.value = false
         }
     }
 }

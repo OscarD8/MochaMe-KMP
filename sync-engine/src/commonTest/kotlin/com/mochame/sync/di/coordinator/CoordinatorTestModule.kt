@@ -20,9 +20,11 @@ import com.mochame.sync.internal.fixtures.FakeSyncReceiver
 import com.mochame.sync.internal.fixtures.FakeSyncTransport
 import com.mochame.sync.internal.fixtures.SpyHlcFactory
 import com.mochame.sync.internal.fixtures.SpySyncWorkerHook
+import com.mochame.sync.internal.fixtures.serialization.FakeIntentCodec
 import com.mochame.sync.internal.fixtures.serialization.FakePayloadCodec
 import com.mochame.sync.orchestration.DefaultSyncCoordinator
 import com.mochame.sync.spi.infrastructure.SyncReceiver
+import com.mochame.sync.spi.infrastructure.serialization.IntentCodec
 import com.mochame.sync.spi.infrastructure.serialization.PayloadCodec
 import com.mochame.sync.spi.network.SyncTransport
 import org.koin.core.annotation.ComponentScan
@@ -50,6 +52,9 @@ class CoordinatorTestModule {
     @Single(binds = [PayloadCodec::class])
     fun provideFakePayloadCodec(): FakePayloadCodec = FakePayloadCodec()
 
+    @Single(binds = [IntentCodec::class])
+    fun provideFakeIntentCodec(): FakeIntentCodec = FakeIntentCodec()
+
     @Single(binds = [SyncTransport::class])
     fun provideFakeSyncTransport(): FakeSyncTransport = FakeSyncTransport()
 
@@ -68,7 +73,8 @@ internal class SyncCoordinatorTestEnv(
     @Named("stubA") val stubA: FakeSyncReceiver,
     @Named("stubB") val stubB: FakeSyncReceiver,
     val intentStore: FakeSyncIntentStore,
-    val codec: FakePayloadCodec,
+    val payloadCodec: FakePayloadCodec,
+    val intentCodec: FakeIntentCodec,
     val hlcFactory: SpyHlcFactory,
     val transactor: FakeTransactionProvider,
     val workerHook: SpySyncWorkerHook,
@@ -78,7 +84,7 @@ internal class SyncCoordinatorTestEnv(
 ) {
     fun assertIntentsProperlyBatched(expectedKeys: Set<Long>) {
         val storedIntents = intentStore.intents
-        val encodedIntents = codec.encodedInvocations.flatten()
+        val encodedIntents = payloadCodec.encodedInvocations.flatten()
 
         val storedKeys = storedIntents.map { it.candidateKey }.toSet()
         val encodedKeys = encodedIntents.map { it.candidateKey }.toSet()
