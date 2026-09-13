@@ -24,7 +24,7 @@ import kotlin.time.Clock
 
 @Single(binds = [NodeContextManager::class])
 class DefaultNodeContextManager(
-    @Provided private val dao: NodeContextDao,
+    private val dao: NodeContextDao,
     private val idGenerator: IdGenerator,
     @IoContext private val ioContext: CoroutineContext,
     private val mutex: Mutex = Mutex(),

@@ -32,7 +32,7 @@ import kotlin.time.TimeSource
 abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     override val featureContext: FeatureContext,
     @PublishedApi internal val deps: LocalFirstDependencies,
-    @Provided @PublishedApi internal val codec: FeatureCodecRouter<T, FeatureCodec<T>>,
+    @PublishedApi internal val codec: FeatureCodecRouter<T, FeatureCodec<T>>,
     protected val logger: Logger
 ) : SyncReceiver {
 

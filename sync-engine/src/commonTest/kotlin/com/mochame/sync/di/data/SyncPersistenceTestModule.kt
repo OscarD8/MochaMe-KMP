@@ -12,11 +12,6 @@ import org.koin.core.annotation.Single
 @ComponentScan("com.mochame.sync.di.data")
 internal class SyncPersistenceTestModule {
     @Single
-    fun provideDatabase(): SyncMicroSchema {
-        throw IllegalStateException("Should be overridden by test wrapper")
-    }
-
-    @Single
     fun provideIntentDao(db: SyncMicroSchema): SyncIntentDao = db.syncIntentDao()
 }
 

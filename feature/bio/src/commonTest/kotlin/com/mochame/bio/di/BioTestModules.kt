@@ -23,11 +23,6 @@ import org.koin.core.annotation.Single
 @ComponentScan("com.mochame.bio.di")
 internal class BioInfraTestModule {
     @Single
-    fun provideBioSchema(): BioMicroSchema {
-        throw IllegalStateException("Should be overridden by test wrapper")
-    }
-
-    @Single
     fun provideDailyContextDao(db: BioMicroSchema): DailyContextDao = db.bioDao()
 }
 

@@ -42,10 +42,6 @@ expect abstract class MochaPlatformTest()
 @org.koin.core.annotation.Module
 expect class TestTargetsProviderModule()
 
-
-/**
- * Global providers for testing setup. Expected to be overridden via [bindAsKoinModule].
- */
 @Configuration
 @org.koin.core.annotation.Module(
     includes = [
@@ -53,15 +49,7 @@ expect class TestTargetsProviderModule()
         TestTargetsProviderModule::class
     ]
 )
-class TestSupportModule {
-    @Single
-    @AppBackgroundScope
-    fun provideTestAppScope(): CoroutineScope = CoroutineScope(SupervisorJob())
-
-    @Single
-    @IoContext
-    fun provideTestIoContext(): CoroutineContext = EmptyCoroutineContext
-}
+class TestSupportModule
 
 /**
  * Generates the test context bindings dynamically.

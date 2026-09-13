@@ -35,13 +35,6 @@ class NodeContextIntTestModule
 
 @Module
 class NodeTestPersistenceModule {
-
-    @Single
-    fun provideDatabase(
-    ): NodeContextMicroSchema {
-        throw IllegalStateException("Should be overridden by test wrapper")
-    }
-
     @Single
     fun provideNodeContextDao(db: NodeContextMicroSchema): NodeContextDao =
         db.nodeContextDao()

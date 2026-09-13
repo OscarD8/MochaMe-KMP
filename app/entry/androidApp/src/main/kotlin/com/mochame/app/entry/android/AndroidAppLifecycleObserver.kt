@@ -8,7 +8,7 @@ import org.koin.core.annotation.Single
 
 @Single
 class AndroidAppLifecycleObserver(
-    @Provided private val transport: SyncTransport
+    private val transport: SyncTransport
 ) : DefaultLifecycleObserver {
 
     override fun onStart(owner: LifecycleOwner) {

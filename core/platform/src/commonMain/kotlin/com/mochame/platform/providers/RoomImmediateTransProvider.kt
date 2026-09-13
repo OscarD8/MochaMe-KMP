@@ -12,7 +12,7 @@ import org.koin.core.annotation.Provided
  * entities, the sync-engine has now been coupled to Room by design. Keeping this method here
  * for now purely as a boilerplate reduction (may not be best practice?)
  */
-class RoomImmediateTransProvider(@Provided private val db: RoomDatabase) : TransactionProvider {
+class RoomImmediateTransProvider(private val db: RoomDatabase) : TransactionProvider {
     override suspend fun <R> runImmediateTransaction(block: suspend () -> R): R {
         return db.useWriterConnection { conn ->
             conn.withTransaction(type = Transactor.SQLiteTransactionType.IMMEDIATE) { block() }

@@ -25,6 +25,7 @@ import org.koin.core.annotation.Single
         SyncConfigModule::class
     ]
 )
+@ComponentScan("com.mochame.sync.spi.network", "com.mochame.sync.api.repository")
 class SyncProductionModule
 
 @Module

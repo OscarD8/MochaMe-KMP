@@ -22,11 +22,11 @@ interface AppInitializer {
 
 @Single(binds = [AppInitializer::class], createdAtStart = true)
 internal class DefaultAppInitializer(
-    @Provided private val janitor: SyncJanitor,
-    @Provided private val coordinator: SyncCoordinator,
-    @Provided private val bootUpdater: BootStatusUpdater,
-    @Provided private val transport: SyncTransport,
-    @Provided private val connectionEndPoint: NetworkConfig,
+    private val janitor: SyncJanitor,
+    private val coordinator: SyncCoordinator,
+    private val bootUpdater: BootStatusUpdater,
+    private val transport: SyncTransport,
+    private val connectionEndPoint: NetworkConfig,
     @AppBackgroundScope private val appBackgroundScope: CoroutineScope,
     logger: Logger
 ) : AppInitializer {

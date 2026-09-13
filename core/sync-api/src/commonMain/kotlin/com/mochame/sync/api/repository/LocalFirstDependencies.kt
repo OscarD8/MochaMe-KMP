@@ -11,8 +11,10 @@ import com.mochame.sync.spi.infrastructure.SyncWorkerHook
 import com.mochame.sync.spi.infrastructure.TransactionProvider
 import com.mochame.sync.spi.node.NodeContextManager
 import com.mochame.sync.spi.policy.ExecutionPolicy
+import org.koin.core.annotation.Single
 import kotlin.coroutines.CoroutineContext
 
+@Single
 data class LocalFirstDependencies(
     val hlcFactory: HlcFactory,
     val transactor: TransactionProvider,

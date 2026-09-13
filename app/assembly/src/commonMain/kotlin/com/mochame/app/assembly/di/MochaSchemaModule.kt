@@ -17,7 +17,6 @@ import com.mochame.sync.data.SyncIntentDao
 import com.mochame.sync.spi.infrastructure.TransactionProvider
 import com.mochame.telemetry.data.TelemetryDao
 import org.koin.core.annotation.Module
-import org.koin.core.annotation.Provided
 import org.koin.core.annotation.Single
 import kotlin.coroutines.CoroutineContext
 
@@ -27,7 +26,7 @@ class MochaSchemaModule {
 
     @Single(binds = [MochaMeDatabase::class, RoomDatabase::class])
     fun provideDatabase(
-        @Provided context: PlatformContext,
+        context: PlatformContext,
         @IoContext ioContext: CoroutineContext,
         driver: SQLiteDriver,
         location: DatabaseLocation
