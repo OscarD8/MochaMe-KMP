@@ -5,7 +5,7 @@ import com.mochame.node.di.NodeContextIntTestModule
 import com.mochame.support.MochaPlatformTest
 import com.mochame.utils.fixtures.TestHlcFactory
 import com.mochame.support.getPhysicalRowCount
-import com.mochame.support.runPersistenceEnvironment
+import com.mochame.support.runDatabaseEnvironment
 import com.mochame.utils.fixtures.TestNodeId
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -20,7 +20,7 @@ import kotlin.test.assertEquals
 // SUT ENVIRONMENT
 // -----------------------------------------------------------
 private inline fun runEnv(crossinline block: suspend NodeContextIntTestEnv.(TestScope) -> Unit) =
-    runPersistenceEnvironment<NodeContextMicroSchema, NodeContextIntTestEnv>(
+    runDatabaseEnvironment<NodeContextMicroSchema, NodeContextIntTestEnv>(
         constructor = NodeContextMicroSchemaConstructor,
         koinSetup = { modules(NodeContextIntTestModule::class) },
         block = block

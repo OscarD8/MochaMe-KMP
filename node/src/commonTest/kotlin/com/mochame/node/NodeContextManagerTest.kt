@@ -9,7 +9,7 @@ import com.mochame.node.di.NodeContextIntTestModule
 import com.mochame.node.managers.DefaultNodeContextManager
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.getPhysicalRowCount
-import com.mochame.support.runPersistenceEnvironment
+import com.mochame.support.runDatabaseEnvironment
 import com.mochame.sync.spi.node.NodeContext
 import com.mochame.utils.fixtures.TestHlcFactory
 import com.mochame.utils.fixtures.TestNodeId
@@ -32,7 +32,7 @@ import kotlin.test.assertTrue
 // -----------------------------------------------------------
 
 private inline fun runEnv(crossinline block: suspend NodeContextIntTestEnv.(TestScope) -> Unit) =
-    runPersistenceEnvironment<NodeContextMicroSchema, NodeContextIntTestEnv>(
+    runDatabaseEnvironment<NodeContextMicroSchema, NodeContextIntTestEnv>(
         constructor = NodeContextMicroSchemaConstructor,
         koinSetup = { modules(NodeContextIntTestModule::class) },
         block = block

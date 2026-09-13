@@ -164,7 +164,6 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         codec.nextDecodeResult = listOf(intentA, intentB)
         coordinator.onInboundBytes(0L, ByteArray(0))
 
-        // Verify Stub A Invocations
         assertEquals(ReceivedIntent(contextA, payloadA), stubA.lastInvocation)
         assertEquals(ReceivedIntent(contextB, payloadB), stubB.lastInvocation)
         assertEquals(1, stubA.invocationCount)

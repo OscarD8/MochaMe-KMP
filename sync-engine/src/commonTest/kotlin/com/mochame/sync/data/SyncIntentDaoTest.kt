@@ -2,7 +2,7 @@ package com.mochame.sync.data
 
 import com.mochame.support.MochaPlatformTest
 import com.mochame.utils.fixtures.TestHlcFactory
-import com.mochame.support.runPersistenceEnvironment
+import com.mochame.support.runDatabaseEnvironment
 import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.di.data.SyncPersistenceTestModule
 import com.mochame.sync.internal.fixtures.createTestIntentEntity
@@ -20,7 +20,7 @@ import kotlin.test.assertTrue
 // SUT ENVIRONMENT
 // -----------------------------------------------------------
 private inline fun runEnv(crossinline block: suspend SyncIntentDao.(TestScope) -> Unit) =
-    runPersistenceEnvironment<SyncMicroSchema, SyncIntentDao>(
+    runDatabaseEnvironment<SyncMicroSchema, SyncIntentDao>(
         constructor = SyncMicroSchemaConstructor,
         koinSetup = { modules(SyncPersistenceTestModule::class) },
         block = block,

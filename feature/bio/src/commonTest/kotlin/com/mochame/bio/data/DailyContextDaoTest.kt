@@ -3,7 +3,7 @@ package com.mochame.bio.data
 import app.cash.turbine.test
 import com.mochame.bio.di.BioInfraTestModule
 import com.mochame.support.MochaPlatformTest
-import com.mochame.support.runPersistenceEnvironment
+import com.mochame.support.runDatabaseEnvironment
 import com.mochame.utils.fixtures.TestHlcFactory
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
@@ -17,7 +17,7 @@ import kotlin.test.assertNull
 // SUT ENVIRONMENT
 // -----------------------------------------------------------
 private inline fun runEnv(crossinline block: suspend DailyContextDao.(TestScope) -> Unit) =
-    runPersistenceEnvironment<BioMicroSchema, DailyContextDao>(
+    runDatabaseEnvironment<BioMicroSchema, DailyContextDao>(
         constructor = BioMicroSchemaConstructor,
         koinSetup = { modules(BioInfraTestModule::class) },
         block = block

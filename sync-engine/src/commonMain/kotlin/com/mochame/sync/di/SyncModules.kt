@@ -3,9 +3,6 @@ package com.mochame.sync.di
 import com.mochame.annotations.BlobMutex
 import com.mochame.annotations.CoordinatorMutex
 import com.mochame.annotations.JanitorMutex
-import com.mochame.logger.LoggerModule
-import com.mochame.sync.spi.network.NetworkConfig
-import com.mochame.utils.di.UtilsModule
 import kotlinx.coroutines.sync.Mutex
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Module
@@ -13,16 +10,12 @@ import org.koin.core.annotation.Single
 
 @Module(
     includes = [
-        LoggerModule::class,
-        UtilsModule::class,
-
         SyncDataModule::class,
         SyncDomainModule::class,
-        SyncConcurrencyModule::class,
         SyncInfraModule::class,
-        SyncOrchestrationModule::class,
         SyncStoresModule::class,
-        SyncConfigModule::class
+        SyncOrchestrationModule::class,
+        SyncConcurrencyModule::class
     ]
 )
 @ComponentScan("com.mochame.sync.spi.network", "com.mochame.sync.api.repository")
@@ -33,31 +26,24 @@ class SyncProductionModule
 class SyncDataModule
 
 @Module
-@ComponentScan("com.mochame.sync.infrastructure")
-class SyncInfraModule
+@ComponentScan("com.mochame.sync.domain")
+class SyncDomainModule
 
 @Module
-@ComponentScan("com.mochame.sync.infrastructure.serialization")
-class SyncSerializationModule
+@ComponentScan("com.mochame.sync.infrastructure")
+class SyncInfraModule
 
 @Module
 @ComponentScan("com.mochame.sync.infrastructure.stores")
 class SyncStoresModule
 
 @Module
-@ComponentScan("com.mochame.sync.domain")
-class SyncDomainModule
-
-@Module
-class SyncConfigModule {
-    @Single
-    fun provideSyncConfig(): NetworkConfig = NetworkConfig()
-}
+@ComponentScan("com.mochame.sync.infrastructure.serialization")
+class SyncSerializationModule
 
 @Module
 @ComponentScan("com.mochame.sync.orchestration")
 class SyncOrchestrationModule
-
 
 @Module
 class SyncConcurrencyModule {

@@ -25,7 +25,6 @@ actual class InternalPlatformModule : KoinComponent {
     @Single
     fun provideContext(androidContext: Context): PlatformContext = PlatformContext(androidContext)
 
-
     @Single
     fun provideFileSystem(): FileSystem = SystemFileSystem
 

@@ -4,7 +4,6 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.koin.core.KoinApplication
 import org.koin.core.annotation.KoinInternalApi
-import org.koin.core.module.Module
 import org.koin.dsl.koinApplication
 
 /**

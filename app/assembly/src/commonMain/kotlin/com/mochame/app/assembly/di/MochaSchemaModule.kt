@@ -8,7 +8,6 @@ import com.mochame.app.schema.MochaMeDatabaseConstructor
 import com.mochame.bio.data.DailyContextDao
 import com.mochame.node.data.NodeContextDao
 import com.mochame.platform.di.PlatformContext
-import com.mochame.platform.di.PlatformProductionModule
 import com.mochame.platform.providers.DatabaseLocation
 import com.mochame.platform.providers.RoomImmediateTransProvider
 import com.mochame.platform.providers.platformBuilder
@@ -21,7 +20,7 @@ import org.koin.core.annotation.Single
 import kotlin.coroutines.CoroutineContext
 
 
-@Module(includes = [PlatformProductionModule::class])
+@Module
 class MochaSchemaModule {
 
     @Single(binds = [MochaMeDatabase::class, RoomDatabase::class])

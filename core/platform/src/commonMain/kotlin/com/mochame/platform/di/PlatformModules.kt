@@ -7,7 +7,6 @@ import com.mochame.annotations.AppBackgroundScope
 import com.mochame.annotations.DefaultContext
 import com.mochame.annotations.IoContext
 import com.mochame.annotations.MainContext
-import com.mochame.logger.LoggerModule
 import com.mochame.platform.providers.createPlatformDigest
 import com.mochame.sync.spi.infrastructure.DigestFactory
 import kotlinx.coroutines.CoroutineScope
@@ -19,15 +18,16 @@ import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
 import kotlin.coroutines.CoroutineContext
 
-@Module (
+@Module(
     includes = [
         CommonPlatformModule::class,
+        InternalPlatformModule::class,
         PlatformProviderModule::class
     ]
 )
 class PlatformProductionModule
 
-@Module(includes = [InternalPlatformModule::class])
+@Module
 class CommonPlatformModule {
 
     @Single
@@ -49,21 +49,19 @@ class CommonPlatformModule {
     @AppBackgroundScope
     fun provideBackgroundAppScope(@DefaultContext context: CoroutineContext): CoroutineScope =
         CoroutineScope(context + SupervisorJob())
+}
+
+@Module
+expect class InternalPlatformModule
+
+expect class PlatformContext
+
+@Module
+@ComponentScan("com.mochame.platform.providers")
+class PlatformProviderModule {
 
     @Single
     fun provideHasher(logger: Logger): DigestFactory = DigestFactory {
         createPlatformDigest(logger = logger)
     }
 }
-
-/**
- * Expected module to be implemented by each platform (Android, Linux, JVM).
- */
-@Module
-expect class InternalPlatformModule
-
-expect class PlatformContext
-
-@Module(includes = [LoggerModule::class])
-@ComponentScan("com.mochame.platform.providers")
-class PlatformProviderModule

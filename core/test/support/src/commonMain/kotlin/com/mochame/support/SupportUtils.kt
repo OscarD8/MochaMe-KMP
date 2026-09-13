@@ -9,19 +9,16 @@ import com.mochame.annotations.MainContext
 import com.mochame.logger.test.TestLoggerModule
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.koin.core.annotation.Configuration
-import org.koin.core.annotation.Single
 import org.koin.core.module.Module
 import org.koin.core.qualifier.qualifier
 import org.koin.dsl.module
 import kotlin.coroutines.ContinuationInterceptor
 import kotlin.coroutines.CoroutineContext
-import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -42,7 +39,6 @@ expect abstract class MochaPlatformTest()
 @org.koin.core.annotation.Module
 expect class TestTargetsProviderModule()
 
-@Configuration
 @org.koin.core.annotation.Module(
     includes = [
         TestLoggerModule::class,
@@ -94,6 +90,16 @@ fun Exception.reportAndThrowFailure(): Nothing {
     throw this
 }
 
+/**
+ * For usage in multithreaded testing where the test scope is not in control of coroutines
+ * running on a delegated dispatcher. As a TestScope is connected to a virtual clock,
+ * this method provides a way to suspend the StandardTestDispatcher while advancing real time,
+ * to await a condition resulting from work done on other Dispatchers with their own task queues.
+ *
+ * Limited parallelism is used to ensure the Default pool is kept for the test workers. Any
+ * further coroutines spawned by the await condition will be scheduled within a limited
+ * parallelism of 1.
+ */
 suspend fun awaitCondition(
     timeout: Duration = 5.seconds,
     pollInterval: Duration = 10.milliseconds,

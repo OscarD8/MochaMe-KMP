@@ -66,7 +66,9 @@ internal inline fun ByteArray.readUIntAt(offset: Int): UInt =
 // WRITE
 // -----------------------------------------------------------
 /**
- * [ushr] to process bytes from highest value first (assuming Big Endian),
+ * Logical bit processing.
+ *
+ * [ushr] to shift bytes from highest value first (assuming Big Endian),
  * slicing them with [toByte], and placing that isolated Byte at the offset.
  */
 @Suppress("NOTHING_TO_INLINE")

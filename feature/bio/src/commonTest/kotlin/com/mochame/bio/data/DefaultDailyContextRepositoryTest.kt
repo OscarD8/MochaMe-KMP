@@ -8,7 +8,7 @@ import com.mochame.bio.domain.DailyContextCodecV1.Companion.TAG_IS_NAPPED
 import com.mochame.bio.domain.DailyContextCodecV1.Companion.TAG_READINESS_SCORE
 import com.mochame.bio.domain.DailyContextCodecV1.Companion.TAG_SLEEP_HOURS
 import com.mochame.support.MochaPlatformTest
-import com.mochame.support.runPersistenceEnvironment
+import com.mochame.support.runDatabaseEnvironment
 import com.mochame.sync.api.boot.BootState
 import com.mochame.sync.api.metadata.MutationOp
 import com.mochame.sync.common.bitmaskOf
@@ -22,12 +22,11 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.time.Instant
 
 private inline fun runEnv(
     readyUp: Boolean = true,
     crossinline block: suspend BioTestEnv.(TestScope) -> Unit
-) = runPersistenceEnvironment<BioMicroSchema, BioTestEnv>(
+) = runDatabaseEnvironment<BioMicroSchema, BioTestEnv>(
     constructor = BioMicroSchemaConstructor,
     koinSetup = { modules(BioInfraTestModule::class) },
     block = { testScope ->

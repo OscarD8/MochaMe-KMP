@@ -6,9 +6,11 @@ import org.koin.core.KoinApplication
 import org.koin.dsl.KoinAppDeclaration
 import org.koin.plugin.module.dsl.startKoin
 
-
 @org.koin.core.annotation.KoinApplication(
-    modules = [MochaAssemblyModule::class, BioUiProductionModule::class]
+    modules = [
+        MochaAssemblyModule::class,
+        BioUiProductionModule::class
+    ]
 )
 class MochaComposeApp
 

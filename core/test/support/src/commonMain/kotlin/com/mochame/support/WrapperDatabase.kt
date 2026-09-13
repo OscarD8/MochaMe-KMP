@@ -52,7 +52,7 @@ import kotlin.coroutines.CoroutineContext
  * @param koinSetup Expects a nested inclusion of the SUT koin application, its modules then attached to a test koin application.
  * @param block The actual test block to be run once the test environment is set up.
  */
-inline fun <reified T : RoomDatabase, reified E : Any> runPersistenceEnvironment(
+inline fun <reified T : RoomDatabase, reified E : Any> runDatabaseEnvironment(
     bindTestScope: Boolean = true,
     constructor: RoomDatabaseConstructor<T>,
     crossinline koinSetup: KoinApplication.() -> Unit = {},
