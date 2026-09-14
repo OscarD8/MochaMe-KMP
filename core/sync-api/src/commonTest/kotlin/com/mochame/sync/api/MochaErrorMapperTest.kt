@@ -203,22 +203,22 @@ class MochaErrorMapperTest : MochaPlatformTest() {
     // -----------------------------------------------------------
 
     @Test
-    fun should_mapToCorruptionDetected_when_directMessageContainsSqliteCorrupt() {
+    fun should_mapToStateIssue_when_directMessageContainsSqliteCorrupt() {
         val original =
             RuntimeException("SQLiteDatabaseCorruptException: SQLITE_CORRUPT: database disk image is malformed")
         val result = original.toMochaException("DB verification failed")
 
-        assertIs<MochaException.Persistent.CorruptionDetected>(result)
+        assertIs<MochaException.Persistent.StateIssue>(result)
         assertEquals("DB verification failed", result.message)
     }
 
     @Test
-    fun should_mapToCorruptionDetected_when_causeContainsSqliteCorrupt() {
+    fun should_mapToStateIssue_when_causeContainsSqliteCorrupt() {
         val cause = RuntimeException("SQLITE_CORRUPT (11)")
         val wrapper = RuntimeException("Page read failure", cause)
         val result = wrapper.toMochaException("Schema verification failed")
 
-        assertIs<MochaException.Persistent.CorruptionDetected>(result)
+        assertIs<MochaException.Persistent.StateIssue>(result)
         assertEquals("Schema verification failed", result.message)
     }
 

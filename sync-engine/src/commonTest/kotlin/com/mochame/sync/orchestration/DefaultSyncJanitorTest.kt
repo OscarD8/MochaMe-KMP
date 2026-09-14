@@ -252,10 +252,9 @@ class DefaultSyncJanitorTest : MochaPlatformTest() {
         nodeManager.seededContext = NodeContext(
             nodeId = nodeId,
             appVersion = 1,
-            lastServerSyncTime = null,
+            lastServerResponseTime = null,
             maxHlc = seededHlc,
-            lastServerWatermark = null,
-            lastLocalMutationTime = null
+            lastInboundWatermark = null,
         )
 
         // When

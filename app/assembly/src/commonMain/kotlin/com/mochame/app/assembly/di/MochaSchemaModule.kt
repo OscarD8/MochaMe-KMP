@@ -12,6 +12,7 @@ import com.mochame.platform.providers.DatabaseLocation
 import com.mochame.platform.providers.RoomImmediateTransProvider
 import com.mochame.platform.providers.platformBuilder
 import com.mochame.resonance.data.ResonanceDao
+import com.mochame.sync.data.QuarantinedPayloadDao
 import com.mochame.sync.data.SyncIntentDao
 import com.mochame.sync.spi.infrastructure.TransactionProvider
 import com.mochame.telemetry.data.TelemetryDao
@@ -47,6 +48,10 @@ class MochaSchemaModule {
     @Single
     fun provideSyncIntentDao(database: MochaMeDatabase): SyncIntentDao =
         database.syncIntentDao()
+
+    @Single
+    fun provideMalformedPayloadDao(database: MochaMeDatabase): QuarantinedPayloadDao =
+        database.quarantinedPayloadDao()
 
     @Single
     fun provideDailyContextDao(database: MochaMeDatabase): DailyContextDao =

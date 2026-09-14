@@ -41,6 +41,7 @@ import org.koin.dsl.module
 import org.koin.plugin.module.dsl.modules
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -175,7 +176,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
     // -------------------------------------------------------------------------
 
     @Test
-    fun should_isolateFailingReceiver_and_allowSubsequentIntentsToSucceed() = runEnv {
+    fun should_isolateStateIssue_and_allowSubsequentIntentsToSucceed() = runEnv {
         bootManager.updateState(BootState.Ready)
 
         val hlcA = TestHlcFactory.create(ts = 1000L, count = 0)
@@ -194,7 +195,8 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
             payload = byteArrayOf(0x02)
         )
         payloadCodec.nextDecodeResult = listOf(failingIntent, successfulIntent)
-        stubA.shouldFail = RuntimeException("Database constraint violation in Receiver A")
+        stubA.shouldFail =
+            MochaException.Persistent.StateIssue("Database constraint violation in Receiver A")
 
         coordinator.onInboundBytes(0L, ByteArray(0))
 
@@ -203,6 +205,42 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         assertEquals(listOf(hlcB), nodeManager.updatedHlcFloors)
         assertTrue(hlcFactory.witnessedHlcs.contains(hlcB))
         assertFalse(hlcFactory.witnessedHlcs.contains(hlcA))
+        val finalState = intentStore.intents.first()
+        assertEquals(401L, finalState.candidateKey)
+        assertEquals(SyncStatus.QUARANTINED, finalState.syncStatus)
+    }
+
+    @Test
+    fun should_abortBatch_onUnexpectedException() = runEnv {
+        bootManager.updateState(BootState.Ready)
+
+        val hlcA = TestHlcFactory.create(ts = 1000L, count = 0)
+        val hlcB = TestHlcFactory.create(ts = 2000L, count = 0)
+
+        val bombIntent = createTestSyncIntent(
+            hlc = hlcA,
+            candidateKey = 401L,
+            featureContext = FeatureContext.TEST_STUB_A,
+            payload = byteArrayOf(0x01)
+        )
+        val innocentIntent = createTestSyncIntent(
+            hlc = hlcB,
+            candidateKey = 402L,
+            featureContext = FeatureContext.TEST_STUB_B,
+            payload = byteArrayOf(0x02)
+        )
+
+        payloadCodec.nextDecodeResult = listOf(bombIntent, innocentIntent)
+        stubA.shouldFail = MochaException.Persistent.Uncategorized("Fire in the cockpit")
+
+        assertFailsWith<MochaException.Persistent.Uncategorized> {
+            coordinator.onInboundBytes(0L, ByteArray(0))
+        }
+
+        assertEquals(1, stubA.invocationCount)
+        assertEquals(0, stubB.invocationCount)
+        assertEquals(0, nodeManager.updatedHlcFloors.size)
+        assertEquals(0, hlcFactory.witnessedHlcs.size)
     }
 
     @Test
@@ -327,7 +365,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         coordinator.onInboundBytes(0L, ByteArray(0))
 
         assertEquals(0, stubA.invocationCount)
-        assertEquals(0, intentStore.intents.size)
+        assertEquals(1, intentStore.intents.size, "Quarantined Intent")
         assertEquals(0, nodeManager.updatedHlcFloors.size)
     }
 
@@ -346,7 +384,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         coordinator.onInboundBytes(0L, ByteArray(0))
 
         assertEquals(0, stubA.invocationCount)
-        assertEquals(0, intentStore.intents.size)
+        assertEquals(1, intentStore.intents.size, "Quarantined Intent")
         assertEquals(0, nodeManager.updatedHlcFloors.size)
     }
 

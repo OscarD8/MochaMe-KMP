@@ -20,7 +20,6 @@ import com.mochame.sync.spi.models.SyncIntent
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
 import kotlinx.io.Buffer
-import org.koin.core.annotation.Provided
 import kotlin.time.Clock
 import kotlin.time.TimeSource
 

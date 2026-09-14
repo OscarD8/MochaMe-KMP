@@ -5,6 +5,7 @@ import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.spi.node.NodeContext
 import com.mochame.sync.spi.node.NodeId
 import com.mochame.utils.fixtures.TestNodeId
+import kotlin.time.Instant
 
 /**
  * Generates a deterministic NodeContextEntity with standard test defaults.
@@ -13,19 +14,17 @@ fun createTestNodeContextEntity(
     nodeId: String = TestNodeId.A.toString(),
     appVersion: Int = 1,
     createdAt: Long = TestHlcFactory.BASE_TEST_TIME,
-    lastServerWatermark: Long? = null,
+    lastInboundWatermark: Long? = null,
     maxHlc: String? = null,
-    lastServerSyncTime: Long? = null,
-    lastLocalMutationTime: Long? = null
+    lastServerResponseTime: Instant? = null,
 ): NodeContextEntity = NodeContextEntity(
     id = 1,
     nodeId = nodeId,
     appVersion = appVersion,
     createdAt = createdAt,
-    lastServerWatermark = lastServerWatermark,
+    lastInboundWatermark = lastInboundWatermark,
     maxHlc = maxHlc,
-    lastServerSyncTime = lastServerSyncTime,
-    lastLocalMutationTime = lastLocalMutationTime
+    lastServerResponseTime = lastServerResponseTime?.toEpochMilliseconds(),
 )
 
 /**
@@ -35,16 +34,14 @@ fun createTestNodeContext(
     nodeId: NodeId = TestNodeId.A,
     appVersion: Int = 1,
     createdAt: Long = TestHlcFactory.BASE_TEST_TIME,
-    lastServerWatermark: Long? = null,
+    lastInboundWatermark: Long? = null,
     maxHlc: HLC? = null,
-    lastServerSyncTime: Long? = null,
-    lastLocalMutationTime: Long? = null
+    lastServerResponseTime: Instant? = null,
 ): NodeContext = NodeContext(
     nodeId = nodeId,
     appVersion = appVersion,
     createdAt = createdAt,
-    lastServerWatermark = lastServerWatermark,
+    lastInboundWatermark = lastInboundWatermark,
     maxHlc = maxHlc,
-    lastServerSyncTime = lastServerSyncTime,
-    lastLocalMutationTime = lastLocalMutationTime
+    lastServerResponseTime = lastServerResponseTime,
 )

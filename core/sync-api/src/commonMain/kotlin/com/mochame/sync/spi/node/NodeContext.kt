@@ -2,13 +2,13 @@ package com.mochame.sync.spi.node
 
 import com.mochame.sync.api.hlc.HLC
 import kotlin.time.Clock
+import kotlin.time.Instant
 
 data class NodeContext(
     val nodeId: NodeId,
     val appVersion: Int,
     val createdAt: Long = Clock.System.now().toEpochMilliseconds(),
-    val lastServerWatermark: Long? = null, // this will not prevent state drift, one for outbound and one for inbound?
+    val lastInboundWatermark: Long? = null,
     val maxHlc: HLC? = null,
-    val lastServerSyncTime: Long? = null,
-    val lastLocalMutationTime: Long? = null
+    val lastServerResponseTime: Instant? = null,
 )

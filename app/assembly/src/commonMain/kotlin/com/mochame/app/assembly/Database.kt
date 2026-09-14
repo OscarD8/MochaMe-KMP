@@ -14,6 +14,8 @@ import com.mochame.resonance.data.AuthorEntity
 import com.mochame.resonance.data.BookEntity
 import com.mochame.resonance.data.QuoteEntity
 import com.mochame.resonance.data.ResonanceDao
+import com.mochame.sync.data.QuarantinedPayloadDao
+import com.mochame.sync.data.QuarantinedPayloadEntity
 import com.mochame.sync.data.SyncConverters
 import com.mochame.sync.data.SyncIntentDao
 import com.mochame.sync.data.SyncIntentEntity
@@ -29,6 +31,7 @@ import com.mochame.telemetry.data.TopicEntity
     entities = [
         NodeContextEntity::class,
         SyncIntentEntity::class,
+        QuarantinedPayloadEntity::class,
 
         DailyContextEntity::class,
 
@@ -49,6 +52,7 @@ import com.mochame.telemetry.data.TopicEntity
 abstract class MochaMeDatabase : RoomDatabase() {
     abstract fun nodeContextDao(): NodeContextDao
     abstract fun syncIntentDao(): SyncIntentDao
+    abstract fun quarantinedPayloadDao(): QuarantinedPayloadDao
     abstract fun telemetryDao(): TelemetryDao
     abstract fun resonanceDao(): ResonanceDao
     abstract fun dailyContextDao(): DailyContextDao

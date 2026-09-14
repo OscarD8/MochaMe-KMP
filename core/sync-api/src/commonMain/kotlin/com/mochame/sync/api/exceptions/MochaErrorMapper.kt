@@ -17,7 +17,7 @@ fun Throwable.toMochaException(context: String? = null): MochaException {
     mapToSqliteFailure(context)?.let { return it }
 
     return when (this) {
-        is IllegalArgumentException, is IllegalStateException ->
+        is IllegalArgumentException, is IllegalStateException, is NullPointerException ->
             MochaException.Persistent.StateIssue(context, this)
 
         is IOException -> this.mapToIoFailure(context)
@@ -58,7 +58,7 @@ private fun Throwable.mapToSqliteFailure(context: String?): MochaException? {
             MochaException.Persistent.DiskFull(context, this)
 
         "SQLITE_CORRUPT" in chainMessages ->
-            MochaException.Persistent.CorruptionDetected(context)
+            MochaException.Persistent.StateIssue(context)
 
         "UNIQUE constraint" in chainMessages || "FOREIGN KEY constraint" in chainMessages ->
             MochaException.Persistent.StateIssue(context, this)

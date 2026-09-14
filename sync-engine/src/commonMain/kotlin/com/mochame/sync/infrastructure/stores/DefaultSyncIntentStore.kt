@@ -26,47 +26,46 @@ import org.koin.core.annotation.Single
  */
 @Single(binds = [SyncIntentStore::class, SyncIntentMaintenanceStore::class])
 internal class DefaultSyncIntentStore(
-    private val dao: SyncIntentDao
+    private val intentDao: SyncIntentDao
 ) : SyncIntentStore, SyncIntentMaintenanceStore {
 
     override suspend fun getPendingByCandidateKey(candidateKey: Long) =
-        dao.getPendingByKey(candidateKey)?.toDomain()
+        intentDao.getPendingByKey(candidateKey)?.toDomain()
 
     override suspend fun getPendingByFeature(feature: FeatureContext): List<SyncIntent?> =
-        dao.getPendingByFeature(feature.featureName).map { it.toDomain() }
+        intentDao.getPendingByFeature(feature.featureName).map { it.toDomain() }
 
-    override suspend fun recordIntent(entry: SyncIntent) = dao.upsert(entry.toEntity())
+    override suspend fun recordIntent(entry: SyncIntent) = intentDao.upsert(entry.toEntity())
 
     override suspend fun claimAndGetBatch(batchId: String, limit: Int): List<SyncIntent> =
-        dao.claimAndGetBatch(batchId, limit).map { it.toDomain() }
+        intentDao.claimAndGetBatch(batchId, limit).map { it.toDomain() }
 
     override suspend fun acknowledgeSuccess(batchId: String): Int =
-        dao.updateBatchStatus(
+        intentDao.updateBatchStatus(
             batchId = batchId,
             status = SyncStatus.SUCCESS,
             expectedCurrentStatus = SyncStatus.SYNCING
         )
 
     override suspend fun stampLastError(batchId: String, message: String) =
-        dao.stampLastError(batchId, message)
-
+        intentDao.stampLastError(batchId, message)
 
     // -----------------------------------------------------------
     // MAINTENANCE
     // -----------------------------------------------------------
 
     override suspend fun resetStaleLeases(cutOff: Long, retryThreshold: Int) =
-        dao.resetStaleLeases(cutOff, retryThreshold)
+        intentDao.resetStaleLeases(cutOff, retryThreshold)
 
     override suspend fun quarantineStaleLeases(cutOff: Long, retryThreshold: Int) =
-        dao.quarantineStaleLeases(cutOff, retryThreshold)
+        intentDao.quarantineStaleLeases(cutOff, retryThreshold)
 
     override suspend fun quarantineIntent(
         hlc: HLC,
         candidateKey: Long,
         errorMessage: String
     ) {
-        dao.quarantineIntent(
+        intentDao.quarantineIntent(
             hlc = hlc.toString(),
             candidateKey = candidateKey,
             errorMessage = errorMessage
@@ -75,21 +74,21 @@ internal class DefaultSyncIntentStore(
 
     override suspend fun releaseIntents(hlcs: List<HLC>): Int {
         if (hlcs.isEmpty()) return 0
-        return dao.releaseIntents(hlcs.map { it.toString() })
+        return intentDao.releaseIntents(hlcs.map { it.toString() })
     }
 
-    override suspend fun cascadeQuarantine(): Int = dao.cascadeQuarantine()
+    override suspend fun cascadeQuarantine(): Int = intentDao.cascadeQuarantine()
 
     override suspend fun pruneAgedIntents(pruneAfter: Long, limit: Int) =
-        dao.pruneByCutOff(
+        intentDao.pruneByCutOff(
             cutoffMs = pruneAfter,
             limit = limit
         )
 
     override suspend fun observeQuarantinedCountByModule(): Flow<List<QuarantinedFeatureSummary>> =
-        dao.observeQuarantinedCountByFeature()
+        intentDao.observeQuarantinedCountByFeature()
 
     override suspend fun existsForBlob(blobId: String) =
-        dao.existsForBlobId(blobId)
+        intentDao.existsForBlobId(blobId)
 
 }

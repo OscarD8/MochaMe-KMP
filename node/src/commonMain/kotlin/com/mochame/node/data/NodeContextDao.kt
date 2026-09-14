@@ -11,39 +11,6 @@ import androidx.room.Upsert
 @Dao
 interface NodeContextDao {
 
-    @Query("SELECT * FROM node_context WHERE id = 1")
-    suspend fun getContext(): NodeContextEntity?
-
-    @Query("SELECT nodeId FROM node_context WHERE id = 1")
-    suspend fun getNodeId(): String?
-
-    @Query("SELECT maxHlc FROM node_context WHERE id = 1")
-    suspend fun getMaxHlc(): String?
-
-    @Query("SELECT appVersion FROM node_context WHERE id = 1")
-    suspend fun getLastBootedVersion(): Int?
-
-    @Query("SELECT lastServerSyncTime FROM node_context WHERE id = 1")
-    suspend fun getLastServerSyncTime(): Long?
-
-    @Query("SELECT lastLocalMutationTime FROM node_context WHERE id = 1")
-    suspend fun getLastLocalMutationTime(): Long?
-
-    @Query("SELECT lastServerWatermark FROM node_context WHERE id = 1")
-    suspend fun getLastWatermark(): Long?
-
-    @Query("UPDATE node_context SET maxHlc = :hlc WHERE id = 1 AND (maxHlc IS NULL OR :hlc > maxHlc)")
-    suspend fun setMaxHlc(hlc: String): Int
-
-    @Query("UPDATE node_context SET lastServerWatermark = :watermark, lastServerSyncTime = :timeStamp  WHERE id = 1")
-    suspend fun setWatermarkAndTimestamp(watermark: Long, timeStamp: Long)
-
-    @Upsert
-    suspend fun upsert(entity: NodeContextEntity)
-
-    @Query("UPDATE node_context SET appVersion = :version WHERE id = 1")
-    suspend fun setVersion(version: Int)
-
     @Transaction
     suspend fun getOrEstablish(
         fallbackId: String,
@@ -60,5 +27,43 @@ interface NodeContextDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrReplaceContext(nodeContext: NodeContextEntity)
+
+    @Query("SELECT * FROM node_context WHERE id = 1")
+    suspend fun getContext(): NodeContextEntity?
+
+    @Query("SELECT nodeId FROM node_context WHERE id = 1")
+    suspend fun getNodeId(): String?
+
+    @Query("SELECT maxHlc FROM node_context WHERE id = 1")
+    suspend fun getMaxHlc(): String?
+
+    @Query("SELECT appVersion FROM node_context WHERE id = 1")
+    suspend fun getLastBootedVersion(): Int?
+
+    @Query("SELECT lastServerResponseTime FROM node_context WHERE id = 1")
+    suspend fun getLastServerResponseTime(): Long?
+
+    @Query("SELECT lastInboundWatermark FROM node_context WHERE id = 1")
+    suspend fun getLastInboundWatermark(): Long?
+
+    @Query("UPDATE node_context SET lastInboundWatermark = :watermark WHERE id = 1 AND (:watermark > lastInboundWatermark OR lastInboundWatermark IS NULL)")
+    suspend fun setInboundWatermark(watermark: Long): Int
+
+    @Query("UPDATE node_context SET maxHlc = :hlc WHERE id = 1 AND (maxHlc IS NULL OR :hlc > maxHlc)")
+    suspend fun setMaxHlc(hlc: String): Int
+
+    @Query("""
+        UPDATE node_context
+        SET lastInboundWatermark = :watermark, 
+            lastServerResponseTime = :timeStamp  
+        WHERE id = 1  AND (:watermark > lastInboundWatermark OR lastInboundWatermark IS NULL)
+    """)
+    suspend fun setWatermarkAndTimestamp(watermark: Long, timeStamp: Long)
+
+    @Upsert
+    suspend fun upsert(entity: NodeContextEntity)
+
+    @Query("UPDATE node_context SET appVersion = :version WHERE id = 1")
+    suspend fun setVersion(version: Int)
 
 }

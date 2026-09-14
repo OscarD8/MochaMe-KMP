@@ -11,9 +11,10 @@ import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.api.hlc.HlcFactory
 import com.mochame.sync.api.metadata.FeatureContext
+import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.domain.model.deriveContext
+import com.mochame.sync.spi.domain.QuarantinedPayloadStore
 import com.mochame.sync.spi.domain.SyncIntentMaintenanceStore
-import com.mochame.sync.spi.infrastructure.SyncIntentStore
 import com.mochame.sync.spi.infrastructure.SyncReceiver
 import com.mochame.sync.spi.infrastructure.SyncWorkerHook
 import com.mochame.sync.spi.infrastructure.TransactionProvider
@@ -28,6 +29,7 @@ import com.mochame.sync.spi.orchestration.SyncCoordinator
 import com.mochame.sync.spi.policy.ExecutionPolicy
 import com.mochame.sync.tryWithLock
 import com.mochame.utils.interfaces.TimeUtils
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
@@ -51,6 +53,7 @@ internal class DefaultSyncCoordinator(
     private val nodeManager: NodeContextManager,
     private val timeUtils: TimeUtils,
     private val intentStore: SyncIntentMaintenanceStore,
+    private val quarantinedPayloadStore: QuarantinedPayloadStore,
     @CoordinatorMutex private val coordinatorMutex: Mutex,
     @AppBackgroundScope private val appBackgroundScope: CoroutineScope,
     receivers: List<SyncReceiver>, // koin handles as long as classes are bound
@@ -65,7 +68,7 @@ internal class DefaultSyncCoordinator(
     private val SyncIntent.receiver: SyncReceiver
         get() = receiverRoutingMap[featureContext] ?: run {
             logger.e { "Routing failure for feature context '$featureContext'" }
-            throw MochaException.Persistent.Internal(
+            throw MochaException.Persistent.StateIssue(
                 "No SyncReceiver for feature context '$featureContext'"
             )
         }
@@ -120,24 +123,24 @@ internal class DefaultSyncCoordinator(
                     logger.e(e) { "Outbound: Batch $batchId encoding failed. Isolating corrupt intents." }
 
                     transactor.runImmediateTransaction {
-                        val healthyIntents = mutableListOf<SyncIntent>()
+                        val validIntents = mutableListOf<SyncIntent>()
 
                         for (intent in batch) {
                             try {
                                 intentCodec.encode(intent)
-                                healthyIntents.add(intent)
+                                validIntents.add(intent)
                             } catch (e: Exception) {
-                                logger.e(e) { "Outbound: Quarantining corrupt intent [key=${intent.candidateKey}]" }
                                 intentStore.quarantineIntent(
                                     hlc = intent.hlc,
                                     candidateKey = intent.candidateKey,
                                     errorMessage = e.message ?: "Codec serialization failure"
                                 )
+                                logger.e(e) { "Outbound: Quarantined corrupt intent [key=${intent.candidateKey}]" }
                             }
                         }
 
-                        if (healthyIntents.isNotEmpty()) {
-                            intentStore.releaseIntents(healthyIntents.map { it.hlc })
+                        if (validIntents.isNotEmpty()) {
+                            intentStore.releaseIntents(validIntents.map { it.hlc })
                         }
                     }
 
@@ -172,51 +175,80 @@ internal class DefaultSyncCoordinator(
         try {
             bootManager.awaitReady()
         } catch (e: Exception) {
-            logger.e(e) { "Inbound batch rejected: node is not ready or failed boot." }
+            if (e is CancellationException) throw e
+            logger.e(e) { "Inbound [watermark-$watermark]: Node is not ready or failed boot." }
             return
         }
 
         val intents = try {
             payloadCodec.decode(inbound)
         } catch (e: Exception) {
-            logger.e(e) { "Unexpected parsing failure during batch processing (${inbound.size}B). ${e.message}" }
+            if (e is CancellationException) throw e
+
+            logger.e(e) { "Inbound [watermark-$watermark]: Parsing failure during batch processing (${inbound.size}B). ${e.message}" }
+
+            transactor.runImmediateTransaction {
+                quarantinedPayloadStore.record(
+                    watermark = watermark,
+                    rawPayload = inbound,
+                    failureReason = e.message ?: "Codec decode failure"
+                )
+                nodeManager.recogniseServerResponse(watermark, timeUtils.now())
+            }
             return
         }
 
         if (intents.isEmpty()) {
             logger.e { "Empty List returned (from: ${inbound.size}B)." }
+            transactor.runImmediateTransaction {
+                nodeManager.recogniseServerResponse(watermark, timeUtils.now())
+            }
             return
         }
 
         var maxValidHlc: HLC? = null
         val mark = TimeSource.Monotonic.markNow()
+        var acceptedCount = 0
 
-        try {
-            executor.execute("InboundBatch_${intents.size}") {
-                transactor.runImmediateTransaction {
-                    intents.forEach { intent ->
-                        val succeeded = orchestrateIntent(intent)
-                        if (succeeded) {
-                            maxValidHlc =
-                                maxValidHlc?.let { maxOf(it, intent.hlc) } ?: intent.hlc
+        executor.execute("Inbound-Watermark[$watermark]") {
+            transactor.runImmediateTransaction {
+                intents.forEach { intent ->
+                    try {
+                        orchestrateIntent(intent)
+                        maxValidHlc = maxValidHlc?.let { maxOf(it, intent.hlc) } ?: intent.hlc
+                        acceptedCount++
+                    } catch (e: Exception) {
+                        when (e) {
+                            is CancellationException -> throw e
+                            is MochaException.Persistent.StateIssue, is MochaException.Persistent.UnknownProtocolVersion -> {
+                                intentStore.recordIntent(
+                                    intent.copy(
+                                        syncStatus = SyncStatus.QUARANTINED,
+                                        lastErrorMessage = e.message,
+                                        leasedAt = null,
+                                        batchId = null
+                                    )
+                                )
+                                logger.w { "Inbound [watermark-$watermark]: Quarantined decoded intent [hlc=${intent.hlc}] [key=${intent.candidateKey}]" }
+                            }
+
+                            else -> {
+                                logger.e(e) { "Inbound [watermark-$watermark]: Unexpected Error. Aborting due to local environmental failure." }
+                                throw e
+                            }
                         }
                     }
-
-                    maxValidHlc?.let {
-                        hlcFactory.witness(it)
-                        nodeManager.updateHlcFloor(it)
-                    }
-                    nodeManager.recogniseServerResponse(
-                        watermark, timeUtils.now().toEpochMilliseconds()
-                    )
                 }
+
+                maxValidHlc?.let {
+                    hlcFactory.witness(it)
+                    nodeManager.updateHlcFloor(it)
+                }
+                nodeManager.recogniseServerResponse(watermark, timeUtils.now())
             }
-        } catch (e: Exception) {
-            logger.e(e) { "Failed processing inbound intents. Watermark $watermark rolled back." }
-            return
         }
 
-        logger.i { "Batch processing finalized for watermark $watermark".withTimer(mark) }
+        logger.i { "Inbound [watermark-$watermark]: Accepted $acceptedCount intent(s)".withTimer(mark) }
     }
 
     /**
@@ -226,15 +258,9 @@ internal class DefaultSyncCoordinator(
      * There may be a need to update the intent status here to specifically mark it as a
      * received intent?
      */
-    private suspend fun orchestrateIntent(intent: SyncIntent): Boolean {
-        return try {
-            val intentContext = intent.checkOverflowState().deriveContext()
-            intent.receiver.processRemoteIntent(intentContext, intent.payload)
-            true
-        } catch (e: Exception) {
-            logger.w(e) { "[Key: ${intent.candidateKey}] ${e.message}" }
-            false
-        }
+    private suspend fun orchestrateIntent(intent: SyncIntent) {
+        val intentContext = intent.checkOverflowState().deriveContext()
+        intent.receiver.processRemoteIntent(intentContext, intent.payload)
     }
 
     private suspend fun SyncIntent.checkOverflowState(): SyncIntent {
@@ -244,7 +270,7 @@ internal class DefaultSyncCoordinator(
         if (hasPayload == hasBlobId) {
             val message =
                 if (!hasPayload) "both payload and blobId are null" else "payload and blobId are mutually exclusive"
-            throw MochaException.Persistent.StateIssue("Data integrity violation for $candidateKey: $message")
+            throw MochaException.Persistent.StateIssue("Data integrity violation: $message")
         }
 
         if (!hasPayload) {
@@ -256,22 +282,3 @@ internal class DefaultSyncCoordinator(
     }
 
 }
-
-/*
-    Consider:
-//       val response = networkApi.push(payload)
-//       val accepted = response.results.filter { it.accepted }.map { it.hlc }
-//       val rejected = response.results.filter { !it.accepted }
-
-//       intentStore.acknowledgeSuccess(accepted.map { it.hlc })
-//
-//       rejected.forEach { result ->
-//           intentStore.stampLastError(
-//               hlcs = listOf(result.hlc),
-//               message = result.errorMessage ?: "Server rejected intent"
-//           )
-//       }
-//         is this where the outbound flow suspends and waits to get some kind of server
-//         ack, and then calls node manager to recognizeResponse? Or separate method the server pings?
-
- */

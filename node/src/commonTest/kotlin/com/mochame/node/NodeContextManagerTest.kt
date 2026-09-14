@@ -26,6 +26,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 
 // -----------------------------------------------------------
 // SUT ENVIRONMENT
@@ -55,9 +56,8 @@ class NodeContextManagerTest : MochaPlatformTest() {
         assertNotNull(establishedContext.createdAt)
         assertEquals(targetBaseVersion, establishedContext.appVersion)
         assertNull(establishedContext.maxHlc)
-        assertNull(establishedContext.lastServerWatermark)
-        assertNull(establishedContext.lastServerSyncTime)
-        assertNull(establishedContext.lastLocalMutationTime)
+        assertNull(establishedContext.lastInboundWatermark)
+        assertNull(establishedContext.lastServerResponseTime)
 
         // Safety check at database boundary
         assertEquals(1, db.getPhysicalRowCount(nodeTableName))
@@ -73,8 +73,7 @@ class NodeContextManagerTest : MochaPlatformTest() {
             appVersion = 12,
             createdAt = 1000L,
             maxHlc = expectedHlc,
-            lastServerSyncTime = 8888L,
-            lastLocalMutationTime = 9999L
+            lastServerResponseTime = Instant.fromEpochMilliseconds(8888L),
         )
 
         // When
@@ -86,17 +85,13 @@ class NodeContextManagerTest : MochaPlatformTest() {
         assertEquals(populatedDomainContext.appVersion, fetchedContext.appVersion)
         assertEquals(populatedDomainContext.createdAt, fetchedContext.createdAt)
         assertEquals(
-            populatedDomainContext.lastServerWatermark,
-            fetchedContext.lastServerWatermark
+            populatedDomainContext.lastInboundWatermark,
+            fetchedContext.lastInboundWatermark
         )
         assertEquals(populatedDomainContext.maxHlc, fetchedContext.maxHlc)
         assertEquals(
-            populatedDomainContext.lastServerSyncTime,
-            fetchedContext.lastServerSyncTime
-        )
-        assertEquals(
-            populatedDomainContext.lastLocalMutationTime,
-            fetchedContext.lastLocalMutationTime
+            populatedDomainContext.lastServerResponseTime,
+            fetchedContext.lastServerResponseTime
         )
     }
 

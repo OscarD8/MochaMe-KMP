@@ -33,7 +33,7 @@ interface VersionRouter<T : Any> {
  * to repeat logic, or depend on a tool such as VersionRoutingUtils.getLatestCodec().
  *
  * @param T The Type for the object that is being version controlled and fetched.
- * @throws MochaException.Persistent.CorruptionDetected If the version is not an index
+ * @throws MochaException.Persistent.StateIssue If the version is not an index
  */
 val <T : Any> VersionRouter<T>.latestCodec: T
     get() = versionRegistry.getOrNull(latestVersion)

@@ -8,6 +8,7 @@ import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
 import kotlinx.coroutines.delay
 import kotlin.time.Duration
+import kotlin.time.Instant
 
 class FakeNodeContextManager(
     private val defaultNodeId: NodeId = NodeId.ZERO
@@ -21,7 +22,7 @@ class FakeNodeContextManager(
     private var _forcedNextNodeId: NodeId? = null
 
     private val _updatedHlcFloors = mutableListOf<HLC>()
-    private val _recognizedServerResponses = mutableListOf<Pair<Long, Long>>()
+    private val _recognizedServerResponses = mutableListOf<Pair<Long, Instant>>()
     private var _getOrEstablishCallCount = 0
     private var _setAppVersionCallCount = 0
     private var _simulatedDelay: Duration? = null
@@ -30,7 +31,7 @@ class FakeNodeContextManager(
     val updatedHlcFloors: List<HLC>
         get() = lock.withLock { _updatedHlcFloors.toList() }
 
-    val recognizedServerResponses: List<Pair<Long, Long>>
+    val recognizedServerResponses: List<Pair<Long, Instant>>
         get() = lock.withLock { _recognizedServerResponses.toList() }
 
     val getOrEstablishCallCount: Int
@@ -56,10 +57,9 @@ class FakeNodeContextManager(
         val current = _seededContext ?: NodeContext(
             nodeId = _forcedNextNodeId ?: defaultNodeId,
             appVersion = baseVersion,
-            lastServerSyncTime = null,
+            lastServerResponseTime = null,
             maxHlc = null,
-            lastServerWatermark = null,
-            lastLocalMutationTime = null
+            lastInboundWatermark = null,
         )
         _seededContext = current
         return current
@@ -102,16 +102,12 @@ class FakeNodeContextManager(
         _seededContext?.appVersion
     }
 
-    override suspend fun getLastServerSyncTime(): Long? = lock.withLock {
-        _seededContext?.lastServerSyncTime
+    override suspend fun getLastServerResponseTime(): Instant? = lock.withLock {
+        _seededContext?.lastServerResponseTime
     }
 
-    override suspend fun getLastWatermark(): Long? = lock.withLock {
-        _seededContext?.lastServerWatermark
-    }
-
-    override suspend fun getLastLocalMutationTime(): Long? = lock.withLock {
-        _seededContext?.lastLocalMutationTime
+    override suspend fun getLastInboundWatermark(): Long? = lock.withLock {
+        _seededContext?.lastInboundWatermark
     }
 
     override suspend fun getNodeId(): NodeId? = lock.withLock {
@@ -131,12 +127,12 @@ class FakeNodeContextManager(
         _seededContext = nodeContext
     }
 
-    override suspend fun recogniseServerResponse(watermark: Long, timestamp: Long) =
+    override suspend fun recogniseServerResponse(watermark: Long, timestamp: Instant) =
         lock.withLock {
             _recognizedServerResponses.add(watermark to timestamp)
             _seededContext = getOrInitializeLocked().copy(
-                lastServerWatermark = watermark,
-                lastServerSyncTime = timestamp
+                lastInboundWatermark = watermark,
+                lastServerResponseTime = timestamp
             )
         }
 }

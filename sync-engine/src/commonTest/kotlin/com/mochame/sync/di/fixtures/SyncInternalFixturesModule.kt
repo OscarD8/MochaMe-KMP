@@ -4,9 +4,11 @@ import co.touchlab.kermit.Logger
 import com.mochame.logger.test.TestLoggerModule
 import com.mochame.platform.fixtures.di.FixturesPlatformModule
 import com.mochame.sync.api.hlc.HlcFactory
+import com.mochame.sync.internal.fixtures.FakeQuarantinedPayloadStore
 import com.mochame.sync.fixtures.FakeSyncIntentStore
 import com.mochame.sync.internal.fixtures.SpyHlcFactory
 import com.mochame.sync.internal.fixtures.SpySyncWorkerHook
+import com.mochame.sync.spi.domain.QuarantinedPayloadStore
 import com.mochame.sync.spi.domain.SyncIntentMaintenanceStore
 import com.mochame.sync.spi.infrastructure.SyncIntentStore
 import com.mochame.sync.spi.infrastructure.SyncWorkerHook
@@ -33,6 +35,11 @@ class SyncInternalFixturesModule {
     @Single(binds = [SyncIntentMaintenanceStore::class, SyncIntentStore::class])
     fun provideFakeSyncIntentStore(fakeClock: FakeTimeUtils): FakeSyncIntentStore =
         FakeSyncIntentStore(fakeClock)
+
+    @Single(binds = [QuarantinedPayloadStore::class, FakeQuarantinedPayloadStore::class])
+    fun provideFakeMalformedPayloadStore(fakeClock: FakeTimeUtils): FakeQuarantinedPayloadStore =
+        FakeQuarantinedPayloadStore(fakeClock)
+
 
     @Single(binds = [SyncWorkerHook::class])
     fun provideSpySyncWorkerHook(): SpySyncWorkerHook = SpySyncWorkerHook()

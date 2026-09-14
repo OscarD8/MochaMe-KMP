@@ -16,11 +16,11 @@ import com.mochame.utils.toDateTime
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import org.koin.core.annotation.Provided
 import org.koin.core.annotation.Single
 import kotlin.concurrent.Volatile
 import kotlin.coroutines.CoroutineContext
 import kotlin.time.Clock
+import kotlin.time.Instant
 
 @Single(binds = [NodeContextManager::class])
 class DefaultNodeContextManager(
@@ -58,7 +58,8 @@ class DefaultNodeContextManager(
                     baseVersion = baseVersion,
                     createdAt = Clock.System.now().toEpochMilliseconds()
                 ).also {
-                    logger.i { "Node Fetched. Id: ${it.nodeId} | V: ${it.appVersion} | Est: ${it.createdAt.toDateTime()}" }
+                    logger.i { "Node Fetched. Id: ${it.nodeId} | V: ${it.appVersion} " +
+                            "| Watermark: ${it.lastInboundWatermark} | Est: ${it.createdAt.toDateTime()}" }
                 }
 
                 entity.toDomain().also { domainContext ->
@@ -89,14 +90,14 @@ class DefaultNodeContextManager(
 
     override suspend fun recogniseServerResponse(
         watermark: Long,
-        timestamp: Long
+        timestamp: Instant
     ) = withContext(ioContext) {
+        if ((cachedContext?.lastInboundWatermark ?: 0L) >= watermark) return@withContext
+
         mutex.withLock {
-            dao.setWatermarkAndTimestamp(watermark, timestamp)
-            cachedContext = cachedContext?.copy(
-                lastServerWatermark = watermark,
-                lastServerSyncTime = timestamp
-            )
+            if ((cachedContext?.lastInboundWatermark ?: 0L) >= watermark) return@withLock
+            dao.setWatermarkAndTimestamp(watermark, timestamp.toEpochMilliseconds())
+            cachedContext = cachedContext?.copy(lastInboundWatermark = watermark)
         }
     }
 
@@ -105,19 +106,17 @@ class DefaultNodeContextManager(
             dao.getLastBootedVersion()
         }
 
-    override suspend fun getLastServerSyncTime(): Long? =
-        cachedContext?.lastServerSyncTime ?: withContext(ioContext) {
-            dao.getLastServerSyncTime()
-        }
+    override suspend fun getLastServerResponseTime(): Instant? {
+        cachedContext?.let { return it.lastServerResponseTime }
 
-    override suspend fun getLastLocalMutationTime(): Long? =
-        cachedContext?.lastLocalMutationTime ?: withContext(ioContext) {
-            dao.getLastLocalMutationTime()
+        return withContext(ioContext) {
+            dao.getLastServerResponseTime()?.let { Instant.fromEpochMilliseconds(it) }
         }
+    }
 
-    override suspend fun getLastWatermark(): Long? =
-        cachedContext?.lastServerWatermark ?: withContext(ioContext) {
-            dao.getLastWatermark()
+    override suspend fun getLastInboundWatermark(): Long? =
+        cachedContext?.lastInboundWatermark ?: withContext(ioContext) {
+            dao.getLastInboundWatermark()
         }
 
     override suspend fun getNodeId(): NodeId? =

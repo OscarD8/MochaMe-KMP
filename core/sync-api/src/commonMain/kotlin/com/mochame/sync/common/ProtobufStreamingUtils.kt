@@ -45,7 +45,7 @@ fun Source.readProtobufVarint(logger: Logger): Long {
 
     } catch (e: Exception) {
         logger.e(e) { "Binary Corruption: Failed to read Varint at shift $shift after $byteCount byte(s)" }
-        throw MochaException.Persistent.CorruptionDetected("Varint overflow or unexpected EOF", e)
+        throw MochaException.Persistent.StateIssue("Varint overflow or unexpected EOF", e)
     }
 }
 
@@ -79,7 +79,7 @@ fun Source.skipProtobufValue(wireType: Int, logger: Logger) {
         else -> {
             val errorMsg = "Unsupported Wire Type: $wireType"
             logger.e { errorMsg }
-            throw MochaException.Persistent.CorruptionDetected(errorMsg)
+            throw MochaException.Persistent.StateIssue(errorMsg)
         }
     }
 }

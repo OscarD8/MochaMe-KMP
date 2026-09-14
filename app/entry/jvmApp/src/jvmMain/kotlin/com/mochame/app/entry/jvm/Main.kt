@@ -7,11 +7,14 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.mochame.app.ui.MochaComposeAppShell
 import com.mochame.app.ui.di.initKoinCompose
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.cancel
 import org.koin.core.context.GlobalContext.stopKoin
+import org.koin.core.qualifier.named
 import java.awt.Dimension
 
 fun main() {
-    initKoinCompose()
+    val koinApp = initKoinCompose()
 
     application {
         val windowState = rememberWindowState(
@@ -21,6 +24,9 @@ fun main() {
 
         Window(
             onCloseRequest = {
+                val scope = koinApp.koin.getOrNull<CoroutineScope>(named("AppBackgroundScope"))
+                println("Resolved background scope: $scope")
+                scope?.cancel()
                 stopKoin()
                 exitApplication()
             },

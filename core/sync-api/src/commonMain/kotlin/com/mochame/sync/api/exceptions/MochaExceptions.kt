@@ -37,13 +37,11 @@ sealed class MochaException(
 
     sealed class Persistent(message: String, cause: Throwable? = null) :
         MochaException(message, cause) {
-        class StateIssue(message: String? = null, cause: Throwable? = null) :
-            Persistent(message ?: "The database appears permanently locked.", cause)
 
         class DiskFull(message: String? = null, cause: Throwable? = null) :
             Persistent(message ?: "Cannot write to disk; storage is full.", cause)
 
-        class CorruptionDetected(message: String? = null, cause: Throwable? = null) :
+        class StateIssue(message: String? = null, cause: Throwable? = null) :
             Persistent(message ?: "Data corruption detected.", cause)
 
         class BootLockout(message: String? = null, cause: Throwable? = null) :

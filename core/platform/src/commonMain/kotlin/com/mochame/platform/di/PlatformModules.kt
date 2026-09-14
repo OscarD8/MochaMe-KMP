@@ -47,8 +47,15 @@ class CommonPlatformModule {
 
     @Single
     @AppBackgroundScope
-    fun provideBackgroundAppScope(@DefaultContext context: CoroutineContext): CoroutineScope =
-        CoroutineScope(context + SupervisorJob())
+    fun provideBackgroundAppScope(@DefaultContext context: CoroutineContext): CoroutineScope {
+        val job = SupervisorJob()
+        return object : CoroutineScope, AutoCloseable {
+            override val coroutineContext: CoroutineContext = context + job
+            override fun close() {
+                job.cancel()
+            }
+        }
+    }
 }
 
 @Module

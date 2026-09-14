@@ -64,7 +64,9 @@ class FakeSyncReceiver(
     override suspend fun processRemoteIntent(context: DecodeContext, payload: ByteArray?) {
         val (error, hook) = lock.withLock {
             _invocations.add(ReceivedIntent(context, payload))
-            Pair(_failure, _onProcessHook)
+            val error = _failure
+            _failure = null
+            Pair(error, _onProcessHook)
         }
 
         error?.let { throw it }

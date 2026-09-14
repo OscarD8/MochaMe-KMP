@@ -3,15 +3,15 @@ package com.mochame.node.data
 import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.spi.node.NodeContext
 import com.mochame.sync.spi.node.NodeId
+import kotlin.time.Instant
 
 internal fun NodeContextEntity.toDomain() = NodeContext(
     nodeId = NodeId.parse(nodeId),
     appVersion = appVersion,
     createdAt = createdAt,
-    lastServerWatermark = lastServerWatermark,
+    lastInboundWatermark = lastInboundWatermark,
     maxHlc = maxHlc?.let { HLC.parse(maxHlc) },
-    lastServerSyncTime = lastServerSyncTime,
-    lastLocalMutationTime = lastLocalMutationTime,
+    lastServerResponseTime = lastServerResponseTime?.let { Instant.fromEpochMilliseconds(it) }
 )
 
 internal fun NodeContext.toEntity() = NodeContextEntity(
@@ -19,8 +19,7 @@ internal fun NodeContext.toEntity() = NodeContextEntity(
     nodeId = nodeId.toString(),
     appVersion = appVersion,
     createdAt = createdAt,
-    lastServerWatermark = lastServerWatermark,
+    lastInboundWatermark = lastInboundWatermark,
     maxHlc = maxHlc?.toString(),
-    lastServerSyncTime = lastServerSyncTime,
-    lastLocalMutationTime = lastLocalMutationTime
+    lastServerResponseTime = lastServerResponseTime?.toEpochMilliseconds(),
 )

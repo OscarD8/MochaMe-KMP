@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import com.mochame.annotations.AppBackgroundScope
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
+import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.sync.spi.network.InboundWireFrame
 import com.mochame.sync.spi.network.SendResult
 import com.mochame.sync.spi.network.SyncTransport
@@ -173,7 +174,7 @@ internal class ClientWebSocketTransport(
         connectionJob = backgroundScope.launch {
             while (isActive && !isPaused) {
                 try {
-                    val currentWatermark = nodeManager.getLastWatermark() ?: 0L
+                    val currentWatermark = nodeManager.getLastInboundWatermark() ?: 0L
 
                     client.webSocket(
                         host = target.host,
@@ -193,6 +194,7 @@ internal class ClientWebSocketTransport(
                                                 try {
                                                     onConnectedListener?.invoke()
                                                 } catch (e: Exception) {
+                                                    if (e is CancellationException) throw e
                                                     logger.e(e) { "Outbound queue flush failed on ready" }
                                                 }
                                             }
@@ -201,7 +203,7 @@ internal class ClientWebSocketTransport(
                                         is InboundWireFrame.Ack -> {
                                             nodeManager.recogniseServerResponse(
                                                 wireFrame.watermark,
-                                                timeUtils.now().toEpochMilliseconds()
+                                                timeUtils.now()
                                             )
                                         }
 
@@ -212,7 +214,10 @@ internal class ClientWebSocketTransport(
                                                     wireFrame.payload
                                                 )
                                             } catch (e: Exception) {
-                                                logger.e(e) { "Failed to process inbound delta frame" }
+                                                if (e is CancellationException) throw e
+                                                logger.e(e) { "Inbound processing failed at watermark ${wireFrame.watermark}. Closing socket." }
+                                                close(CloseReason(CloseReason.Codes.TRY_AGAIN_LATER, "Inbound ingestion error"))
+                                                break
                                             }
                                         }
                                     }
@@ -230,6 +235,10 @@ internal class ClientWebSocketTransport(
                 } catch (e: Exception) {
                     activeSession = null
                     if (e is CancellationException) break
+                    if (e is MochaException.Persistent) {
+                        logger.e(e) { "Terminating sync transport until app restart." }
+                        break
+                    }
 
                     logger.w(e) { "WebSocket not connected: [${e::class.simpleName}] ${e.message}. Retrying in 10s..." }
                     delay(10.seconds)

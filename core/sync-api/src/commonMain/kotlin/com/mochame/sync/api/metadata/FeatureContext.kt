@@ -42,7 +42,7 @@ enum class FeatureContext(
         private val modelStringLookup by lazy { entries.associateBy { it.modelName } }
 
         fun fromModelString(model: String) = modelStringLookup[model]
-            ?: throw MochaException.Persistent.CorruptionDetected("Unknown model name: $model")
+            ?: throw MochaException.Persistent.StateIssue("Unknown model name: $model")
 
         private val idLookup: Map<Int, FeatureContext> = buildMap(entries.size) {
             for (entry in FeatureContext.entries) {

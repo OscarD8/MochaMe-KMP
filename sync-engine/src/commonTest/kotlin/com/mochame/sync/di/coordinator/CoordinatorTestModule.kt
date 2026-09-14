@@ -15,6 +15,7 @@ import com.mochame.sync.common.InternalTestApi
 import com.mochame.sync.di.SyncConcurrencyModule
 import com.mochame.sync.di.SyncOrchestrationModule
 import com.mochame.sync.di.fixtures.SyncInternalFixturesModule
+import com.mochame.sync.internal.fixtures.FakeQuarantinedPayloadStore
 import com.mochame.sync.fixtures.FakeSyncIntentStore
 import com.mochame.sync.internal.fixtures.FakeSyncReceiver
 import com.mochame.sync.internal.fixtures.FakeSyncTransport
@@ -72,7 +73,6 @@ internal class SyncCoordinatorTestEnv(
     val coordinator: DefaultSyncCoordinator,
     @Named("stubA") val stubA: FakeSyncReceiver,
     @Named("stubB") val stubB: FakeSyncReceiver,
-    val intentStore: FakeSyncIntentStore,
     val payloadCodec: FakePayloadCodec,
     val intentCodec: FakeIntentCodec,
     val hlcFactory: SpyHlcFactory,
@@ -80,7 +80,9 @@ internal class SyncCoordinatorTestEnv(
     val workerHook: SpySyncWorkerHook,
     val bootManager: SpyBootStatusManager,
     val nodeManager: FakeNodeContextManager,
-    val syncTransport: FakeSyncTransport
+    val syncTransport: FakeSyncTransport,
+    val intentStore: FakeSyncIntentStore,
+    val malformedPayloadStore: FakeQuarantinedPayloadStore
 ) {
     fun assertIntentsProperlyBatched(expectedKeys: Set<Long>) {
         val storedIntents = intentStore.intents
