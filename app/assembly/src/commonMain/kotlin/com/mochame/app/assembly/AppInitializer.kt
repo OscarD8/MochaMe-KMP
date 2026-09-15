@@ -13,7 +13,6 @@ import com.mochame.sync.spi.orchestration.SyncJanitor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import org.koin.core.annotation.Provided
 import org.koin.core.annotation.Single
 
 interface AppInitializer {
@@ -70,8 +69,8 @@ internal class DefaultAppInitializer(
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
 
-                logger.e(e) { "Boot sequence encountered a critical failure." }
-                bootUpdater.updateState(BootState.CriticalFailure(e.message ?: "Unknown error", e))
+                logger.e(e) { "Encountered a critical failure." }
+                bootUpdater.updateState(BootState.LockOut(e.message ?: "Unknown error", e))
             }
         }
     }

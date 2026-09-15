@@ -1,5 +1,7 @@
 package com.mochame.support
 
+import com.mochame.platform.providers.AppBackgroundScopeOwner
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.koin.core.KoinApplication

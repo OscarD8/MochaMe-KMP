@@ -7,12 +7,12 @@ import com.mochame.annotations.AppBackgroundScope
 import com.mochame.annotations.DefaultContext
 import com.mochame.annotations.IoContext
 import com.mochame.annotations.MainContext
+import com.mochame.platform.providers.AppBackgroundScopeOwner
 import com.mochame.platform.providers.createPlatformDigest
 import com.mochame.sync.spi.infrastructure.DigestFactory
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
-import kotlinx.coroutines.SupervisorJob
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
@@ -45,17 +45,11 @@ class CommonPlatformModule {
     @DefaultContext
     fun provideDefaultContext(): CoroutineContext = Dispatchers.Default
 
-    @Single
+    @Single(binds = [CoroutineScope::class, AutoCloseable::class])
     @AppBackgroundScope
-    fun provideBackgroundAppScope(@DefaultContext context: CoroutineContext): CoroutineScope {
-        val job = SupervisorJob()
-        return object : CoroutineScope, AutoCloseable {
-            override val coroutineContext: CoroutineContext = context + job
-            override fun close() {
-                job.cancel()
-            }
-        }
-    }
+    fun provideBackgroundAppScope(
+        @DefaultContext context: CoroutineContext
+    ): AppBackgroundScopeOwner = AppBackgroundScopeOwner(context)
 }
 
 @Module

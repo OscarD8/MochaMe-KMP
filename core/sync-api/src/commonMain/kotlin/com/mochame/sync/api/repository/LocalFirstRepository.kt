@@ -61,7 +61,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
      *
      * @return Long representing the result of the final SQLite operation:
      * * onSkip - 0L
-     * * upserts/deletes on existing - -1L (throws [MochaException.Persistent.StateIssue] if locally deleting non-existent record)
+     * * upserts/deletes on existing - -1L (throws [MochaException.Transient.StateIssue] if locally deleting non-existent record)
      * * inserts - [T.id]
      */
     @PublishedApi
@@ -224,7 +224,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
      */
     override suspend fun processRemoteIntent(context: DecodeContext, payload: ByteArray?) {
         if (payload == null) {
-            val blobId = context.overflowBlobId ?: throw MochaException.Persistent.StateIssue(
+            val blobId = context.overflowBlobId ?: throw MochaException.Transient.StateIssue(
                 "Received null payload with no overflowId for ${context.candidateKey}"
             )
 
@@ -270,7 +270,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             if (incomingHlc != null)
                 return reject(candidateKey) { "Non-existent local record (remote HLC: $incomingHlc)" }
 
-            throw MochaException.Persistent.StateIssue("Local Delete attempt against non-existent record: $candidateKey.")
+            throw MochaException.Transient.StateIssue("Local Delete attempt against non-existent record: $candidateKey.")
         }
 
         deps.hlcFactory.assertValid(existing.hlc, candidateKey)
@@ -305,7 +305,7 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     ): Long {
         val payload = codec.routedEncode(stampedState, existingState)
 
-        val summary = changedMask.toTagSummary(op).also { logger.d { "In-Memory Summary: $it" } }
+        val summary = changedMask.toTagSummary(op).also { logger.d { "In-Memory Summary [key=$candidateKey]: $it" } }
         val hlc = stampedState.hlc
         val tMark = TimeSource.Monotonic.markNow()
 

@@ -3,9 +3,9 @@ package com.mochame.sync.di.janitor
 import co.touchlab.kermit.ExperimentalKermitApi
 import co.touchlab.kermit.TestLogWriter
 import com.mochame.annotations.JanitorMutex
-import com.mochame.node.fixtures.SpyBootStatusManager
 import com.mochame.node.fixtures.FakeExecutionPolicy
 import com.mochame.node.fixtures.FakeNodeContextManager
+import com.mochame.node.fixtures.SpyBootStatusManager
 import com.mochame.node.fixtures.di.FixturesNodeModule
 import com.mochame.platform.fixtures.FakeTransactionProvider
 import com.mochame.platform.fixtures.di.FixturesPlatformModule

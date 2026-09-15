@@ -26,9 +26,9 @@ import com.mochame.sync.domain.config.JanitorMaintenanceConfig
 import com.mochame.sync.spi.infrastructure.SyncWorkerHook
 import com.mochame.sync.spi.orchestration.SyncJanitor
 import com.mochame.utils.interfaces.TimeUtils
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -99,6 +99,7 @@ internal class DefaultSyncJanitor(
         } catch (e: TimeoutCancellationException) {
             handleBootFailure(MochaException.Transient.BootTimeout(cause = e))
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             handleBootFailure(e.toMochaException(e.message))
         }
     }
@@ -114,10 +115,10 @@ internal class DefaultSyncJanitor(
         hlcFactory.hydrate(nodeContext.maxHlc, nodeContext.nodeId)
     }
 
-    private suspend fun staleStateMaintenance() = withContext(NonCancellable) {
+    private suspend fun staleStateMaintenance() {
         val mark = TimeSource.Monotonic.markNow()
-        intentReconciliation()
         blobReconciliation()
+        intentReconciliation()
         logger.i { "Stale state maintenance complete".withTimer(mark) }
     }
 
@@ -166,6 +167,7 @@ internal class DefaultSyncJanitor(
         val pendingHashes = try {
             blobStore.listPendingHashes()
         } catch (e: Exception) {
+            if (e is CancellationException) throw e
             logger.e(e) { "Unable to locate pending hashes." }
             emptyList()
         }
@@ -231,8 +233,8 @@ internal class DefaultSyncJanitor(
         val failureState = error.toBootState()
         bootUpdater.updateState(failureState)
 
-        if (failureState is BootState.CriticalFailure) {
-            logger.e(error) { "Critical boot failure: ${error.message}" }
+        if (failureState is BootState.LockOut) {
+            logger.e(error) { "Persistent boot failure: ${error.message}" }
         } else {
             logger.w(error) { "Transient boot failure: ${error.message}" }
         }
@@ -242,7 +244,7 @@ internal class DefaultSyncJanitor(
 
     private fun MochaException.toBootState(): BootState = when (this) {
         is MochaException.Transient -> BootState.TransientFailure(this.message, this)
-        else -> BootState.CriticalFailure(this.message, this)
+        else -> BootState.LockOut(this.message, this)
     }
 
 }

@@ -32,13 +32,13 @@ class MochaAndroidApp : Application() {
     override fun onCreate() {
         super.onCreate()
 
-        val koin = initKoinCompose {
+        val koinApp = initKoinCompose {
             androidContext(this@MochaAndroidApp)
             modules(AndroidLifecycleModule::class)
-        }.koin
+        }
 
         ProcessLifecycleOwner.get().lifecycle.addObserver(
-            koin.get<AndroidAppLifecycleObserver>()
+            koinApp.koin.get<AndroidAppLifecycleObserver>()
         )
     }
 }

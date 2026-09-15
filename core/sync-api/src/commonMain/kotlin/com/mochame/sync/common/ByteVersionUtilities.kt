@@ -16,7 +16,7 @@ import com.mochame.sync.spi.infrastructure.getCodec
  *
  * @return ByteArray the result of the execution performed, appended with the version
  * at index 0.
- * @throws MochaException.Persistent.StateIssue if [block] failed to compute a
+ * @throws MochaException.Transient.StateIssue if [block] failed to compute a
  * returning ByteArray
  */
 inline fun prependVersionTo(
@@ -26,7 +26,7 @@ inline fun prependVersionTo(
 ): ByteArray {
     val payload = block() ?: run {
         logger.e { "Cannot prepend version. Provided execution block returned a null ByteArray." }
-        throw MochaException.Persistent.StateIssue("Cannot prepend version. Execution returned null ByteArray.")
+        throw MochaException.Transient.StateIssue("Cannot prepend version. Execution returned null ByteArray.")
     }
 
     logger.d { "Encoding processed | Size: ${payload.size} bytes | Version Header: $version" }
@@ -60,7 +60,7 @@ inline fun <T : Any, R> VersionRouter<T>.stripAndVersion(
 ): R {
     if (bytes.isEmpty()) {
         logger.e { "Attempt to strip a version made against a null ByteArray." }
-        throw MochaException.Persistent.StateIssue("Empty payload received.")
+        throw MochaException.Transient.StateIssue("Empty payload received.")
     }
 
     val codec = getCodec(version, logger)

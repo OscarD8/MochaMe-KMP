@@ -208,7 +208,7 @@ class MochaErrorMapperTest : MochaPlatformTest() {
             RuntimeException("SQLiteDatabaseCorruptException: SQLITE_CORRUPT: database disk image is malformed")
         val result = original.toMochaException("DB verification failed")
 
-        assertIs<MochaException.Persistent.StateIssue>(result)
+        assertIs<MochaException.Transient.StateIssue>(result)
         assertEquals("DB verification failed", result.message)
     }
 
@@ -218,7 +218,7 @@ class MochaErrorMapperTest : MochaPlatformTest() {
         val wrapper = RuntimeException("Page read failure", cause)
         val result = wrapper.toMochaException("Schema verification failed")
 
-        assertIs<MochaException.Persistent.StateIssue>(result)
+        assertIs<MochaException.Transient.StateIssue>(result)
         assertEquals("Schema verification failed", result.message)
     }
 
@@ -232,7 +232,7 @@ class MochaErrorMapperTest : MochaPlatformTest() {
             RuntimeException("SQLiteConstraintException: UNIQUE constraint failed: user_entity.hlc")
         val result = original.toMochaException("Insertion rejected")
 
-        assertIs<MochaException.Persistent.StateIssue>(result)
+        assertIs<MochaException.Transient.StateIssue>(result)
         assertEquals("Insertion rejected", result.message)
         assertSame(original, result.cause)
     }
@@ -243,7 +243,7 @@ class MochaErrorMapperTest : MochaPlatformTest() {
         val wrapper = RuntimeException("Room DAO operation failed", cause)
         val result = wrapper.toMochaException("Conflict detected")
 
-        assertIs<MochaException.Persistent.StateIssue>(result)
+        assertIs<MochaException.Transient.StateIssue>(result)
         assertEquals("Conflict detected", result.message)
         assertSame(wrapper, result.cause)
     }
@@ -253,7 +253,7 @@ class MochaErrorMapperTest : MochaPlatformTest() {
         val original = RuntimeException("SQLiteConstraintException: FOREIGN KEY constraint failed")
         val result = original.toMochaException("Foreign key mismatch")
 
-        assertIs<MochaException.Persistent.StateIssue>(result)
+        assertIs<MochaException.Transient.StateIssue>(result)
         assertEquals("Foreign key mismatch", result.message)
         assertSame(original, result.cause)
     }
@@ -264,7 +264,7 @@ class MochaErrorMapperTest : MochaPlatformTest() {
         val wrapper = RuntimeException("Integrity check failure", cause)
         val result = wrapper.toMochaException("Parent record missing")
 
-        assertIs<MochaException.Persistent.StateIssue>(result)
+        assertIs<MochaException.Transient.StateIssue>(result)
         assertEquals("Parent record missing", result.message)
         assertSame(wrapper, result.cause)
     }
@@ -386,7 +386,7 @@ class MochaErrorMapperTest : MochaPlatformTest() {
         val context = "Initialization failed"
         val result = original.toMochaException(context)
 
-        assertIs<MochaException.Persistent.StateIssue>(result)
+        assertIs<MochaException.Transient.StateIssue>(result)
         assertEquals(context, result.message)
         assertSame(original, result.cause)
     }
@@ -397,7 +397,7 @@ class MochaErrorMapperTest : MochaPlatformTest() {
         val context = "Execution precondition violated"
         val result = original.toMochaException(context)
 
-        assertIs<MochaException.Persistent.StateIssue>(result)
+        assertIs<MochaException.Transient.StateIssue>(result)
         assertEquals(context, result.message)
         assertSame(original, result.cause)
     }
@@ -476,7 +476,7 @@ class MochaErrorMapperTest : MochaPlatformTest() {
         val intermediate = IllegalStateException("Pipeline aborted", rootCause)
         val result = intermediate.toMochaException("Pipeline context")
 
-        assertIs<MochaException.Persistent.StateIssue>(result)
+        assertIs<MochaException.Transient.StateIssue>(result)
         assertEquals("Pipeline context", result.message)
         assertSame(intermediate, result.cause)
         assertSame(rootCause, result.cause?.cause)

@@ -68,6 +68,7 @@ fun MochaComposeAppShell(
             composable<Destination.Dashboard> {
                 DashboardScreen(
                     onNavigateToBio = { targetDay ->
+                        // Delay until bootstate is ready? So need loading screen before dashboard
                         navController.navigate(Destination.DailyContext(targetDay))
                     },
                     timeProvider = timeProvider

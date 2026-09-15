@@ -46,7 +46,7 @@ class DefaultBootStatusManager(
                 val state =
                     bootState.first { it !is BootState.Init && it !is BootState.Idle }
 
-                if (state is BootState.CriticalFailure) {
+                if (state is BootState.LockOut) {
                     throw state.exception
                         ?: MochaException.Persistent.BootInitializationError(state.message)
                 }

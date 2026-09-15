@@ -40,6 +40,7 @@ import org.koin.core.qualifier.named
 import org.koin.dsl.module
 import org.koin.plugin.module.dsl.modules
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
@@ -72,7 +73,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
     @Test
     fun should_abortInboundProcessing_when_bootReadinessFails() = runEnv {
         bootManager.updateState(
-            BootState.CriticalFailure(
+            BootState.LockOut(
                 "Critical boot failure",
                 IllegalStateException("Node boot corrupted")
             )
@@ -112,7 +113,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
     @Test
     fun should_abortOutboundPipeline_when_bootReadinessFails() = runEnv { scope ->
         bootManager.updateState(
-            BootState.CriticalFailure(
+            BootState.LockOut(
                 "Critical boot failure",
                 IllegalStateException("Node boot corrupted")
             )
@@ -196,7 +197,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         )
         payloadCodec.nextDecodeResult = listOf(failingIntent, successfulIntent)
         stubA.shouldFail =
-            MochaException.Persistent.StateIssue("Database constraint violation in Receiver A")
+            MochaException.Transient.StateIssue("Database constraint violation in Receiver A")
 
         coordinator.onInboundBytes(0L, ByteArray(0))
 
@@ -208,6 +209,24 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         val finalState = intentStore.intents.first()
         assertEquals(401L, finalState.candidateKey)
         assertEquals(SyncStatus.QUARANTINED, finalState.syncStatus)
+    }
+
+    @Test
+    fun should_quarantinePayloadIncrementWatermarkGracefully_onInitialDecodeFailure() = runEnv {
+        bootManager.updateState(BootState.Ready)
+        payloadCodec.decodeError = NullPointerException()
+        val testPayload = byteArrayOf(0x01, 0x02)
+
+        coordinator.onInboundBytes(1L, testPayload)
+
+        val quarantinedRecords = quarantineStore.getAll()
+        assertEquals(1, quarantinedRecords.size)
+        val quarantinedPayload = quarantinedRecords.first()
+        assertEquals(1L, quarantinedPayload.watermark)
+        assertContentEquals(testPayload, quarantinedPayload.rawPayload)
+
+        assertEquals(1L, nodeManager.getLastInboundWatermark())
+        assertEquals(null, nodeManager.getMaxHlc())
     }
 
     @Test

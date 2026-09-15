@@ -33,6 +33,9 @@ sealed class MochaException(
         class LocalPersistenceFailure(message: String? = null, cause: Throwable? = null) :
             Transient(message ?: "Local persistence failed.", cause)
 
+        class StateIssue(message: String? = null, cause: Throwable? = null) :
+            Transient(message ?: "Data corruption detected.", cause)
+
     }
 
     sealed class Persistent(message: String, cause: Throwable? = null) :
@@ -40,9 +43,6 @@ sealed class MochaException(
 
         class DiskFull(message: String? = null, cause: Throwable? = null) :
             Persistent(message ?: "Cannot write to disk; storage is full.", cause)
-
-        class StateIssue(message: String? = null, cause: Throwable? = null) :
-            Persistent(message ?: "Data corruption detected.", cause)
 
         class BootLockout(message: String? = null, cause: Throwable? = null) :
             Persistent(message ?: "Boot lockout.", cause)

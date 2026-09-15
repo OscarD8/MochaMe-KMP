@@ -118,7 +118,7 @@ internal class ClientWebSocketTransport(
                 if (isPaused || pauseDebounceJob?.isActive == true) return@withLock
 
                 pauseDebounceJob = backgroundScope.launch {
-                    delay(1500.milliseconds)
+                    delay(1.5.seconds)
                     lifecycleMutex.withLock {
                         isPaused = true
                         pauseDebounceJob = null
@@ -160,7 +160,10 @@ internal class ClientWebSocketTransport(
                 withTimeoutOrNull(500.milliseconds) {
                     session.close(CloseReason(CloseReason.Codes.NORMAL, "App backgrounded"))
                 }
-            } catch (_: Exception) {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.v(e) { "Socket close handshake aborted or already closed: ${e.message}" }
             }
         }
 
@@ -174,74 +177,22 @@ internal class ClientWebSocketTransport(
         connectionJob = backgroundScope.launch {
             while (isActive && !isPaused) {
                 try {
-                    val currentWatermark = nodeManager.getLastInboundWatermark() ?: 0L
-
-                    client.webSocket(
-                        host = target.host,
-                        port = target.port,
-                        path = "/sync/${target.groupId}/${target.nodeId}?since=$currentWatermark"
-                    ) {
-                        activeSession = this
-                        try {
-                            logger.i { "WebSocket connected to ${target.host}:${target.port} (Since Watermark: $currentWatermark)" }
-
-                            for (frame in incoming) {
-                                if (frame is Frame.Binary) {
-                                    when (val wireFrame = SyncWireFrame.unwrap(frame.readBytes())) {
-                                        is InboundWireFrame.BackfillComplete -> {
-                                            logger.i { "Backfill complete. Triggering outbound pipeline flush." }
-                                            backgroundScope.launch {
-                                                try {
-                                                    onConnectedListener?.invoke()
-                                                } catch (e: Exception) {
-                                                    if (e is CancellationException) throw e
-                                                    logger.e(e) { "Outbound queue flush failed on ready" }
-                                                }
-                                            }
-                                        }
-
-                                        is InboundWireFrame.Ack -> {
-                                            nodeManager.recogniseServerResponse(
-                                                wireFrame.watermark,
-                                                timeUtils.now()
-                                            )
-                                        }
-
-                                        is InboundWireFrame.Delta -> {
-                                            try {
-                                                inboundHandler?.invoke(
-                                                    wireFrame.watermark,
-                                                    wireFrame.payload
-                                                )
-                                            } catch (e: Exception) {
-                                                if (e is CancellationException) throw e
-                                                logger.e(e) { "Inbound processing failed at watermark ${wireFrame.watermark}. Closing socket." }
-                                                close(CloseReason(CloseReason.Codes.TRY_AGAIN_LATER, "Inbound ingestion error"))
-                                                break
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        } finally {
-                            activeSession = null
-                        }
-                    }
+                    runSingleSession(target)
 
                     if (isActive && !isPaused) {
-                        logger.i { "WebSocket channel closed remotely. Reconnecting in 30s..." }
+                        logger.i { "WebSocket channel closed remotely. Attempting reconnection in 30s..." }
                         delay(30.seconds)
                     }
+                } catch (e: CancellationException) {
+                    break
+                } catch (e: MochaException.Persistent) {
+                    logger.e(e) { "Terminating connection until manual trigger." }
+                    break
                 } catch (e: Exception) {
-                    activeSession = null
-                    if (e is CancellationException) break
-                    if (e is MochaException.Persistent) {
-                        logger.e(e) { "Terminating sync transport until app restart." }
-                        break
-                    }
-
-                    logger.w(e) { "WebSocket not connected: [${e::class.simpleName}] ${e.message}. Retrying in 10s..." }
+                    logger.w(e) { "[${e::class.simpleName}] ${e.message}. Retrying in 10s..." }
                     delay(10.seconds)
+                } finally {
+                    activeSession = null
                 }
             }
         }
@@ -256,8 +207,60 @@ internal class ClientWebSocketTransport(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            logger.w(e) { "Failed to transmit binary frame over active WebSocket session" }
             SendResult.Failure(e)
         }
     }
+
+    private suspend fun runSingleSession(target: ConnectionEndpoint) {
+        val currentWatermark = nodeManager.getLastInboundWatermark() ?: 0L
+
+        client.webSocket(
+            host = target.host,
+            port = target.port,
+            path = "/sync/${target.groupId}/${target.nodeId}?since=$currentWatermark"
+        ) {
+            activeSession = this
+            try {
+                logger.i { "WebSocket connected to ${target.host}:${target.port} (Since Watermark: $currentWatermark)" }
+
+                for (frame in incoming) {
+                    if (frame is Frame.Binary) {
+                        dispatchWireFrame(frame.readBytes())
+                    }
+                }
+            } finally {
+                activeSession = null
+            }
+        }
+    }
+
+    private suspend fun DefaultClientWebSocketSession.dispatchWireFrame(bytes: ByteArray) {
+        when (val wireFrame = SyncWireFrame.unwrap(bytes)) {
+            is InboundWireFrame.BackfillComplete -> {
+                logger.i { "Backfill complete. Triggering outbound pipeline flush." }
+                backgroundScope.launch {
+                    try {
+                        onConnectedListener?.invoke()
+                    } catch (e: Exception) {
+                        logger.e(e) { "Outbound queue flush failed on ready" }
+                    }
+                }
+            }
+
+            is InboundWireFrame.Ack -> {
+                nodeManager.recogniseServerResponse(wireFrame.watermark, timeUtils.now())
+            }
+
+            is InboundWireFrame.Delta -> {
+                try {
+                    inboundHandler?.invoke(wireFrame.watermark, wireFrame.payload)
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    logger.e(e) { "Inbound processing failed at watermark ${wireFrame.watermark}. Closing socket." }
+                    close(CloseReason(CloseReason.Codes.TRY_AGAIN_LATER, "Inbound ingestion error"))
+                }
+            }
+        }
+    }
 }
+

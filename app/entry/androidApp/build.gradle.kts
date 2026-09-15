@@ -42,12 +42,11 @@ android {
 
 dependencies {
     implementation(project(":app:ui"))
-    implementation(project(":core:platform"))
-    implementation(project(":core:logger"))
     implementation(project(":core:sync-api"))
     implementation(libs.androidx.lifecycle.process)
 
     implementation(libs.koin.android)
+    implementation(libs.koin.annotations)
 
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.core.ktx)

@@ -3,8 +3,8 @@ package com.mochame.app.assembly.di
 import androidx.room.RoomDatabase
 import androidx.sqlite.SQLiteDriver
 import com.mochame.annotations.IoContext
-import com.mochame.app.schema.MochaMeDatabase
-import com.mochame.app.schema.MochaMeDatabaseConstructor
+import com.mochame.app.assembly.MochaMeDatabase
+import com.mochame.app.assembly.MochaMeDatabaseConstructor
 import com.mochame.bio.data.DailyContextDao
 import com.mochame.node.data.NodeContextDao
 import com.mochame.platform.di.PlatformContext

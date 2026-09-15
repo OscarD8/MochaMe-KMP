@@ -89,9 +89,9 @@ class DailyContextCodecV1(
 
     override fun computeDomainChangedTags(new: DailyContext, old: DailyContext?): List<Int> =
         buildList {
-            if (old == null || new.sleepHours != old.sleepHours) add(TAG_SLEEP_HOURS)
-            if (old == null || new.readinessScore != old.readinessScore) add(TAG_READINESS_SCORE)
-            if (old == null || new.isNapped != old.isNapped) add(TAG_IS_NAPPED)
+            if (new.sleepHours != old?.sleepHours) add(TAG_SLEEP_HOURS)
+            if (new.readinessScore != old?.readinessScore) add(TAG_READINESS_SCORE)
+            if (new.isNapped != old?.isNapped) add(TAG_IS_NAPPED)
         }
 
 }

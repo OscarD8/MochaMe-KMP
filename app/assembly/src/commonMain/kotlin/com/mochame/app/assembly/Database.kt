@@ -1,11 +1,10 @@
-package com.mochame.app.schema
+package com.mochame.app.assembly
 
 import androidx.room.ConstructedBy
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
 import androidx.room.TypeConverters
-import com.mochame.app.assembly.MochaConverters
 import com.mochame.bio.data.DailyContextDao
 import com.mochame.bio.data.DailyContextEntity
 import com.mochame.node.data.NodeContextDao
@@ -45,7 +44,7 @@ import com.mochame.telemetry.data.TopicEntity
         BookEntity::class,
         QuoteEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(MochaConverters::class, SyncConverters::class)

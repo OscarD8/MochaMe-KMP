@@ -56,7 +56,7 @@ internal class DefaultSyncCoordinator(
     private val quarantinedPayloadStore: QuarantinedPayloadStore,
     @CoordinatorMutex private val coordinatorMutex: Mutex,
     @AppBackgroundScope private val appBackgroundScope: CoroutineScope,
-    receivers: List<SyncReceiver>, // koin handles as long as classes are bound
+    receivers: List<SyncReceiver>,
     logger: Logger
 ) : SyncCoordinator {
     private val logger =
@@ -68,7 +68,7 @@ internal class DefaultSyncCoordinator(
     private val SyncIntent.receiver: SyncReceiver
         get() = receiverRoutingMap[featureContext] ?: run {
             logger.e { "Routing failure for feature context '$featureContext'" }
-            throw MochaException.Persistent.StateIssue(
+            throw MochaException.Transient.StateIssue(
                 "No SyncReceiver for feature context '$featureContext'"
             )
         }
@@ -89,6 +89,7 @@ internal class DefaultSyncCoordinator(
                 logger.v { "Processing outbound batch..." }
                 processQueueUntilExhausted()
             } catch (e: Exception) {
+                if (e is CancellationException || e is MochaException.Persistent) throw e
                 logger.e(e) {
                     "Failure during outbound batch processing: ${e.message}. " +
                             "Preserving outbound pipeline state."
@@ -120,50 +121,13 @@ internal class DefaultSyncCoordinator(
                 val payload = try {
                     payloadCodec.encode(batch)
                 } catch (e: Exception) {
-                    logger.e(e) { "Outbound: Batch $batchId encoding failed. Isolating corrupt intents." }
-
-                    transactor.runImmediateTransaction {
-                        val validIntents = mutableListOf<SyncIntent>()
-
-                        for (intent in batch) {
-                            try {
-                                intentCodec.encode(intent)
-                                validIntents.add(intent)
-                            } catch (e: Exception) {
-                                intentStore.quarantineIntent(
-                                    hlc = intent.hlc,
-                                    candidateKey = intent.candidateKey,
-                                    errorMessage = e.message ?: "Codec serialization failure"
-                                )
-                                logger.e(e) { "Outbound: Quarantined corrupt intent [key=${intent.candidateKey}]" }
-                            }
-                        }
-
-                        if (validIntents.isNotEmpty()) {
-                            intentStore.releaseIntents(validIntents.map { it.hlc })
-                        }
-                    }
-
+                    if (e is CancellationException) throw e
+                    handleBatchEncodingFailure(batchId, batch, e)
                     continue
                 }
 
-                when (val result = syncTransport.send(payload)) {
-                    is SendResult.Success -> {
-                        intentStore.acknowledgeSuccess(batchId)
-                    }
-
-                    is SendResult.NoConnection -> {
-                        logger.w { "Outbound: No connection for batch $batchId. Awaiting reconnection." }
-                        break
-                    }
-
-                    is SendResult.Failure -> {
-                        intentStore.stampLastError(
-                            batchId,
-                            result.cause.message ?: "Transmission failure"
-                        )
-                        logger.w(result.cause) { "Outbound: Failed to transmit batch $batchId. Janitor to reconcile." }
-                    }
+                if (!handleSendResult(batchId, syncTransport.send(payload))) {
+                    break
                 }
             }
         }
@@ -183,18 +147,7 @@ internal class DefaultSyncCoordinator(
         val intents = try {
             payloadCodec.decode(inbound)
         } catch (e: Exception) {
-            if (e is CancellationException) throw e
-
-            logger.e(e) { "Inbound [watermark-$watermark]: Parsing failure during batch processing (${inbound.size}B). ${e.message}" }
-
-            transactor.runImmediateTransaction {
-                quarantinedPayloadStore.record(
-                    watermark = watermark,
-                    rawPayload = inbound,
-                    failureReason = e.message ?: "Codec decode failure"
-                )
-                nodeManager.recogniseServerResponse(watermark, timeUtils.now())
-            }
+            handlePayloadDecodeError(watermark, inbound, e)
             return
         }
 
@@ -210,7 +163,7 @@ internal class DefaultSyncCoordinator(
         val mark = TimeSource.Monotonic.markNow()
         var acceptedCount = 0
 
-        executor.execute("Inbound-Watermark[$watermark]") {
+        executor.execute("Inbound Watermark[$watermark]:") {
             transactor.runImmediateTransaction {
                 intents.forEach { intent ->
                     try {
@@ -218,25 +171,7 @@ internal class DefaultSyncCoordinator(
                         maxValidHlc = maxValidHlc?.let { maxOf(it, intent.hlc) } ?: intent.hlc
                         acceptedCount++
                     } catch (e: Exception) {
-                        when (e) {
-                            is CancellationException -> throw e
-                            is MochaException.Persistent.StateIssue, is MochaException.Persistent.UnknownProtocolVersion -> {
-                                intentStore.recordIntent(
-                                    intent.copy(
-                                        syncStatus = SyncStatus.QUARANTINED,
-                                        lastErrorMessage = e.message,
-                                        leasedAt = null,
-                                        batchId = null
-                                    )
-                                )
-                                logger.w { "Inbound [watermark-$watermark]: Quarantined decoded intent [hlc=${intent.hlc}] [key=${intent.candidateKey}]" }
-                            }
-
-                            else -> {
-                                logger.e(e) { "Inbound [watermark-$watermark]: Unexpected Error. Aborting due to local environmental failure." }
-                                throw e
-                            }
-                        }
+                        handleInboundIntentError(intent, watermark, e)
                     }
                 }
 
@@ -248,7 +183,9 @@ internal class DefaultSyncCoordinator(
             }
         }
 
-        logger.i { "Inbound [watermark-$watermark]: Accepted $acceptedCount intent(s)".withTimer(mark) }
+        logger.i {
+            "Inbound [watermark-$watermark]: Accepted $acceptedCount intent(s)".withTimer(mark)
+        }
     }
 
     /**
@@ -270,7 +207,7 @@ internal class DefaultSyncCoordinator(
         if (hasPayload == hasBlobId) {
             val message =
                 if (!hasPayload) "both payload and blobId are null" else "payload and blobId are mutually exclusive"
-            throw MochaException.Persistent.StateIssue("Data integrity violation: $message")
+            throw MochaException.Transient.StateIssue("Data integrity violation: $message")
         }
 
         if (!hasPayload) {
@@ -281,4 +218,114 @@ internal class DefaultSyncCoordinator(
         return this
     }
 
+    private suspend fun handleSendResult(batchId: String, result: SendResult): Boolean =
+        when (result) {
+            is SendResult.Success -> {
+                intentStore.acknowledgeSuccess(batchId)
+                true
+            }
+
+            is SendResult.NoConnection -> {
+                logger.w { "Outbound: No connection for batch $batchId. Awaiting reconnection." }
+                false
+            }
+
+            is SendResult.Failure -> {
+                intentStore.stampLastError(batchId, result.cause.message ?: "Transmission failure")
+
+                if (result.cause is MochaException.Persistent) {
+                    logger.e(result.cause) { "Outbound: Persistent failure on batch $batchId. Terminating outbound loop." }
+                    // Maybe need some kind of global app state and manager?
+                } else {
+                    logger.w(result.cause) { "Outbound: Failed to transmit batch $batchId. Janitor to reconcile." }
+                }
+                false
+            }
+        }
+
+    // -- Exception Processing --
+
+    private suspend fun handleBatchEncodingFailure(
+        batchId: String,
+        batch: List<SyncIntent>,
+        e: Exception
+    ) {
+        logger.e(e) { "Outbound: Batch $batchId encoding failed. Sifting intents..." }
+
+        transactor.runImmediateTransaction {
+            val validIntents = mutableListOf<SyncIntent>()
+
+            for (intent in batch) {
+                try {
+                    intentCodec.encode(intent)
+                    validIntents.add(intent)
+                } catch (innerEx: Exception) {
+                    if (e is CancellationException || e is MochaException.Persistent) throw e
+
+                    intentStore.quarantineIntent(
+                        hlc = intent.hlc,
+                        candidateKey = intent.candidateKey,
+                        errorMessage = innerEx.message ?: "Codec serialization failure"
+                    )
+                    logger.e(innerEx) { "Outbound: Quarantined corrupt intent [key=${intent.candidateKey}]" }
+                }
+            }
+
+            if (validIntents.isNotEmpty()) {
+                intentStore.releaseIntents(validIntents.map { it.hlc })
+            }
+        }
+    }
+
+    private suspend fun handlePayloadDecodeError(
+        watermark: Long,
+        inbound: ByteArray,
+        e: Exception
+    ) {
+        var failureReason = e.message ?: "Codec decode failure"
+
+        if (e is CancellationException || e is MochaException.Persistent) throw e
+        if (e is MochaException.Transient) {
+            failureReason = "TRANSIENT_$failureReason"
+        }
+
+        logger.e(e) { "Inbound [watermark-$watermark]: Parsing failure during batch processing (${inbound.size}B). $failureReason" }
+
+        transactor.runImmediateTransaction {
+            quarantinedPayloadStore.record(
+                watermark = watermark,
+                rawPayload = inbound,
+                failureReason = failureReason
+            )
+            nodeManager.recogniseServerResponse(watermark, timeUtils.now())
+        }
+    }
+
+    private suspend fun handleInboundIntentError(
+        intent: SyncIntent,
+        watermark: Long,
+        e: Exception
+    ) {
+        when (e) {
+            is CancellationException -> throw e
+
+            is MochaException.Transient.StateIssue,
+            is MochaException.Persistent.UnknownProtocolVersion -> {
+                intentStore.recordIntent(
+                    intent.copy(
+                        syncStatus = SyncStatus.QUARANTINED,
+                        lastErrorMessage = e.message,
+                        leasedAt = null,
+                        batchId = null
+                    )
+                )
+                logger.w { "Inbound [watermark-$watermark]: Quarantined decoded intent [hlc=${intent.hlc}] [key=${intent.candidateKey}]" }
+            }
+
+            else -> {
+                logger.e(e) { "Inbound [watermark-$watermark]: Unexpected Error. Aborting due to local environmental failure." }
+                throw e
+            }
+        }
+    }
 }

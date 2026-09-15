@@ -18,12 +18,14 @@ import com.mochame.sync.spi.node.NodeContext
 import com.mochame.sync.spi.node.NodeId
 import com.mochame.utils.fixtures.TestNodeId
 import com.mochame.utils.fixtures.TestPayloads
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.io.Buffer
+import kotlinx.io.IOException
 import org.koin.plugin.module.dsl.modules
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -60,6 +62,27 @@ class DefaultSyncJanitorTest : MochaPlatformTest() {
 
         assertNotNull(nodeManager.getOrEstablishContext())
     }
+
+    @Test
+    fun should_cancelJobAndAbortBoot_when_cancellationExceptionThrownDuringStaleIntentRec() =
+        runEnv { scope ->
+            transactor.shouldThrow = CancellationException("User closed app at blob reconciliation")
+            bootUpdater.updateState(BootState.Init)
+            val intentToQuarantine = createTestSyncIntent(
+                status = SyncStatus.SYNCING,
+                retryCount = config.retryThreshold - 1
+            )
+            intentStore.seedIntents(intentToQuarantine)
+
+            val job = janitor.startupChecks()
+            job.join()
+
+            assertTrue(job.isCancelled, "Job cancellation")
+            assertEquals(BootState.Init, bootUpdater.bootState.value)
+            val finalIntentState = intentStore.intents.last()
+            assertEquals(SyncStatus.SYNCING, finalIntentState.syncStatus)
+            assertEquals(config.retryThreshold - 1, finalIntentState.retryCount)
+        }
 
     @Test
     fun should_transitionBootStateAndHydrateHlcFactory_when_executingAgainstValidStartupState() =
@@ -117,7 +140,7 @@ class DefaultSyncJanitorTest : MochaPlatformTest() {
     fun should_abortStartupChecks_when_bootStatIsInCriticalFailure() =
         runEnv { scope ->
             val failure = MochaException.Persistent.ClockSkew(5.seconds)
-            bootUpdater.updateState(BootState.CriticalFailure("Failed", failure))
+            bootUpdater.updateState(BootState.LockOut("Failed", failure))
 
             // When
             janitor.startupChecks()
@@ -147,7 +170,7 @@ class DefaultSyncJanitorTest : MochaPlatformTest() {
 
             // Capture the Critical Failure
             val finalState = awaitItem()
-            assertTrue(finalState is BootState.CriticalFailure)
+            assertTrue(finalState is BootState.LockOut)
 
             assertTrue(finalState.exception is MochaException.Persistent.ClockSkew)
 
@@ -214,7 +237,7 @@ class DefaultSyncJanitorTest : MochaPlatformTest() {
         runEnv { scope ->
             // Given
             bootUpdater.updateState(BootState.Init)
-            val dbLockException = IllegalStateException("Database locked / busy")
+            val dbLockException = IOException("disk full")
             executor.failConsecutively(count = 1, exception = dbLockException)
 
             // When
@@ -227,13 +250,13 @@ class DefaultSyncJanitorTest : MochaPlatformTest() {
 
             val history = bootUpdater.history
             assertEquals(3, history.size)
-            assertTrue(history[2] is BootState.CriticalFailure)
+            assertTrue(history[2] is BootState.LockOut)
 
             val errorLog =
-                writer.logs.find { it.message.contains("Critical boot failure") }
+                writer.logs.find { it.message.contains("Persistent boot failure") }
             assertNotNull(
                 errorLog,
-                "Janitor must log a critical boot failure error."
+                "Janitor must log a persistent boot failure error."
             )
         }
 
@@ -300,7 +323,7 @@ class DefaultSyncJanitorTest : MochaPlatformTest() {
             // Then
             val currentState = bootUpdater.bootState.value
             assertTrue(
-                currentState is BootState.CriticalFailure,
+                currentState is BootState.LockOut,
                 "Persistent MochaException must route boot state to CriticalFailure, but got: $currentState"
             )
         }

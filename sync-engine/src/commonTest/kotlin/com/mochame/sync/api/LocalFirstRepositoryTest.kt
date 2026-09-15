@@ -63,7 +63,7 @@ class LocalFirstRepositoryTest : MochaPlatformTest() {
         runEnv {
             val rootCause = IllegalStateException("Corrupt local database")
             bootProvider.updateState(
-                BootState.CriticalFailure(
+                BootState.LockOut(
                     message = "DB_CORRUPT",
                     exception = rootCause
                 )
@@ -197,11 +197,11 @@ class LocalFirstRepositoryTest : MochaPlatformTest() {
     }
 
     @Test
-    fun localDelete_onNonExistentRecord_throwsPersistentStateIssue() = runEnv {
+    fun localDelete_onNonExistentRecord_throwsTransientStateIssue() = runEnv {
         setupValidContext()
         val nonExistentKey = 999L
 
-        val exception = assertFailsWith<MochaException.Persistent.StateIssue> {
+        val exception = assertFailsWith<MochaException.Transient.StateIssue> {
             repo.delete(nonExistentKey)
         }
 
@@ -844,7 +844,7 @@ class LocalFirstRepositoryTest : MochaPlatformTest() {
         val candidateKey = 304L
 
         // Force an exception inside the locked execution block
-        assertFailsWith<MochaException.Persistent.StateIssue> {
+        assertFailsWith<MochaException.Transient.StateIssue> {
             repo.upsert(candidateKey) {
                 throw IllegalStateException("Domain validation failure")
             }

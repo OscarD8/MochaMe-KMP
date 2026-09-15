@@ -69,7 +69,8 @@ internal class DefaultBlobStore(
         val mark = TimeSource.Monotonic.markNow()
         val uniqueSequence = stagingCounter.incrementAndGet()
         val now = timeUtils.now().toEpochMilliseconds()
-        val tempPath = Path(pendingDir, "staging_${now}_${uniqueSequence}_${Random.nextLong().toString(16)}")
+        val tempPath =
+            Path(pendingDir, "staging_${now}_${uniqueSequence}_${Random.nextLong().toString(16)}")
         val digest = digestFactory()
         var totalBytes = 0L
 
@@ -233,30 +234,32 @@ internal class DefaultBlobStore(
     }
 
     // --- Helpers ---
-    private suspend fun ensureDirectoriesExist() = withContext(ioContext) {
-        if (directoriesVerified.value) return@withContext
+    private suspend fun ensureDirectoriesExist() {
+        if (directoriesVerified.value) return
 
-        blobMutex.withLock {
-            if (directoriesVerified.value) return@withLock
+        withContext(ioContext) {
+            blobMutex.withLock {
+                if (directoriesVerified.value) return@withLock
 
-            try {
-                if (!fileSystem.exists(pendingDir)) {
-                    fileSystem.createDirectories(pendingDir)
-                    check(fileSystem.exists(pendingDir)) {
-                        "Failed to create pending directory at $pendingDir"
+                try {
+                    if (!fileSystem.exists(pendingDir)) {
+                        fileSystem.createDirectories(pendingDir)
+                        check(fileSystem.exists(pendingDir)) {
+                            "Failed to create pending directory at $pendingDir"
+                        }
+                        logger.i { "Init Pending Dir at $pendingDir" }
                     }
-                    logger.i { "Init Pending Dir at $pendingDir" }
-                }
-                if (!fileSystem.exists(committedDir)) {
-                    fileSystem.createDirectories(committedDir)
-                    check(fileSystem.exists(committedDir)) {
-                        "Failed to create committed directory at $committedDir"
+                    if (!fileSystem.exists(committedDir)) {
+                        fileSystem.createDirectories(committedDir)
+                        check(fileSystem.exists(committedDir)) {
+                            "Failed to create committed directory at $committedDir"
+                        }
+                        logger.i { "Init Committed Dir at $committedDir" }
                     }
-                    logger.i { "Init Committed Dir at $committedDir" }
+                    directoriesVerified.value = true
+                } catch (e: Exception) {
+                    throw e.toMochaException("Directory Initialization")
                 }
-                directoriesVerified.value = true
-            } catch (e: Exception) {
-                throw e.toMochaException("Directory Initialization")
             }
         }
     }

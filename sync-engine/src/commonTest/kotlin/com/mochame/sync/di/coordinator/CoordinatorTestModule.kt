@@ -82,7 +82,7 @@ internal class SyncCoordinatorTestEnv(
     val nodeManager: FakeNodeContextManager,
     val syncTransport: FakeSyncTransport,
     val intentStore: FakeSyncIntentStore,
-    val malformedPayloadStore: FakeQuarantinedPayloadStore
+    val quarantineStore: FakeQuarantinedPayloadStore
 ) {
     fun assertIntentsProperlyBatched(expectedKeys: Set<Long>) {
         val storedIntents = intentStore.intents

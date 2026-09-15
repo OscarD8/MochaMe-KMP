@@ -88,6 +88,9 @@ class FakeBlobStore(
     }
 
     override suspend fun listPendingHashes(): List<String> = lock.withLock {
+        val error = _generalError
+        _generalError = null
+        error?.let { throw it }
         _pendingBlobs.keys.toList()
     }
 

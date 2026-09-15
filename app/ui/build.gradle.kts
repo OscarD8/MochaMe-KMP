@@ -8,9 +8,8 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(project(":app:assembly"))
+            api(project(":app:assembly"))
             implementation(project(":core:utils"))
-            implementation(project(":core:platform"))
             implementation(project(":core:logger"))
 
             implementation(project(":feature:bio"))
