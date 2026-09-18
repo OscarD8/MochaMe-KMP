@@ -58,8 +58,10 @@ class DefaultNodeContextManager(
                     baseVersion = baseVersion,
                     createdAt = Clock.System.now().toEpochMilliseconds()
                 ).also {
-                    logger.i { "Node Fetched. Id: ${it.nodeId} | V: ${it.appVersion} " +
-                            "| Watermark: ${it.lastInboundWatermark} | Est: ${it.createdAt.toDateTime()}" }
+                    logger.i {
+                        "Node Fetched. Id: ${it.nodeId} | V: ${it.appVersion} " +
+                                "| Watermark: ${it.lastInboundWatermark} | Est: ${it.createdAt.toDateTime()}"
+                    }
                 }
 
                 entity.toDomain().also { domainContext ->
@@ -88,7 +90,7 @@ class DefaultNodeContextManager(
             }
         }
 
-    override suspend fun recogniseServerResponse(
+    override suspend fun commitInboundWatermark(
         watermark: Long,
         timestamp: Instant
     ) = withContext(ioContext) {
@@ -96,8 +98,27 @@ class DefaultNodeContextManager(
 
         mutex.withLock {
             if ((cachedContext?.lastInboundWatermark ?: 0L) >= watermark) return@withLock
-            dao.setWatermarkAndTimestamp(watermark, timestamp.toEpochMilliseconds())
-            cachedContext = cachedContext?.copy(lastInboundWatermark = watermark)
+            dao.setInboundWatermark(watermark, timestamp.toEpochMilliseconds())
+            cachedContext = cachedContext?.copy(
+                lastInboundWatermark = watermark,
+                lastServerResponseTime = timestamp
+            )
+        }
+    }
+
+    override suspend fun commitOutboundWatermark(
+        watermark: Long,
+        timestamp: Instant
+    ) = withContext(ioContext) {
+        if ((cachedContext?.lastOutboundWatermark ?: 0L) >= watermark) return@withContext
+
+        mutex.withLock {
+            if ((cachedContext?.lastOutboundWatermark ?: 0L) >= watermark) return@withContext
+            dao.setOutboundWatermark(watermark, timestamp.toEpochMilliseconds())
+            cachedContext = cachedContext?.copy(
+                lastOutboundWatermark = watermark,
+                lastServerResponseTime = timestamp
+            )
         }
     }
 

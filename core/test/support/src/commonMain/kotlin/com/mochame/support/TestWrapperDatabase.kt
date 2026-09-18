@@ -4,9 +4,7 @@ import androidx.room.RoomDatabase
 import androidx.room.RoomDatabaseConstructor
 import com.mochame.annotations.IoContext
 import com.mochame.platform.providers.DatabaseLocation
-import com.mochame.platform.providers.RoomImmediateTransProvider
 import com.mochame.platform.providers.platformBuilder
-import com.mochame.sync.spi.infrastructure.TransactionProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -77,14 +75,7 @@ inline fun <reified T : RoomDatabase, reified E : Any> runDatabaseEnvironment(
         factory = { constructor.initialize() }
     ).build()
 
-    koin.loadModules(
-        listOf(
-            module {
-                single<T> { database }
-                single<TransactionProvider> { RoomImmediateTransProvider(get<T>()) }
-            },
-        )
-    )
+    koin.loadModules(listOf(module { single<T> { database } }))
 
     try {
         val environment = koin.get<E>()
@@ -96,7 +87,7 @@ inline fun <reified T : RoomDatabase, reified E : Any> runDatabaseEnvironment(
         try {
             koin.getOrNull<TestTeardownHook>()?.onTeardown()
         } catch (e: Exception) {
-            println("WARNING: Teardown hook execution failed: ${e.message}")
+            println("Error on test closure. Teardown hook execution failed: ${e.message}")
         }
         koinApp.close()
     }

@@ -127,7 +127,7 @@ class FakeNodeContextManager(
         _seededContext = nodeContext
     }
 
-    override suspend fun recogniseServerResponse(watermark: Long, timestamp: Instant) =
+    override suspend fun commitInboundWatermark(watermark: Long, timestamp: Instant) =
         lock.withLock {
             _recognizedServerResponses.add(watermark to timestamp)
             _seededContext = getOrInitializeLocked().copy(
@@ -135,4 +135,15 @@ class FakeNodeContextManager(
                 lastServerResponseTime = timestamp
             )
         }
+
+    override suspend fun commitOutboundWatermark(
+        watermark: Long,
+        timestamp: Instant
+    ) = lock.withLock {
+        _recognizedServerResponses.add(watermark to timestamp)
+        _seededContext = getOrInitializeLocked().copy(
+            lastOutboundWatermark = watermark,
+            lastServerResponseTime = timestamp
+        )
+    }
 }

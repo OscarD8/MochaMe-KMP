@@ -87,7 +87,6 @@ internal class DefaultSyncIntentStoreTest : MochaPlatformTest() {
     fun should_maintainCollectionSizeAndOrdering_when_retrievingClaimedBatch() = runEnv {
         // Given
         val hlcs = TestHlcFactory.chronologicalSequence(size = 3)
-        val sessionId = "store-batch-session"
 
         // Unordered seeding of the database via the DAO to isolate the store's retrieval mapper
         intentDao.upsert(createTestIntentEntity(hlc = hlcs[2], candidateKey = 0L))
@@ -95,7 +94,9 @@ internal class DefaultSyncIntentStoreTest : MochaPlatformTest() {
         intentDao.upsert(createTestIntentEntity(hlc = hlcs[1], candidateKey = 2L))
 
         // When
-        val claimedDomainBatch = intentStore.claimAndGetBatch(batchId = sessionId, limit = 10)
+        val claimedBatch = intentStore.claimNextBatch(limit = 10)
+        assertNotNull(claimedBatch)
+        val claimedDomainBatch = claimedBatch.intents
 
         // Then
         assertEquals(3, claimedDomainBatch.size)

@@ -9,9 +9,13 @@ import com.mochame.sync.data.toDomain
 import com.mochame.sync.data.toEntity
 import com.mochame.sync.spi.domain.SyncIntentMaintenanceStore
 import com.mochame.sync.spi.infrastructure.SyncIntentStore
+import com.mochame.sync.spi.models.ClaimedBatch
 import com.mochame.sync.spi.models.QuarantinedFeatureSummary
 import com.mochame.sync.spi.models.SyncIntent
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.koin.core.annotation.Single
 
 /**
@@ -29,6 +33,19 @@ internal class DefaultSyncIntentStore(
     private val intentDao: SyncIntentDao
 ) : SyncIntentStore, SyncIntentMaintenanceStore {
 
+    private val batchCounter = atomic(-1L)
+    private val initMutex = Mutex()
+
+    private suspend fun ensureInitialized() {
+        if (batchCounter.value >= 0) return
+        initMutex.withLock {
+            if (batchCounter.value < 0) {
+                val maxExisting = intentDao.getMaxBatchId() ?: 0L
+                batchCounter.value = maxExisting
+            }
+        }
+    }
+
     override suspend fun getPendingByCandidateKey(candidateKey: Long) =
         intentDao.getPendingByKey(candidateKey)?.toDomain()
 
@@ -37,25 +54,43 @@ internal class DefaultSyncIntentStore(
 
     override suspend fun recordIntent(entry: SyncIntent) = intentDao.upsert(entry.toEntity())
 
-    override suspend fun claimAndGetBatch(batchId: String, limit: Int): List<SyncIntent> =
-        intentDao.claimAndGetBatch(batchId, limit).map { it.toDomain() }
+    override suspend fun claimNextBatch(limit: Int): ClaimedBatch? {
+        ensureInitialized()
+        val nextBatchId = batchCounter.incrementAndGet()
 
-    override suspend fun acknowledgeSuccess(batchId: String): Int =
+        val entities = intentDao.claimAndGetBatch(
+            id = nextBatchId,
+            limit = limit
+        )
+
+        if (entities.isEmpty()) return null
+
+        return ClaimedBatch(
+            batchId = nextBatchId,
+            intents = entities.map { it.toDomain() }
+        )
+    }
+
+    override suspend fun acknowledgeSuccess(batchId: Long): Int =
         intentDao.updateBatchStatus(
             batchId = batchId,
             status = SyncStatus.SUCCESS,
             expectedCurrentStatus = SyncStatus.SYNCING
         )
 
-    override suspend fun stampLastError(batchId: String, message: String) =
+    override suspend fun stampLastError(batchId: Long, message: String) =
         intentDao.stampLastError(batchId, message)
 
     // -----------------------------------------------------------
     // MAINTENANCE
     // -----------------------------------------------------------
 
-    override suspend fun resetStaleLeases(cutOff: Long, retryThreshold: Int) =
-        intentDao.resetStaleLeases(cutOff, retryThreshold)
+    override suspend fun resetStaleLeases(
+        cutOff: Long,
+        retryThreshold: Int,
+        shouldIncrementRetry: Boolean
+    ) =
+        intentDao.resetStaleLeases(cutOff, retryThreshold, shouldIncrementRetry)
 
     override suspend fun quarantineStaleLeases(cutOff: Long, retryThreshold: Int) =
         intentDao.quarantineStaleLeases(cutOff, retryThreshold)
@@ -72,10 +107,10 @@ internal class DefaultSyncIntentStore(
         )
     }
 
-    override suspend fun releaseIntents(hlcs: List<HLC>): Int {
-        if (hlcs.isEmpty()) return 0
-        return intentDao.releaseIntents(hlcs.map { it.toString() })
-    }
+    override suspend fun releaseIntents(batchId: Long): Int = intentDao.releaseByBatch(batchId)
+
+    override suspend fun releaseIntents(hlcs: List<HLC>): Int =
+        intentDao.releaseByHlc(hlcs.map { it.toString() })
 
     override suspend fun cascadeQuarantine(): Int = intentDao.cascadeQuarantine()
 

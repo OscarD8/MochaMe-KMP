@@ -15,14 +15,18 @@ class FakeSyncTransport(
     private var _isConnected: Boolean = initialConnected
     private var _failWith: Exception? = null
     private var _sendResult: Boolean = initialSendResult
-    private val _sentPayloads = mutableListOf<ByteArray>()
+    private val _sentBatches = mutableListOf<SentBatch>()
     private val _connectCalls = mutableListOf<ConnectCall>()
     private var _pauseCallCount = 0
     private var _resumeCallCount = 0
-    private var _inboundHandler: (suspend (Long, ByteArray) -> Unit)? = null
+
+    private var _inboundDeltaHandler: (suspend (watermark: Long, payload: ByteArray) -> Unit)? = null
+    private var _inboundAckHandler: (suspend (batchId: Long, watermark: Long) -> Unit)? = null
     private var _onConnectedListener: (suspend () -> Unit)? = null
+    private var _onDisconnectedListener: (suspend () -> Unit)? = null
 
     data class ConnectCall(val host: String, val port: Int, val groupId: String)
+    data class SentBatch(val batchId: Long, val payload: ByteArray)
 
     override var isConnected: Boolean
         get() = lock.withLock { _isConnected }
@@ -36,8 +40,11 @@ class FakeSyncTransport(
         get() = lock.withLock { _sendResult }
         set(value) = lock.withLock { _sendResult = value }
 
+    val sentBatches: List<SentBatch>
+        get() = lock.withLock { _sentBatches.map { it.copy(payload = it.payload.copyOf()) } }
+
     val sentPayloads: List<ByteArray>
-        get() = lock.withLock { _sentPayloads.map { it.copyOf() } }
+        get() = lock.withLock { _sentBatches.map { it.payload.copyOf() } }
 
     val connectCalls: List<ConnectCall>
         get() = lock.withLock { _connectCalls.toList() }
@@ -48,6 +55,9 @@ class FakeSyncTransport(
     val resumeCallCount: Int
         get() = lock.withLock { _resumeCallCount }
 
+    var autoAck: Boolean = false
+    var nextAckWatermark: Long = 1L
+
     override suspend fun connect(host: String, port: Int, groupId: String) {
         val listener = lock.withLock {
             _connectCalls.add(ConnectCall(host, port, groupId))
@@ -57,7 +67,7 @@ class FakeSyncTransport(
         listener?.invoke()
     }
 
-    override suspend fun send(payload: ByteArray): SendResult = lock.withLock {
+    override suspend fun send(batchId: Long, payload: ByteArray): SendResult = lock.withLock {
         _failWith?.let {
             _failWith = null
             return SendResult.Failure(it)
@@ -65,6 +75,16 @@ class FakeSyncTransport(
 
         if (!_isConnected) {
             return SendResult.NoConnection
+        }
+
+        _sentBatches.add(SentBatch(batchId, payload.copyOf()))
+
+        if (autoAck) {
+            val ackHandler = _inboundAckHandler
+            val watermark = nextAckWatermark++
+            ackHandler?.let { handler ->
+                handler(batchId, watermark)
+            }
         }
 
         SendResult.Success
@@ -84,9 +104,15 @@ class FakeSyncTransport(
         }
     }
 
-    override fun registerInboundHandler(onReceived: suspend (Long, ByteArray) -> Unit) {
+    override fun registerInboundDeltaHandler(onReceived: suspend (Long, ByteArray) -> Unit) {
         lock.withLock {
-            _inboundHandler = onReceived
+            _inboundDeltaHandler = onReceived
+        }
+    }
+
+    override fun registerInboundAckHandler(onAck: suspend (batchId: Long, watermark: Long) -> Unit) {
+        lock.withLock {
+            _inboundAckHandler = onAck
         }
     }
 
@@ -96,9 +122,26 @@ class FakeSyncTransport(
         }
     }
 
-    suspend fun emitInbound(watermark: Long, payload: ByteArray) {
-        val handler = lock.withLock { _inboundHandler }
+    override fun setOnDisconnectedListener(onDisconnected: suspend () -> Unit) {
+        lock.withLock {
+            _onDisconnectedListener = onDisconnected
+        }
+    }
+
+    // --- Test Helpers ---
+
+    suspend fun emitInboundDelta(watermark: Long, payload: ByteArray) {
+        val handler = lock.withLock { _inboundDeltaHandler }
         handler?.invoke(watermark, payload)
+    }
+
+    suspend fun emitInbound(watermark: Long, payload: ByteArray) {
+        emitInboundDelta(watermark, payload)
+    }
+
+    suspend fun emitInboundAck(batchId: Long, watermark: Long) {
+        val handler = lock.withLock { _inboundAckHandler }
+        handler?.invoke(batchId, watermark)
     }
 
     suspend fun triggerConnected() {
@@ -106,15 +149,25 @@ class FakeSyncTransport(
         listener?.invoke()
     }
 
-    fun reset() {
-        lock.withLock {
-            _sentPayloads.clear()
-            _connectCalls.clear()
-            _pauseCallCount = 0
-            _resumeCallCount = 0
-            _isConnected = true
-            _sendResult = true
-            _failWith = null
+    suspend fun triggerDisconnected() {
+        val listener = lock.withLock {
+            _isConnected = false
+            _onDisconnectedListener
         }
+        listener?.invoke()
+    }
+
+    fun reset() = lock.withLock {
+        _sentBatches.clear()
+        _connectCalls.clear()
+        _pauseCallCount = 0
+        _resumeCallCount = 0
+        _isConnected = true
+        _sendResult = true
+        _failWith = null
+        _inboundDeltaHandler = null
+        _inboundAckHandler = null
+        _onConnectedListener = null
+        _onDisconnectedListener = null
     }
 }

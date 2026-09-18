@@ -12,6 +12,7 @@ import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.api.hlc.HlcFactory
 import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.metadata.SyncStatus
+import com.mochame.sync.domain.model.InFlightBatch
 import com.mochame.sync.domain.model.deriveContext
 import com.mochame.sync.spi.domain.QuarantinedPayloadStore
 import com.mochame.sync.spi.domain.SyncIntentMaintenanceStore
@@ -23,19 +24,25 @@ import com.mochame.sync.spi.infrastructure.serialization.PayloadCodec
 import com.mochame.sync.spi.models.SyncIntent
 import com.mochame.sync.spi.network.SendResult
 import com.mochame.sync.spi.network.SyncTransport
-import com.mochame.sync.spi.node.IdGenerator
 import com.mochame.sync.spi.node.NodeContextManager
 import com.mochame.sync.spi.orchestration.SyncCoordinator
 import com.mochame.sync.spi.policy.ExecutionPolicy
 import com.mochame.sync.tryWithLock
 import com.mochame.utils.interfaces.TimeUtils
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.koin.core.annotation.Single
+import kotlin.concurrent.Volatile
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 
 
@@ -45,7 +52,6 @@ internal class DefaultSyncCoordinator(
     private val syncTransport: SyncTransport,
     private val payloadCodec: PayloadCodec,
     private val intentCodec: IntentCodec,
-    private val idGenerator: IdGenerator,
     private val executor: ExecutionPolicy,
     private val hlcFactory: HlcFactory,
     private val workerHook: SyncWorkerHook,
@@ -61,6 +67,9 @@ internal class DefaultSyncCoordinator(
 ) : SyncCoordinator {
     private val logger =
         logger.withTags(LogTags.Layer.ORCH, LogTags.Domain.SYNC, "MsCord")
+
+    @Volatile
+    private var inFlightBatch: InFlightBatch? = null
 
     private val receiverRoutingMap: Map<FeatureContext, SyncReceiver> =
         receivers.associateBy { it.featureContext }
@@ -114,20 +123,31 @@ internal class DefaultSyncCoordinator(
             }
 
             while (true) {
-                val batchId = idGenerator.nextId()
-                val batch = intentStore.claimAndGetBatch(batchId)
-                if (batch.isEmpty()) break
+                val batch = intentStore.claimNextBatch() ?: break
 
                 val payload = try {
-                    payloadCodec.encode(batch)
+                    payloadCodec.encode(batch.intents)
                 } catch (e: Exception) {
-                    if (e is CancellationException) throw e
-                    handleBatchEncodingFailure(batchId, batch, e)
+                    if (e is CancellationException || e is MochaException.Persistent) throw e
+                    handleBatchEncodingFailure(batch.batchId, batch.intents, e)
                     continue
                 }
 
-                if (!handleSendResult(batchId, syncTransport.send(payload))) {
-                    break
+                try {
+                    val ackDeferred = CompletableDeferred<Long>()
+                    inFlightBatch = InFlightBatch(batch.batchId, ackDeferred)
+
+                    val shouldContinue =
+                        when (val result = syncTransport.send(batch.batchId, payload)) {
+                            is SendResult.Success -> awaitAck(batch.batchId, ackDeferred)
+                            else -> result.processSendFailure(batch.batchId)
+                        }
+
+                    if (!shouldContinue) break
+                } finally {
+                    if (inFlightBatch?.batchId == batch.batchId) {
+                        inFlightBatch = null
+                    }
                 }
             }
         }
@@ -154,7 +174,7 @@ internal class DefaultSyncCoordinator(
         if (intents.isEmpty()) {
             logger.e { "Empty List returned (from: ${inbound.size}B)." }
             transactor.runImmediateTransaction {
-                nodeManager.recogniseServerResponse(watermark, timeUtils.now())
+                nodeManager.commitInboundWatermark(watermark, timeUtils.now())
             }
             return
         }
@@ -179,13 +199,47 @@ internal class DefaultSyncCoordinator(
                     hlcFactory.witness(it)
                     nodeManager.updateHlcFloor(it)
                 }
-                nodeManager.recogniseServerResponse(watermark, timeUtils.now())
+                nodeManager.commitInboundWatermark(watermark, timeUtils.now())
             }
         }
 
         logger.i {
             "Inbound [watermark-$watermark]: Accepted $acceptedCount intent(s)".withTimer(mark)
         }
+    }
+
+    /**
+     * Captures the state of the latest outbound payload awaiting ack, updates the database,
+     * checks if that current state matches the state the ack was sent for, and calls complete
+     * on the awaiting outbound pipeline.
+     */
+    override suspend fun onInboundAck(batchId: Long, watermark: Long) {
+        withContext(NonCancellable) {
+            val active = inFlightBatch
+
+            val rowsUpdated = transactor.runImmediateTransaction {
+                val updated = intentStore.acknowledgeSuccess(batchId)
+                nodeManager.commitOutboundWatermark(watermark, timeUtils.now())
+                updated
+            }
+
+            if (active != null && active.batchId == batchId) {
+                logger.v { "Inbound: Acknowledged batch $batchId (updated=$rowsUpdated) to watermark $watermark" }
+                active.deferred.complete(watermark)
+            } else {
+                logger.w { "Inbound: Settled batch $batchId (updated=$rowsUpdated) to watermark $watermark. inFlightBatch asynchronicity occurred (active: ${active?.batchId})" }
+            }
+        }
+    }
+
+    /**
+     * Checks if an outbound queue is awaiting an ack, and if so, completes with an exception resulting
+     * in outbound queue job cancellation.
+     */
+    override suspend fun abortInFlightBatch(exception: Exception) {
+        val active = inFlightBatch ?: return
+        inFlightBatch = null
+        active.deferred.completeExceptionally(exception)
     }
 
     /**
@@ -218,35 +272,29 @@ internal class DefaultSyncCoordinator(
         return this
     }
 
-    private suspend fun handleSendResult(batchId: String, result: SendResult): Boolean =
-        when (result) {
-            is SendResult.Success -> {
-                intentStore.acknowledgeSuccess(batchId)
-                true
-            }
-
-            is SendResult.NoConnection -> {
-                logger.w { "Outbound: No connection for batch $batchId. Awaiting reconnection." }
+    private suspend fun awaitAck(
+        batchId: Long,
+        ackDeferred: CompletableDeferred<Long>
+    ): Boolean = try {
+        withTimeout(15.seconds) { ackDeferred.await() }
+        true
+    } catch (e: Exception) {
+        when (e) {
+            is TimeoutCancellationException,
+            is MochaException.Transient.NetworkDisconnect -> {
+                logger.w { "Outbound: ACK terminating for batch $batchId (${e::class.simpleName})" }
+                intentStore.releaseIntents(batchId)
                 false
             }
 
-            is SendResult.Failure -> {
-                intentStore.stampLastError(batchId, result.cause.message ?: "Transmission failure")
-
-                if (result.cause is MochaException.Persistent) {
-                    logger.e(result.cause) { "Outbound: Persistent failure on batch $batchId. Terminating outbound loop." }
-                    // Maybe need some kind of global app state and manager?
-                } else {
-                    logger.w(result.cause) { "Outbound: Failed to transmit batch $batchId. Janitor to reconcile." }
-                }
-                false
-            }
+            else -> throw e
         }
+    }
 
     // -- Exception Processing --
 
     private suspend fun handleBatchEncodingFailure(
-        batchId: String,
+        batchId: Long,
         batch: List<SyncIntent>,
         e: Exception
     ) {
@@ -260,7 +308,7 @@ internal class DefaultSyncCoordinator(
                     intentCodec.encode(intent)
                     validIntents.add(intent)
                 } catch (innerEx: Exception) {
-                    if (e is CancellationException || e is MochaException.Persistent) throw e
+                    if (innerEx is CancellationException || innerEx is MochaException.Persistent) throw innerEx
 
                     intentStore.quarantineIntent(
                         hlc = intent.hlc,
@@ -277,16 +325,47 @@ internal class DefaultSyncCoordinator(
         }
     }
 
+    /**
+     * Packet never made it to the network so recover the intents immediately, or
+     * if this is an internal issue, respond accordingly.
+     */
+    private suspend fun SendResult.processSendFailure(batchId: Long): Boolean {
+        when (this) {
+            is SendResult.NoConnection -> {
+                logger.w { "Outbound: Connection lost on call to send $batchId. Releasing batch, awaiting reconnection..." }
+                intentStore.releaseIntents(batchId)
+            }
+
+            is SendResult.Failure -> {
+                intentStore.stampLastError(batchId, this.cause.message ?: "Transmission failure")
+
+                if (this.cause is MochaException.Persistent) {
+                    logger.e(this.cause) { "Outbound: Persistent failure on batch $batchId. Terminating outbound loop." }
+                    throw this.cause
+                    // Maybe need some kind of global app state and manager?
+                } else {
+                    logger.w(this.cause) { "Outbound: Failed to transmit batch $batchId. Possible data integrity issue." }
+                }
+            }
+
+            else -> {}
+        }
+
+        return false
+    }
+
+
     private suspend fun handlePayloadDecodeError(
         watermark: Long,
         inbound: ByteArray,
         e: Exception
     ) {
-        var failureReason = e.message ?: "Codec decode failure"
-
         if (e is CancellationException || e is MochaException.Persistent) throw e
-        if (e is MochaException.Transient) {
-            failureReason = "TRANSIENT_$failureReason"
+
+        val failureReason = if (e is MochaException.Transient) {
+            "TRANSIENT_${e.message}"
+        } else {
+            e.message ?: "Codec decode failure"
         }
 
         logger.e(e) { "Inbound [watermark-$watermark]: Parsing failure during batch processing (${inbound.size}B). $failureReason" }
@@ -297,7 +376,7 @@ internal class DefaultSyncCoordinator(
                 rawPayload = inbound,
                 failureReason = failureReason
             )
-            nodeManager.recogniseServerResponse(watermark, timeUtils.now())
+            nodeManager.commitInboundWatermark(watermark, timeUtils.now())
         }
     }
 

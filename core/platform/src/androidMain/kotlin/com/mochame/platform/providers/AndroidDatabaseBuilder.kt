@@ -13,15 +13,12 @@ actual inline fun <reified T : RoomDatabase> platformBuilder(
     location: DatabaseLocation,
     driver: SQLiteDriver,
     noinline factory: () -> T
-): RoomDatabase.Builder<T> {
-    val builder = when (location) {
-        is DatabaseLocation.InMemory -> {
-            Room.inMemoryDatabaseBuilder<T>(context.androidContext, factory)
-        }
-
-        is DatabaseLocation.OnDisk -> {
-            Room.databaseBuilder<T>(context.androidContext, location.path, factory)
-        }
+): RoomDatabase.Builder<T> = when (location) {
+    is DatabaseLocation.InMemory -> {
+        Room.inMemoryDatabaseBuilder<T>(context.androidContext, factory)
     }
-    return builder.applyMochaDefaults(queryContext, driver)
-}
+
+    is DatabaseLocation.OnDisk -> {
+        Room.databaseBuilder<T>(context.androidContext, location.path, factory)
+    }
+}.applyMochaDefaults(queryContext, driver)

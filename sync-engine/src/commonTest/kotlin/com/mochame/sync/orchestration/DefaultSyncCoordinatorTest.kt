@@ -28,9 +28,11 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runCurrent
@@ -509,6 +511,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
 
     @Test
     fun should_processAllAvailableBatches_until_queueIsEmpty() = runEnv {
+        // Given
         bootManager.updateState(BootState.Ready)
         val hlc1 = TestHlcFactory.create(ts = 100)
         val hlc2 = TestHlcFactory.create(ts = 200)
@@ -517,6 +520,12 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         val intent2 = createTestSyncIntent(candidateKey = 2L, hlc = hlc2)
         intentStore.seedIntents(intent1, intent2)
 
+        syncTransport.registerInboundAckHandler { batchId, watermark ->
+            coordinator.onInboundAck(batchId, watermark)
+        }
+        syncTransport.autoAck = true
+
+        // When
         coordinator.processQueueUntilExhausted()
 
         // Iteration 1: Claims all pending rows (2), encodes batch
@@ -626,6 +635,10 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
     fun should_isolateDownstreamException_and_preserveStreamLifecycleForSubsequentInvalidations() =
         runEnv { scope ->
             bootManager.updateState(BootState.Ready)
+            syncTransport.registerInboundAckHandler { batchId, watermark ->
+                coordinator.onInboundAck(batchId, watermark)
+            }
+            syncTransport.autoAck = true
 
             val outboundJob = coordinator.startOutboundListener()
             scope.runCurrent()
@@ -809,6 +822,10 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         ) { scope ->
             bootManager.updateState(BootState.Ready)
             hlcFactory.hydrate(null, TestNodeId.A)
+            syncTransport.registerInboundAckHandler { batchId, watermark ->
+                coordinator.onInboundAck(batchId, watermark)
+            }
+            syncTransport.autoAck = true
             intentStore.failWith = MochaException.Transient.DatabaseBusy("Database busy")
             val outboundJob = coordinator.startOutboundListener()
 

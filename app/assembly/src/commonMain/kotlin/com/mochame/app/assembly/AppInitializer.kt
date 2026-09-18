@@ -5,6 +5,7 @@ import com.mochame.annotations.AppBackgroundScope
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.sync.api.boot.BootState
+import com.mochame.sync.api.exceptions.MochaException
 import com.mochame.sync.spi.boot.BootStatusUpdater
 import com.mochame.sync.spi.network.NetworkConfig
 import com.mochame.sync.spi.network.SyncTransport
@@ -50,12 +51,20 @@ internal class DefaultAppInitializer(
 
                 logger.i { "Application initialized successfully..." }
 
-                transport.registerInboundHandler { watermark, bytes ->
+                transport.registerInboundAckHandler { batchId, watermark ->
+                    coordinator.onInboundAck(batchId, watermark)
+                }
+
+                transport.registerInboundDeltaHandler { watermark, bytes ->
                     coordinator.onInboundBytes(watermark, bytes)
                 }
 
                 transport.setOnConnectedListener {
-                    coordinator.processQueueUntilExhausted()
+                    coordinator.startOutboundListener()
+                }
+
+                transport.setOnDisconnectedListener {
+                    coordinator.abortInFlightBatch(MochaException.Transient.NetworkDisconnect("Transport disconnected"))
                 }
 
                 transport.connect(
@@ -63,9 +72,6 @@ internal class DefaultAppInitializer(
                     port = connectionEndPoint.serverPort,
                     groupId = connectionEndPoint.syncGroupId,
                 )
-
-                coordinator.startOutboundListener()
-
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
 

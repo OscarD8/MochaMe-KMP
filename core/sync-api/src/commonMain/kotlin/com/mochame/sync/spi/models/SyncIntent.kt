@@ -13,7 +13,7 @@ data class SyncIntent(
     val operation: MutationOp,
     val createdAt: Long,
     val changedMask: Long,
-    val batchId: String? = null,
+    val batchId: Long? = null,
     val payload: ByteArray? = null,
     val diagnosticSummary: String? = null,
     val overflowBlobId: String? = null,

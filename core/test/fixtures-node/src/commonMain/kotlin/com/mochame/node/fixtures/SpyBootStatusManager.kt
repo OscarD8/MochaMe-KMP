@@ -10,10 +10,10 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 class SpyBootStatusManager(
-    initialState: BootState = BootState.Idle,
+    private val initialState: BootState = BootState.Idle,
     timeout: Duration = 5.seconds,
     private val delegate: DefaultBootStatusManager = DefaultBootStatusManager(initialState, timeout)
-) : BootStatusProvider, BootStatusUpdater by delegate {
+) : BootStatusProvider by delegate, BootStatusUpdater {
     private val lock = reentrantLock()
     private val _history = mutableListOf(initialState)
 
@@ -27,9 +27,11 @@ class SpyBootStatusManager(
         delegate.updateState(newState)
     }
 
-    fun reset(initialState: BootState = BootState.Idle) = lock.withLock {
-        _history.clear()
-        _history.add(initialState)
+    fun reset(initialState: BootState = BootState.Idle) {
+        lock.withLock {
+            _history.clear()
+            _history.add(initialState)
+        }
         delegate.updateState(initialState)
     }
 }

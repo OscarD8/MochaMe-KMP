@@ -234,9 +234,9 @@ class IntentCodecV1Test : MochaPlatformTest() {
     @Test
     fun should_strip_local_leased_at_stamp_during_wire_serialization_lifecycle() = runEnv {
         val batchLeasedAt = 1740788000000L
-        val localSyncId = "batch-lease-tx-88192"
+        val localBatchId = 88192L
         val leasedIntent = createTestSyncIntent(
-            batchId = localSyncId,
+            batchId = localBatchId,
             leasedAt = batchLeasedAt
         )
 

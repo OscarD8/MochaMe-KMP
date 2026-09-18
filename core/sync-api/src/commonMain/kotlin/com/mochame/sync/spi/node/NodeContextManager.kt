@@ -22,10 +22,12 @@ interface NodeContextManager {
 
     suspend fun updateHlcFloor(hlc: HLC)
 
-    suspend fun recogniseServerResponse(
+    suspend fun commitInboundWatermark(
         watermark: Long,
         timestamp: Instant,
     )
+
+    suspend fun commitOutboundWatermark(watermark: Long, timestamp: Instant)
 
     suspend fun getMaxHlc(): HLC?
 

@@ -18,7 +18,7 @@ class JanitorMaintenanceConfig(
 ) {
     companion object {
         val DEFAULT_MAINTENANCE_DELAY = 30.seconds
-        val DEFAULT_STALE_THRESHOLD = 2.minutes
+        val DEFAULT_STALE_THRESHOLD = 5.minutes
         val STARTUP_TIMEOUT = 10.seconds
         const val DEFAULT_RETRY_THRESHOLD = 5
     }

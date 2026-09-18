@@ -9,8 +9,7 @@ import com.mochame.sync.api.metadata.SyncStatus
 import kotlin.time.Clock
 
 /**
- * Sync metadata wrapping each local intent. This model extends on the domain model [DecodeContext]
- * to extend conflict resolution capabilities.
+ * Sync metadata wrapping each local intent.
  * Idea is for this to act as a persistence record of a mutation's lifecycle.
  */
 @Entity(
@@ -32,7 +31,7 @@ data class SyncIntentEntity(
     val payload: ByteArray?,
     val overflowBlobId: String?,
     val syncStatus: SyncStatus,
-    val batchId: String? = null,          // lease identity, diagnostic traceability
+    val batchId: Long? = null,          // lease identity, diagnostic traceability
     val leasedAt: Long? = null,          // enables safe Janitor cutoff queries
     val diagnosticSummary: String?,
     val retryCount: Int = 0,              // Janitor implements threshold logic

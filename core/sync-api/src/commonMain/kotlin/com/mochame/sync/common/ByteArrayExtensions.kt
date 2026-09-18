@@ -13,7 +13,7 @@ package com.mochame.sync.common
  * Reading from a ByteArray stored in Big-Endian.
  */
 @Suppress("NOTHING_TO_INLINE")
-internal inline fun ByteArray.readLongAt(offset: Int): Long =
+inline fun ByteArray.readLongAt(offset: Int): Long =
     ((this[offset].toLong() and 0xFFL) shl 56) or
             ((this[offset + 1].toLong() and 0xFFL) shl 48) or
             ((this[offset + 2].toLong() and 0xFFL) shl 40) or

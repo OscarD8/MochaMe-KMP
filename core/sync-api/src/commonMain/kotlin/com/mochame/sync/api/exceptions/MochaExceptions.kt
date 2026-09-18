@@ -15,7 +15,7 @@ sealed class MochaException(
         class DatabaseBusy(message: String? = null, cause: Throwable? = null) :
             Transient(message ?: "The database is locked.", cause)
 
-        class NetworkTimeout(message: String? = null, cause: Throwable? = null) :
+        class NetworkDisconnect(message: String? = null, cause: Throwable? = null) :
             Transient(message ?: "The sync server took too long to respond.", cause)
 
         class Contention(message: String? = null, cause: Throwable? = null) :

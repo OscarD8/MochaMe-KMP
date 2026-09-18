@@ -65,7 +65,7 @@ class DefaultSyncJanitorTest : MochaPlatformTest() {
 
     @Test
     fun should_cancelJobAndAbortBoot_when_cancellationExceptionThrownDuringStaleIntentRec() =
-        runEnv { scope ->
+        runEnv {
             transactor.shouldThrow = CancellationException("User closed app at blob reconciliation")
             bootUpdater.updateState(BootState.Init)
             val intentToQuarantine = createTestSyncIntent(
@@ -361,14 +361,14 @@ class DefaultSyncJanitorTest : MochaPlatformTest() {
                 createTestSyncIntent(
                     hlc = hlc1,
                     status = SyncStatus.SYNCING,
-                    batchId = "batch-stranded-1",
+                    batchId = 100L,
                     leasedAt = staleTime,
                     retryCount = 0
                 ),
                 createTestSyncIntent(
                     hlc = hlc2,
                     status = SyncStatus.SYNCING,
-                    batchId = "batch-stranded-2",
+                    batchId = 101L,
                     leasedAt = staleTime,
                     retryCount = 0
                 )
@@ -562,7 +562,7 @@ class DefaultSyncJanitorTest : MochaPlatformTest() {
                 status = SyncStatus.SYNCING,
                 leasedAt = staleTimestamp,
                 retryCount = initialRetryCount,
-                batchId = "testing"
+                batchId = 200L
             )
             intentStore.seedIntents(intent)
 
@@ -607,7 +607,7 @@ class DefaultSyncJanitorTest : MochaPlatformTest() {
         val intent = createTestSyncIntent(
             hlc = TestHlcFactory.create(),
             status = SyncStatus.SYNCING,
-            batchId = "test",
+            batchId = 300L,
             leasedAt = staleTimestamp,
             retryCount = initialRetryCount
         )
@@ -642,7 +642,7 @@ class DefaultSyncJanitorTest : MochaPlatformTest() {
         val intent = createTestSyncIntent(
             hlc = TestHlcFactory.create(),
             status = SyncStatus.SYNCING,
-            batchId = "test",
+            batchId = 300L,
             leasedAt = leaseStamp,
             retryCount = 1
         )
@@ -687,21 +687,21 @@ class DefaultSyncJanitorTest : MochaPlatformTest() {
             val quarantineIntent = createTestSyncIntent(
                 hlc = hlcs[0],
                 status = SyncStatus.SYNCING,
-                batchId = "quarantine-target",
+                batchId = 400L,
                 leasedAt = staleTimestamp,
                 retryCount = config.retryThreshold - 1
             )
             val resetIntent = createTestSyncIntent(
                 hlc = hlcs[1],
                 status = SyncStatus.SYNCING,
-                batchId = "reset-target",
+                batchId = 401L,
                 leasedAt = staleTimestamp,
                 retryCount = 0
             )
             val activeIntent = createTestSyncIntent(
                 hlc = hlcs[2],
                 status = SyncStatus.SYNCING,
-                batchId = "active-target",
+                batchId = 402L,
                 leasedAt = activeTimestamp,
                 retryCount = 1
             )

@@ -16,6 +16,8 @@ import kotlin.time.TimeSource
 
 /**
  * Execution policy for the local database.
+ *
+ * Developed before realizing Pragma timeout
  */
 @Single(binds = [ExecutionPolicy::class])
 class StaggeredDbRetryPolicy(

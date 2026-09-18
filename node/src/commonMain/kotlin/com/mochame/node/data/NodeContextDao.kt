@@ -46,11 +46,8 @@ interface NodeContextDao {
     @Query("SELECT lastInboundWatermark FROM node_context WHERE id = 1")
     suspend fun getLastInboundWatermark(): Long?
 
-    @Query("UPDATE node_context SET lastInboundWatermark = :watermark WHERE id = 1 AND (:watermark > lastInboundWatermark OR lastInboundWatermark IS NULL)")
-    suspend fun setInboundWatermark(watermark: Long): Int
-
-    @Query("UPDATE node_context SET maxHlc = :hlc WHERE id = 1 AND (maxHlc IS NULL OR :hlc > maxHlc)")
-    suspend fun setMaxHlc(hlc: String): Int
+    @Query("SELECT lastOutboundWatermark FROM node_context WHERE id = 1")
+    suspend fun getLastOutboundWatermark(): Long?
 
     @Query("""
         UPDATE node_context
@@ -58,7 +55,18 @@ interface NodeContextDao {
             lastServerResponseTime = :timeStamp  
         WHERE id = 1  AND (:watermark > lastInboundWatermark OR lastInboundWatermark IS NULL)
     """)
-    suspend fun setWatermarkAndTimestamp(watermark: Long, timeStamp: Long)
+    suspend fun setInboundWatermark(watermark: Long, timeStamp: Long): Int
+
+    @Query("""
+        UPDATE node_context
+        SET lastOutboundWatermark = :watermark, 
+            lastServerResponseTime = :timeStamp  
+        WHERE id = 1  AND (:watermark > lastOutboundWatermark OR lastOutboundWatermark IS NULL)
+    """)
+    suspend fun setOutboundWatermark(watermark: Long, timeStamp: Long)
+
+    @Query("UPDATE node_context SET maxHlc = :hlc WHERE id = 1 AND (maxHlc IS NULL OR :hlc > maxHlc)")
+    suspend fun setMaxHlc(hlc: String): Int
 
     @Upsert
     suspend fun upsert(entity: NodeContextEntity)

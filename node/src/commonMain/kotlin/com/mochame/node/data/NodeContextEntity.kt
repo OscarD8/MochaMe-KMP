@@ -12,5 +12,6 @@ data class NodeContextEntity(
     val createdAt: Long = Clock.System.now().toEpochMilliseconds(),
     val maxHlc: String? = null,
     val lastInboundWatermark: Long? = null,
+    val lastOutboundWatermark: Long? = null,
     val lastServerResponseTime: Long? = null,
 )

@@ -4,7 +4,6 @@ import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
-import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.api.metadata.SyncStatus
 import com.mochame.sync.spi.models.QuarantinedFeatureSummary
 import kotlinx.coroutines.flow.Flow
@@ -59,6 +58,9 @@ interface SyncIntentDao {
         status: SyncStatus = SyncStatus.PENDING
     ): List<SyncIntentEntity>
 
+    @Query("SELECT MAX(batchId) FROM SyncIntentEntity")
+    suspend fun getMaxBatchId(): Long?
+
     /**
      * For an entity to be valid for a batch (and therefore synchronization) it must:
      * - Have no current lease
@@ -101,7 +103,7 @@ interface SyncIntentDao {
     """
     )
     suspend fun claimBatch(
-        id: String,
+        id: Long,
         limit: Int,
         leasedAt: Long,
         pendingStatus: SyncStatus = SyncStatus.PENDING,
@@ -111,11 +113,11 @@ interface SyncIntentDao {
     ): Int
 
     @Query("SELECT * FROM SyncIntentEntity WHERE batchId = :id ORDER BY hlc ASC")
-    suspend fun getClaimedBatch(id: String): List<SyncIntentEntity>
+    suspend fun getClaimedBatch(id: Long): List<SyncIntentEntity>
 
     @Transaction
     suspend fun claimAndGetBatch(
-        id: String,
+        id: Long,
         limit: Int,
         leasedAt: Long = Clock.System.now().toEpochMilliseconds(),
         pendingStatus: SyncStatus = SyncStatus.PENDING,
@@ -135,7 +137,7 @@ interface SyncIntentDao {
     """
     )
     suspend fun updateBatchStatus(
-        batchId: String,
+        batchId: Long,
         status: SyncStatus,
         expectedCurrentStatus: SyncStatus
     ): Int
@@ -147,7 +149,7 @@ interface SyncIntentDao {
         WHERE batchId = :batchId
     """
     )
-    suspend fun stampLastError(batchId: String, message: String)
+    suspend fun stampLastError(batchId: Long, message: String)
 
     @Query(
         """
@@ -165,17 +167,33 @@ interface SyncIntentDao {
     ): Int
 
     @Query(
-        """
+    """
     UPDATE SyncIntentEntity
     SET syncStatus = :pendingStatus,
         batchId = NULL,
         leasedAt = NULL
-    WHERE hlc IN (:hlcs)
+    WHERE batchId = :batchId AND syncStatus != :avoidStatus
     """
     )
-    suspend fun releaseIntents(
-        hlcs: List<String>,
-        pendingStatus: SyncStatus = SyncStatus.PENDING
+    suspend fun releaseByBatch(
+        batchId: Long,
+        pendingStatus: SyncStatus = SyncStatus.PENDING,
+        avoidStatus: SyncStatus = SyncStatus.SYNCING
+    ): Int
+
+    @Query(
+    """
+        UPDATE SyncIntentEntity
+        SET syncStatus = :pendingStatus,
+            batchId = NULL,
+            leasedAt = NULL
+        WHERE hlc IN (:list) AND syncStatus != :avoidStatus
+    """
+    )
+    suspend fun releaseByHlc(
+        list: List<String>,
+        pendingStatus: SyncStatus = SyncStatus.PENDING,
+        avoidStatus: SyncStatus = SyncStatus.SYNCING
     ): Int
 
     // ----- CLEAN UP (Janitor Support) ------
@@ -221,19 +239,20 @@ interface SyncIntentDao {
     @Query(
         """
     UPDATE SyncIntentEntity
-    SET retryCount = retryCount + 1,
+    SET retryCount = retryCount + (:shouldIncrementRetry),
         syncStatus = :resetStatus,
         batchId = NULL,
         leasedAt = NULL
     WHERE batchId IS NOT NULL 
       AND syncStatus = :targetStatus 
       AND leasedAt <= :cutOff
-      AND (retryCount + 1) < :retryThreshold
+      AND (retryCount + (:shouldIncrementRetry)) < :retryThreshold
     """
     )
     suspend fun resetStaleLeases(
         cutOff: Long,
         retryThreshold: Int,
+        shouldIncrementRetry: Boolean,
         targetStatus: SyncStatus = SyncStatus.SYNCING,
         resetStatus: SyncStatus = SyncStatus.PENDING
     ): Int

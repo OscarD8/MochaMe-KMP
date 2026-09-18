@@ -70,10 +70,16 @@ internal class ClientWebSocketTransport(
     private var activeSession: DefaultClientWebSocketSession? = null
 
     @Volatile
-    private var inboundHandler: (suspend (Long, ByteArray) -> Unit)? = null
+    private var inboundDeltaHandler: (suspend (watermark: Long, payload: ByteArray) -> Unit)? = null
+
+    @Volatile
+    private var inboundAckHandler: (suspend (batchId: Long, watermark: Long) -> Unit)? = null
 
     @Volatile
     private var onConnectedListener: (suspend () -> Unit)? = null
+
+    @Volatile
+    private var onDisconnectedListener: (suspend () -> Unit)? = null
 
     private var connectionJob: Job? = null
     private var pauseDebounceJob: Job? = null
@@ -86,8 +92,16 @@ internal class ClientWebSocketTransport(
         this.onConnectedListener = onConnected
     }
 
-    override fun registerInboundHandler(onReceived: suspend (Long, ByteArray) -> Unit) {
-        this.inboundHandler = onReceived
+    override fun setOnDisconnectedListener(onDisconnected: suspend () -> Unit) {
+        this.onDisconnectedListener = onDisconnected
+    }
+
+    override fun registerInboundDeltaHandler(onReceived: suspend (Long, ByteArray) -> Unit) {
+        this.inboundDeltaHandler = onReceived
+    }
+
+    override fun registerInboundAckHandler(onAck: suspend (Long, Long) -> Unit) {
+        this.inboundAckHandler = onAck
     }
 
     override suspend fun connect(
@@ -198,11 +212,12 @@ internal class ClientWebSocketTransport(
         }
     }
 
-    override suspend fun send(payload: ByteArray): SendResult {
+    override suspend fun send(batchId: Long, payload: ByteArray): SendResult {
         val session = activeSession ?: return SendResult.NoConnection
 
         return try {
-            session.send(Frame.Binary(fin = true, data = payload))
+            val frame = SyncWireFrame.batch(batchId, payload)
+            session.send(Frame.Binary(fin = true, data = frame))
             SendResult.Success
         } catch (e: CancellationException) {
             throw e
@@ -248,17 +263,21 @@ internal class ClientWebSocketTransport(
             }
 
             is InboundWireFrame.Ack -> {
-                nodeManager.recogniseServerResponse(wireFrame.watermark, timeUtils.now())
+                inboundAckHandler?.invoke(wireFrame.batchId, wireFrame.watermark)
             }
 
             is InboundWireFrame.Delta -> {
                 try {
-                    inboundHandler?.invoke(wireFrame.watermark, wireFrame.payload)
+                    inboundDeltaHandler?.invoke(wireFrame.watermark, wireFrame.payload)
                 } catch (e: Exception) {
                     if (e is CancellationException) throw e
                     logger.e(e) { "Inbound processing failed at watermark ${wireFrame.watermark}. Closing socket." }
                     close(CloseReason(CloseReason.Codes.TRY_AGAIN_LATER, "Inbound ingestion error"))
                 }
+            }
+
+            is InboundWireFrame.ClientSubmit -> {
+                logger.w { "Device received an unexpected client submit frame [BatchId: ${wireFrame.batchId}] [Size: ${wireFrame.payload.size}]" }
             }
         }
     }

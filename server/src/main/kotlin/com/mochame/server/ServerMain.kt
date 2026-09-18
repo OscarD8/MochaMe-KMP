@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import co.touchlab.kermit.Severity
 import co.touchlab.kermit.StaticConfig
 import com.mochame.logger.CleanLogWriter
+import com.mochame.sync.common.readLongAt
 import com.mochame.sync.spi.network.SyncWireFrame
 import io.ktor.server.application.install
 import io.ktor.server.cio.CIO
@@ -201,6 +202,7 @@ fun main() {
                     for (frame in incoming) {
                         if (frame is Frame.Binary) {
                             val rawPayload = frame.readBytes()
+                            val batchId = rawPayload.readLongAt(1)
                             val dispatcher = coroutineContext[ContinuationInterceptor]
                             val threadName = Thread.currentThread().name
                             logger.d { "Awoke on thread '$threadName' with dispatcher '$dispatcher'" }
@@ -210,8 +212,10 @@ fun main() {
                                 originNodeId = nodeId,
                                 payload = rawPayload
                             ).also { logger.v { "Intent by $nodeId. Assigned watermark: $it" } }
+                            // so the above could fail on worker task blocking, meanwhile ktor worker was freed
+                            // and processed future inbounds, and we never inserted this delta or broadcasted it?
 
-                            send(Frame.Binary(true, SyncWireFrame.ack(assignedWatermark)))
+                            send(Frame.Binary(true, SyncWireFrame.ack(batchId, assignedWatermark)))
 
                             val peerFrame = SyncWireFrame.delta(assignedWatermark, rawPayload)
                             relayManager.broadcast(

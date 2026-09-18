@@ -5,6 +5,8 @@ import org.gradle.api.artifacts.VersionCatalog
 import org.gradle.api.artifacts.VersionCatalogsExtension
 import org.gradle.api.tasks.testing.AbstractTestTask
 import org.gradle.api.tasks.testing.logging.TestLogEvent
+import org.gradle.kotlin.dsl.configure
+import org.gradle.kotlin.dsl.getByType
 import org.gradle.kotlin.dsl.withType
 import org.koin.compiler.plugin.KoinGradleExtension
 
@@ -38,7 +40,7 @@ fun Project.standardConfigurations() {
  * Accessor for the Koin Compiler.
  */
 private fun Project.mochaKoin(configure: KoinGradleExtension.() -> Unit) {
-    extensions.configure(KoinGradleExtension::class.java, configure)
+    extensions.configure<KoinGradleExtension>(configure)
 }
 
 
@@ -47,12 +49,11 @@ private fun Project.mochaKoin(configure: KoinGradleExtension.() -> Unit) {
  * Accessor for the Version Catalog.
  */
 val Project.libs: VersionCatalog
-    get() = extensions.getByType(VersionCatalogsExtension::class.java)
+    get() = extensions.getByType<VersionCatalogsExtension>()
         .find("libs")
         .orElseThrow {
             IllegalStateException("[MochaMe] 'libs' Version Catalog retrieval failed. Confirm settings.gradle.kts.")
         }
-
 /**
  * Accessor for OS detection.
  * Tracked by Gradle's Configuration Cache via 'project.providers'.
@@ -60,4 +61,4 @@ val Project.libs: VersionCatalog
 val Project.isMac: Boolean
     get() = providers.systemProperty("os.name")
         .getOrElse("Unknown")
-        .contains("Mac OS X", ignoreCase = true)
+        .contains("Mac", ignoreCase = true)

@@ -1,20 +1,50 @@
 package com.mochame.server
 
+import com.mochame.annotations.IoContext
 import java.io.File
 import java.sql.Connection
 import java.sql.DriverManager
 import java.sql.PreparedStatement
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlin.coroutines.CoroutineContext
 
 data class StoredDelta(
     val watermark: Long,
     val payload: ByteArray
 )
 
+/**
+ * // Write Pool: Serialized at the pool boundary to prevent SQLITE_BUSY
+ * val writeDataSource = HikariDataSource(HikariConfig().apply {
+ *     jdbcUrl = "jdbc:sqlite:$path"
+ *     maximumPoolSize = 1 // Enforces single-writer architecture natively
+ *     poolName = "SQLite-Writer-Pool"
+ * })
+ *
+ * // Read Pool: Parallelized across CPU cores
+ * val readDataSource = HikariDataSource(HikariConfig().apply {
+ *     jdbcUrl = "jdbc:sqlite:$path"
+ *     maximumPoolSize = Runtime.getRuntime().availableProcessors() * 2
+ *     isReadOnly = true
+ *     poolName = "SQLite-Reader-Pool"
+ * })
+ *
+ * // In local development / testing:
+ * val readDataSource = HikariDataSource(HikariConfig().apply {
+ *     jdbcUrl = "jdbc:sqlite:$path"
+ *     maximumPoolSize = 2 // Sufficient for local pairing and multi-device tests
+ *     isReadOnly = true
+ *     poolName = "SQLite-Reader-Pool"
+ * })
+ */
+
 val dbPath: String = "${System.getProperty("user.home")}/.mochame/sync_server.db"
 
-class ServerDatabase(path: String = dbPath) {
+class ServerDatabase(
+    path: String = dbPath,
+    @IoContext private val ioContext: CoroutineContext = Dispatchers.IO
+) {
     private val url = "jdbc:sqlite:$path"
 
     init {
@@ -23,6 +53,8 @@ class ServerDatabase(path: String = dbPath) {
             conn.createStatement().use { stmt ->
                 stmt.execute("PRAGMA journal_mode = WAL;")
                 stmt.execute("PRAGMA synchronous = NORMAL;")
+                stmt.execute("PRAGMA wal_checkpoint = PASSIVE;")
+                stmt.execute("PRAGMA wal_autocheckpoint = 1000;")
                 stmt.execute("PRAGMA busy_timeout=5000;")
                 stmt.execute(
                     """
@@ -48,7 +80,7 @@ class ServerDatabase(path: String = dbPath) {
     private fun getConnection(): Connection = DriverManager.getConnection(url)
 
     suspend fun insertDelta(groupId: String, originNodeId: String, payload: ByteArray): Long =
-        withContext(Dispatchers.IO) {
+        withContext(ioContext) {
             val sql = """
                 INSERT INTO sync_change_log (group_id, origin_node_id, payload, created_at)
                 VALUES (?, ?, ?, ?);
@@ -73,7 +105,7 @@ class ServerDatabase(path: String = dbPath) {
         excludeNodeId: String,
         sinceWatermark: Long,
         limit: Int = 500
-    ): List<StoredDelta> = withContext(Dispatchers.IO) {
+    ): List<StoredDelta> = withContext(ioContext) {
         val sql = """
             SELECT watermark, payload 
             FROM sync_change_log 
@@ -104,7 +136,7 @@ class ServerDatabase(path: String = dbPath) {
         }
     }
 
-    suspend fun getMinWatermark(groupId: String): Long? = withContext(Dispatchers.IO) {
+    suspend fun getMinWatermark(groupId: String): Long? = withContext(ioContext) {
         val sql = "SELECT MIN(watermark) FROM sync_change_log WHERE group_id = ?;"
         getConnection().use { conn ->
             conn.prepareStatement(sql).use { stmt ->
@@ -118,7 +150,7 @@ class ServerDatabase(path: String = dbPath) {
         }
     }
 
-    suspend fun pruneExpiredDeltas(olderThanEpochMs: Long): Int = withContext(Dispatchers.IO) {
+    suspend fun pruneExpiredDeltas(olderThanEpochMs: Long): Int = withContext(ioContext) {
         val sql = "DELETE FROM sync_change_log WHERE created_at < ?;"
         getConnection().use { conn ->
             conn.prepareStatement(sql).use { stmt ->

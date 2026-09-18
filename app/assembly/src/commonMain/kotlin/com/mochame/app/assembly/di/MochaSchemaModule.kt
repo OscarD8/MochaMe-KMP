@@ -30,16 +30,15 @@ class MochaSchemaModule {
         @IoContext ioContext: CoroutineContext,
         driver: SQLiteDriver,
         location: DatabaseLocation
-    ): MochaMeDatabase {
-        return platformBuilder<MochaMeDatabase>(
-            context = context,
-            queryContext = ioContext,
-            isTest = false,
-            location = location,
-            driver = driver,
-            factory = { MochaMeDatabaseConstructor.initialize() }
-        ).build()
-    }
+    ): MochaMeDatabase = platformBuilder<MochaMeDatabase>(
+        context = context,
+        queryContext = ioContext,
+        isTest = false,
+        location = location,
+        driver = driver,
+        factory = { MochaMeDatabaseConstructor.initialize() }
+    ).build()
+
 
     @Single
     fun provideNodeContextDao(database: MochaMeDatabase): NodeContextDao =
