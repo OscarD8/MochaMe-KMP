@@ -171,6 +171,7 @@ internal class ClientWebSocketTransport(
 
         if (session != null) {
             try {
+                onDisconnectedListener?.invoke()
                 withTimeoutOrNull(500.milliseconds) {
                     session.close(CloseReason(CloseReason.Codes.NORMAL, "App backgrounded"))
                 }
@@ -198,7 +199,7 @@ internal class ClientWebSocketTransport(
                         delay(30.seconds)
                     }
                 } catch (e: CancellationException) {
-                    break
+                    throw e
                 } catch (e: MochaException.Persistent) {
                     logger.e(e) { "Terminating connection until manual trigger." }
                     break

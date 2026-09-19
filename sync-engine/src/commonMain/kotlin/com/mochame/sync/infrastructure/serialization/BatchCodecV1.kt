@@ -85,7 +85,6 @@ internal class BatchCodecV1(
             throw e
         }
 
-
         val totalEnvelopes = batchPayload.envelopes.size
         logger.v {
             "Decoding batch payload: ${bytes.size}B container, " +

@@ -12,7 +12,6 @@ import com.mochame.sync.api.hlc.HLC
 import com.mochame.sync.api.hlc.HlcFactory
 import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.api.metadata.SyncStatus
-import com.mochame.sync.domain.model.InFlightBatch
 import com.mochame.sync.domain.model.deriveContext
 import com.mochame.sync.spi.domain.QuarantinedPayloadStore
 import com.mochame.sync.spi.domain.SyncIntentMaintenanceStore
@@ -45,6 +44,10 @@ import kotlin.concurrent.Volatile
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 
+data class InFlightBatch (
+    val batchId: Long,
+    val deferred: CompletableDeferred<Unit>
+)
 
 @Single(binds = [SyncCoordinator::class])
 internal class DefaultSyncCoordinator(
@@ -134,7 +137,7 @@ internal class DefaultSyncCoordinator(
                 }
 
                 try {
-                    val ackDeferred = CompletableDeferred<Long>()
+                    val ackDeferred = CompletableDeferred<Unit>()
                     inFlightBatch = InFlightBatch(batch.batchId, ackDeferred)
 
                     val shouldContinue =
@@ -225,7 +228,7 @@ internal class DefaultSyncCoordinator(
 
             if (active != null && active.batchId == batchId) {
                 logger.v { "Inbound: Acknowledged batch $batchId (updated=$rowsUpdated) to watermark $watermark" }
-                active.deferred.complete(watermark)
+                active.deferred.complete(Unit)
             } else {
                 logger.w { "Inbound: Settled batch $batchId (updated=$rowsUpdated) to watermark $watermark. inFlightBatch asynchronicity occurred (active: ${active?.batchId})" }
             }
@@ -274,7 +277,7 @@ internal class DefaultSyncCoordinator(
 
     private suspend fun awaitAck(
         batchId: Long,
-        ackDeferred: CompletableDeferred<Long>
+        ackDeferred: CompletableDeferred<Unit>
     ): Boolean = try {
         withTimeout(15.seconds) { ackDeferred.await() }
         true

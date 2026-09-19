@@ -1,0 +1,359 @@
+package com.mochame.server.database
+
+import co.touchlab.kermit.Logger
+import com.mochame.annotations.IoContext
+import com.mochame.server.config.ServerConfig
+import com.mochame.server.relay.DeltaWriteIntent
+import com.zaxxer.hikari.HikariConfig
+import com.zaxxer.hikari.HikariDataSource
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
+import java.io.File
+import java.sql.PreparedStatement
+import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Duration
+
+data class StoredDelta(
+    val watermark: Long,
+    val payload: ByteArray
+)
+
+val dbPath: String = "${System.getProperty("user.home")}/.mochame/sync_server.db"
+
+
+/**
+ * Embedded SQLite storage layer for change-log delta persistence and catch-up queries.
+ *
+ * Access is partitioned into:
+ * - **Writer Pool (`writeDataSource`):** Restricted to exactly 1 connection (`maximumPoolSize = 1`).
+ * - **Reader Pool (`readDataSource`):** Scaled to `cores * 2` with `PRAGMA query_only = ON`.
+ *
+ * Cache sizes are explicitly negative to enforce KiB memory limits rather than page counts:
+ * - Writer: -2000 (~2 MB off-heap native C cache)
+ * - Readers: -4000 (~4 MB off-heap native C cache per connection)
+ * Total off-heap native cache ceiling: `(1 * 2MB) + ((cores * 2) * 4MB)`.
+ */
+class ServerDatabase(
+    path: String = dbPath,
+    @IoContext private val ioContext: CoroutineContext = Dispatchers.IO
+) : AutoCloseable {
+
+    private val writeDataSource: HikariDataSource
+    private val readDataSource: HikariDataSource
+    private val url = "jdbc:sqlite:$path"
+
+    init {
+        File(path).parentFile?.mkdirs()
+
+        val writeConfig = HikariConfig().apply {
+            jdbcUrl = url
+            poolName = "MochaMe-SQLite-Writer"
+            maximumPoolSize = 1
+            minimumIdle = 1
+            connectionTimeout = 6000
+            connectionInitSql = """
+                PRAGMA busy_timeout = 5000;
+                PRAGMA synchronous = NORMAL;
+                PRAGMA cache_size = -2000;
+            """.trimIndent()
+        }
+        writeDataSource = HikariDataSource(writeConfig)
+
+        initializeSchema()
+
+        val cores = Runtime.getRuntime().availableProcessors()
+        val readConfig = HikariConfig().apply {
+            jdbcUrl = url
+            poolName = "MochaMe-SQLite-Reader"
+            maximumPoolSize = (cores * 2).coerceAtLeast(2)
+            minimumIdle = 2
+            connectionTimeout = 6000
+            isReadOnly = true
+            connectionInitSql = """
+                PRAGMA query_only = ON;
+                PRAGMA busy_timeout = 5000;
+                PRAGMA cache_size = -4000;
+             """.trimIndent()
+        }
+        readDataSource = HikariDataSource(readConfig)
+    }
+
+    /**
+     * Executes initial table migrations and establishes WAL persistence mode.
+     * Must be invoked on startup, with PRAGMA usages for persisting flags on the
+     * database header.
+     */
+    private fun initializeSchema() {
+        writeDataSource.connection.use { conn ->
+            conn.createStatement().use { stmt ->
+                stmt.execute("PRAGMA journal_mode = WAL;")
+                stmt.execute("PRAGMA wal_autocheckpoint = 1000;")
+                stmt.execute("PRAGMA wal_checkpoint(PASSIVE);")
+                stmt.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS sync_change_log (
+                        watermark INTEGER PRIMARY KEY AUTOINCREMENT,
+                        group_id TEXT NOT NULL,
+                        origin_node_id TEXT NOT NULL,
+                        payload BLOB NOT NULL,
+                        created_at INTEGER NOT NULL
+                    );
+                    """.trimIndent()
+                )
+                stmt.execute(
+                    """
+                    CREATE INDEX IF NOT EXISTS idx_group_watermark 
+                    ON sync_change_log(group_id, watermark);
+                    """.trimIndent()
+                )
+            }
+        }
+    }
+
+    /**
+     * Commits a coalesced batch of delta intents within a single atomic SQLite transaction.
+     *
+     * Disables auto-commit to append all records in a single WAL operation,
+     * capturing auto-incremented watermarks for each intent.
+     *
+     * @param intents Coalesced write intents to persist sequentially.
+     * @return Monotonically ordered list of assigned watermarks matching intent positions.
+     * @throws java.sql.SQLException If the write transaction fails, connection times out,
+     *         or the disk is full. On failure, all writes in the batch are rolled back.
+     */
+    suspend fun insertBatch(intents: List<DeltaWriteIntent>): List<Long> = withContext(ioContext) {
+        if (intents.isEmpty()) return@withContext emptyList()
+
+        val sql = """
+            INSERT INTO sync_change_log (group_id, origin_node_id, payload, created_at)
+            VALUES (?, ?, ?, ?);
+        """.trimIndent()
+
+        writeDataSource.connection.use { conn ->
+            val wasAutoCommit = conn.autoCommit
+            conn.autoCommit = false
+
+            try {
+                val watermarks = ArrayList<Long>(intents.size)
+                val now = System.currentTimeMillis()
+
+                conn.prepareStatement(sql, PreparedStatement.RETURN_GENERATED_KEYS).use { stmt ->
+                    for (intent in intents) {
+                        stmt.setString(1, intent.groupId)
+                        stmt.setString(2, intent.originNodeId)
+                        stmt.setBytes(3, intent.rawPayload)
+                        stmt.setLong(4, now)
+                        stmt.executeUpdate()
+
+                        val rs = stmt.generatedKeys
+                        if (rs.next()) {
+                            watermarks.add(rs.getLong(1))
+                        } else {
+                            error("Failed to retrieve generated watermark for intent")
+                        }
+                    }
+                }
+                conn.commit()
+                watermarks
+            } catch (e: Throwable) {
+                conn.rollback()
+                throw e
+            } finally {
+                conn.autoCommit = wasAutoCommit
+            }
+        }
+    }
+
+    /**
+     * Retrieves a bounded, chronological page of historical deltas for client catch-up on initial connection.
+     *
+     * Traverses the composite index (`idx_group_watermark`) to perform an O(log N) range seek
+     * while filtering out deltas authored by [excludeNodeId] to prevent self-reflection. (Gemini claims, leaving for when returning to this)
+     *
+     * @param groupId Target sync group partition.
+     * @param excludeNodeId Node identifier of the caller to filter out its own authored writes.
+     * @param sinceWatermark Lower bound watermark (exclusive) to stream from.
+     * @param limit Maximum deltas to return, clamped to [ServerConfig.MAX_BACKFILL_CHUNK_SIZE].
+     * @return Ascending list of deltas strictly ordered by watermark.
+     * @throws java.sql.SQLException If borrowing a read connection times out or query execution fails.
+     */
+    suspend fun getDeltasSince(
+        groupId: String,
+        excludeNodeId: String,
+        sinceWatermark: Long,
+        limit: Int = ServerConfig.MAX_BACKFILL_CHUNK_SIZE
+    ): List<StoredDelta> = withContext(ioContext) {
+        val effectiveLimit = limit.coerceIn(1, ServerConfig.MAX_BACKFILL_CHUNK_SIZE)
+        val sql = """
+            SELECT watermark, payload 
+            FROM sync_change_log 
+            WHERE group_id = ? AND watermark > ? AND origin_node_id != ?
+            ORDER BY watermark ASC 
+            LIMIT ?;
+        """.trimIndent()
+
+        readDataSource.connection.use { conn ->
+            conn.prepareStatement(sql).use { stmt ->
+                stmt.setString(1, groupId)
+                stmt.setLong(2, sinceWatermark)
+                stmt.setString(3, excludeNodeId)
+                stmt.setInt(4, effectiveLimit)
+
+                val rs = stmt.executeQuery()
+                val results = ArrayList<StoredDelta>(effectiveLimit)
+                while (rs.next()) {
+                    results.add(
+                        StoredDelta(
+                            watermark = rs.getLong("watermark"),
+                            payload = rs.getBytes("payload")
+                        )
+                    )
+                }
+                results
+            }
+        }
+    }
+
+    /**
+     * Counts the total number of unobserved historical deltas available for a connecting node.
+     *
+     * Evaluates backlog volume prior to streaming to determine if a client is too far behind for
+     * granular delta sync and must instead be redirected to a state snapshot, protecting the
+     * server broadcasting from an intensive backfill.
+     *
+     * Utilizes the composite index (`idx_group_watermark`) to execute an index-backed scan
+     * while excluding self-authored writes via [excludeNodeId].
+     *
+     * @param groupId Target sync group partition.
+     * @param excludeNodeId Node identifier of the caller to filter out its own authored writes.
+     * @param sinceWatermark Lower bound watermark (exclusive) to evaluate from.
+     * @return Total number of pending deltas awaiting synchronization.
+     * @throws java.sql.SQLException If borrowing a read connection times out or query execution fails.
+     */
+    suspend fun countDeltasSince(
+        groupId: String,
+        excludeNodeId: String,
+        sinceWatermark: Long
+    ): Long = withContext(ioContext) {
+        val sql = """
+            SELECT COUNT(*) FROM sync_change_log 
+            WHERE group_id = ? AND watermark > ? AND origin_node_id != ?;
+        """.trimIndent()
+
+        readDataSource.connection.use { conn ->
+            conn.prepareStatement(sql).use { stmt ->
+                stmt.setString(1, groupId)
+                stmt.setLong(2, sinceWatermark)
+                stmt.setString(3, excludeNodeId)
+                val rs = stmt.executeQuery()
+                if (rs.next()) rs.getLong(1) else 0L
+            }
+        }
+    }
+
+    /**
+     * Retrieves the lowest surviving watermark currently retained for a sync group.
+     *
+     * Serves as a data integrity check against log compaction: if a connecting client's
+     * `sinceWatermark` falls below this value, the server cannot guarantee an unbroken
+     * causal history and must reject the client.
+     *
+     * Index seek against `idx_group_watermark`.
+     *
+     * @param groupId Target sync group partition.
+     * @return Oldest retained watermark in the group, or `null` if the group log is empty.
+     * @throws java.sql.SQLException If borrowing a read connection times out or query execution fails.
+     */
+    suspend fun getMinWatermark(groupId: String): Long? = withContext(ioContext) {
+        val sql = "SELECT MIN(watermark) FROM sync_change_log WHERE group_id = ?;"
+        readDataSource.connection.use { conn ->
+            conn.prepareStatement(sql).use { stmt ->
+                stmt.setString(1, groupId)
+                val rs = stmt.executeQuery()
+                if (rs.next()) {
+                    val minVal = rs.getLong(1)
+                    if (rs.wasNull()) null else minVal
+                } else null
+            }
+        }
+    }
+
+    /**
+     * Prunes expired change-log deltas older than a specified timestamp cutoff in incremental chunks.
+     *
+     * Executes deletions in iterative sub-transactions to avoid prolonged exclusive write locks.
+     * Checks out and releases the single [writeDataSource] connection per chunk and invokes [yield]
+     * between iterations, preventing HikariCP pool starvation and allowing the write pipeline
+     * ([com.mochame.server.relay.DatabaseActor]) to interleave live commits without latency spikes or connection timeouts.
+     *
+     * @param olderThanEpochMs Cutoff epoch timestamp in milliseconds; records created prior to this are deleted.
+     * @param chunkSize Maximum number of records deleted per database transaction, defaulting to [ServerConfig.LOG_PRUNE_CHUNK_SIZE].
+     * @return Total number of records deleted across all chunks.
+     * @throws java.sql.SQLException If acquiring the write connection or executing the deletion fails.
+     */
+    suspend fun pruneExpiredDeltas(
+        olderThanEpochMs: Long,
+        chunkSize: Int = ServerConfig.LOG_PRUNE_CHUNK_SIZE
+    ): Int = withContext(ioContext) {
+        val sql = """
+            DELETE FROM sync_change_log 
+            WHERE rowid IN (
+                SELECT rowid FROM sync_change_log 
+                WHERE created_at < ? 
+                LIMIT ?
+            );
+        """.trimIndent()
+
+        var totalPruned = 0
+        while (true) {
+            val prunedThisChunk = writeDataSource.connection.use { conn ->
+                conn.prepareStatement(sql).use { stmt ->
+                    stmt.setLong(1, olderThanEpochMs)
+                    stmt.setInt(2, chunkSize)
+                    stmt.executeUpdate()
+                }
+            }
+            totalPruned += prunedThisChunk
+            if (prunedThisChunk < chunkSize) break
+
+            yield()
+        }
+        totalPruned
+    }
+
+    override fun close() {
+        writeDataSource.close()
+        readDataSource.close()
+    }
+}
+
+fun CoroutineScope.runtimeLogPruning(
+    database: ServerDatabase,
+    logger: Logger,
+    retention: Duration = ServerConfig.LOG_RETENTION_DURATION,
+    interval: Duration = ServerConfig.LOG_PRUNE_INTERVAL,
+): Job = launch {
+    logger.v { "Runtime log pruning job starting..." }
+
+    while (isActive) {
+        try {
+            val cutoff = System.currentTimeMillis() - retention.inWholeMilliseconds
+            val pruned = database.pruneExpiredDeltas(cutoff)
+            if (pruned > 0) {
+                logger.i { "Pruned $pruned expired deltas from log." }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.e(e) { "Log compaction task failed. Will retry on interval..." }
+        }
+        delay(interval)
+    }
+}

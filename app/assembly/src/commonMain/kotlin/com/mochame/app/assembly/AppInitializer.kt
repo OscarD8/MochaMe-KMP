@@ -60,6 +60,7 @@ internal class DefaultAppInitializer(
                 }
 
                 transport.setOnConnectedListener {
+                    coordinator.processQueueUntilExhausted()
                     coordinator.startOutboundListener()
                 }
 

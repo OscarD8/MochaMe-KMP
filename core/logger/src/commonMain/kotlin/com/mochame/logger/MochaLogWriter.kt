@@ -4,7 +4,7 @@ import co.touchlab.kermit.LogWriter
 import co.touchlab.kermit.Severity
 import kotlin.time.Clock
 
-class CleanLogWriter(
+class MochaLogWriter(
     private val minSeverity: Severity = Severity.Verbose
 ) : LogWriter() {
     override fun log(

@@ -17,7 +17,7 @@ class LoggerModule {
     fun getLogger(@PlatformTag platformTag: String) : Logger = Logger(
         config = StaticConfig(
             minSeverity = Severity.Verbose,
-            logWriterList = listOf(CleanLogWriter(minSeverity = Severity.Verbose))
+            logWriterList = listOf(MochaLogWriter(minSeverity = Severity.Verbose))
         ),
         tag = platformTag
     )

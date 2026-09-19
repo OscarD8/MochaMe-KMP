@@ -6,7 +6,7 @@ import co.touchlab.kermit.Severity
 import co.touchlab.kermit.StaticConfig
 import co.touchlab.kermit.TestLogWriter
 import com.mochame.annotations.PlatformTag
-import com.mochame.logger.CleanLogWriter
+import com.mochame.logger.MochaLogWriter
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
 
@@ -37,7 +37,7 @@ class TestLoggerModule {
         config = StaticConfig(
             logWriterList = listOf(
                 writer,
-                CleanLogWriter(Severity.Verbose)
+                MochaLogWriter(Severity.Verbose)
             )
         ),
         tag = tag
