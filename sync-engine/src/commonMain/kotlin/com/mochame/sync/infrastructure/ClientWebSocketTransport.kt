@@ -5,10 +5,10 @@ import com.mochame.annotations.AppBackgroundScope
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.sync.api.exceptions.MochaException
-import com.mochame.sync.spi.network.InboundWireFrame
+import com.mochame.sync.spi.network.WireFrame
 import com.mochame.sync.spi.network.SendResult
 import com.mochame.sync.spi.network.SyncTransport
-import com.mochame.sync.spi.network.SyncWireFrame
+import com.mochame.sync.spi.network.WireFrameFactory
 import com.mochame.sync.spi.node.NodeContextManager
 import com.mochame.utils.interfaces.TimeUtils
 import io.ktor.client.HttpClient
@@ -65,22 +65,16 @@ internal class ClientWebSocketTransport(
 
     @Volatile
     private var endpoint: ConnectionEndpoint? = null
-
     @Volatile
     private var activeSession: DefaultClientWebSocketSession? = null
-
     @Volatile
     private var inboundDeltaHandler: (suspend (watermark: Long, payload: ByteArray) -> Unit)? = null
-
     @Volatile
     private var inboundAckHandler: (suspend (batchId: Long, watermark: Long) -> Unit)? = null
-
     @Volatile
     private var onConnectedListener: (suspend () -> Unit)? = null
-
     @Volatile
     private var onDisconnectedListener: (suspend () -> Unit)? = null
-
     private var connectionJob: Job? = null
     private var pauseDebounceJob: Job? = null
     private var isPaused: Boolean = false
@@ -217,7 +211,7 @@ internal class ClientWebSocketTransport(
         val session = activeSession ?: return SendResult.NoConnection
 
         return try {
-            val frame = SyncWireFrame.batch(batchId, payload)
+            val frame = WireFrameFactory.batch(batchId, payload)
             session.send(Frame.Binary(fin = true, data = frame))
             SendResult.Success
         } catch (e: CancellationException) {
@@ -250,9 +244,13 @@ internal class ClientWebSocketTransport(
         }
     }
 
+    /**
+     * Does not catch illegal state exceptions. If the payload was corrupt, current behavior is to terminate
+     * the session immediately for debugging, and to allow reconnection to trigger a backfill and retry.
+     */
     private suspend fun DefaultClientWebSocketSession.dispatchWireFrame(bytes: ByteArray) {
-        when (val wireFrame = SyncWireFrame.unwrap(bytes)) {
-            is InboundWireFrame.BackfillComplete -> {
+        when (val wireFrame = WireFrameFactory.unwrap(bytes)) {
+            is WireFrame.BackfillComplete -> {
                 logger.i { "Backfill complete. Triggering outbound pipeline flush." }
                 backgroundScope.launch {
                     try {
@@ -263,11 +261,11 @@ internal class ClientWebSocketTransport(
                 }
             }
 
-            is InboundWireFrame.Ack -> {
+            is WireFrame.Ack -> {
                 inboundAckHandler?.invoke(wireFrame.batchId, wireFrame.watermark)
             }
 
-            is InboundWireFrame.Delta -> {
+            is WireFrame.Delta -> {
                 try {
                     inboundDeltaHandler?.invoke(wireFrame.watermark, wireFrame.payload)
                 } catch (e: Exception) {
@@ -277,7 +275,7 @@ internal class ClientWebSocketTransport(
                 }
             }
 
-            is InboundWireFrame.ClientSubmit -> {
+            is WireFrame.ClientSubmit -> {
                 logger.w { "Device received an unexpected client submit frame [BatchId: ${wireFrame.batchId}] [Size: ${wireFrame.payload.size}]" }
             }
         }

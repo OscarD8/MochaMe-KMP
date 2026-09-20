@@ -26,6 +26,6 @@ fun main() {
         server.close()
     })
 
-    logger.i { "Starting Relay Server on ${ServerConfig.HOST}:${ServerConfig.PORT} (DB: $resolvedDbPath)" }
+    logger.i { "Starting Relay Server on ${ServerConfig.host}:${ServerConfig.port} (DB: $resolvedDbPath)" }
     server.start(wait = true)
 }

@@ -87,7 +87,7 @@ class FakeWebSocketSession(
     }
 
     /**
-     * Suspends until session.close(...) finishes pushing its Close frame.
+     * Suspends until session.close(...) which launches a coroutine finishes pushing its Close frame.
      */
     suspend fun awaitCloseReason(): CloseReason = closeReasonDeferred.await()
 

@@ -42,6 +42,7 @@ val dbPath: String = "${System.getProperty("user.home")}/.mochame/sync_server.db
  */
 class ServerDatabase(
     path: String = dbPath,
+    private val config: ServerConfig = ServerConfig.Default,
     @IoContext private val ioContext: CoroutineContext = Dispatchers.IO
 ) : AutoCloseable {
 
@@ -179,7 +180,7 @@ class ServerDatabase(
      * @param groupId Target sync group partition.
      * @param excludeNodeId Node identifier of the caller to filter out its own authored writes.
      * @param sinceWatermark Lower bound watermark (exclusive) to stream from.
-     * @param limit Maximum deltas to return, clamped to [ServerConfig.MAX_BACKFILL_CHUNK_SIZE].
+     * @param limit Maximum deltas to return, defaulting to [ServerConfig.maxBackfillChunkSize].
      * @return Ascending list of deltas strictly ordered by watermark.
      * @throws java.sql.SQLException If borrowing a read connection times out or query execution fails.
      */
@@ -187,9 +188,9 @@ class ServerDatabase(
         groupId: String,
         excludeNodeId: String,
         sinceWatermark: Long,
-        limit: Int = ServerConfig.MAX_BACKFILL_CHUNK_SIZE
+        limit: Int = config.maxBackfillChunkSize
     ): List<StoredDelta> = withContext(ioContext) {
-        val effectiveLimit = limit.coerceIn(1, ServerConfig.MAX_BACKFILL_CHUNK_SIZE)
+        val effectiveLimit = limit.coerceIn(1, config.maxBackfillChunkSize)
         val sql = """
             SELECT watermark, payload 
             FROM sync_change_log 
@@ -299,7 +300,7 @@ class ServerDatabase(
      */
     suspend fun pruneExpiredDeltas(
         olderThanEpochMs: Long,
-        chunkSize: Int = ServerConfig.LOG_PRUNE_CHUNK_SIZE
+        chunkSize: Int = config.logPruneChunkSize
     ): Int = withContext(ioContext) {
         val sql = """
             DELETE FROM sync_change_log 
@@ -336,8 +337,8 @@ class ServerDatabase(
 fun CoroutineScope.runtimeLogPruning(
     database: ServerDatabase,
     logger: Logger,
-    retention: Duration = ServerConfig.LOG_RETENTION_DURATION,
-    interval: Duration = ServerConfig.LOG_PRUNE_INTERVAL,
+    retention: Duration,
+    interval: Duration
 ): Job = launch {
     logger.v { "Runtime log pruning job starting..." }
 

@@ -4,11 +4,9 @@ import co.touchlab.kermit.Logger
 import com.mochame.server.config.ServerConfig
 import com.mochame.server.config.ServerLogger
 import com.mochame.server.database.ServerDatabase
-import com.mochame.sync.spi.network.SyncWireFrame
-import io.ktor.websocket.CloseReason
+import com.mochame.sync.spi.network.WireFrameFactory
 import io.ktor.websocket.CloseReason.Codes.INTERNAL_ERROR
 import io.ktor.websocket.Frame
-import io.ktor.websocket.close
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -16,8 +14,19 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.onClosed
 import kotlinx.coroutines.channels.onFailure
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.channels.SendChannel
 import kotlin.coroutines.cancellation.CancellationException
 
+/**
+ * Inbound write request queued from a peer's WebSocket session to the database writer (via
+ * [DatabaseActor.writeChannel]).
+ *
+ * @property groupId Group partition.
+ * @property originNodeId Originating peer identifier.
+ * @property batchId Client batch identifier for ACK response.
+ * @property rawPayload Serialized delta content to persist and broadcast.
+ * @property senderHandle Active session handle used to route writes to outbound channels, and call teardowns.
+ */
 data class DeltaWriteIntent(
     val groupId: String,
     val originNodeId: String,
@@ -26,74 +35,56 @@ data class DeltaWriteIntent(
     val senderHandle: SessionHandle
 )
 
+/**
+ * Single-writer component coordinating SQLite writes and outbound broadcasting via channels.
+ *
+ * Runs sequentially on a dedicated single-threaded dispatcher ([CoroutineDispatcher.limitedParallelism] = 1)
+ * to batch incoming [DeltaWriteIntent] payloads up to [ServerConfig.maxBroadcastingBatchSize].
+ *
+ * ##### Concurrency
+ * - Inbound delta submissions must be dispatched via [writeChannel].
+ * - Batch commits and downstream ACK/broadcast dispatching execute sequentially; no concurrent
+ *   database writes occur within this actor, and no suspensions must be triggered or launched on this
+ *   context within the broadcast call.
+ *
+ * ##### Failure
+ * - **Write/Commit Failure:** Any database exception ([java.sql.SQLException] or runtime error)
+ *   terminates active WebSocket sessions for all affected senders in the batch with
+ *   [CloseReason.Codes.INTERNAL_ERROR].
+ * - **Outbound Channel Capacity:** If a sender's outbound buffer drops an ACK frame, that
+ *   specific peer session is terminated to avoid silent state desynchronization. The behavior of the
+ *   broadcasting call must fail fast on peer outbound channel capacity issues. The slowest peer
+ *   must have no impact on this actor.
+ */
 class DatabaseActor(
     private val database: ServerDatabase,
     private val relayManager: RelayManager,
     private val logger: Logger = ServerLogger.base.withTag("Db_Actor"),
+    private val config: ServerConfig = ServerConfig.Default,
     scope: CoroutineScope,
-    dispatcher: CoroutineDispatcher = Dispatchers.IO,
-    private val maxBatchSize: Int = ServerConfig.MAX_BATCH_SIZE,
+    dispatcher: CoroutineDispatcher = Dispatchers.IO
 ) {
-    val writeChannel = Channel<DeltaWriteIntent>(capacity = 1000)
+    /**
+     * Ingestion channel for delta writes.
+     * Backpressure begins when queue depth exceeds [ServerConfig.writeChannelCapacity] pending intents.
+     */
+    val writeChannel: SendChannel<DeltaWriteIntent>
+        field = Channel<DeltaWriteIntent>(capacity = config.writeChannelCapacity)
 
     init {
         scope.launch(dispatcher.limitedParallelism(1)) {
-            val batch = ArrayList<DeltaWriteIntent>(maxBatchSize)
+            val batch = ArrayList<DeltaWriteIntent>(config.maxBroadcastingBatchSize)
 
             for (firstIntent in writeChannel) {
-                batch.add(firstIntent)
-
-                while (batch.size < maxBatchSize) {
-                    val next = writeChannel.tryReceive().getOrNull() ?: break
-                    batch.add(next)
-                }
+                drainChannelIntoBatch(firstIntent, batch)
 
                 try {
                     val watermarks = database.insertBatch(batch)
-
-                    for (i in batch.indices) {
-                        val intent = batch[i]
-                        val watermark = watermarks[i]
-
-                        val ackFrame = Frame.Binary(
-                            fin = true,
-                            data = SyncWireFrame.ack(intent.batchId, watermark)
-                        )
-                        intent.senderHandle.outboundChannel.trySend(ackFrame)
-                            .onClosed { cause ->
-                                relayManager.terminateSession(
-                                    intent.senderHandle,
-                                    INTERNAL_ERROR,
-                                    "ACK_SEND_FAILURE: Channel closed/cancelled (${cause?.message})"
-                                )
-                            }
-                            .onFailure { cause ->
-                                if (cause == null) {
-                                    relayManager.terminateSession(
-                                        intent.senderHandle,
-                                        INTERNAL_ERROR,
-                                        "ACK_SEND_FAILURE: Outbound buffer saturated"
-                                    )
-                                }
-                            }
-
-                        val broadcastFrame = Frame.Binary(
-                            fin = true,
-                            data = SyncWireFrame.delta(watermark, intent.rawPayload)
-                        )
-
-                        relayManager.broadcast(
-                            groupId = intent.groupId,
-                            excludeNodeId = intent.originNodeId,
-                            watermark = watermark,
-                            frame = broadcastFrame
-                        )
-                    }
+                    dispatchCommittedBatch(batch, watermarks)
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
-                    val uniqueSenders = batch.map { it.senderHandle }.distinctBy { it.nodeId }
-                    handleBatchFailure(uniqueSenders, e)
+                    handleBatchFailure(batch, e)
                 } finally {
                     batch.clear()
                 }
@@ -101,7 +92,67 @@ class DatabaseActor(
         }
     }
 
-    private fun handleBatchFailure(uniqueSenders: List<SessionHandle>, error: Exception) {
+    private fun drainChannelIntoBatch(
+        firstIntent: DeltaWriteIntent,
+        batch: MutableList<DeltaWriteIntent>
+    ) {
+        batch.add(firstIntent)
+        while (batch.size < config.maxBroadcastingBatchSize) {
+            val next = writeChannel.tryReceive().getOrNull() ?: break
+            batch.add(next)
+        }
+    }
+
+    private fun dispatchCommittedBatch(batch: List<DeltaWriteIntent>, watermarks: List<Long>) {
+        for (i in batch.indices) {
+            val intent = batch[i]
+            val watermark = watermarks[i]
+
+            sendAck(intent, watermark)
+            broadcastDelta(intent, watermark)
+        }
+    }
+
+    private fun sendAck(intent: DeltaWriteIntent, watermark: Long) {
+        val ackFrame = Frame.Binary(
+            fin = true,
+            data = WireFrameFactory.ack(intent.batchId, watermark)
+        )
+        intent.senderHandle.outboundChannel.trySend(ackFrame)
+            .onClosed { cause ->
+                relayManager.terminate(
+                    intent.senderHandle,
+                    INTERNAL_ERROR,
+                    "ACK_SEND_FAILURE: Channel closed/cancelled (${cause?.message})"
+                )
+            }
+            .onFailure { cause ->
+                if (cause == null) {
+                    relayManager.terminate(
+                        intent.senderHandle,
+                        INTERNAL_ERROR,
+                        "ACK_SEND_FAILURE: Outbound buffer saturated"
+                    )
+                }
+            }
+    }
+
+    private fun broadcastDelta(intent: DeltaWriteIntent, watermark: Long) {
+        val broadcastFrame = Frame.Binary(
+            fin = true,
+            data = WireFrameFactory.delta(watermark, intent.rawPayload)
+        )
+
+        relayManager.broadcast(
+            groupId = intent.groupId,
+            excludeNodeId = intent.originNodeId,
+            watermark = watermark,
+            frame = broadcastFrame
+        )
+    }
+
+    private fun handleBatchFailure(batch: List<DeltaWriteIntent>, error: Exception) {
+        val uniqueSenders = batch.map { it.senderHandle }.distinctBy { it.nodeId }
         logger.e(error) {
             """
             |Batch write failed (${error.message}) for the following senders. Terminating connections:
@@ -112,8 +163,8 @@ class DatabaseActor(
         val failureReason = "DATABASE_BATCH_WRITE_ERROR: ${error.message ?: "Commit failure"}"
 
         for (sender in uniqueSenders) {
-            relayManager.terminateSession(
-                peer = sender,
+            relayManager.terminate(
+                handle = sender,
                 code = INTERNAL_ERROR,
                 reason = failureReason
             )

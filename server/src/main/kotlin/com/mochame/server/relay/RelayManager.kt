@@ -4,11 +4,19 @@ import co.touchlab.kermit.Logger
 import com.mochame.server.config.ServerLogger
 import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
-import io.ktor.websocket.close
-import kotlinx.coroutines.launch
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.coroutines.cancellation.CancellationException
 
+/**
+ * Registry and router for active peer sessions.
+ *
+ * Manages group session maps, coordinates broadcast distribution across nodes,
+ * and enforces backpressure for slow or unresponsive consumers.
+ *
+ * ###### Concurrency
+ * - Registration, unregistration, and broadcasting lookups are thread-safe,
+ *   backed by nested [ConcurrentHashMap] instances.
+ * - Outbound delivery does not block; frames are pushed via non-blocking channel enqueues.
+ */
 class RelayManager(
     private val logger: Logger = ServerLogger.base.withTag("RelayMgr")
 ) {
@@ -16,65 +24,64 @@ class RelayManager(
     private val groupSessions =
         ConcurrentHashMap<String, ConcurrentHashMap<String, SessionHandle>>()
 
-    fun register(handle: SessionHandle): SessionHandle? {
-        var previous: SessionHandle?
+    /**
+     * Registers a session under its [SessionHandle.groupId] and [SessionHandle.nodeId].
+     *
+     * If an existing session is registered under the same key, it is closed and replaced with [handle].
+     *
+     * @param handle The session handle to register.
+     */
+    fun register(handle: SessionHandle) {
         val group = groupSessions.computeIfAbsent(handle.groupId) { ConcurrentHashMap() }
-        previous = group.put(handle.nodeId, handle)
+        val previous = group.put(handle.nodeId, handle)
 
         logger.i { "Registered node '${handle.nodeId}' to group '${handle.groupId}'" }
-        return previous
+
+        previous?.close(CloseReason.Codes.NORMAL, "Replaced by new connection")
     }
 
-    fun unregister(groupId: String, nodeId: String, handle: SessionHandle): SessionHandle? {
-        var removed: SessionHandle? = null
-        groupSessions.computeIfPresent(groupId) { _, group ->
-            if (group[nodeId] === handle) {
-                removed = group.remove(nodeId)
-                logger.i { "Unregistered node '$nodeId' from group '$groupId'" }
+    /**
+     * Unregisters a session if the currently mapped instance matches [handle] by reference.
+     *
+     * Closes [handle] regardless of whether it was actively present in the registry.
+     */
+    fun terminate(handle: SessionHandle, code: CloseReason.Codes, reason: String) {
+        groupSessions.computeIfPresent(handle.groupId) { _, group ->
+            if (group[handle.nodeId] === handle) {
+                group.remove(handle.nodeId)
+                logger.i { "Unregistered node '${handle.nodeId}' from group '${handle.groupId}'" }
             }
             if (group.isEmpty()) null else group
         }
-        removed?.outboundChannel?.close()
-        return removed
+
+        handle.close(code, reason)
     }
 
+    /**
+     * Broadcasts a frame to all peers in [groupId] excluding [excludeNodeId].
+     *
+     * Evaluates backpressure per peer via [SessionHandle.enqueueBroadcast]. If an outbound buffer
+     * is at capacity, the attempt fails fast and the peer is terminated with
+     * [CloseReason.Codes.TRY_AGAIN_LATER].
+     */
     fun broadcast(groupId: String, excludeNodeId: String, watermark: Long, frame: Frame) {
         val peers = groupSessions[groupId]?.values ?: return
 
         for (peer in peers) {
             if (peer.nodeId == excludeNodeId) continue
 
-            val enqueued = peer.enqueueBroadcast(
-                watermark,
-                frame
-            )
+            val enqueued = peer.enqueueBroadcast(watermark, frame)
+
             if (!enqueued) {
-                terminateSession(
-                    peer = peer,
-                    code = CloseReason.Codes.VIOLATED_POLICY,
-                    reason = "SLOW_CONSUMER: Outbound egress buffer saturated"
+                terminate(
+                    handle = peer,
+                    code = CloseReason.Codes.TRY_AGAIN_LATER,
+                    reason = "SLOW_CONSUMER: Outbound buffer at capacity"
                 )
             }
         }
     }
 
-    fun terminateSession(
-        peer: SessionHandle,
-        code: CloseReason.Codes,
-        reason: String
-    ) {
-        logger.w { "Terminating node '${peer.nodeId}' [${code.name}]: $reason" }
-        unregister(peer.groupId, peer.nodeId, peer)
-        peer.outboundChannel.close()
-
-        peer.session.launch {
-            try {
-                peer.session.close(CloseReason(code, reason))
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                logger.v { "Socket already closed for node '${peer.nodeId}': ${e.message}" }
-            }
-        }
-    }
+    fun hasRegisteredSession(handle: SessionHandle): Boolean =
+        groupSessions[handle.groupId]?.get(handle.nodeId) == handle
 }

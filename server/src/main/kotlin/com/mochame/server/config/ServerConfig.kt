@@ -4,15 +4,36 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 
-object ServerConfig {
-    const val PORT = 8080
-    const val HOST = "0.0.0.0"
+/**
+ * Thresholds and chunk sizes, network bindings, channel capacities, and backfill parameters.
+ */
+interface ServerConfig {
+    val port: Int
+    val host: String
 
-    const val MAX_BACKFILL_THRESHOLD = 1500L
-    const val MAX_BACKFILL_CHUNK_SIZE = 500
-    const val MAX_BATCH_SIZE = 50
+    val maxBackfillThreshold: Long
+    val maxBackfillChunkSize: Int
+    val maxBroadcastingBatchSize: Int
 
-    const val LOG_PRUNE_CHUNK_SIZE: Int = 500
-    val LOG_RETENTION_DURATION: Duration = 45.days
-    val LOG_PRUNE_INTERVAL: Duration = 24.hours
+    val logPruneChunkSize: Int
+    val logRetentionDuration: Duration
+    val logPruneInterval: Duration
+
+    val writeChannelCapacity: Int
+    val outboundChannelCapacity: Int
+    val outboundStagingCapacity: Int
+
+    companion object Default : ServerConfig {
+        override val port: Int = 8080
+        override val host: String = "0.0.0.0"
+        override val maxBackfillThreshold: Long = 1500L
+        override val maxBackfillChunkSize: Int = 500
+        override val maxBroadcastingBatchSize: Int = 50
+        override val logPruneChunkSize: Int = 500
+        override val logRetentionDuration: Duration = 45.days
+        override val logPruneInterval: Duration = 24.hours
+        override val writeChannelCapacity: Int = 1000
+        override val outboundChannelCapacity: Int = 256
+        override val outboundStagingCapacity: Int = 512
+    }
 }

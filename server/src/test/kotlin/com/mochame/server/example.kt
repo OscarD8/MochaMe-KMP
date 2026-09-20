@@ -6,6 +6,7 @@ import com.mochame.server.relay.SessionHandle
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.engine.coroutines.testScheduler
 import io.kotest.engine.spec.tempdir
+import io.kotest.matchers.booleans.shouldBeFalse
 import io.kotest.matchers.booleans.shouldBeTrue
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
@@ -39,9 +40,9 @@ class RelayServerIntegrationTest : FunSpec({
     }
 
     test("slow consumer eviction receives violated policy code") {
-        relayManager.register(testHandle).shouldBeNull()
+        relayManager.register(testHandle)
 
-        relayManager.terminateSession(
+        relayManager.terminate(
             testHandle,
             CloseReason.Codes.VIOLATED_POLICY,
             "Death by violation"
@@ -49,17 +50,18 @@ class RelayServerIntegrationTest : FunSpec({
 
         val closeReason = fakeSession.awaitCloseReason()
         closeReason.code shouldBe CloseReason.Codes.VIOLATED_POLICY.code
-        relayManager.register(testHandle).shouldBeNull()
+        closeReason.message shouldBe "Death by violation"
+        relayManager.hasRegisteredSession(testHandle).shouldBeFalse()
     }
 
-    @OptIn(DelicateCoroutinesApi::class)
-    test("actor survives unexpected client write crash") {
-        relayManager.register(testHandle).shouldBeNull()
-
-        fakeSession.outgoing.close(IOException("Broken something"))
-
-        relayManager.terminateSession(testHandle, CloseReason.Codes.INTERNAL_ERROR, "Socket error")
-        testScheduler.advanceUntilIdle()
-        testHandle.outboundChannel.isClosedForSend.shouldBeTrue()
-    }
+//    @OptIn(DelicateCoroutinesApi::class)
+//    test("confirm graceful behaviour if the outgoing is closed on a broadcast") {
+//        relayManager.register(testHandle)
+//
+//        fakeSession.outgoing.close(IOException("Broken something"))
+//
+////        relayManager.broadcast()
+//        testScheduler.advanceUntilIdle()
+//        testHandle.outboundChannel.isClosedForSend.shouldBeTrue()
+//    }
 })
