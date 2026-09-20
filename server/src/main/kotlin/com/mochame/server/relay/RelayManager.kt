@@ -17,22 +17,18 @@ class RelayManager(
         ConcurrentHashMap<String, ConcurrentHashMap<String, SessionHandle>>()
 
     fun register(handle: SessionHandle): SessionHandle? {
-        var previous: SessionHandle? = null
-        groupSessions.compute(handle.groupId) { _, existingGroup ->
-            val group = existingGroup ?: ConcurrentHashMap()
-            previous = group.put(handle.nodeId, handle)
-            group
-        }
+        var previous: SessionHandle?
+        val group = groupSessions.computeIfAbsent(handle.groupId) { ConcurrentHashMap() }
+        previous = group.put(handle.nodeId, handle)
+
         logger.i { "Registered node '${handle.nodeId}' to group '${handle.groupId}'" }
         return previous
     }
 
-    fun unregister(groupId: String, nodeId: String, handle: SessionHandle? = null): SessionHandle? {
+    fun unregister(groupId: String, nodeId: String, handle: SessionHandle): SessionHandle? {
         var removed: SessionHandle? = null
-        groupSessions.compute(groupId) { _, group ->
-            if (group == null) return@compute null
-            val current = group[nodeId]
-            if (handle == null || current === handle) {
+        groupSessions.computeIfPresent(groupId) { _, group ->
+            if (group[nodeId] === handle) {
                 removed = group.remove(nodeId)
                 logger.i { "Unregistered node '$nodeId' from group '$groupId'" }
             }
@@ -51,7 +47,7 @@ class RelayManager(
             val enqueued = peer.enqueueBroadcast(
                 watermark,
                 frame
-            ) // if this fails because buffer is full, and we terminate the session, can a heavy backfill ever actually complete?
+            )
             if (!enqueued) {
                 terminateSession(
                     peer = peer,
@@ -69,6 +65,7 @@ class RelayManager(
     ) {
         logger.w { "Terminating node '${peer.nodeId}' [${code.name}]: $reason" }
         unregister(peer.groupId, peer.nodeId, peer)
+        peer.outboundChannel.close()
 
         peer.session.launch {
             try {

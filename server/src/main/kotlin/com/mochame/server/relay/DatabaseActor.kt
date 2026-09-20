@@ -13,6 +13,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.onClosed
 import kotlinx.coroutines.channels.onFailure
 import kotlinx.coroutines.launch
 import kotlin.coroutines.cancellation.CancellationException
@@ -59,12 +60,21 @@ class DatabaseActor(
                             data = SyncWireFrame.ack(intent.batchId, watermark)
                         )
                         intent.senderHandle.outboundChannel.trySend(ackFrame)
-                            .onFailure {
+                            .onClosed { cause ->
                                 relayManager.terminateSession(
                                     intent.senderHandle,
                                     INTERNAL_ERROR,
-                                    "ACK_SEND_FAILURE: Outbound egress buffer saturated"
+                                    "ACK_SEND_FAILURE: Channel closed/cancelled (${cause?.message})"
                                 )
+                            }
+                            .onFailure { cause ->
+                                if (cause == null) {
+                                    relayManager.terminateSession(
+                                        intent.senderHandle,
+                                        INTERNAL_ERROR,
+                                        "ACK_SEND_FAILURE: Outbound buffer saturated"
+                                    )
+                                }
                             }
 
                         val broadcastFrame = Frame.Binary(
@@ -92,10 +102,12 @@ class DatabaseActor(
     }
 
     private fun handleBatchFailure(uniqueSenders: List<SessionHandle>, error: Exception) {
-        logger.e(error) { """
-            Batch write failed for the following senders. Severing connections:
-            ${uniqueSenders.joinToString(separator = "\n") { it.nodeId }}
-        """.trimIndent() }
+        logger.e(error) {
+            """
+            |Batch write failed (${error.message}) for the following senders. Terminating connections:
+            |${uniqueSenders.joinToString(separator = "\n") { "|  - ${it.nodeId}" }}
+            """.trimMargin()
+        }
 
         val failureReason = "DATABASE_BATCH_WRITE_ERROR: ${error.message ?: "Commit failure"}"
 

@@ -6,6 +6,7 @@ android-sdk-target = "37"
 java-jvmTarget = "17"
 java-languageLevel = "17"
 
+kotestRunnerJunit5 = "6.2.5"
 kotlin = "2.4.20"
 ktor = "3.6.0"
 composeMultiplatform = "1.12.0-alpha02"
@@ -74,6 +75,8 @@ koin-compose-viewmodel = { module = "io.insert-koin:koin-compose-viewmodel", ver
 koin-compose-viewmodel-navigation = { module = "io.insert-koin:koin-compose-viewmodel-navigation", version.ref = "koin" }
 
 compose-gradlePlugin = { module = "org.jetbrains.compose:compose-gradle-plugin", version.ref = "composeMultiplatform" }
+kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotestRunnerJunit5" }
+kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref = "kotestRunnerJunit5" }
 kotlin-composeCompilerPlugin = { module = "org.jetbrains.kotlin:compose-compiler-gradle-plugin", version.ref = "kotlin" }
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logbackClassic" }
 navigation-compose = { module = "org.jetbrains.androidx.navigation:navigation-compose", version.ref = "composeNavigation" }
@@ -151,6 +154,7 @@ kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-t
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 junit4 = { module = "junit:junit", version.ref = "junit4" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junit-platform" }
+junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine" }
 junit-vintage-engine = { module = "org.junit.vintage:junit-vintage-engine", version.ref = "junit5" }
 androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidx-test-ext-junit" }
 androidx-test-core = { module = "androidx.test:core", version.ref = "androidx-test" }

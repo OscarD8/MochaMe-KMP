@@ -75,7 +75,6 @@ class ServerDatabase(
             maximumPoolSize = (cores * 2).coerceAtLeast(2)
             minimumIdle = 2
             connectionTimeout = 6000
-            isReadOnly = true
             connectionInitSql = """
                 PRAGMA query_only = ON;
                 PRAGMA busy_timeout = 5000;
@@ -290,7 +289,7 @@ class ServerDatabase(
      *
      * Executes deletions in iterative sub-transactions to avoid prolonged exclusive write locks.
      * Checks out and releases the single [writeDataSource] connection per chunk and invokes [yield]
-     * between iterations, preventing HikariCP pool starvation and allowing the write pipeline
+     * between iterations, preventing HikariCP pool contention and allowing the write pipeline
      * ([com.mochame.server.relay.DatabaseActor]) to interleave live commits without latency spikes or connection timeouts.
      *
      * @param olderThanEpochMs Cutoff epoch timestamp in milliseconds; records created prior to this are deleted.

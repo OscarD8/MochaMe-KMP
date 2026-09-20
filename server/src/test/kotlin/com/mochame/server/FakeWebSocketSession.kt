@@ -1,11 +1,10 @@
-package com.mochame.server.utils
+package com.mochame.server
 
 import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
 import io.ktor.websocket.WebSocketExtension
 import io.ktor.websocket.WebSocketSession
 import io.ktor.websocket.readReason
-import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -14,7 +13,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ChannelResult
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.SendChannel
-
+import kotlin.coroutines.CoroutineContext
 
 /**
  * When testing session teardown: RelayManager and DatabaseActor call sender.session.close(...) directly on the session. That bypasses outboundChannel and goes straight to session.outgoing.
@@ -40,6 +39,20 @@ class FakeWebSocketSession(
         override suspend fun send(element: Frame) {
             intercept(element)
             backingOutgoing.send(element)
+        }
+
+        override fun close(cause: Throwable?): Boolean {
+            val wasClosed = backingOutgoing.close(cause)
+            if (wasClosed && !closeReasonDeferred.isCompleted) {
+                if (cause != null) {
+                    closeReasonDeferred.completeExceptionally(cause)
+                } else {
+                    val fallback = CloseReason(CloseReason.Codes.NORMAL, "Outgoing channel closed")
+                    capturedCloseReason = fallback
+                    closeReasonDeferred.complete(fallback)
+                }
+            }
+            return wasClosed
         }
 
         override fun trySend(element: Frame): ChannelResult<Unit> {

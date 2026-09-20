@@ -54,7 +54,7 @@ fun Application.configureServer(
                 return@webSocket
             }
 
-            // 2. Soft Backfill Volume Boundary Check (Snapshot Redirection)
+            // 2. Soft Backfill Volume Boundary Check (Snapshot Redirection) -- if channel can be full from the backlog do we need a delta check or can we use the channel being full as an indication
             val pendingDeltaCount = database.countDeltasSince(groupId, nodeId, sinceWatermark)
             if (pendingDeltaCount > ServerConfig.MAX_BACKFILL_THRESHOLD) {
                 logger.i { "Node '$nodeId' backlog ($pendingDeltaCount deltas) exceeds threshold. Enforcing snapshot sync." }
@@ -75,7 +75,9 @@ fun Application.configureServer(
                     evicted.session.close(
                         CloseReason(CloseReason.Codes.NORMAL, "Replaced by new connection")
                     )
-                } catch (_: Throwable) {
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    logger.e { "Exception closing a pre-existing session on reconnection: ${e.message}" }
                 }
             }
 

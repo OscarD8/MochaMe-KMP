@@ -47,12 +47,12 @@ class SessionHandle(
     }
 
     /**
-     * Drains staging sequentially. Suspends cooperatively on outboundChannel.send()
+     * Processes staging sequentially. Suspends cooperatively on outboundChannel.send()
      * outside the lock, providing exact error causality if interrupted.
      */
     suspend fun completeBackfill(maxWatermark: Long): BackfillResult {
         while (true) {
-            val nextFrame: Frame? = synchronized(stagingLock) {
+            val nextFrame: Frame = synchronized(stagingLock) {
                 while (stagingBuffer.isNotEmpty() && stagingBuffer.first().first <= maxWatermark) {
                     stagingBuffer.removeFirst()
                 }
@@ -65,17 +65,14 @@ class SessionHandle(
                 stagingBuffer.removeFirst().second
             }
 
-            if (nextFrame != null) {
-                try {
-                    outboundChannel.send(nextFrame)
-                } catch (e: CancellationException) {
-                    throw e // Structured concurrency must propagate
-                } catch (_: ClosedSendChannelException) {
-                    return BackfillResult.ChannelClosed
-                } catch (e: Exception) {
-                    // Let OutOfMemoryError and other fatal Errors bubble up!
-                    return BackfillResult.Failure(e)
-                }
+            try {
+                outboundChannel.send(nextFrame)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: ClosedSendChannelException) {
+                return BackfillResult.ChannelClosed
+            } catch (e: Exception) {
+                return BackfillResult.Failure(e)
             }
         }
     }
