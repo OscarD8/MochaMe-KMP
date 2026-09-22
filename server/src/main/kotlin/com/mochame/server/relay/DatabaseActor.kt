@@ -15,6 +15,7 @@ import kotlinx.coroutines.channels.onClosed
 import kotlinx.coroutines.channels.onFailure
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.channels.SendChannel
+import kotlinx.io.Buffer
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
@@ -67,6 +68,7 @@ class DatabaseActor(
     /**
      * Ingestion channel for delta writes.
      * Backpressure begins when queue depth exceeds [ServerConfig.writeChannelCapacity] pending intents.
+     * CIO workers should call [Channel.send] and suspend its websocket coroutines to enforce backpressure on its connections.
      */
     val writeChannel: SendChannel<DeltaWriteIntent>
         field = Channel<DeltaWriteIntent>(capacity = config.writeChannelCapacity)
@@ -100,6 +102,14 @@ class DatabaseActor(
         while (batch.size < config.maxBroadcastingBatchSize) {
             val next = writeChannel.tryReceive().getOrNull() ?: break
             batch.add(next)
+        }
+
+        val buffer = Buffer().apply { write(byteArrayOf(0x01)) }
+        val source = buffer.peek()
+
+        while (!source.exhausted()) {
+            val buffer = Buffer()
+            source.readAtMostTo(buffer, 8)
         }
     }
 

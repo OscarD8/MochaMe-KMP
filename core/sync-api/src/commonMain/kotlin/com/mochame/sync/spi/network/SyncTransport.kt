@@ -59,8 +59,8 @@ sealed interface WireFrame {
  * Wire format layouts (big-endian):
  * - **BackfillComplete:** `[0x01]` (1 byte)
  * - **Ack:** `[0x02][batchId: 8B][watermark: 8B]` (17 bytes)
- * - **Batch (ClientSubmit):** `[0x04][batchId: 8B][payload: NB]` (9+ bytes)
  * - **Delta:** `[0x03][watermark: 8B][payload: NB]` (9+ bytes)
+ * - **Batch (ClientSubmit):** `[0x04][batchId: 8B][payload: NB]` (9+ bytes)
  */
 object WireFrameFactory {
     private const val OP_BACKFILL_COMPLETE: Byte = 0x01
@@ -83,20 +83,20 @@ object WireFrameFactory {
         return out
     }
 
-    /** Encodes an upstream client mutation batch frame. */
-    fun batch(batchId: Long, payload: ByteArray): ByteArray {
-        val out = ByteArray(9 + payload.size)
-        out[0] = OP_CLIENT_SUBMIT
-        out.writeLongAt(1, batchId)
-        payload.copyInto(out, destinationOffset = 9)
-        return out
-    }
-
     /** Encodes a downstream delta broadcast frame. */
     fun delta(watermark: Long, payload: ByteArray): ByteArray {
         val out = ByteArray(9 + payload.size)
         out[0] = OP_DELTA
         out.writeLongAt(1, watermark)
+        payload.copyInto(out, destinationOffset = 9)
+        return out
+    }
+
+    /** Encodes an upstream client mutation batch frame. */
+    fun batch(batchId: Long, payload: ByteArray): ByteArray {
+        val out = ByteArray(9 + payload.size)
+        out[0] = OP_CLIENT_SUBMIT
+        out.writeLongAt(1, batchId)
         payload.copyInto(out, destinationOffset = 9)
         return out
     }

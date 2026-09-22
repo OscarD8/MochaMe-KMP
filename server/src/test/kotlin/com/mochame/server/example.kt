@@ -4,16 +4,11 @@ import com.mochame.server.database.ServerDatabase
 import com.mochame.server.relay.RelayManager
 import com.mochame.server.relay.SessionHandle
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.engine.coroutines.testScheduler
 import io.kotest.engine.spec.tempdir
 import io.kotest.matchers.booleans.shouldBeFalse
-import io.kotest.matchers.booleans.shouldBeTrue
-import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import io.ktor.websocket.CloseReason
-import kotlinx.coroutines.DelicateCoroutinesApi
 import java.io.File
-import java.io.IOException
 import kotlin.coroutines.coroutineContext
 
 class RelayServerIntegrationTest : FunSpec({
@@ -49,8 +44,8 @@ class RelayServerIntegrationTest : FunSpec({
         )
 
         val closeReason = fakeSession.awaitCloseReason()
-        closeReason.code shouldBe CloseReason.Codes.VIOLATED_POLICY.code
-        closeReason.message shouldBe "Death by violation"
+        closeReason?.code shouldBe CloseReason.Codes.VIOLATED_POLICY.code
+        closeReason?.message shouldBe "Death by violation"
         relayManager.hasRegisteredSession(testHandle).shouldBeFalse()
     }
 

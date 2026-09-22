@@ -70,14 +70,35 @@ class RelayManager(
         for (peer in peers) {
             if (peer.nodeId == excludeNodeId) continue
 
-            val enqueued = peer.enqueueBroadcast(watermark, frame)
+            when (val result = peer.enqueueBroadcast(watermark, frame)) {
+                EnqueueResult.Success -> {}
 
-            if (!enqueued) {
-                terminate(
-                    handle = peer,
-                    code = CloseReason.Codes.TRY_AGAIN_LATER,
-                    reason = "SLOW_CONSUMER: Outbound buffer at capacity"
-                )
+                is EnqueueResult.Closed -> {
+                    logger.v { "Node '${peer.nodeId}' outbound channel already closed (${result::class.simpleName}). Terminating..." }
+                    terminate(
+                        handle = peer,
+                        code = CloseReason.Codes.NORMAL,
+                        reason = result.cause?.message ?: "Connection closed"
+                    )
+                }
+
+                EnqueueResult.StagingSaturated -> {
+                    logger.w { "Node '${peer.nodeId}' exceeded staging capacity during backfill. Config may require tuning. Terminating..." }
+                    terminate(
+                        handle = peer,
+                        code = CloseReason.Codes.TRY_AGAIN_LATER,
+                        reason = "STAGING_OVERFLOW: Live peer broadcasts exceeded backfill buffer"
+                    )
+                }
+
+                EnqueueResult.OutboundSaturated -> {
+                    logger.w { "Node '${peer.nodeId}' outbound channel saturated. Terminating..." }
+                    terminate(
+                        handle = peer,
+                        code = CloseReason.Codes.TRY_AGAIN_LATER,
+                        reason = "SLOW_CONSUMER: Outbound channel at capacity"
+                    )
+                }
             }
         }
     }

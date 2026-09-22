@@ -6,7 +6,6 @@ import io.ktor.websocket.WebSocketExtension
 import io.ktor.websocket.WebSocketSession
 import io.ktor.websocket.readReason
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
@@ -14,31 +13,59 @@ import kotlinx.coroutines.channels.ChannelResult
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.SendChannel
 import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
- * When testing session teardown: RelayManager and DatabaseActor call sender.session.close(...) directly on the session. That bypasses outboundChannel and goes straight to session.outgoing.
- * Your awaitCloseReason() will catch this immediately without needing an active egress loop.   When testing live deltas or ACKs in isolation: The actor pushes ACKs into senderHandle.outboundChannel. If your unit test does not launch an outboundJob, those ACKs will sit in handle.outboundChannel, not in fakeSession.outgoing. In that unit test, assert directly against handle.outboundChannel.tryReceive().
+ * To simulate an abrupt network drop or pipe closure in a test, call fakeSession.coroutineContext.cancel()
+ * or throw directly in the test body.
  */
 class FakeWebSocketSession(
-    override val coroutineContext: CoroutineContext = Job() + Dispatchers.Unconfined
-) : WebSocketSession {
+    override val coroutineContext: CoroutineContext
+) : WebSocketSession, AutoCloseable {
+
+    init {
+        coroutineContext[Job]?.invokeOnCompletion {
+            close()
+        }
+    }
 
     val incomingChannel = Channel<Frame>(Channel.UNLIMITED)
     override val incoming: ReceiveChannel<Frame> = incomingChannel
 
-    private val backingOutgoing = Channel<Frame>(Channel.UNLIMITED)
-
-    // Latches the close reason asynchronously without race conditions
+    /** Latches the close reason without race conditions and can be used to identify the causal trigger of disconnection. */
     private val closeReasonDeferred = CompletableDeferred<CloseReason>()
+
+    /** If set, outgoing.send() will suspend until this deferred completes, simulating transport backpressure. */
+    var sendDelayGate: CompletableDeferred<Unit>? = null
+
+    /** If set, outgoing.send() throws this exception on non-close frames to simulate mid-flight socket collapse. */
+    var sendException: Throwable? = null
 
     var capturedCloseReason: CloseReason? = null
         private set
 
-    // Intercepts Ktor's outgoing.send(Frame.Close) calls
+    private val backingOutgoing = Channel<Frame>(Channel.UNLIMITED)
+
+    /** Manual interception on Ktor's outgoing frame calls to intercept close frames */
     override val outgoing: SendChannel<Frame> = object : SendChannel<Frame> by backingOutgoing {
+
         override suspend fun send(element: Frame) {
             intercept(element)
-            backingOutgoing.send(element)
+
+            // Only throttle or fail application data frames, allowing close frames through
+            if (element !is Frame.Close) {
+                sendDelayGate?.await()
+                sendException?.let { throw it }
+                backingOutgoing.send(element)
+            } else {
+                backingOutgoing.send(element)
+                backingOutgoing.close()
+            }
+        }
+
+        override fun trySend(element: Frame): ChannelResult<Unit> {
+            intercept(element)
+            return backingOutgoing.trySend(element)
         }
 
         override fun close(cause: Throwable?): Boolean {
@@ -52,17 +79,16 @@ class FakeWebSocketSession(
                     closeReasonDeferred.complete(fallback)
                 }
             }
+            backingOutgoing.close(cause)
             return wasClosed
-        }
-
-        override fun trySend(element: Frame): ChannelResult<Unit> {
-            intercept(element)
-            return backingOutgoing.trySend(element)
         }
 
         private fun intercept(frame: Frame) {
             if (frame is Frame.Close) {
-                val reason = frame.readReason() ?: CloseReason(CloseReason.Codes.NORMAL, "Closed")
+                val reason = frame.readReason() ?: CloseReason(
+                    CloseReason.Codes.NOT_CONSISTENT,
+                    "Unless a Close reason wasn't passed, fake didn't capture test code"
+                )
                 capturedCloseReason = reason
                 closeReasonDeferred.complete(reason)
             }
@@ -77,11 +103,12 @@ class FakeWebSocketSession(
 
     @Suppress("OVERRIDE_DEPRECATION")
     override fun terminate() {
-        // Fallback: If terminate() is called without sending a Frame.Close first
+        // If the transport is severed without a Frame.Close, complete exceptionally.
+        // This tells any awaiting test that NO close handshake occurred.
         if (!closeReasonDeferred.isCompleted) {
-            val fallback = CloseReason(CloseReason.Codes.NORMAL, "Terminated without close frame")
-            capturedCloseReason = fallback
-            closeReasonDeferred.complete(fallback)
+            closeReasonDeferred.completeExceptionally(
+                IllegalStateException("WebSocket terminated abruptly without an RFC 6455 close frame")
+            )
         }
         coroutineContext.cancel()
     }
@@ -101,5 +128,15 @@ class FakeWebSocketSession(
             frames.add(frame)
         }
         return frames
+    }
+
+    /** Usage will not capture exception */
+    override fun close() {
+        if (!closeReasonDeferred.isCompleted) {
+            closeReasonDeferred.completeExceptionally(CancellationException())
+        }
+        outgoing.close()
+        incomingChannel.cancel(CancellationException())
+        coroutineContext.cancel()
     }
 }

@@ -8,12 +8,17 @@ import io.ktor.websocket.Frame
 import io.ktor.websocket.WebSocketSession
 import io.ktor.websocket.close
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ChannelResult
 import kotlinx.coroutines.channels.ClosedSendChannelException
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.nio.channels.ClosedChannelException
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
 /**
  * Result outcomes for completing the delta backfill phase.
@@ -24,8 +29,28 @@ sealed interface BackfillResult {
     data class Failure(val cause: Exception) : BackfillResult
 }
 
+sealed interface EnqueueResult {
+    data object Success : EnqueueResult
+
+    /** A capacity planning and concurrency mismatch. The staging catch-up rate cannot outpace
+     * the backfill throughput. Determined by the maxBackfillThreshold vs. outboundStagingCapacity ratio. */
+    data object StagingSaturated : EnqueueResult
+
+    /** Genuine network failure. The peer's TCP socket or reading loop cannot drain outbound frames fast enough. */
+    data object OutboundSaturated : EnqueueResult
+    data class Closed(val cause: Exception?) : EnqueueResult
+
+    val isSuccess: Boolean get() = this === Success
+}
+
 /**
- * Encapsulates an active peer's WebSocket session, outbound pipeline, and staging buffer state.
+ * Encapsulates an active peer's WebSocket session state regarding its:
+ * - Outbound channel for sending frames to the websocket, allowing suspension without blocking the relay system.
+ * - Staging buffer for peer broadcasts until backfill is complete.
+ *
+ * Incoming frames are not coordinated with this handle.
+ * It acts purely as a non-blocking stateful container for outbound communication, deduplication on connection, and
+ * passing monotonic watermarked payloads.
  *
  * Coordinates the handoff between backfilling on connection (historical deltas), and broadcasted intents
  * from other peers in the group. Any backfilled deltas and concurrent deltas dispatched during
@@ -54,8 +79,14 @@ class SessionHandle(
     val outboundChannel: SendChannel<Frame>
         field = Channel<Frame>(capacity = config.outboundChannelCapacity)
 
+    /** Stages peer broadcasts until backfill is complete. */
     private val stagingBuffer = ArrayDeque<Pair<Long, Frame>>()
+
+    /** Only performs in-memory pointer arithmetic on a pre-bounded deque, releasing lock per staged frame. */
     private val stagingLock = Any()
+
+    @OptIn(ExperimentalAtomicApi::class)
+    private val isClosed = AtomicBoolean(false)
     private val maxStagingCapacity = config.outboundStagingCapacity
 
     @Volatile
@@ -63,13 +94,13 @@ class SessionHandle(
         private set
 
     init {
-        session.launch {
+        session.launch(CoroutineName("outbound-$groupId-$nodeId")) {
             runOutboundWorker()
         }
     }
 
     /**
-     * Drains the internal outbound channel to the underlying WebSocket session until closed or canceled.
+     * Drains the internal outbound channel to the underlying WebSocket session (suspending) until closed or canceled.
      */
     private suspend fun runOutboundWorker() {
         try {
@@ -79,38 +110,57 @@ class SessionHandle(
         } catch (e: CancellationException) {
             logger.d { "Outbound worker cancelled for node '$nodeId'" }
             throw e
+        } catch (e: ClosedSendChannelException) {
+            // Expected when client drops TCP connection or Ktor closes the outgoing pipeline
+            logger.d { "Outbound channel closed for node '$nodeId' (${e::class.simpleName})" }
+        } catch (e: ClosedChannelException) {
+            // Expected on socket reset
+            logger.d { "Underlying socket closed for node '$nodeId' (${e::class.simpleName})" }
         } catch (e: Exception) {
-            logger.w(e) { "Outbound worker failed unexpectedly for node '$nodeId'" }
-            close(CloseReason.Codes.INTERNAL_ERROR, "Worker failure: ${e.message}")
+            logger.e(e) { "Unhandled error in outbound worker for node '$nodeId'" }
+            close(
+                CloseReason.Codes.INTERNAL_ERROR,
+                e.message ?: "[${e::class.simpleName}] Outbound worker termination"
+            )
         } finally {
             outboundChannel.cancel(CancellationException("Outbound worker finished"))
         }
     }
 
     /**
-     * Broadcast a frame to the outbound channel.
+     * Enqueues a broadcast frame to the egress pipeline.
      *
-     * Bypasses locks once backfilled, sending directly to [outboundChannel].
-     * Otherwise, stages the frame under [stagingLock] to ensure atomic transition from backfill
-     * (processing into [stagingBuffer] to [outboundChannel]) to live broadcasts.
+     * Bypasses synchronization locks once [isBackfilled] is true, dispatching directly
+     * to [outboundChannel]. During active catch-up, synchronizes on [stagingLock] to stage
+     * frames into [stagingBuffer], preserving monotonic ordering during the handoff
+     * to live-streaming.
      *
-     * @return `true` if accepted; `false` if staging or egress capacity is saturated (slow consumer).
+     *
+     * @param watermark The persistent sequence watermark associated with this frame.
+     * @param frame The encoded WebSocket frame to transmit.
+     * @return [EnqueueResult.Success] if enqueued or staged; [EnqueueResult.StagingSaturated]
+     * if [stagingBuffer] limit is exceeded during backfill; [EnqueueResult.OutboundSaturated]
+     * if the outbound channel buffer is full; or [EnqueueResult.Closed] if the outbound channel is closed.
      */
-    fun enqueueBroadcast(watermark: Long, frame: Frame): Boolean {
+    fun enqueueBroadcast(watermark: Long, frame: Frame): EnqueueResult {
         if (isBackfilled) {
-            return outboundChannel.trySend(frame).isSuccess
+            return outboundChannel.trySend(frame).toEnqueueResult()
+        }
+
+        if (isClosed.get()) {
+            return EnqueueResult.Closed(null)
         }
 
         synchronized(stagingLock) {
             return if (!isBackfilled) {
                 if (stagingBuffer.size >= maxStagingCapacity) {
-                    false // True slow consumer: staging limit exceeded during backfill
+                    EnqueueResult.StagingSaturated
                 } else {
                     stagingBuffer.addLast(watermark to frame)
-                    true
+                    EnqueueResult.Success
                 }
             } else {
-                outboundChannel.trySend(frame).isSuccess
+                outboundChannel.trySend(frame).toEnqueueResult()
             }
         }
     }
@@ -118,19 +168,32 @@ class SessionHandle(
     /**
      * Processes staging sequentially. Suspends on outboundChannel.send()
      * outside the lock.
+     *
+     * If an exception was passed to the [outboundChannel] closure, and staged intents were
+     * made after reader connection lock on the database, this failure is wrapped in a
+     * [BackfillResult.Failure].
+     *
+     * @throws CancellationException explicitly.
      */
     suspend fun completeBackfill(maxWatermark: Long): BackfillResult {
+        var dropped = 0
+        var staged = 0
+
         while (true) {
             val nextFrame: Frame = synchronized(stagingLock) {
                 while (stagingBuffer.isNotEmpty() && stagingBuffer.first().first <= maxWatermark) {
+                    // Duplicates between node registration, immediate peer broadcast staging, and the reader connection snapshot checking watermarks since
                     stagingBuffer.removeFirst()
+                    dropped++
                 }
 
                 if (stagingBuffer.isEmpty()) {
                     isBackfilled = true
+                    logger.v { "Frame Backfill complete. Dropped: $dropped Staged: $staged" }
                     return BackfillResult.Success
                 }
 
+                staged++
                 stagingBuffer.removeFirst().second
             }
 
@@ -149,11 +212,17 @@ class SessionHandle(
     /**
      * Initiates connection closure. Transmits the provided code and reason over the wire,
      * cancelling the session scope and outbound worker.
+     *
+     * Should never be called from as a consequence of a [CancellationException], but purely
+     * for internal exceptions.
      */
+    @OptIn(ExperimentalAtomicApi::class)
     fun close(
         code: CloseReason.Codes = CloseReason.Codes.NORMAL,
         reason: String = "Session closed"
     ) {
+         if (!isClosed.compareAndSet(false, true)) return
+
         logger.i { "Closing session for node '$nodeId' [${code.name}]: $reason" }
 
         outboundChannel.cancel(CancellationException(reason))
@@ -169,6 +238,17 @@ class SessionHandle(
                 }
             }
         }
+    }
+
+    private fun ChannelResult<Unit>.toEnqueueResult(): EnqueueResult = when {
+        isSuccess -> EnqueueResult.Success
+        isClosed -> {
+            val cause = exceptionOrNull()
+            if (cause is Error) throw cause
+            EnqueueResult.Closed(cause as? Exception)
+        }
+
+        else -> EnqueueResult.OutboundSaturated
     }
 }
 

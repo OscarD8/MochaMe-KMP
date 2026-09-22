@@ -35,5 +35,49 @@ interface ServerConfig {
         override val writeChannelCapacity: Int = 1000
         override val outboundChannelCapacity: Int = 256
         override val outboundStagingCapacity: Int = 512
+
+        /**
+         * Factory operator allowing tests to override specific fields
+         * while inheriting defaults for the rest.
+         */
+        operator fun invoke(
+            port: Int = Default.port,
+            host: String = Default.host,
+            maxBackfillThreshold: Long = Default.maxBackfillThreshold,
+            maxBackfillChunkSize: Int = Default.maxBackfillChunkSize,
+            maxBroadcastingBatchSize: Int = Default.maxBroadcastingBatchSize,
+            logPruneChunkSize: Int = Default.logPruneChunkSize,
+            logRetentionDuration: Duration = Default.logRetentionDuration,
+            logPruneInterval: Duration = Default.logPruneInterval,
+            writeChannelCapacity: Int = Default.writeChannelCapacity,
+            outboundChannelCapacity: Int = Default.outboundChannelCapacity,
+            outboundStagingCapacity: Int = Default.outboundStagingCapacity,
+        ): ServerConfig = ConfigImpl(
+            port = port,
+            host = host,
+            maxBackfillThreshold = maxBackfillThreshold,
+            maxBackfillChunkSize = maxBackfillChunkSize,
+            maxBroadcastingBatchSize = maxBroadcastingBatchSize,
+            logPruneChunkSize = logPruneChunkSize,
+            logRetentionDuration = logRetentionDuration,
+            logPruneInterval = logPruneInterval,
+            writeChannelCapacity = writeChannelCapacity,
+            outboundChannelCapacity = outboundChannelCapacity,
+            outboundStagingCapacity = outboundStagingCapacity
+        )
     }
+
+    private data class ConfigImpl(
+        override val port: Int,
+        override val host: String,
+        override val maxBackfillThreshold: Long,
+        override val maxBackfillChunkSize: Int,
+        override val maxBroadcastingBatchSize: Int,
+        override val logPruneChunkSize: Int,
+        override val logRetentionDuration: Duration,
+        override val logPruneInterval: Duration,
+        override val writeChannelCapacity: Int,
+        override val outboundChannelCapacity: Int,
+        override val outboundStagingCapacity: Int,
+    ) : ServerConfig
 }

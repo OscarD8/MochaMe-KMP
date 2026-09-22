@@ -52,11 +52,24 @@ fun Application.configureSyncRelay(
  *
  * ###### Lifecycle Pipeline:
  * 1. **Handshake & Parameter Extraction:** Validates path variables and query parameters.
- * 2. **State Reconciliation:** Verifies requested `since` watermark has not been pruned.
+ * 2. **State Reconciliation:** Verifies requested *since* watermark has not been pruned.
  * 3. **Snapshot Enforcement:** Rejects clients whose lag exceeds snapshot thresholds.
  * 4. **Catch-Up Streaming:** Paginates and streams historical deltas sequentially.
  * 5. **Live Transition:** Flushes backfill buffers and enables live peer synchronization.
  * 6. **Inbound Lifecycle:** Forwards binary frames to the single-writer [DatabaseActor].
+ *
+ *
+ * ###### Manual Session Teardown
+ * * Slow Consumer / Saturated OutboundChannel: [RelayManager.broadcast] detects that
+ *   [handle.enqueueBroadcast] returned [OutboundSaturated] or [StagingSaturated].
+ *   It calls terminate, which invokes [handle.close].
+ *
+ * * Duplicate Peer connection: A new socket connects claiming nodeId = "A",
+ *   but [RelayManager] already has an active [SessionHandle] for "A".
+ *   The manager evicts the old stale handle by calling oldHandle.close(Normal, "Replaced by new connection").
+ *
+ * * Deserialization Violation: The sessions inbound stream consumer gets invalid bytes or
+ *   invalid opcodes and terminates the session.
  */
 fun Route.syncRelayRoute(
     database: ServerDatabase,
@@ -85,19 +98,25 @@ fun Route.syncRelayRoute(
         }
 
         val sessionHandle = SessionHandle(nodeId, groupId, this, config)
-        relayManager.register(sessionHandle)
 
         try {
+            relayManager.register(sessionHandle)
+
             val backfilledSuccessfully = streamBackfill(
                 sessionHandle = sessionHandle,
                 database = database,
-                relayManager = relayManager,
                 sinceWatermark = sinceWatermark,
                 config = config,
                 logger = logger
             )
 
-            if (!backfilledSuccessfully) return@webSocket
+            if (!backfilledSuccessfully) {
+                relayManager.terminate(
+                    handle = sessionHandle,
+                    code = INTERNAL_ERROR,
+                    reason = "BACKFILL_FAILURE"
+                )
+            }
 
             consumeInboundStream(
                 sessionHandle = sessionHandle,
@@ -109,8 +128,9 @@ fun Route.syncRelayRoute(
             throw e
         } catch (e: Exception) {
             logger.e(e) { "Session error for node '$nodeId' in group '$groupId':${e.message}" }
+            relayManager.terminate(sessionHandle, INTERNAL_ERROR, e.message ?: "Unhandled error")
         } finally {
-            relayManager.terminate(sessionHandle, CloseReason.Codes.NORMAL, "Session ended")
+            relayManager.terminate(sessionHandle, CloseReason.Codes.NORMAL, "Client closed connection")
         }
     }
 }
@@ -124,7 +144,6 @@ fun Route.syncRelayRoute(
 private suspend fun streamBackfill(
     sessionHandle: SessionHandle,
     database: ServerDatabase,
-    relayManager: RelayManager,
     sinceWatermark: Long,
     config: ServerConfig,
     logger: Logger
@@ -145,7 +164,10 @@ private suspend fun streamBackfill(
 
         for (delta in chunk) {
             sessionHandle.outboundChannel.send(
-                Frame.Binary(fin = true, data = WireFrameFactory.delta(delta.watermark, delta.payload))
+                Frame.Binary(
+                    fin = true,
+                    data = WireFrameFactory.delta(delta.watermark, delta.payload)
+                )
             )
             if (delta.watermark > maxSeenWatermark) {
                 maxSeenWatermark = delta.watermark
@@ -179,12 +201,7 @@ private suspend fun streamBackfill(
         }
 
         is BackfillResult.Failure -> {
-            logger.e(result.cause) { "Backfill draining error for node '${sessionHandle.nodeId}'" }
-            relayManager.terminate(
-                handle = sessionHandle,
-                code = INTERNAL_ERROR,
-                reason = "BACKFILL_DRAIN_FAILURE: ${result.cause.message}"
-            )
+            logger.e(result.cause) { "Backfill error for node '${sessionHandle.nodeId}': (${result::class.simpleName})" }
             false
         }
     }
@@ -205,7 +222,10 @@ private suspend fun DefaultWebSocketServerSession.consumeInboundStream(
         val rawPayload = frame.readBytes()
         if (rawPayload.size < 9) {
             logger.w { "Malformed frame from '${sessionHandle.nodeId}' (${rawPayload.size}b). Discarding." }
-            continue
+            sessionHandle.close(
+                CloseReason.Codes.PROTOCOL_ERROR,
+                "Expected >= 9 Bytes [0x04][batchId: 8B]"
+            )
         }
 
         val batchId = rawPayload.readLongAt(1)

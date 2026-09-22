@@ -79,7 +79,7 @@ class ServerDatabase(
             connectionInitSql = """
                 PRAGMA query_only = ON;
                 PRAGMA busy_timeout = 5000;
-                PRAGMA cache_size = -4000;
+                PRAGMA cache_size = -4000; -- The actual amount of 4B pages
              """.trimIndent()
         }
         readDataSource = HikariDataSource(readConfig)

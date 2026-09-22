@@ -63,6 +63,16 @@ internal class DefaultBlobStore(
      * generates a fingerprint of its contents at the same time as writing the source to that
      * path. The fingerprint is used to establish a final path for staged sources, before
      * atomically moving the contents to that finalized path.
+     *
+     * Chunk size on my laptop:
+     *
+     * ```kotlin
+     * sudo nvme id-ns -H /dev/nvme0n1 | grep -E "Data Size|Relative Performance"
+        LBA Format  0 : Metadata Size: 0   bytes - Data Size: 512 bytes - Relative Performance: 0x2 Good (in use)
+        LBA Format  1 : Metadata Size: 0   bytes - Data Size: 4096 bytes - Relative Performance: 0x1 Better
+     ```
+     * To check: kernel read-ahead behavior, memory pages, and L1 caching.
+     *
      * @return blobId representing the fingerprint of the source (its bytes).
      */
     override suspend fun stage(source: Source): String = withContext(ioContext) {
@@ -80,7 +90,7 @@ internal class DefaultBlobStore(
             // Read the source, write to sink, through a buffer
             fileSystem.sink(tempPath).buffered().use { sink ->
                 val buffer = Buffer()
-                while (source.readAtMostTo(buffer, 8192L) != -1L) {
+                while (source.readAtMostTo(buffer, 8 * 1024) != -1L) {
                     val byteCount = buffer.size
                     digest.update(buffer.peek())
                     sink.write(buffer, byteCount)

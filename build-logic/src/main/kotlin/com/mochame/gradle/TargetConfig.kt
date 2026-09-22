@@ -70,7 +70,7 @@ fun KotlinMultiplatformExtension.configureTargets(
  *  * Why: Precompiled scripts in build-logic cannot see the 'android' block without ephemeral hashes. This provides a static, compile-time reference to an
  *  object container.
  */
-fun KotlinMultiplatformExtension.mochaAndroid(
+internal fun KotlinMultiplatformExtension.mochaAndroid(
     configure: KotlinMultiplatformAndroidLibraryTarget.() -> Unit
 ) {
     (this as? ExtensionAware)?.extensions?.configure<KotlinMultiplatformAndroidLibraryTarget>(
