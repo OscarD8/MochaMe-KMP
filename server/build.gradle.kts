@@ -6,19 +6,16 @@ plugins {
 
 dependencies {
     implementation(project(":core:sync-api"))
-    implementation(project(":core:annotations"))
     implementation(project(":core:logger"))
-
+    implementation(project(":core:utils"))
     implementation(libs.hikaricp)
     implementation(libs.bundles.ktor.server)
     implementation(libs.sqlite.jdbc)
-    implementation(libs.koin.annotations)
     implementation(libs.kotlinx.coroutines.core)
 
-
+    testImplementation(project(":core:test:fixtures-utils"))
     testImplementation(libs.kotest.runner.junit5)
     testImplementation(libs.kotest.assertions.core)
-
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.ktor.client.websockets)
 }

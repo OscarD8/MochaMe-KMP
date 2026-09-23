@@ -29,6 +29,10 @@ fun <T : RoomDatabase> RoomDatabase.Builder<T>.applyMochaDefaults(
     .fallbackToDestructiveMigration(dropAllTables = true)
     .addCallback(object : RoomDatabase.Callback() {
         override fun onOpen(connection: SQLiteConnection) {
-            connection.execSQL("PRAGMA busy_timeout = 4000;")
+            connection.execSQL("PRAGMA synchronous = NORMAL;")
+            connection.execSQL("PRAGMA busy_timeout = 5000;")
+            connection.execSQL("PRAGMA cache_size = -4000;")
+            connection.execSQL("PRAGMA foreign_keys = ON;") // Consider this when adding relational data to the protobuf usage
+            // connection.execSQL("PRAGMA mmap_size = 33554432;") -- unsure
         }
     })

@@ -1,9 +1,7 @@
-package com.mochame.server
+package com.mochame.server.relay
 
-import com.mochame.server.config.ServerConfig
-import com.mochame.server.relay.BackfillResult
-import com.mochame.server.relay.EnqueueResult
-import com.mochame.server.relay.SessionHandle
+import com.mochame.server.utils.FakeWebSocketSession
+import com.mochame.server.utils.ServerConfig
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.engine.coroutines.backgroundScope
@@ -39,8 +37,9 @@ class SessionHandleTest : FunSpec({
     coroutineTestScope = true
 
     // -------------------------------------------------------------------------
-    // 1. EnqueueResult Domain (OutboundChannel, Staging, & Backpressure Paths)
+    // EnqueueResult (OutboundChannel, Staging, & Backpressure Paths)
     // -------------------------------------------------------------------------
+
     context("EnqueueResult Domain") {
 
         context("EnqueueResult.Success") {
@@ -110,7 +109,7 @@ class SessionHandleTest : FunSpec({
         context("EnqueueResult.StagingSaturated") {
             test("Flooding staging buffer rejects excess frames without corrupting order") {
                 // Given: Staging capacity clamped to 3
-                val config = ServerConfig(
+                val config = ServerConfig.Default(
                     outboundChannelCapacity = 10,
                     outboundStagingCapacity = 3
                 )
@@ -189,7 +188,7 @@ class SessionHandleTest : FunSpec({
     }
 
     // -------------------------------------------------------------------------
-    // 2. BackfillResult Domain (Historical Catch-up & Watermark Reconciliation)
+    // BackfillResult Domain (Historical Catch-up & Watermark Reconciliation)
     // -------------------------------------------------------------------------
     context("BackfillResult Domain") {
 
@@ -224,7 +223,7 @@ class SessionHandleTest : FunSpec({
 
             test("Incoming frames while send() suspends are drained before isBackfilled = true") {
                 // Given: Outbound channel throttled to force completeBackfill to suspend on outboundChannel.send()
-                val config = ServerConfig(
+                val config = ServerConfig.Default(
                     outboundChannelCapacity = 1,
                     outboundStagingCapacity = 10
                 )
@@ -272,7 +271,7 @@ class SessionHandleTest : FunSpec({
         context("BackfillResult.ChannelClosed (Teardown Interruption)") {
             test("Outbound channel closure pre backfill, yields BackfillResult.Closed to caller") {
                 // Given: Outbound channel saturated so completeBackfill suspends on send()
-                val config = ServerConfig(
+                val config = ServerConfig.Default(
                     outboundChannelCapacity = 1,
                     outboundStagingCapacity = 5
                 )
@@ -299,7 +298,7 @@ class SessionHandleTest : FunSpec({
         context("BackfillResult.Failure (Transport Exception Handoff)") {
             test("Outbound channel exception mid-cutover, yields BackfillResult.Failure to caller") {
                 // Given: Outbound channel saturated so completeBackfill suspends on send()
-                val config = ServerConfig(
+                val config = ServerConfig.Default(
                     outboundChannelCapacity = 1,
                     outboundStagingCapacity = 5
                 )
@@ -331,9 +330,10 @@ class SessionHandleTest : FunSpec({
         }
     }
 
-    // =========================================================================
-    // 3. Cancellation Propagation & Fault Isolation
-    // =========================================================================
+    // -------------------------------------------------------------------------
+    // Cancellation Propagation & Fault Isolation
+    // -------------------------------------------------------------------------
+
     context("Cancellation & Fault Isolation") {
 
         context("Cancellation Propagation") {
@@ -420,9 +420,10 @@ class SessionHandleTest : FunSpec({
         }
     }
 
-    // =========================================================================
-    // 4. Teardown Lifecycle, CAS Operations & Monotonicity
-    // =========================================================================
+    // -------------------------------------------------------------------------
+    // Teardown Lifecycle, CAS Operations & Monotonicity
+    // -------------------------------------------------------------------------
+
     context("Teardown & Cutover Contention") {
 
         context("Teardown Lifecycle & CAS Idempotency") {
@@ -493,7 +494,7 @@ class SessionHandleTest : FunSpec({
             test("should process staged frames and switch to live broadcast seamlessly when actor enqueues across multiple suspension cycles") {
                 // Given: Small outbound buffer to force completeBackfill to repeatedly suspend on outboundChannel.send()
                 val actorDispatcher = Dispatchers.Default.limitedParallelism(1)
-                val config = ServerConfig(
+                val config = ServerConfig.Default(
                     outboundChannelCapacity = 2,
                     outboundStagingCapacity = 100
                 )

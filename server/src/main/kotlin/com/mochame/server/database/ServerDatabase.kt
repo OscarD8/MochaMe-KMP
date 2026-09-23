@@ -1,11 +1,12 @@
 package com.mochame.server.database
 
 import co.touchlab.kermit.Logger
-import com.mochame.annotations.IoContext
-import com.mochame.server.config.ServerConfig
 import com.mochame.server.relay.DeltaWriteIntent
+import com.mochame.server.utils.ServerConfig
+import com.mochame.utils.interfaces.TimeUtils
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -42,8 +43,9 @@ val dbPath: String = "${System.getProperty("user.home")}/.mochame/sync_server.db
  */
 class ServerDatabase(
     path: String = dbPath,
+    private val clock: TimeUtils,
     private val config: ServerConfig = ServerConfig.Default,
-    @IoContext private val ioContext: CoroutineContext = Dispatchers.IO
+    private val dispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : AutoCloseable {
 
     private val writeDataSource: HikariDataSource
@@ -128,7 +130,7 @@ class ServerDatabase(
      * @throws java.sql.SQLException If the write transaction fails, connection times out,
      *         or the disk is full. On failure, all writes in the batch are rolled back.
      */
-    suspend fun insertBatch(intents: List<DeltaWriteIntent>): List<Long> = withContext(ioContext) {
+    suspend fun insertBatch(intents: List<DeltaWriteIntent>): List<Long> = withContext(dispatcher) {
         if (intents.isEmpty()) return@withContext emptyList()
 
         val sql = """
@@ -142,7 +144,7 @@ class ServerDatabase(
 
             try {
                 val watermarks = ArrayList<Long>(intents.size)
-                val now = System.currentTimeMillis()
+                val now = clock.now().toEpochMilliseconds()
 
                 conn.prepareStatement(sql, PreparedStatement.RETURN_GENERATED_KEYS).use { stmt ->
                     for (intent in intents) {
@@ -189,7 +191,7 @@ class ServerDatabase(
         excludeNodeId: String,
         sinceWatermark: Long,
         limit: Int = config.maxBackfillChunkSize
-    ): List<StoredDelta> = withContext(ioContext) {
+    ): List<StoredDelta> = withContext(dispatcher) {
         val effectiveLimit = limit.coerceIn(1, config.maxBackfillChunkSize)
         val sql = """
             SELECT watermark, payload 
@@ -241,7 +243,7 @@ class ServerDatabase(
         groupId: String,
         excludeNodeId: String,
         sinceWatermark: Long
-    ): Long = withContext(ioContext) {
+    ): Long = withContext(dispatcher) {
         val sql = """
             SELECT COUNT(*) FROM sync_change_log 
             WHERE group_id = ? AND watermark > ? AND origin_node_id != ?;
@@ -271,7 +273,7 @@ class ServerDatabase(
      * @return Oldest retained watermark in the group, or `null` if the group log is empty.
      * @throws java.sql.SQLException If borrowing a read connection times out or query execution fails.
      */
-    suspend fun getMinWatermark(groupId: String): Long? = withContext(ioContext) {
+    suspend fun getMinWatermark(groupId: String): Long? = withContext(dispatcher) {
         val sql = "SELECT MIN(watermark) FROM sync_change_log WHERE group_id = ?;"
         readDataSource.connection.use { conn ->
             conn.prepareStatement(sql).use { stmt ->
@@ -301,7 +303,7 @@ class ServerDatabase(
     suspend fun pruneExpiredDeltas(
         olderThanEpochMs: Long,
         chunkSize: Int = config.logPruneChunkSize
-    ): Int = withContext(ioContext) {
+    ): Int = withContext(dispatcher) {
         val sql = """
             DELETE FROM sync_change_log 
             WHERE rowid IN (
@@ -329,8 +331,8 @@ class ServerDatabase(
     }
 
     override fun close() {
-        writeDataSource.close()
         readDataSource.close()
+        writeDataSource.close()
     }
 }
 
@@ -338,14 +340,15 @@ fun CoroutineScope.runtimeLogPruning(
     database: ServerDatabase,
     logger: Logger,
     retention: Duration,
-    interval: Duration
+    interval: Duration,
+    clock: TimeUtils
 ): Job = launch {
     logger.v { "Runtime log pruning job starting..." }
 
     while (isActive) {
         try {
-            val cutoff = System.currentTimeMillis() - retention.inWholeMilliseconds
-            val pruned = database.pruneExpiredDeltas(cutoff)
+            val cutoff = clock.now() - retention
+            val pruned = database.pruneExpiredDeltas(cutoff.toEpochMilliseconds())
             if (pruned > 0) {
                 logger.i { "Pruned $pruned expired deltas from log." }
             }

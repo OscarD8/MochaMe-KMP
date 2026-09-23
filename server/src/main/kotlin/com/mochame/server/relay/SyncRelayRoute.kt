@@ -1,7 +1,7 @@
 package com.mochame.server.relay
 
 import co.touchlab.kermit.Logger
-import com.mochame.server.config.ServerConfig
+import com.mochame.server.utils.ServerConfig
 import com.mochame.server.database.ServerDatabase
 import com.mochame.sync.common.readLongAt
 import com.mochame.sync.spi.network.WireFrameFactory

@@ -1,9 +1,10 @@
 package com.mochame.server.relay
 
 import co.touchlab.kermit.Logger
-import com.mochame.server.config.ServerConfig
+import com.mochame.server.utils.ServerConfig
 import com.mochame.server.database.ServerDatabase
 import com.mochame.server.database.runtimeLogPruning
+import com.mochame.utils.interfaces.TimeUtils
 import io.ktor.server.cio.CIO
 import io.ktor.server.engine.EmbeddedServer
 import io.ktor.server.engine.embeddedServer
@@ -34,6 +35,7 @@ class RelayServer(
     private val database: ServerDatabase,
     private val relayManager: RelayManager,
     private val serverScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+    private val clock: TimeUtils,
     private val logger: Logger
 ) : AutoCloseable {
 
@@ -60,7 +62,8 @@ class RelayServer(
             database = database,
             logger = logger,
             retention = config.logRetentionDuration,
-            interval = config.logPruneInterval
+            interval = config.logPruneInterval,
+            clock = clock
         )
 
         engine = embeddedServer(CIO, config.port, config.host) {

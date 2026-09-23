@@ -1,7 +1,7 @@
 package com.mochame.server.relay
 
 import co.touchlab.kermit.Logger
-import com.mochame.server.config.ServerLogger
+import com.mochame.server.utils.ServerLogger
 import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
 import java.util.concurrent.ConcurrentHashMap
@@ -74,7 +74,7 @@ class RelayManager(
                 EnqueueResult.Success -> {}
 
                 is EnqueueResult.Closed -> {
-                    logger.v { "Node '${peer.nodeId}' outbound channel already closed (${result::class.simpleName}). Terminating..." }
+                    logger.v { "Node '${peer.nodeId}' outbound channel already closed (${result::class.simpleName}). Confirming termination..." }
                     terminate(
                         handle = peer,
                         code = CloseReason.Codes.NORMAL,
@@ -83,7 +83,7 @@ class RelayManager(
                 }
 
                 EnqueueResult.StagingSaturated -> {
-                    logger.w { "Node '${peer.nodeId}' exceeded staging capacity during backfill. Config may require tuning. Terminating..." }
+                    logger.w { "Node '${peer.nodeId}' exceeded staging capacity during backfill. Config may require tuning. Confirming terminating..." }
                     terminate(
                         handle = peer,
                         code = CloseReason.Codes.TRY_AGAIN_LATER,
@@ -92,7 +92,7 @@ class RelayManager(
                 }
 
                 EnqueueResult.OutboundSaturated -> {
-                    logger.w { "Node '${peer.nodeId}' outbound channel saturated. Terminating..." }
+                    logger.w { "Node '${peer.nodeId}' outbound channel saturated. Confirming termination..." }
                     terminate(
                         handle = peer,
                         code = CloseReason.Codes.TRY_AGAIN_LATER,
@@ -105,4 +105,12 @@ class RelayManager(
 
     fun hasRegisteredSession(handle: SessionHandle): Boolean =
         groupSessions[handle.groupId]?.get(handle.nodeId) == handle
+
+    /**
+     * Returns the underlying active session handle map for [groupId], or null if absent.
+     */
+    fun getActiveGroup(groupId: String): Map<String, SessionHandle>? {
+        val group = groupSessions[groupId] ?: return null
+        return if (group.isEmpty()) null else group
+    }
 }

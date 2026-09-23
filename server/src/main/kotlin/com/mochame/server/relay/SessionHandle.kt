@@ -1,8 +1,8 @@
 package com.mochame.server.relay
 
 import co.touchlab.kermit.Logger
-import com.mochame.server.config.ServerConfig
-import com.mochame.server.config.ServerLogger
+import com.mochame.server.utils.ServerConfig
+import com.mochame.server.utils.ServerLogger
 import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
 import io.ktor.websocket.WebSocketSession
@@ -103,27 +103,29 @@ class SessionHandle(
      * Drains the internal outbound channel to the underlying WebSocket session (suspending) until closed or canceled.
      */
     private suspend fun runOutboundWorker() {
+        val tag = "node '$nodeId' [@$identityHex]"
+        logger.v { "starting outbound worker" }
         try {
             for (frame in outboundChannel) {
                 session.send(frame)
             }
         } catch (e: CancellationException) {
-            logger.d { "Outbound worker cancelled for node '$nodeId'" }
+            logger.d { "Outbound worker cancelled for $tag" }
             throw e
         } catch (e: ClosedSendChannelException) {
             // Expected when client drops TCP connection or Ktor closes the outgoing pipeline
-            logger.d { "Outbound channel closed for node '$nodeId' (${e::class.simpleName})" }
+            logger.d { "Outbound channel closed for $tag (${e::class.simpleName})" }
         } catch (e: ClosedChannelException) {
             // Expected on socket reset
-            logger.d { "Underlying socket closed for node '$nodeId' (${e::class.simpleName})" }
+            logger.d { "Underlying socket closed for $tag (${e::class.simpleName})" }
         } catch (e: Exception) {
-            logger.e(e) { "Unhandled error in outbound worker for node '$nodeId'" }
+            logger.w(e) { "Termination error in outbound worker for $tag" }
             close(
                 CloseReason.Codes.INTERNAL_ERROR,
                 e.message ?: "[${e::class.simpleName}] Outbound worker termination"
             )
         } finally {
-            outboundChannel.cancel(CancellationException("Outbound worker finished"))
+            outboundChannel.cancel(CancellationException("Outbound worker finished '$nodeId' [@$identityHex]"))
         }
     }
 
@@ -252,3 +254,5 @@ class SessionHandle(
     }
 }
 
+val Any.identityHex: String
+    get() = Integer.toHexString(System.identityHashCode(this))

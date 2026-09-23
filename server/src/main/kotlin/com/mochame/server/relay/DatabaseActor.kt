@@ -1,9 +1,9 @@
 package com.mochame.server.relay
 
 import co.touchlab.kermit.Logger
-import com.mochame.server.config.ServerConfig
-import com.mochame.server.config.ServerLogger
 import com.mochame.server.database.ServerDatabase
+import com.mochame.server.utils.ServerConfig
+import com.mochame.server.utils.ServerLogger
 import com.mochame.sync.spi.network.WireFrameFactory
 import io.ktor.websocket.CloseReason.Codes.INTERNAL_ERROR
 import io.ktor.websocket.Frame
@@ -11,11 +11,10 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.onClosed
 import kotlinx.coroutines.channels.onFailure
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.channels.SendChannel
-import kotlinx.io.Buffer
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
@@ -24,7 +23,7 @@ import kotlin.coroutines.cancellation.CancellationException
  *
  * @property groupId Group partition.
  * @property originNodeId Originating peer identifier.
- * @property batchId Client batch identifier for ACK response.
+ * @property batchId Client batch identifier for ACK response. Not persisted server side.
  * @property rawPayload Serialized delta content to persist and broadcast.
  * @property senderHandle Active session handle used to route writes to outbound channels, and call teardowns.
  */
@@ -75,6 +74,7 @@ class DatabaseActor(
 
     init {
         scope.launch(dispatcher.limitedParallelism(1)) {
+            logger.v { "Starting database actor..." }
             val batch = ArrayList<DeltaWriteIntent>(config.maxBroadcastingBatchSize)
 
             for (firstIntent in writeChannel) {
@@ -102,14 +102,6 @@ class DatabaseActor(
         while (batch.size < config.maxBroadcastingBatchSize) {
             val next = writeChannel.tryReceive().getOrNull() ?: break
             batch.add(next)
-        }
-
-        val buffer = Buffer().apply { write(byteArrayOf(0x01)) }
-        val source = buffer.peek()
-
-        while (!source.exhausted()) {
-            val buffer = Buffer()
-            source.readAtMostTo(buffer, 8)
         }
     }
 

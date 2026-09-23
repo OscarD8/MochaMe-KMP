@@ -1,4 +1,4 @@
-package com.mochame.server.config
+package com.mochame.server.utils
 
 import co.touchlab.kermit.Logger
 import co.touchlab.kermit.Severity

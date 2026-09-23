@@ -1,4 +1,6 @@
-package com.mochame.server
+@file:OptIn(ExperimentalCoroutinesApi::class)
+
+package com.mochame.server.utils
 
 import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
@@ -6,25 +8,28 @@ import io.ktor.websocket.WebSocketExtension
 import io.ktor.websocket.WebSocketSession
 import io.ktor.websocket.readReason
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ChannelResult
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.SendChannel
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.withTimeout
 import kotlin.coroutines.CoroutineContext
-import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * To simulate an abrupt network drop or pipe closure in a test, call fakeSession.coroutineContext.cancel()
  * or throw directly in the test body.
  */
 class FakeWebSocketSession(
-    override val coroutineContext: CoroutineContext
+    override val coroutineContext: CoroutineContext = UnconfinedTestDispatcher()
 ) : WebSocketSession, AutoCloseable {
 
     init {
-        coroutineContext[Job]?.invokeOnCompletion {
+        coroutineContext[Job.Key]?.invokeOnCompletion {
             close()
         }
     }
@@ -44,7 +49,7 @@ class FakeWebSocketSession(
     var capturedCloseReason: CloseReason? = null
         private set
 
-    private val backingOutgoing = Channel<Frame>(Channel.UNLIMITED)
+    val backingOutgoing = Channel<Frame>(Channel.UNLIMITED)
 
     /** Manual interception on Ktor's outgoing frame calls to intercept close frames */
     override val outgoing: SendChannel<Frame> = object : SendChannel<Frame> by backingOutgoing {
@@ -119,6 +124,14 @@ class FakeWebSocketSession(
     suspend fun awaitCloseReason(): CloseReason = closeReasonDeferred.await()
 
     /**
+     * Suspends cleanly until a frame arrives.
+     * Yields the thread, eliminates loops, and wakes up the exact millisecond the frame lands.
+     */
+    suspend fun awaitFrame(timeoutMs: Long = 2000): Frame = withTimeout(timeoutMs.milliseconds) {
+        backingOutgoing.receive()
+    }
+
+    /**
      * Drains sent application frames for assertion checks.
      */
     fun drainSentFrames(): List<Frame> {
@@ -133,10 +146,11 @@ class FakeWebSocketSession(
     /** Usage will not capture exception */
     override fun close() {
         if (!closeReasonDeferred.isCompleted) {
-            closeReasonDeferred.completeExceptionally(CancellationException())
+            closeReasonDeferred.completeExceptionally(kotlin.coroutines.cancellation.CancellationException())
         }
         outgoing.close()
-        incomingChannel.cancel(CancellationException())
+        incomingChannel.cancel(kotlin.coroutines.cancellation.CancellationException())
         coroutineContext.cancel()
     }
 }
+

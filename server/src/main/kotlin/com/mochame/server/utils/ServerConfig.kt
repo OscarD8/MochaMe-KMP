@@ -1,4 +1,4 @@
-package com.mochame.server.config
+package com.mochame.server.utils
 
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
