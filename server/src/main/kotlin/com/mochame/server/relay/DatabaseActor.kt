@@ -8,6 +8,7 @@ import com.mochame.sync.spi.network.WireFrameFactory
 import io.ktor.websocket.CloseReason.Codes.INTERNAL_ERROR
 import io.ktor.websocket.Frame
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -73,8 +74,8 @@ class DatabaseActor(
         field = Channel<DeltaWriteIntent>(capacity = config.writeChannelCapacity)
 
     init {
-        scope.launch(dispatcher.limitedParallelism(1)) {
-            logger.v { "Starting database actor..." }
+        scope.launch(CoroutineName("DatabaseActor") + dispatcher.limitedParallelism(1)) {
+            logger.i { "Starting database actor..." }
             val batch = ArrayList<DeltaWriteIntent>(config.maxBroadcastingBatchSize)
 
             for (firstIntent in writeChannel) {

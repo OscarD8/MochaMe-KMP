@@ -1,6 +1,6 @@
 package com.mochame.server.database
 
-import com.mochame.server.utils.createTestIntent
+import com.mochame.server.utils.createWriteIntent
 import com.mochame.utils.fixtures.FakeTimeUtils
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
@@ -24,7 +24,7 @@ class ServerDatabaseTest : FunSpec({
     val db = ServerDatabase(
         dbFile.absolutePath,
         clock = FakeTimeUtils(),
-        dispatcher = Dispatchers.Unconfined
+        dispatcher = Dispatchers.IO
     )
 
     afterSpec {
@@ -62,13 +62,13 @@ class ServerDatabaseTest : FunSpec({
         // Given: Multiple batches of deltas across nodes
         val groupId = "group-${UUID.randomUUID()}"
         val batch1 = listOf(
-            createTestIntent(groupId, "node-1", "delta-1".encodeToByteArray()),
-            createTestIntent(groupId, "node-1", "delta-2".encodeToByteArray(), batchId = 2L),
-            createTestIntent(groupId, "node-2", "delta-3".encodeToByteArray())
+            createWriteIntent(groupId, "node-1", "delta-1".encodeToByteArray()),
+            createWriteIntent(groupId, "node-1", "delta-2".encodeToByteArray(), batchId = 2L),
+            createWriteIntent(groupId, "node-2", "delta-3".encodeToByteArray())
         )
         val batch2 = listOf(
-            createTestIntent(groupId, "node-2", "delta-4".encodeToByteArray(), batchId = 2L),
-            createTestIntent(groupId, "node-1", "delta-5".encodeToByteArray(), batchId = 3L)
+            createWriteIntent(groupId, "node-2", "delta-4".encodeToByteArray(), batchId = 2L),
+            createWriteIntent(groupId, "node-1", "delta-5".encodeToByteArray(), batchId = 3L)
         )
 
         // When: Batches are inserted sequentially
@@ -119,15 +119,15 @@ class ServerDatabaseTest : FunSpec({
             // Given: Baseline record to anchor the sequence and a failing batch
             val initialKeys = db.insertBatch(
                 listOf(
-                    createTestIntent(groupId, "node-init")
+                    createWriteIntent(groupId, "node-init")
                 )
             )
             val baselineWatermark = initialKeys.first()
 
             val failingBatch = listOf(
-                createTestIntent(groupId, "node-1"),
-                createTestIntent(groupId, "TRIGGER_FAILURE"),
-                createTestIntent(groupId, "node-1", batchId = 3L)
+                createWriteIntent(groupId, "node-1"),
+                createWriteIntent(groupId, "TRIGGER_FAILURE"),
+                createWriteIntent(groupId, "node-1", batchId = 3L)
             )
 
             // When:
@@ -146,7 +146,7 @@ class ServerDatabaseTest : FunSpec({
             // And: Recovery
             val recoveryKeys = db.insertBatch(
                 listOf(
-                    createTestIntent(groupId, "node-1")
+                    createWriteIntent(groupId, "node-1")
                 )
             )
             recoveryKeys.size shouldBe 1
@@ -173,8 +173,8 @@ class ServerDatabaseTest : FunSpec({
             byteArrayOf(0x08, 0x96.toByte(), 0x01, 0x12, 0x07, 0x74, 0x65, 0x73, 0x74, 0x00)
 
         val intents = listOf(
-            createTestIntent(groupId, "node-1", payloadWithNulls),
-            createTestIntent(groupId, "node-2", protobufWirePayload)
+            createWriteIntent(groupId, "node-1", payloadWithNulls),
+            createWriteIntent(groupId, "node-2", protobufWirePayload)
         )
 
         // When: Batch is inserted and retrieved from the change log
@@ -192,9 +192,9 @@ class ServerDatabaseTest : FunSpec({
         val groupId = "group-${UUID.randomUUID()}"
 
         val intents = listOf(
-            createTestIntent(groupId, "node-1"),
-            createTestIntent(groupId, "node-1", batchId = 2L),
-            createTestIntent(groupId, "node-1", batchId = 3L)
+            createWriteIntent(groupId, "node-1"),
+            createWriteIntent(groupId, "node-1", batchId = 2L),
+            createWriteIntent(groupId, "node-1", batchId = 3L)
         )
         val keys = db.insertBatch(intents)
         val w1 = keys[0]
@@ -222,10 +222,10 @@ class ServerDatabaseTest : FunSpec({
         val node2 = "node-2"
 
         val intents = listOf(
-            createTestIntent(groupId, node1, "delta-A1".encodeToByteArray()),
-            createTestIntent(groupId, node2, "delta-B1".encodeToByteArray()),
-            createTestIntent(groupId, node1, "delta-A2".encodeToByteArray(), batchId = 2L),
-            createTestIntent(groupId, node2, "delta-B2".encodeToByteArray(), batchId = 2L)
+            createWriteIntent(groupId, node1, "delta-A1".encodeToByteArray()),
+            createWriteIntent(groupId, node2, "delta-B1".encodeToByteArray()),
+            createWriteIntent(groupId, node1, "delta-A2".encodeToByteArray(), batchId = 2L),
+            createWriteIntent(groupId, node2, "delta-B2".encodeToByteArray(), batchId = 2L)
         )
         val keys = db.insertBatch(intents)
         val node1Keys = listOf(keys[0], keys[2])
@@ -253,12 +253,12 @@ class ServerDatabaseTest : FunSpec({
         val groupBeta = "group-${UUID.randomUUID()}"
 
         val alphaIntents = listOf(
-            createTestIntent(groupAlpha, "node-1", "alpha-1".encodeToByteArray()),
-            createTestIntent(groupAlpha, "node-2", "alpha-2".encodeToByteArray())
+            createWriteIntent(groupAlpha, "node-1", "alpha-1".encodeToByteArray()),
+            createWriteIntent(groupAlpha, "node-2", "alpha-2".encodeToByteArray())
         )
         val betaIntents = listOf(
-            createTestIntent(groupBeta, "node-3", "beta-1".encodeToByteArray()),
-            createTestIntent(groupBeta, "node-4", "beta-2".encodeToByteArray())
+            createWriteIntent(groupBeta, "node-3", "beta-1".encodeToByteArray()),
+            createWriteIntent(groupBeta, "node-4", "beta-2".encodeToByteArray())
         )
 
         db.insertBatch(alphaIntents)
@@ -276,7 +276,7 @@ class ServerDatabaseTest : FunSpec({
         // Given: 10 committed deltas for a single group
         val groupId = "group-${UUID.randomUUID()}"
         val intents = (1..10).map { i ->
-            createTestIntent(groupId, "node-1", "delta-$i".encodeToByteArray())
+            createWriteIntent(groupId, "node-1", "delta-$i".encodeToByteArray())
         }
         val assignedKeys = db.insertBatch(intents)
 
@@ -299,10 +299,10 @@ class ServerDatabaseTest : FunSpec({
         // Given: Committed deltas authored by multiple nodes across a single group
         val groupId = "group-${UUID.randomUUID()}"
         val intents = listOf(
-            createTestIntent(groupId, "node-A", "delta-1".encodeToByteArray()),
-            createTestIntent(groupId, "node-B", "delta-2".encodeToByteArray()),
-            createTestIntent(groupId, "node-A", "delta-3".encodeToByteArray()),
-            createTestIntent(groupId, "node-B", "delta-4".encodeToByteArray())
+            createWriteIntent(groupId, "node-A", "delta-1".encodeToByteArray()),
+            createWriteIntent(groupId, "node-B", "delta-2".encodeToByteArray()),
+            createWriteIntent(groupId, "node-A", "delta-3".encodeToByteArray()),
+            createWriteIntent(groupId, "node-B", "delta-4".encodeToByteArray())
         )
         val assignedKeys = db.insertBatch(intents)
         val splitWatermark = assignedKeys[1]
@@ -333,8 +333,8 @@ class ServerDatabaseTest : FunSpec({
         val populatedGroupId = "group-pop-${UUID.randomUUID()}"
 
         val intents = listOf(
-            createTestIntent(populatedGroupId, "node-1", "delta-1".encodeToByteArray()),
-            createTestIntent(populatedGroupId, "node-2", "delta-2".encodeToByteArray())
+            createWriteIntent(populatedGroupId, "node-1", "delta-1".encodeToByteArray()),
+            createWriteIntent(populatedGroupId, "node-2", "delta-2".encodeToByteArray())
         )
         val assignedKeys = db.insertBatch(intents)
         val expectedMin = assignedKeys.first()

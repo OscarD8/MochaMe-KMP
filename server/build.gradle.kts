@@ -1,3 +1,5 @@
+import org.gradle.api.tasks.testing.logging.TestLogEvent
+
 plugins {
     alias(libs.plugins.koin.compiler)
     kotlin("jvm")
@@ -30,4 +32,13 @@ application {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+tasks.withType<AbstractTestTask>().configureEach {
+    testLogging {
+        outputs.upToDateWhen { false }
+        showStandardStreams = true
+        showExceptions = false
+        events(TestLogEvent.FAILED)
+    }
 }

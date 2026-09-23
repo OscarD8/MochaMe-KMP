@@ -94,7 +94,7 @@ class SessionHandle(
         private set
 
     init {
-        session.launch(CoroutineName("outbound-$groupId-$nodeId")) {
+        session.launch() {
             runOutboundWorker()
         }
     }
@@ -104,7 +104,6 @@ class SessionHandle(
      */
     private suspend fun runOutboundWorker() {
         val tag = "node '$nodeId' [@$identityHex]"
-        logger.v { "starting outbound worker" }
         try {
             for (frame in outboundChannel) {
                 session.send(frame)

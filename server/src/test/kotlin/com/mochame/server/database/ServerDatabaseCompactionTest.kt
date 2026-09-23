@@ -1,7 +1,7 @@
 package com.mochame.server.database
 
 import com.mochame.server.utils.ServerConfig
-import com.mochame.server.utils.createTestIntent
+import com.mochame.server.utils.createWriteIntent
 import com.mochame.utils.fixtures.FakeTimeUtils
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.engine.spec.tempdir
@@ -36,15 +36,15 @@ class ServerDatabaseCompactionTest : FunSpec({
 
         clock.setTime(Instant.fromEpochMilliseconds(cutoff - 1))
         val keysA =
-            db.insertBatch(listOf(createTestIntent(groupId, "node-1", "record-A".encodeToByteArray())))
+            db.insertBatch(listOf(createWriteIntent(groupId, "node-1", "record-A".encodeToByteArray())))
 
         clock.setTime(Instant.fromEpochMilliseconds(cutoff))
         val keysB =
-            db.insertBatch(listOf(createTestIntent(groupId, "node-1", "record-B".encodeToByteArray())))
+            db.insertBatch(listOf(createWriteIntent(groupId, "node-1", "record-B".encodeToByteArray())))
 
         clock.setTime(Instant.fromEpochMilliseconds(cutoff + 1))
         val keysC =
-            db.insertBatch(listOf(createTestIntent(groupId, "node-1", "record-C".encodeToByteArray())))
+            db.insertBatch(listOf(createWriteIntent(groupId, "node-1", "record-C".encodeToByteArray())))
 
         // When: Executing pruning with olderThanEpochMs set exactly to cutoff
         val totalPruned = db.pruneExpiredDeltas(olderThanEpochMs = cutoff)
@@ -64,13 +64,13 @@ class ServerDatabaseCompactionTest : FunSpec({
 
         clock.setTime(Instant.fromEpochMilliseconds(1_000L))
         val expiredIntents = (1..25).map { index ->
-            createTestIntent(groupId, "node-1", "expired-$index".encodeToByteArray())
+            createWriteIntent(groupId, "node-1", "expired-$index".encodeToByteArray())
         }
         db.insertBatch(expiredIntents)
 
         clock.setTime(Instant.fromEpochMilliseconds(5_000L))
         val liveIntents = (1..5).map { index ->
-            createTestIntent(groupId, "node-1", "live-$index".encodeToByteArray())
+            createWriteIntent(groupId, "node-1", "live-$index".encodeToByteArray())
         }
         val liveKeys = db.insertBatch(liveIntents)
 
@@ -93,7 +93,7 @@ class ServerDatabaseCompactionTest : FunSpec({
 
         clock.setTime(Instant.fromEpochMilliseconds(1_000L))
         val expiredIntents = (1..20).map { index ->
-            createTestIntent(groupId, "node-1", "expired-$index".encodeToByteArray())
+            createWriteIntent(groupId, "node-1", "expired-$index".encodeToByteArray())
         }
         db.insertBatch(expiredIntents)
 
@@ -114,17 +114,17 @@ class ServerDatabaseCompactionTest : FunSpec({
 
         clock.setTime(Instant.fromEpochMilliseconds(1_000L))
         val expiredBatch = listOf(
-            createTestIntent(groupAlpha, "node-1", "alpha-expired-1".encodeToByteArray()),
-            createTestIntent(groupAlpha, "node-2", "alpha-expired-2".encodeToByteArray()),
-            createTestIntent(groupBeta, "node-3", "beta-expired-1".encodeToByteArray()),
-            createTestIntent(groupBeta, "node-4", "beta-expired-2".encodeToByteArray())
+            createWriteIntent(groupAlpha, "node-1", "alpha-expired-1".encodeToByteArray()),
+            createWriteIntent(groupAlpha, "node-2", "alpha-expired-2".encodeToByteArray()),
+            createWriteIntent(groupBeta, "node-3", "beta-expired-1".encodeToByteArray()),
+            createWriteIntent(groupBeta, "node-4", "beta-expired-2".encodeToByteArray())
         )
         db.insertBatch(expiredBatch)
 
         clock.setTime(Instant.fromEpochMilliseconds(5_000L))
         val liveBatch = listOf(
-            createTestIntent(groupAlpha, "node-1", "alpha-live-1".encodeToByteArray()),
-            createTestIntent(groupBeta, "node-3", "beta-live-1".encodeToByteArray())
+            createWriteIntent(groupAlpha, "node-1", "alpha-live-1".encodeToByteArray()),
+            createWriteIntent(groupBeta, "node-3", "beta-live-1".encodeToByteArray())
         )
         val liveKeys = db.insertBatch(liveBatch)
 
@@ -153,13 +153,13 @@ class ServerDatabaseCompactionTest : FunSpec({
 
         clock.setTime(Instant.fromEpochMilliseconds(1_000L))
         val expiredIntents = (1..200).map { index ->
-            createTestIntent(groupId, "node-prune", "expired-$index".encodeToByteArray())
+            createWriteIntent(groupId, "node-prune", "expired-$index".encodeToByteArray())
         }
         db.insertBatch(expiredIntents)
 
         clock.setTime(Instant.fromEpochMilliseconds(5_000L))
         val liveIntents = (1..20).map { index ->
-            createTestIntent(groupId, "node-live", "live-$index".encodeToByteArray())
+            createWriteIntent(groupId, "node-live", "live-$index".encodeToByteArray())
         }
 
         val readyUps = List(2) { CompletableDeferred<Unit>() }

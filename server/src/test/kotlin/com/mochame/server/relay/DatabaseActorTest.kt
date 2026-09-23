@@ -1,9 +1,11 @@
 package com.mochame.server.relay
 
 import com.mochame.server.database.ServerDatabase
+import com.mochame.server.utils.FakeWebSocketSession
 import com.mochame.server.utils.ServerConfig
-import com.mochame.server.utils.createAndRegisterPeer
-import com.mochame.server.utils.createTestIntent
+import com.mochame.server.utils.createWriteIntent
+import com.mochame.server.utils.fakeSession
+import com.mochame.sync.spi.network.WireFrame
 import com.mochame.sync.spi.network.WireFrameFactory
 import com.mochame.utils.fixtures.FakeTimeUtils
 import io.kotest.core.spec.style.FunSpec
@@ -12,16 +14,16 @@ import io.kotest.engine.coroutines.backgroundScope
 import io.kotest.engine.coroutines.testScheduler
 import io.kotest.engine.spec.tempdir
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.shouldNotBe
-import io.ktor.websocket.Frame
+import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import java.io.File
 import java.util.UUID
 import kotlin.coroutines.ContinuationInterceptor
 
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class DatabaseActorTest : FunSpec({
 
     coroutineTestScope = true
@@ -30,7 +32,11 @@ class DatabaseActorTest : FunSpec({
     val dbFile = File(tempDir, "actor_test.db")
     val clock = FakeTimeUtils()
     val relayManager = RelayManager()
-    val db = ServerDatabase(path = dbFile.absolutePath, clock = clock, dispatcher = Dispatchers.Unconfined)
+    val db = ServerDatabase(
+        path = dbFile.absolutePath,
+        clock = clock,
+        dispatcher = Dispatchers.Unconfined // Matches production limited parallelism
+    )
 
     afterSpec {
         db.close()
@@ -38,36 +44,47 @@ class DatabaseActorTest : FunSpec({
 
     fun TestScope.createDatabaseActor(
         config: ServerConfig = ServerConfig.Default,
-        dispatcher: CoroutineDispatcher = StandardTestDispatcher(testScheduler)
-    ): DatabaseActor {
-        return DatabaseActor(
-            database = db,
-            relayManager = relayManager,
-            config = config,
-            scope = backgroundScope,
-            dispatcher = dispatcher
-        )
+        dispatcher: CoroutineDispatcher = this.coroutineContext[ContinuationInterceptor] as CoroutineDispatcher
+    ) = DatabaseActor(
+        database = db,
+        relayManager = relayManager,
+        config = config,
+        scope = backgroundScope,
+        dispatcher = dispatcher
+    )
+
+    suspend fun TestScope.initializePeer(nodeId: String, groupId: String): SessionHandle {
+        val session = FakeWebSocketSession(this.coroutineContext)
+        val handle = SessionHandle(nodeId, groupId, session)
+
+        handle.completeBackfill(0L)
+        relayManager.register(handle)
+        return handle
     }
 
-    test("should flush solitary intent immediately when channel contains fewer items than batch ceiling") {
+
+    test("should flush intent immediately when channel contains fewer items than batch ceiling") {
         // Given: Solitary write intent and actor configured with maxBroadcastingBatchSize = 10
         val actor = createDatabaseActor(config = ServerConfig(maxBroadcastingBatchSize = 10))
         val groupId = "group-${UUID.randomUUID()}"
-        val sender = relayManager.createAndRegisterPeer("node-solitary", groupId)
-        val intent = createTestIntent(sender, batchId = 101L, payload = "solitary".encodeToByteArray())
+        val sender = initializePeer("node-solitary", groupId)
+        val intent = createWriteIntent(sender, batchId = 101L)
 
-        // When: Submitting solitary intent to writeChannel and processing queue
+        // When:
         actor.writeChannel.send(intent)
-        testScheduler.advanceUntilIdle()
+        testScheduler.advanceUntilIdle() // outbound worker starts, ships from outbound to outgoing
 
         // Then: Immediate flush commits to database and delivers matching ACK frame to sender
         val storedDeltas = db.getDeltasSince(groupId, excludeNodeId = "none", sinceWatermark = 0L)
         storedDeltas.size shouldBe 1
 
-        val frames = sender.drainSentFrames()
+        val frames = sender.fakeSession.drainSentFrames()
+        val ack = WireFrameFactory.unwrap(frames.first().data).shouldBeInstanceOf<WireFrame.Ack>()
         frames.size shouldBe 1
-        val ackFrame = frames.first() as Frame.Binary
-        ackFrame.data shouldBe WireFrameFactory.ack(batchId = 101L, watermark = storedDeltas.first().watermark)
+        ack.batchId shouldBe 101L
+        ack.watermark shouldBe storedDeltas.first().watermark
+
+        sender.close()
     }
 
 
