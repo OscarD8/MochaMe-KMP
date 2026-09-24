@@ -10,6 +10,7 @@ import io.ktor.websocket.readReason
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ChannelResult
@@ -18,18 +19,22 @@ import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.withTimeout
 import kotlin.coroutines.CoroutineContext
-import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * To simulate an abrupt network drop or pipe closure in a test, call fakeSession.coroutineContext.cancel()
  * or throw directly in the test body.
  */
 class FakeWebSocketSession(
-    override val coroutineContext: CoroutineContext = UnconfinedTestDispatcher()
+    parentContext: CoroutineContext = UnconfinedTestDispatcher()
 ) : WebSocketSession, AutoCloseable {
 
+    private val sessionJob = SupervisorJob(parentContext[Job])
+    override val coroutineContext: CoroutineContext = parentContext + sessionJob
+
     init {
-        coroutineContext[Job.Key]?.invokeOnCompletion {
+        parentContext[Job.Key]?.invokeOnCompletion {
             close()
         }
     }
@@ -127,9 +132,14 @@ class FakeWebSocketSession(
      * Suspends cleanly until a frame arrives.
      * Yields the thread, eliminates loops, and wakes up the exact millisecond the frame lands.
      */
-    suspend fun awaitFrame(timeoutMs: Long = 2000): Frame = withTimeout(timeoutMs.milliseconds) {
-        backingOutgoing.receive()
-    }
+    suspend fun awaitFrames(min: Int, timeoutMs: Duration = 2.seconds): List<Frame> =
+        withTimeout(timeoutMs) {
+            val frames = mutableListOf<Frame>()
+            while(frames.size < min) {
+                frames.add(backingOutgoing.receive())
+            }
+            frames
+        }
 
     /**
      * Drains sent application frames for assertion checks.
@@ -150,7 +160,7 @@ class FakeWebSocketSession(
         }
         outgoing.close()
         incomingChannel.cancel(kotlin.coroutines.cancellation.CancellationException())
-        coroutineContext.cancel()
+        sessionJob.cancel()
     }
 }
 

@@ -30,8 +30,7 @@ fun Application.configureSyncRelay(
     database: ServerDatabase,
     relayManager: RelayManager,
     databaseActor: DatabaseActor,
-    logger: Logger,
-    config: ServerConfig = ServerConfig.Default
+    logger: Logger
 ) {
     install(WebSockets) {
         pingPeriod = 15.seconds
@@ -41,7 +40,7 @@ fun Application.configureSyncRelay(
     }
 
     routing {
-        syncRelayRoute(database, relayManager, databaseActor, logger, config)
+        syncRelayRoute(database, relayManager, databaseActor, logger)
     }
 }
 
@@ -51,12 +50,11 @@ fun Application.configureSyncRelay(
  * Endpoint: `/sync/{groupId}/{nodeId}?since={watermark}`
  *
  * ###### Lifecycle Pipeline:
- * 1. **Handshake & Parameter Extraction:** Validates path variables and query parameters.
- * 2. **State Reconciliation:** Verifies requested *since* watermark has not been pruned.
- * 3. **Snapshot Enforcement:** Rejects clients whose lag exceeds snapshot thresholds.
- * 4. **Catch-Up Streaming:** Paginates and streams historical deltas sequentially.
- * 5. **Live Transition:** Flushes backfill buffers and enables live peer synchronization.
- * 6. **Inbound Lifecycle:** Forwards binary frames to the single-writer [DatabaseActor].
+ * * Handshake & Parameter Extraction: Validates path variables and query parameters.
+ * * State Guards: Verifies requested *since* watermark has not been pruned. Rejects clients whose lag exceeds snapshot thresholds.
+ * * Backfill Streaming: Chunks and streams historical deltas sequentially.
+ * * Live Transition: Flushes backfill buffers and enables live peer synchronization.
+ * * Inbound Lifecycle: Forwards binary frames to the single-writer [DatabaseActor].
  *
  *
  * ###### Manual Session Teardown
@@ -76,7 +74,7 @@ fun Route.syncRelayRoute(
     relayManager: RelayManager,
     databaseActor: DatabaseActor,
     logger: Logger,
-    config: ServerConfig
+    config: ServerConfig = ServerConfig.Default
 ) {
     webSocket("/sync/{groupId}/{nodeId}") {
         val groupId = call.parameters["groupId"] ?: return@webSocket close()
@@ -85,14 +83,14 @@ fun Route.syncRelayRoute(
 
         val minWatermark = database.getMinWatermark(groupId)
         if (sinceWatermark > 0 && minWatermark != null && sinceWatermark < minWatermark) {
-            logger.w { "Node '$nodeId' watermark $sinceWatermark is older than min retained$minWatermark" }
+            logger.w { "Node '$nodeId' watermark $sinceWatermark is older than min retained: $minWatermark" }
             close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "DELTA_HISTORY_EXPIRED"))
             return@webSocket
         }
 
         val pendingDeltaCount = database.countDeltasSince(groupId, nodeId, sinceWatermark)
         if (pendingDeltaCount > config.maxBackfillThreshold) {
-            logger.i { "Node '$nodeId' backlog ($pendingDeltaCount) exceeds limit (${config.maxBackfillThreshold})." }
+            logger.w { "Node '$nodeId' backlog ($pendingDeltaCount) exceeds limit (${config.maxBackfillThreshold})." }
             close(CloseReason(CloseReason.Codes.VIOLATED_POLICY, "SNAPSHOT_REQUIRED"))
             return@webSocket
         }
@@ -182,7 +180,7 @@ private suspend fun streamBackfill(
     }
 
     if (totalBackfilledCount > 0) {
-        logger.i { "Backfill complete for node '${sessionHandle.nodeId}': streamed$totalBackfilledCount deltas" }
+        logger.i { "Backfill complete for node '${sessionHandle.nodeId}': streamed $totalBackfilledCount deltas" }
     }
 
     sessionHandle.outboundChannel.send(
@@ -226,6 +224,7 @@ private suspend fun DefaultWebSocketServerSession.consumeInboundStream(
                 CloseReason.Codes.PROTOCOL_ERROR,
                 "Expected >= 9 Bytes [0x04][batchId: 8B]"
             )
+            continue
         }
 
         val batchId = rawPayload.readLongAt(1)

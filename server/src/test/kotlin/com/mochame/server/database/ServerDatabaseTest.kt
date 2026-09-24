@@ -13,12 +13,12 @@ import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.Dispatchers
 import java.io.File
-import java.sql.DriverManager
 import java.sql.SQLException
 import java.util.UUID
 
 
 class ServerDatabaseTest : FunSpec({
+
     val tempDir = tempdir()
     val dbFile = File(tempDir, "test.db")
     val db = ServerDatabase(
@@ -36,7 +36,7 @@ class ServerDatabaseTest : FunSpec({
     test("should boot with schema in WAL mode with composite index registered") {
         println("DB Location: ${tempDir.absolutePath}")
 
-        DriverManager.getConnection("jdbc:sqlite:${dbFile.absolutePath}").use { conn ->
+        db.withWriteConnection { conn ->
             conn.createStatement().use { stmt ->
                 val journalModeRs = stmt.executeQuery("PRAGMA journal_mode;")
                 journalModeRs.next()
@@ -58,7 +58,7 @@ class ServerDatabaseTest : FunSpec({
     // Batch / Watermark Monotonicity
     // -------------------------------------------------------------------------
 
-    test("should maintain 1:1 positional return and batch-over-batch monotonicity") {
+    test("should maintain 1:1 positional return and client-over-client monotonicity") {
         // Given: Multiple batches of deltas across nodes
         val groupId = "group-${UUID.randomUUID()}"
         val batch1 = listOf(
@@ -99,8 +99,8 @@ class ServerDatabaseTest : FunSpec({
         val groupId = "group-${UUID.randomUUID()}"
         val triggerName = "trig_force_fail_${System.nanoTime()}"
 
-        // Install a transient SQLite trigger to force mid-batch failure
-        DriverManager.getConnection("jdbc:sqlite:${dbFile.absolutePath}").use { conn ->
+        // Install a transient SQLite trigger to force mid-client failure
+        db.withWriteConnection { conn ->
             conn.createStatement().use { stmt ->
                 stmt.execute(
                     """
@@ -108,7 +108,7 @@ class ServerDatabaseTest : FunSpec({
                     BEFORE INSERT ON sync_change_log
                     WHEN NEW.origin_node_id = 'TRIGGER_FAILURE'
                     BEGIN
-                        SELECT RAISE(ABORT, 'Simulated mid-batch write failure');
+                        SELECT RAISE(ABORT, 'Simulated mid-client write failure');
                     END;
                     """.trimIndent()
                 )
@@ -116,7 +116,7 @@ class ServerDatabaseTest : FunSpec({
         }
 
         try {
-            // Given: Baseline record to anchor the sequence and a failing batch
+            // Given: Baseline record to anchor the sequence and a failing client
             val initialKeys = db.insertBatch(
                 listOf(
                     createWriteIntent(groupId, "node-init")
@@ -152,7 +152,7 @@ class ServerDatabaseTest : FunSpec({
             recoveryKeys.size shouldBe 1
             recoveryKeys.first() shouldBeGreaterThan baselineWatermark
         } finally {
-            DriverManager.getConnection("jdbc:sqlite:${dbFile.absolutePath}").use { conn ->
+            db.withWriteConnection { conn ->
                 conn.createStatement().use { stmt ->
                     stmt.execute("DROP TRIGGER IF EXISTS $triggerName;")
                 }

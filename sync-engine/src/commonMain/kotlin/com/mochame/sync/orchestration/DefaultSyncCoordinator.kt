@@ -98,12 +98,12 @@ internal class DefaultSyncCoordinator(
 
         workerHook.signals.collect {
             try {
-                logger.v { "Processing outbound batch..." }
+                logger.v { "Processing outbound client..." }
                 processQueueUntilExhausted()
             } catch (e: Exception) {
                 if (e is CancellationException || e is MochaException.Persistent) throw e
                 logger.e(e) {
-                    "Failure during outbound batch processing: ${e.message}. " +
+                    "Failure during outbound client processing: ${e.message}. " +
                             "Preserving outbound pipeline state."
                 }
             }
@@ -114,7 +114,7 @@ internal class DefaultSyncCoordinator(
      * Intended behavior should ensure regular batches are made when feature repositories
      * perform local changes, these batches being small. The UI design must be considered
      * in relation to this behavior, as it will directly relate to how repositories trigger
-     * invalidation and the batch process.
+     * invalidation and the client process.
      */
     @OptIn(FlowPreview::class)
     override suspend fun processQueueUntilExhausted() {
@@ -157,7 +157,7 @@ internal class DefaultSyncCoordinator(
     }
 
     override suspend fun onInboundBytes(watermark: Long, inbound: ByteArray) {
-        logger.v { "Inbound: Received batch with ${inbound.size}B..." }
+        logger.v { "Inbound: Received client with ${inbound.size}B..." }
 
         try {
             bootManager.awaitReady()
@@ -227,10 +227,10 @@ internal class DefaultSyncCoordinator(
             }
 
             if (active != null && active.batchId == batchId) {
-                logger.v { "Inbound: Acknowledged batch $batchId (updated=$rowsUpdated) to watermark $watermark" }
+                logger.v { "Inbound: Acknowledged client $batchId (updated=$rowsUpdated) to watermark $watermark" }
                 active.deferred.complete(Unit)
             } else {
-                logger.w { "Inbound: Settled batch $batchId (updated=$rowsUpdated) to watermark $watermark. inFlightBatch asynchronicity occurred (active: ${active?.batchId})" }
+                logger.w { "Inbound: Settled client $batchId (updated=$rowsUpdated) to watermark $watermark. inFlightBatch asynchronicity occurred (active: ${active?.batchId})" }
             }
         }
     }
@@ -285,7 +285,7 @@ internal class DefaultSyncCoordinator(
         when (e) {
             is TimeoutCancellationException,
             is MochaException.Transient.NetworkDisconnect -> {
-                logger.w { "Outbound: ACK terminating for batch $batchId (${e::class.simpleName})" }
+                logger.w { "Outbound: ACK terminating for client $batchId (${e::class.simpleName})" }
                 intentStore.releaseIntents(batchId)
                 false
             }
@@ -335,7 +335,7 @@ internal class DefaultSyncCoordinator(
     private suspend fun SendResult.processSendFailure(batchId: Long): Boolean {
         when (this) {
             is SendResult.NoConnection -> {
-                logger.w { "Outbound: Connection lost on call to send $batchId. Releasing batch, awaiting reconnection..." }
+                logger.w { "Outbound: Connection lost on call to send $batchId. Releasing client, awaiting reconnection..." }
                 intentStore.releaseIntents(batchId)
             }
 
@@ -343,11 +343,11 @@ internal class DefaultSyncCoordinator(
                 intentStore.stampLastError(batchId, this.cause.message ?: "Transmission failure")
 
                 if (this.cause is MochaException.Persistent) {
-                    logger.e(this.cause) { "Outbound: Persistent failure on batch $batchId. Terminating outbound loop." }
+                    logger.e(this.cause) { "Outbound: Persistent failure on client $batchId. Terminating outbound loop." }
                     throw this.cause
                     // Maybe need some kind of global app state and manager?
                 } else {
-                    logger.w(this.cause) { "Outbound: Failed to transmit batch $batchId. Possible data integrity issue." }
+                    logger.w(this.cause) { "Outbound: Failed to transmit client $batchId. Possible data integrity issue." }
                 }
             }
 
@@ -371,7 +371,7 @@ internal class DefaultSyncCoordinator(
             e.message ?: "Codec decode failure"
         }
 
-        logger.e(e) { "Inbound [watermark-$watermark]: Parsing failure during batch processing (${inbound.size}B). $failureReason" }
+        logger.e(e) { "Inbound [watermark-$watermark]: Parsing failure during client processing (${inbound.size}B). $failureReason" }
 
         transactor.runImmediateTransaction {
             quarantinedPayloadStore.record(

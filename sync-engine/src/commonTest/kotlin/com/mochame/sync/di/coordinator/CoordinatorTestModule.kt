@@ -99,7 +99,7 @@ internal class SyncCoordinatorTestEnv(
         assertEquals(
             expectedKeys,
             encodedKeys,
-            "All seeded candidateKeys must have been encoded across batch sweeps"
+            "All seeded candidateKeys must have been encoded across client sweeps"
         )
         assertEquals(
             expectedKeys.size,

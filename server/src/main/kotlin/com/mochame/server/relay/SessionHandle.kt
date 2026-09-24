@@ -94,7 +94,7 @@ class SessionHandle(
         private set
 
     init {
-        session.launch() {
+        session.launch(CoroutineName("$nodeId [Outbound]")) {
             runOutboundWorker()
         }
     }
@@ -190,7 +190,7 @@ class SessionHandle(
 
                 if (stagingBuffer.isEmpty()) {
                     isBackfilled = true
-                    logger.v { "Frame Backfill complete. Dropped: $dropped Staged: $staged" }
+                    logger.v { "Frame staging buffer processed. Dropped: $dropped Staged: $staged" }
                     return BackfillResult.Success
                 }
 
@@ -224,14 +224,16 @@ class SessionHandle(
     ) {
          if (!isClosed.compareAndSet(false, true)) return
 
-        logger.i { "Closing session for node '$nodeId' [${code.name}]: $reason" }
+        logger.d { "Closing session for node '$nodeId' [${code.name}]: $reason" }
+
+        val sanitizedReason = if (reason.length > 75) reason.take(40) + "..." else reason
 
         outboundChannel.cancel(CancellationException(reason))
 
         session.launch {
             withContext(NonCancellable) {
                 try {
-                    session.close(CloseReason(code, reason))
+                    session.close(CloseReason(code, sanitizedReason))
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {

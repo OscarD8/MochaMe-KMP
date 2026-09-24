@@ -246,11 +246,11 @@ class IntentCodecV1Test : MochaPlatformTest() {
 
         assertNull(
             decoded.leasedAt,
-            "leasedAt is local engine batch metadata and must decode as null from wire payload"
+            "leasedAt is local engine client metadata and must decode as null from wire payload"
         )
         assertNull(
             decoded.batchId,
-            "syncId is local batch execution metadata and must decode as null from wire payload"
+            "syncId is local client execution metadata and must decode as null from wire payload"
         )
     }
 

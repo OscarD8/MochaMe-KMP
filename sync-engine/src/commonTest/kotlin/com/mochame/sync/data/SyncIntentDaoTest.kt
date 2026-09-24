@@ -83,7 +83,7 @@ class SyncIntentDaoTest : MochaPlatformTest() {
         assertEquals(hlcs[1].toString(), claimedBatch[1].hlc)
         assertEquals(hlcs[2].toString(), claimedBatch[2].hlc)
 
-        // When - Fetch the next batch from the remaining backlog
+        // When - Fetch the next client from the remaining backlog
         val nextClaimedBatch = claimAndGetBatch(id = nextTestId, limit = maxBatchLimit)
 
         // Then - Verify it captures the remainder of the items chronologically

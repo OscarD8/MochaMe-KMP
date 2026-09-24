@@ -15,7 +15,7 @@ import kotlinx.serialization.protobuf.ProtoNumber
 import org.koin.core.annotation.Single
 
 /**
-    Mixed intent versioning inside a single transport batch should be impossible on the outbound path.
+    Mixed intent versioning inside a single transport client should be impossible on the outbound path.
     Codecs always use the latest available version.
  **/
 @ExperimentalSerializationApi
@@ -37,17 +37,17 @@ internal class BatchCodecV1(
 
 
     /**
-     * Currently no system to try and continue a batch on a single exception thrown for
+     * Currently no system to try and continue a client on a single exception thrown for
      * encoding an intent. Meaning if a single intent is corrupted, all intents
-     * coupled in the same batch, having the same retry count, will fail each retry attempt.
-     * Effectively a corrupt intent is a corrupt batch (which has cascading implications as
+     * coupled in the same client, having the same retry count, will fail each retry attempt.
+     * Effectively a corrupt intent is a corrupt client (which has cascading implications as
      * all future intents related to those candidate keys will be rejected).
      *
      * The idea is that using protobuf for serialization should never really throw runtime
      * errors in production, and any single intent can only be a valid [SyncIntent] model on persistence.
      */
     override fun encode(intents: List<SyncIntent>): ByteArray {
-        require(intents.isNotEmpty()) { "Cannot serialise an empty batch" }
+        require(intents.isNotEmpty()) { "Cannot serialise an empty client" }
 
         return try {
             val serializedEnvelopes = intents.map { intent ->
@@ -62,13 +62,13 @@ internal class BatchCodecV1(
             val bytes = ProtoBuf.encodeToByteArray(SyncBatchPayloadV1.serializer(), batchPayload)
 
             logger.v {
-                "Encoded transport batch: ${intents.size} intents -> ${bytes.size}B " +
+                "Encoded transport client: ${intents.size} intents -> ${bytes.size}B " +
                         "(schema v${intentCodecRouter.latestVersion})"
             }
 
             bytes
         } catch (e: Exception) {
-            logger.e(e) { "Failed encoding batch payload containing ${intents.size} intents" }
+            logger.e(e) { "Failed encoding client payload containing ${intents.size} intents" }
             throw e
         }
     }
@@ -81,13 +81,13 @@ internal class BatchCodecV1(
         val batchPayload = try {
             ProtoBuf.decodeFromByteArray(SyncBatchPayloadV1.serializer(), bytes)
         } catch (e: Exception) {
-            logger.e(e) { "Failed decoding batch container envelope (${bytes.size} bytes)" }
+            logger.e(e) { "Failed decoding client container envelope (${bytes.size} bytes)" }
             throw e
         }
 
         val totalEnvelopes = batchPayload.envelopes.size
         logger.v {
-            "Decoding batch payload: ${bytes.size}B container, " +
+            "Decoding client payload: ${bytes.size}B container, " +
                     "$totalEnvelopes envelopes, intentSchemaVersion=v${batchPayload.intentSchemaVersion}..."
         }
 
@@ -110,7 +110,7 @@ internal class BatchCodecV1(
                 corruptedCount++
                 logger.e(e) {
                     "Corrupted intent envelope at index $index/$totalEnvelopes " +
-                            "in batch v${batchPayload.intentSchemaVersion} (${envelopeBytes.size} bytes)"
+                            "in client v${batchPayload.intentSchemaVersion} (${envelopeBytes.size} bytes)"
                 }
             }
         }
@@ -121,7 +121,7 @@ internal class BatchCodecV1(
                         "($corruptedCount skipped due to corruption)"
             }
         } else {
-            logger.d { "Successfully decoded batch: ${decodedIntents.size} intents" }
+            logger.d { "Successfully decoded client: ${decodedIntents.size} intents" }
         }
 
         return decodedIntents

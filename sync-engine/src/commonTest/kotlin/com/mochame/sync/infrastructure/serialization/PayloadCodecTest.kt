@@ -111,7 +111,7 @@ class PayloadCodecTest : MochaPlatformTest() {
         // Arrange
         val corruptedWireBytes = byteArrayOf(0xFF.toByte(), 0x00, 0xFE.toByte())
 
-        // Act & Assert: Outer VersionedPayload parsing fails prior to batch processing
+        // Act & Assert: Outer VersionedPayload parsing fails prior to client processing
         assertFailsWith<SerializationException> {
             realPayloadCodec.decode(corruptedWireBytes)
         }

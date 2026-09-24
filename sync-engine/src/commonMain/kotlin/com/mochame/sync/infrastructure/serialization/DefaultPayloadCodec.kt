@@ -40,7 +40,7 @@ internal class DefaultPayloadCodec(
 
             logger.d {
                 "Encoded complete wire payload: ${payload.size} intents -> ${bytes.size}B " +
-                        "(batch schema v$version, payload blob ${encodedPayload.size}B)"
+                        "(client schema v$version, payload blob ${encodedPayload.size}B)"
             }
 
             bytes

@@ -67,6 +67,7 @@ internal class ClientWebSocketTransport(
     private var endpoint: ConnectionEndpoint? = null
     @Volatile
     private var activeSession: DefaultClientWebSocketSession? = null
+
     @Volatile
     private var inboundDeltaHandler: (suspend (watermark: Long, payload: ByteArray) -> Unit)? = null
     @Volatile
@@ -75,6 +76,7 @@ internal class ClientWebSocketTransport(
     private var onConnectedListener: (suspend () -> Unit)? = null
     @Volatile
     private var onDisconnectedListener: (suspend () -> Unit)? = null
+
     private var connectionJob: Job? = null
     private var pauseDebounceJob: Job? = null
     private var isPaused: Boolean = false
@@ -211,7 +213,7 @@ internal class ClientWebSocketTransport(
         val session = activeSession ?: return SendResult.NoConnection
 
         return try {
-            val frame = WireFrameFactory.batch(batchId, payload)
+            val frame = WireFrameFactory.client(batchId, payload)
             session.send(Frame.Binary(fin = true, data = frame))
             SendResult.Success
         } catch (e: CancellationException) {

@@ -526,14 +526,14 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         // When
         coordinator.processQueueUntilExhausted()
 
-        // Iteration 1: Claims all pending rows (2), encodes batch
+        // Iteration 1: Claims all pending rows (2), encodes client
         // Iteration 2: Queue empty, claims 0 rows, breaks while-loop
         val encodedBatch = payloadCodec.encodedInvocations.first()
         assertEquals(1, payloadCodec.encodeCallCount)
-        assertEquals(2, encodedBatch.size, "batch size")
+        assertEquals(2, encodedBatch.size, "client size")
         assertEquals(SyncStatus.SYNCING, encodedBatch.first().syncStatus)
         assertEquals(SyncStatus.SYNCING, encodedBatch.last().syncStatus)
-        assertEquals(2, intentStore.claimedBatchCallCount, "batch call count")
+        assertEquals(2, intentStore.claimedBatchCallCount, "client call count")
     }
 
     @Test
@@ -576,7 +576,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
             releaseBatch1.complete(Unit)
             scope.advanceUntilIdle()
 
-            // Assert Batch 1 transition: state mutated to SYNCING with a generated batch ID
+            // Assert Batch 1 transition: state mutated to SYNCING with a generated client ID
             val encodedBatch1 = payloadCodec.encodedInvocations[0]
             assertEquals(1, encodedBatch1.size, "Batch 1 size")
             val claimed1 = encodedBatch1.first()
@@ -585,7 +585,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
             assertEquals(SyncStatus.SYNCING, claimed1.syncStatus)
             assertNotNull(claimed1.batchId)
 
-            // Assert Batch 2 transition: state mutated to SYNCING with a distinct batch ID
+            // Assert Batch 2 transition: state mutated to SYNCING with a distinct client ID
             val encodedBatch2 = payloadCodec.encodedInvocations[1]
             assertEquals(1, encodedBatch2.size, "Batch 2 size")
             val claimed2 = encodedBatch2.first()
@@ -594,7 +594,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
             assertEquals(SyncStatus.SYNCING, claimed2.syncStatus)
             assertNotNull(claimed2.batchId)
 
-            assertTrue(claimed1.batchId != claimed2.batchId, "Claimed batch must be distinct")
+            assertTrue(claimed1.batchId != claimed2.batchId, "Claimed client must be distinct")
 
             // Assert Side-Effects
             assertEquals(2, payloadCodec.encodeCallCount)

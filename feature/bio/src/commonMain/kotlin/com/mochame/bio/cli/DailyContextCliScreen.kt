@@ -109,7 +109,7 @@ class DailyContextCliScreen(
             isNapped = nappedUpdate
         ).fold(
             onSuccess = { println("[SUCCESS] All metrics saved for day $activeEpochDay.") },
-            onFailure = { println("[ERROR] Failed to save batch: ${it.message}") }
+            onFailure = { println("[ERROR] Failed to save client: ${it.message}") }
         )
     }
 

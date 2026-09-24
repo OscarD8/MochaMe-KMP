@@ -24,7 +24,7 @@ import kotlin.coroutines.cancellation.CancellationException
  *
  * @property groupId Group partition.
  * @property originNodeId Originating peer identifier.
- * @property batchId Client batch identifier for ACK response. Not persisted server side.
+ * @property batchId Client client identifier for ACK response. Not persisted server side.
  * @property rawPayload Serialized delta content to persist and broadcast.
  * @property senderHandle Active session handle used to route writes to outbound channels, and call teardowns.
  */
@@ -40,7 +40,7 @@ data class DeltaWriteIntent(
  * Single-writer component coordinating SQLite writes and outbound broadcasting via channels.
  *
  * Runs sequentially on a dedicated single-threaded dispatcher ([CoroutineDispatcher.limitedParallelism] = 1)
- * to batch incoming [DeltaWriteIntent] payloads up to [ServerConfig.maxBroadcastingBatchSize].
+ * to client incoming [DeltaWriteIntent] payloads up to [ServerConfig.maxBroadcastingBatchSize].
  *
  * ##### Concurrency
  * - Inbound delta submissions must be dispatched via [writeChannel].
@@ -50,7 +50,7 @@ data class DeltaWriteIntent(
  *
  * ##### Failure
  * - **Write/Commit Failure:** Any database exception ([java.sql.SQLException] or runtime error)
- *   terminates active WebSocket sessions for all affected senders in the batch with
+ *   terminates active WebSocket sessions for all affected senders in the client with
  *   [CloseReason.Codes.INTERNAL_ERROR].
  * - **Outbound Channel Capacity:** If a sender's outbound buffer drops an ACK frame, that
  *   specific peer session is terminated to avoid silent state desynchronization. The behavior of the

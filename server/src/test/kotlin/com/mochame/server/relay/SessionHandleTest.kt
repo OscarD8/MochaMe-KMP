@@ -334,90 +334,84 @@ class SessionHandleTest : FunSpec({
     // Cancellation Propagation & Fault Isolation
     // -------------------------------------------------------------------------
 
-    context("Cancellation & Fault Isolation") {
+    test("Worker rethrows CancellationException and cleans up without dispatching close frames") {
+        val socketJob = Job()
+        val fakeSession = FakeWebSocketSession(backgroundScope.coroutineContext + socketJob)
+        val handle = SessionHandle(
+            nodeId = "node-cancelled",
+            groupId = "group-1",
+            session = fakeSession
+        )
+        handle.completeBackfill(maxWatermark = 0L)
+        testScheduler.runCurrent() // CIO outbound worker suspends on send()
 
-        context("Cancellation Propagation") {
-            test("Worker rethrows CancellationException and cleans up without dispatching close frames") {
-                val socketJob = Job()
-                val fakeSession = FakeWebSocketSession(backgroundScope.coroutineContext + socketJob)
-                val handle = SessionHandle(
-                    nodeId = "node-cancelled",
-                    groupId = "group-1",
-                    session = fakeSession
-                )
-                handle.completeBackfill(maxWatermark = 0L)
-                testScheduler.runCurrent() // CIO outbound worker suspends on send()
+        // When: Server worker directly cancels the websocket coroutine
+        socketJob.cancel()
+        testScheduler.runCurrent()
 
-                // When: Server worker directly cancels the websocket coroutine
-                socketJob.cancel()
-                testScheduler.runCurrent()
+        // Then:
+        fakeSession.outgoing.isClosedForSend shouldBe true
+        handle.outboundChannel.isClosedForSend shouldBe true
+        // No close frame was cleanly pushed over the wire because the scope itself was cancelled
+        fakeSession.drainSentFrames().shouldBeEmpty()
+        handle.enqueueBroadcast(0, Frame.Text("payload"))
+            .shouldBeInstanceOf<EnqueueResult.Closed>()
+    }
 
-                // Then:
-                fakeSession.outgoing.isClosedForSend shouldBe true
-                handle.outboundChannel.isClosedForSend shouldBe true
-                // No close frame was cleanly pushed over the wire because the scope itself was cancelled
-                fakeSession.drainSentFrames().shouldBeEmpty()
-                handle.enqueueBroadcast(0, Frame.Text("payload"))
-                    .shouldBeInstanceOf<EnqueueResult.Closed>()
-            }
+    test("Outbound channel cancellation exception mid-cutover, propagates cancellation") {
+        // Given: Outbound channel saturated so completeBackfill suspends on send()
 
-            test("Outbound channel cancellation exception mid-cutover, propagates cancellation") {
-                // Given: Outbound channel saturated so completeBackfill suspends on send()
+        val fakeSession = FakeWebSocketSession(UnconfinedTestDispatcher(testScheduler))
+        val gate = CompletableDeferred<Unit>()
+        fakeSession.sendDelayGate = gate
 
-                val fakeSession = FakeWebSocketSession(UnconfinedTestDispatcher(testScheduler))
-                val gate = CompletableDeferred<Unit>()
-                fakeSession.sendDelayGate = gate
+        val handle = SessionHandle(
+            nodeId = "node-cutover-cancellation",
+            groupId = "group-1",
+            session = fakeSession
+        )
 
-                val handle = SessionHandle(
-                    nodeId = "node-cutover-cancellation",
-                    groupId = "group-1",
-                    session = fakeSession
-                )
+        handle.enqueueBroadcast(10L, Frame.Text("frame-1"))
+        handle.enqueueBroadcast(20L, Frame.Text("frame-2"))
+        handle.enqueueBroadcast(30L, Frame.Text("frame-3"))
 
-                handle.enqueueBroadcast(10L, Frame.Text("frame-1"))
-                handle.enqueueBroadcast(20L, Frame.Text("frame-2"))
-                handle.enqueueBroadcast(30L, Frame.Text("frame-3"))
+        val backfillJob = async { handle.completeBackfill(maxWatermark = 0L) }
 
-                val backfillJob = async { handle.completeBackfill(maxWatermark = 0L) }
+        // When: Outbound channel is closed while completeBackfill is suspended awaiting channel capacity
+        handle.outboundChannel.close(CancellationException("Channel abruptly closed"))
+        gate.complete(Unit)
 
-                // When: Outbound channel is closed while completeBackfill is suspended awaiting channel capacity
-                handle.outboundChannel.close(CancellationException("Channel abruptly closed"))
-                gate.complete(Unit)
-
-                // Then: Backfill loop catches ClosedSendChannelException and terminates with ChannelClosed result
-                shouldThrow<CancellationException> {
-                    backfillJob.await()
-                }
-                handle.isBackfilled shouldBe false
-            }
+        // Then: Backfill loop catches ClosedSendChannelException and terminates with ChannelClosed result
+        shouldThrow<CancellationException> {
+            backfillJob.await()
         }
+        handle.isBackfilled shouldBe false
+    }
 
-        context("Transport Fault Recovery") {
-            test("When session.send throws, worker triggers close(INTERNAL_ERROR) and cancels channel") {
-                // Given: Simulated TCP socket teardown
-                val fakeSession = FakeWebSocketSession(backgroundScope.coroutineContext)
-                val handle = SessionHandle(
-                    nodeId = "node-broken-connection",
-                    groupId = "group-1",
-                    session = fakeSession
-                )
-                handle.completeBackfill(maxWatermark = 0L)
-                fakeSession.sendException = IOException("Client terminated connection")
 
-                // When: DatabaseActor plants the seed to hit the exception passed across the JNI boundary
-                handle.enqueueBroadcast(100L, Frame.Text("payload"))
-                    .shouldBeInstanceOf<EnqueueResult.Success>()
+    test("When session.send throws, worker triggers close(INTERNAL_ERROR) and cancels channel") {
+        // Given: Simulated TCP socket teardown
+        val fakeSession = FakeWebSocketSession(backgroundScope.coroutineContext)
+        val handle = SessionHandle(
+            nodeId = "node-broken-connection",
+            groupId = "group-1",
+            session = fakeSession
+        )
+        handle.completeBackfill(maxWatermark = 0L)
+        fakeSession.sendException = IOException("Client terminated connection")
 
-                // Then: worker caught the exception, closed correctly, and canceled the channel
-                val closeReason = fakeSession.awaitCloseReason()
-                closeReason.knownReason shouldBe CloseReason.Codes.INTERNAL_ERROR
-                closeReason.message shouldBe "Client terminated connection"
-                handle.outboundChannel.isClosedForSend shouldBe true
-                // Subsequent enqueue calls must fail cleanly
-                val rejected = handle.enqueueBroadcast(101L, Frame.Text("post-crash-payload"))
-                rejected.shouldBeInstanceOf<EnqueueResult.Closed>()
-            }
-        }
+        // When: DatabaseActor plants the seed to hit the exception passed across the JNI boundary
+        handle.enqueueBroadcast(100L, Frame.Text("payload"))
+            .shouldBeInstanceOf<EnqueueResult.Success>()
+
+        // Then: worker caught the exception, closed correctly, and canceled the channel
+        val closeReason = fakeSession.awaitCloseReason()
+        closeReason.knownReason shouldBe CloseReason.Codes.INTERNAL_ERROR
+        closeReason.message shouldBe "Client terminated connection"
+        handle.outboundChannel.isClosedForSend shouldBe true
+        // Subsequent enqueue calls must fail cleanly
+        val rejected = handle.enqueueBroadcast(101L, Frame.Text("post-crash-payload"))
+        rejected.shouldBeInstanceOf<EnqueueResult.Closed>()
     }
 
     // -------------------------------------------------------------------------
@@ -489,61 +483,58 @@ class SessionHandleTest : FunSpec({
                 sentFrames shouldHaveSize 1
             }
         }
-
-        context("Single-Actor Suspension & Monotonic Watermark Delivery") {
-            test("should process staged frames and switch to live broadcast seamlessly when actor enqueues across multiple suspension cycles") {
-                // Given: Small outbound buffer to force completeBackfill to repeatedly suspend on outboundChannel.send()
-                val actorDispatcher = Dispatchers.Default.limitedParallelism(1)
-                val config = ServerConfig.Default(
-                    outboundChannelCapacity = 2,
-                    outboundStagingCapacity = 100
-                )
-                val fakeSession = autoClose(FakeWebSocketSession(Dispatchers.Default))
-                val handle = SessionHandle(
-                    nodeId = "node-cutover-suspension",
-                    groupId = "group-1",
-                    session = fakeSession,
-                    config = config
-                )
-                val enqueueResults = mutableListOf<EnqueueResult>()
-                // And: Seed 10 frames into staging buffer, 5 duplicates and 5 at post database read lock
-                for (w in 1L..10L) {
-                    handle.enqueueBroadcast(w, Frame.Text("$w"))
-                }
-
-                val startGate = CompletableDeferred<Unit>()
-                val readyUps = List(2) { CompletableDeferred<Unit>() }
-
-                // When: Actor broadcasts 50 frames while completeBackfill continuously processes a constrained channel
-                val cioWorkerBackfillJob = launch(Dispatchers.Default) {
-                    readyUps[0].complete(Unit)
-                    startGate.await()
-                    handle.completeBackfill(5L)
-                }
-                val actorBroadcasterJob = launch(actorDispatcher) {
-                    readyUps[1].complete(Unit)
-                    startGate.await()
-                    for (w in 11L..60L) {
-                        enqueueResults.add(handle.enqueueBroadcast(w, Frame.Text("$w")))
-                    }
-                }
-                readyUps.awaitAll()
-                startGate.complete(Unit)
-                cioWorkerBackfillJob.join()
-                actorBroadcasterJob.join()
-
-                // Then: Output must contain all non-deduped frames (6..60) in exact sequence
-                val sentFrames = fakeSession.drainSentFrames().filterIsInstance<Frame.Text>()
-                val receivedWatermarks = sentFrames.map { it.readText().toLong() }
-                val enqueueResultSet = enqueueResults.toSet()
-
-                receivedWatermarks shouldBe (6L..60L).toList()
-                receivedWatermarks.toSet().size shouldBe 55
-                handle.isBackfilled shouldBe true
-
-                enqueueResultSet.size shouldBe 1
-                enqueueResultSet.first() shouldBe EnqueueResult.Success
+        test("should process staged frames and switch to live broadcast seamlessly when actor enqueues across multiple suspension cycles") {
+            // Given: Small outbound buffer to force completeBackfill to repeatedly suspend on outboundChannel.send()
+            val actorDispatcher = Dispatchers.Default.limitedParallelism(1)
+            val config = ServerConfig.Default(
+                outboundChannelCapacity = 2,
+                outboundStagingCapacity = 100
+            )
+            val fakeSession = autoClose(FakeWebSocketSession(Dispatchers.Default))
+            val handle = SessionHandle(
+                nodeId = "node-cutover-suspension",
+                groupId = "group-1",
+                session = fakeSession,
+                config = config
+            )
+            val enqueueResults = mutableListOf<EnqueueResult>()
+            // And: Seed 10 frames into staging buffer, 5 duplicates and 5 at post database read lock
+            for (w in 1L..10L) {
+                handle.enqueueBroadcast(w, Frame.Text("$w"))
             }
+
+            val startGate = CompletableDeferred<Unit>()
+            val readyUps = List(2) { CompletableDeferred<Unit>() }
+
+            // When: Actor broadcasts 50 frames while completeBackfill continuously processes a constrained channel
+            val cioWorkerBackfillJob = launch(Dispatchers.Default) {
+                readyUps[0].complete(Unit)
+                startGate.await()
+                handle.completeBackfill(5L)
+            }
+            val actorBroadcasterJob = launch(actorDispatcher) {
+                readyUps[1].complete(Unit)
+                startGate.await()
+                for (w in 11L..60L) {
+                    enqueueResults.add(handle.enqueueBroadcast(w, Frame.Text("$w")))
+                }
+            }
+            readyUps.awaitAll()
+            startGate.complete(Unit)
+            cioWorkerBackfillJob.join()
+            actorBroadcasterJob.join()
+
+            // Then: Output must contain all non-deduped frames (6..60) in exact sequence
+            val sentFrames = fakeSession.drainSentFrames().filterIsInstance<Frame.Text>()
+            val receivedWatermarks = sentFrames.map { it.readText().toLong() }
+            val enqueueResultSet = enqueueResults.toSet()
+
+            receivedWatermarks shouldBe (6L..60L).toList()
+            receivedWatermarks.toSet().size shouldBe 55
+            handle.isBackfilled shouldBe true
+
+            enqueueResultSet.size shouldBe 1
+            enqueueResultSet.first() shouldBe EnqueueResult.Success
         }
     }
 })

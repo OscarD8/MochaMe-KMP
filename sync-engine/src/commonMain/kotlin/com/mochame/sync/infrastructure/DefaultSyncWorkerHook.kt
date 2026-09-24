@@ -7,6 +7,9 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import org.koin.core.annotation.Single
 
+/**
+ * Could be replaced with Channel?
+ */
 @Single(binds = [SyncWorkerHook::class])
 class DefaultSyncWorkerHook : SyncWorkerHook {
     private val _signals = MutableSharedFlow<Unit>(

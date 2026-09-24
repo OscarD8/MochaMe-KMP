@@ -146,8 +146,8 @@ class ServerDatabaseCompactionTest : FunSpec({
         String(remainingBeta.first().payload) shouldBe "beta-live-1"
     }
 
-    test("should interleave live batch writes without starvation when pruning large expired backlog") {
-        // Given: 200 expired records requiring 20 chunk iterations (chunkSize = 10) and a live batch ready to commit
+    test("should interleave live client writes without starvation when pruning large expired backlog") {
+        // Given: 200 expired records requiring 20 chunk iterations (chunkSize = 10) and a live client ready to commit
         val groupId = "group-${UUID.randomUUID()}"
         val cutoff = 2_000L
 
@@ -165,7 +165,7 @@ class ServerDatabaseCompactionTest : FunSpec({
         val readyUps = List(2) { CompletableDeferred<Unit>() }
         val ishtarGate = CompletableDeferred<Unit>()
 
-        // When: Launching background pruning and concurrent live batch writes across Dispatchers.IO
+        // When: Launching background pruning and concurrent live client writes across Dispatchers.IO
         val pruneDeferred = async(Dispatchers.IO) {
             readyUps[0].complete(Unit)
             ishtarGate.await()

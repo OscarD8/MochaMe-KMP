@@ -11,7 +11,7 @@ interface ServerConfig {
     val port: Int
     val host: String
 
-    val maxBackfillThreshold: Long
+    val maxBackfillThreshold: Int
     val maxBackfillChunkSize: Int
     val maxBroadcastingBatchSize: Int
 
@@ -26,7 +26,7 @@ interface ServerConfig {
     companion object Default : ServerConfig {
         override val port: Int = 8080
         override val host: String = "0.0.0.0"
-        override val maxBackfillThreshold: Long = 1500L
+        override val maxBackfillThreshold: Int = 1500
         override val maxBackfillChunkSize: Int = 500
         override val maxBroadcastingBatchSize: Int = 50
         override val logPruneChunkSize: Int = 500
@@ -43,7 +43,7 @@ interface ServerConfig {
         operator fun invoke(
             port: Int = Default.port,
             host: String = Default.host,
-            maxBackfillThreshold: Long = Default.maxBackfillThreshold,
+            maxBackfillThreshold: Int = Default.maxBackfillThreshold,
             maxBackfillChunkSize: Int = Default.maxBackfillChunkSize,
             maxBroadcastingBatchSize: Int = Default.maxBroadcastingBatchSize,
             logPruneChunkSize: Int = Default.logPruneChunkSize,
@@ -70,7 +70,7 @@ interface ServerConfig {
     private data class ConfigImpl(
         override val port: Int,
         override val host: String,
-        override val maxBackfillThreshold: Long,
+        override val maxBackfillThreshold: Int,
         override val maxBackfillChunkSize: Int,
         override val maxBroadcastingBatchSize: Int,
         override val logPruneChunkSize: Int,

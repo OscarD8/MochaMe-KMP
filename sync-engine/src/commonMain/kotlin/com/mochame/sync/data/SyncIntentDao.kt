@@ -62,7 +62,7 @@ interface SyncIntentDao {
     suspend fun getMaxBatchId(): Long?
 
     /**
-     * For an entity to be valid for a batch (and therefore synchronization) it must:
+     * For an entity to be valid for a client (and therefore synchronization) it must:
      * - Have no current lease
      * - Be in a pending status
      * - Have no prior intent in any status other than Success

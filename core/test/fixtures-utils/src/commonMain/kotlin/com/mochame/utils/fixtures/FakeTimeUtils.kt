@@ -7,6 +7,7 @@ import kotlinx.atomicfu.locks.reentrantLock
 import kotlinx.atomicfu.locks.withLock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 /**
@@ -17,13 +18,20 @@ open class FakeTimeUtils(
 ) : TimeUtils {
 
     private val lock = reentrantLock()
-    private var currentTime: Instant = initialTime
+    var currentTime: Instant = initialTime
 
     fun advanceTime(duration: Duration) = lock.withLock { currentTime += duration }
     fun reverseTime(duration: Duration) = lock.withLock { currentTime -= duration }
     fun setTime(instant: Instant) = lock.withLock { currentTime = instant }
 
     override fun now(): Instant = lock.withLock { currentTime }
+}
+
+class AutoIncrementFakeTimeUtils(
+    private val baseClock: FakeTimeUtils = FakeTimeUtils()
+) : TimeUtils by baseClock {
+
+    override fun now() = baseClock.now().plus(1.seconds).also { baseClock.currentTime = it }
 }
 
 class MochaFakeTimeUtils(

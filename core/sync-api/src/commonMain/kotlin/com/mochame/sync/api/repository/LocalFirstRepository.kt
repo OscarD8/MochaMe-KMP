@@ -43,8 +43,8 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
      * * A locker is used to ensure that any single candidate key operation is sequential
      * in the case that a local operation is processing an intent at the same moment as a remote intent comes in.
      * The current design holds any potential delay of the executor within the mutex lock.
-     * * Remote processing expects a batch process, and therefore requires the execution policy and
-     * any Transactor declarations to be declared at the batch orchestration level.
+     * * Remote processing expects a client process, and therefore requires the execution policy and
+     * any Transactor declarations to be declared at the client orchestration level.
      * @param candidateKey the item (either fetched remotely, or from a local UI event) to be persisted locally.
      * @param incomingHlc used when the SyncCoordinator is calling to process an intent. Forks how we process the intent.
      * @param op the DML operation for the intent. Required for metadata, logging, and state verification.
@@ -128,7 +128,9 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
             val changedTags = codec.routedComputeChangedTags(candidateState, existingState)
             val changedMask = changedTags.toBitmask()
 
-            if (changedMask == 0L) { return onSkip(existingState) }
+            if (changedMask == 0L) {
+                return onSkip(existingState)
+            }
 
             changedTags.forEach { tag -> fieldHlcMap = fieldHlcMap.updateTag(tag, hlc) }
 
@@ -305,7 +307,8 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
     ): Long {
         val payload = codec.routedEncode(stampedState, existingState)
 
-        val summary = changedMask.toTagSummary(op).also { logger.d { "In-Memory Summary [key=$candidateKey]: $it" } }
+        val summary = changedMask.toTagSummary(op)
+            .also { logger.d { "In-Memory Summary [key=$candidateKey]: $it" } }
         val hlc = stampedState.hlc
         val tMark = TimeSource.Monotonic.markNow()
 
@@ -335,11 +338,9 @@ abstract class LocalFirstRepository<T : LocalFirstEntity<T>>(
                 localResult
             }.also {
                 dbCommitted = true
-                deps.workerHook.invalidate()
+                deps.workerHook.invalidate() // could use a channel (will benchmark flow usage first to compare)
                 logger.v {
-                    "Local DB Transaction Committed [key: $candidateKey] [hlc: $hlc]".withTimer(
-                        mark
-                    )
+                    "Local DB Transaction Committed [key: $candidateKey] [hlc: $hlc]".withTimer(mark)
                 }
             }
 

@@ -16,8 +16,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import java.io.File
+import java.sql.Connection
 import java.sql.PreparedStatement
-import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
 
@@ -87,6 +87,12 @@ class ServerDatabase(
         readDataSource = HikariDataSource(readConfig)
     }
 
+    internal fun <T> withWriteConnection(block: (Connection) -> T): T =
+        writeDataSource.connection.use(block)
+
+    internal fun <T> withReaderConnection(block: (Connection) -> T): T =
+        readDataSource.connection.use(block)
+
     /**
      * Executes initial table migrations and establishes WAL persistence mode.
      * Must be invoked on startup, with PRAGMA usages for persisting flags on the
@@ -120,7 +126,7 @@ class ServerDatabase(
     }
 
     /**
-     * Commits a coalesced batch of delta intents within a single atomic SQLite transaction.
+     * Commits a coalesced client of delta intents within a single atomic SQLite transaction.
      *
      * Disables auto-commit to append all records in a single WAL operation,
      * capturing auto-incremented watermarks for each intent.
@@ -128,7 +134,7 @@ class ServerDatabase(
      * @param intents Coalesced write intents to persist sequentially.
      * @return Monotonically ordered list of assigned watermarks matching intent positions.
      * @throws java.sql.SQLException If the write transaction fails, connection times out,
-     *         or the disk is full. On failure, all writes in the batch are rolled back.
+     *         or the disk is full. On failure, all writes in the client are rolled back.
      */
     suspend fun insertBatch(intents: List<DeltaWriteIntent>): List<Long> = withContext(dispatcher) {
         if (intents.isEmpty()) return@withContext emptyList()
