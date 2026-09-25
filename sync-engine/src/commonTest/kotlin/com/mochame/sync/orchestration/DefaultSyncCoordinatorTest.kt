@@ -26,6 +26,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.IO
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancelAndJoin
@@ -896,7 +897,6 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
             (inboundJobs + outboundJobs).joinAll()
 
             awaitCondition(
-                timeout = 8.seconds,
                 message = "Outbound consumer did not finish encoding all 9 intents in time"
             ) {
                 payloadCodec.encodedInvocations.flatten().size >= expectedOutboundKeys.size

@@ -129,10 +129,10 @@ class SessionHandle(
     }
 
     /**
-     * Enqueues a broadcast frame to the egress pipeline.
+     * Enqueues a broadcast frame to the outbound pipeline.
      *
      * Bypasses synchronization locks once [isBackfilled] is true, dispatching directly
-     * to [outboundChannel]. During active catch-up, synchronizes on [stagingLock] to stage
+     * to [outboundChannel]. During active catch-up, uses [stagingLock] to stage
      * frames into [stagingBuffer], preserving monotonic ordering during the handoff
      * to live-streaming.
      *

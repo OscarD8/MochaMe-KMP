@@ -32,6 +32,7 @@ application {
 
 tasks.test {
     useJUnitPlatform()
+    maxParallelForks = 1
 }
 
 tasks.withType<AbstractTestTask>().configureEach {

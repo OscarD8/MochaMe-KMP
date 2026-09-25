@@ -421,147 +421,142 @@ class SessionHandleTest : FunSpec({
     // Teardown Lifecycle, CAS Operations & Monotonicity
     // -------------------------------------------------------------------------
 
-    context("Teardown & Cutover Contention") {
 
-        context("Teardown Lifecycle & CAS Idempotency") {
-            test("should cancel outbound channel, terminate worker, and transmit close frame on close") {
-                // Given: An active backfilled session with a running outbound worker
-                val fakeSession = FakeWebSocketSession(backgroundScope.coroutineContext)
-                val handle = SessionHandle(
-                    nodeId = "node-teardown-clean",
-                    groupId = "group-1",
-                    session = fakeSession
+    test("should cancel outbound channel, terminate worker, and transmit close frame on close") {
+        // Given: An active backfilled session with a running outbound worker
+        val fakeSession = FakeWebSocketSession(backgroundScope.coroutineContext)
+        val handle = SessionHandle(
+            nodeId = "node-teardown-clean",
+            groupId = "group-1",
+            session = fakeSession
+        )
+        handle.completeBackfill(maxWatermark = 0L)
+
+        // When: Connection closure is initiated manually
+        fakeSession.outgoing.isClosedForSend shouldBe false
+        handle.close(code = CloseReason.Codes.NORMAL, reason = "Client logout")
+
+        // Then: The close handshake frame is transmitted over the wire with exact reason and code
+        val capturedReason = fakeSession.awaitCloseReason()
+        capturedReason.knownReason shouldBe CloseReason.Codes.NORMAL
+        capturedReason.message shouldBe "Client logout"
+        fakeSession.outgoing.isClosedForSend shouldBe true
+        handle.outboundChannel.isClosedForSend shouldBe true
+    }
+
+    test("should execute close handshake exactly once when close is called concurrently across threads") {
+        // Given: An active session exposed to multithreaded contention
+        val fakeSession =
+            autoClose(FakeWebSocketSession(UnconfinedTestDispatcher(testScheduler)))
+        val handle = SessionHandle(
+            nodeId = "node-concurrent-close",
+            groupId = "group-1",
+            session = fakeSession
+        )
+        handle.completeBackfill(maxWatermark = 0L)
+
+        val threads = 8
+        val readySignals = List(threads) { CompletableDeferred<Unit>() }
+        val startGate = CompletableDeferred<Unit>()
+
+        val jobs = List(threads) { index ->
+            launch(Dispatchers.Default) {
+                readySignals[index].complete(Unit)
+                startGate.await()
+
+                handle.close(
+                    code = CloseReason.Codes.NORMAL,
+                    reason = "Concurrent teardown call #$index"
                 )
-                handle.completeBackfill(maxWatermark = 0L)
-
-                // When: Connection closure is initiated manually
-                fakeSession.outgoing.isClosedForSend shouldBe false
-                handle.close(code = CloseReason.Codes.NORMAL, reason = "Client logout")
-
-                // Then: The close handshake frame is transmitted over the wire with exact reason and code
-                val capturedReason = fakeSession.awaitCloseReason()
-                capturedReason.knownReason shouldBe CloseReason.Codes.NORMAL
-                capturedReason.message shouldBe "Client logout"
-                fakeSession.outgoing.isClosedForSend shouldBe true
-                handle.outboundChannel.isClosedForSend shouldBe true
-            }
-
-            test("should execute close handshake exactly once when close is called concurrently across threads") {
-                // Given: An active session exposed to multithreaded contention
-                val fakeSession =
-                    autoClose(FakeWebSocketSession(UnconfinedTestDispatcher(testScheduler)))
-                val handle = SessionHandle(
-                    nodeId = "node-concurrent-close",
-                    groupId = "group-1",
-                    session = fakeSession
-                )
-                handle.completeBackfill(maxWatermark = 0L)
-
-                val threads = 8
-                val readySignals = List(threads) { CompletableDeferred<Unit>() }
-                val startGate = CompletableDeferred<Unit>()
-
-                val jobs = List(threads) { index ->
-                    launch(Dispatchers.Default) {
-                        readySignals[index].complete(Unit)
-                        startGate.await()
-
-                        handle.close(
-                            code = CloseReason.Codes.NORMAL,
-                            reason = "Concurrent teardown call #$index"
-                        )
-                    }
-                }
-
-                // When: Multiple threads concurrently call close()
-                readySignals.awaitAll()
-                startGate.complete(Unit)
-                jobs.joinAll()
-
-                // Then: AtomicBoolean CAS guarantees exactly one close frame was sent
-                val closeReason = fakeSession.awaitCloseReason()
-                closeReason.knownReason shouldBe CloseReason.Codes.NORMAL
-                // And: Only 1 close frame exists in the transport output buffer
-                val sentFrames = fakeSession.drainSentFrames().filterIsInstance<Frame.Close>()
-                sentFrames shouldHaveSize 1
             }
         }
 
-        test("should process staged frames and switch to live broadcast seamlessly when actor enqueues across multiple suspension cycles") {
-            // Given: Small outbound buffer to force completeBackfill to repeatedly suspend on outboundChannel.send()
-            val actorDispatcher = Dispatchers.IO.limitedParallelism(1)
-            val config = ServerConfig.Default(
-                outboundChannelCapacity = 2,
-                outboundStagingCapacity = 100
-            )
-            val fakeSession = autoClose(FakeWebSocketSession(Dispatchers.IO))
-            val handle = SessionHandle(
-                nodeId = "node-cutover-suspension",
-                groupId = "group-1",
-                session = fakeSession,
-                config = config
-            )
+        // When: Multiple threads concurrently call close()
+        readySignals.awaitAll()
+        startGate.complete(Unit)
+        jobs.joinAll()
 
-            val stagedStart = 1L
-            val backfillCutoff = 4L
-            val stagedEnd = 8L
-            val broadcastEnd = 10L
+        // Then: AtomicBoolean CAS guarantees exactly one close frame was sent
+        val closeReason = fakeSession.awaitCloseReason()
+        closeReason.knownReason shouldBe CloseReason.Codes.NORMAL
+        // And: Only 1 close frame exists in the transport output buffer
+        val sentFrames = fakeSession.drainSentFrames().filterIsInstance<Frame.Close>()
+        sentFrames shouldHaveSize 1
+    }
 
-            val expectedWatermarks = ((backfillCutoff + 1L)..broadcastEnd).toList()
-            val expectedCount = expectedWatermarks.size
 
-            val enqueueResults = mutableListOf<EnqueueResult>()
+    test("should process staged frames and switch to live broadcast seamlessly when actor enqueues across multiple suspension cycles") {
+        // Given: Small outbound buffer to force completeBackfill to repeatedly suspend on outboundChannel.send()
+        val config = ServerConfig.Default(
+            outboundChannelCapacity = 2,
+            outboundStagingCapacity = 100
+        )
+        val fakeSession = autoClose(FakeWebSocketSession(Dispatchers.Default))
+        val handle = SessionHandle(
+            nodeId = "node-cutover-suspension",
+            groupId = "group-1",
+            session = fakeSession,
+            config = config
+        )
 
-            // And: Seed staged frames (both duplicate and post-read cutover candidates)
-            for (w in stagedStart..stagedEnd) {
-                handle.enqueueBroadcast(w, Frame.Text("$w"))
-            }
+        val stagedStart = 1
+        val backfillCutoff = 4L
+        val stagedEnd = 8L
+        val broadcastEnd = 50
 
-            val startGate = CompletableDeferred<Unit>()
-            val readyUps = List(2) { CompletableDeferred<Unit>() }
+        val expectedWatermarks = ((backfillCutoff + 1L)..broadcastEnd).toList()
+        val expectedCount = expectedWatermarks.size
 
-            // When: Actor broadcasts remaining frames while completeBackfill continuously drains the constrained channel
-            val cioWorkerBackfillJob = launch(Dispatchers.IO) {
-                readyUps[0].complete(Unit)
-                startGate.await()
-                handle.completeBackfill(backfillCutoff)
-            }
+        val enqueueResults = mutableListOf<EnqueueResult>()
 
-            val actorBroadcasterJob = launch(actorDispatcher) {
-                readyUps[1].complete(Unit)
-                startGate.await()
-                for (w in (stagedEnd + 1L)..broadcastEnd) {
-                    enqueueResults.add(handle.enqueueBroadcast(w, Frame.Text("$w")))
-                }
-            }
-
-            readyUps.awaitAll()
-            startGate.complete(Unit)
-            cioWorkerBackfillJob.join()
-            actorBroadcasterJob.join()
-
-            // Then: Output must contain all non-deduped frames in exact sequence
-            val receivedFrames = mutableListOf<Frame>()
-            awaitCondition(
-                timeout = 5.seconds,
-                pollInterval = 5.milliseconds,
-                message = "Expected $expectedCount frames to land in fakeSession"
-            ) {
-                receivedFrames.addAll(fakeSession.drainSentFrames())
-                receivedFrames.size >= expectedCount
-            }
-
-            val receivedWatermarks = receivedFrames
-                .filterIsInstance<Frame.Text>()
-                .map { it.readText().toLong() }
-
-            receivedWatermarks shouldBe expectedWatermarks
-            receivedWatermarks.toSet().size shouldBe expectedCount
-            handle.isBackfilled shouldBe true
-
-            val enqueueResultSet = enqueueResults.toSet()
-            enqueueResultSet.size shouldBe 1
-            enqueueResultSet.first() shouldBe EnqueueResult.Success
+        // And: Seed staged frames (period in between peer registration and its backfill database snapshot)
+        for (w in stagedStart..stagedEnd) {
+            handle.enqueueBroadcast(w, Frame.Text("$w"))
         }
+
+        val startGate = CompletableDeferred<Unit>()
+        val readyUps = List(2) { CompletableDeferred<Unit>() }
+
+        // When: Actor broadcasts remaining frames while completeBackfill continuously drains the constrained channel
+        val cioWorkerBackfillJob = launch(Dispatchers.Default) {
+            readyUps[0].complete(Unit)
+            startGate.await()
+            handle.completeBackfill(backfillCutoff)
+        }
+
+        val actorBroadcasterJob = launch(Dispatchers.Default.limitedParallelism(1)) {
+            readyUps[1].complete(Unit)
+            startGate.await()
+            for (w in (stagedEnd + 1L)..broadcastEnd) {
+                enqueueResults.add(handle.enqueueBroadcast(w, Frame.Text("$w")))
+            }
+        }
+
+        readyUps.awaitAll()
+        startGate.complete(Unit)
+        cioWorkerBackfillJob.join()
+        actorBroadcasterJob.join()
+
+        // Then: Output must contain all non-deduped frames in exact sequence
+        val receivedFrames = mutableListOf<Frame>()
+        awaitCondition(
+            pollInterval = 5.milliseconds,
+            message = "Expected $expectedCount frames to land in fakeSession"
+        ) {
+            receivedFrames.addAll(fakeSession.drainSentFrames())
+            receivedFrames.size >= expectedCount
+        }
+
+        val receivedWatermarks = receivedFrames
+            .filterIsInstance<Frame.Text>()
+            .map { it.readText().toLong() }
+
+        receivedWatermarks shouldBe expectedWatermarks
+        receivedWatermarks.toSet().size shouldBe expectedCount
+        handle.isBackfilled shouldBe true
+
+        val enqueueResultSet = enqueueResults.toSet()
+        enqueueResultSet.size shouldBe 1
+        enqueueResultSet.first() shouldBe EnqueueResult.Success
     }
 })

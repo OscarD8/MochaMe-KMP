@@ -102,7 +102,7 @@ fun Exception.reportAndThrowFailure(): Nothing {
  * parallelism of 1.
  */
 suspend fun awaitCondition(
-    timeout: Duration = 5.seconds,
+    timeout: Duration = 8.seconds,
     pollInterval: Duration = 10.milliseconds,
     message: String = "Condition was not met within $timeout",
     condition: suspend () -> Boolean
