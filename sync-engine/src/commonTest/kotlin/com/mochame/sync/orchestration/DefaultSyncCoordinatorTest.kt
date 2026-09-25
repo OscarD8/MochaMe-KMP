@@ -16,8 +16,9 @@ import com.mochame.sync.common.InternalTestApi
 import com.mochame.sync.di.coordinator.CoordinatorTestModule
 import com.mochame.sync.di.coordinator.SyncCoordinatorTestEnv
 import com.mochame.sync.domain.model.deriveContext
-import com.mochame.sync.internal.fixtures.ReceivedIntent
+import com.mochame.sync.internal.fixtures.api.ReceivedIntent
 import com.mochame.sync.internal.fixtures.createTestSyncIntent
+import com.mochame.sync.spi.network.SendResult
 import com.mochame.utils.fixtures.TestHlcFactory
 import com.mochame.utils.fixtures.TestNodeId
 import kotlinx.coroutines.CompletableDeferred
@@ -79,7 +80,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
             )
         )
 
-        coordinator.onInboundBytes(0L, ByteArray(0))
+        coordinator.handleInboundBytes(0L, ByteArray(0))
 
         assertEquals(0, payloadCodec.decodeCallCount)
         assertEquals(0, stubA.invocationCount)
@@ -92,7 +93,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         bootManager.updateState(BootState.Ready)
         payloadCodec.decodeError = IllegalStateException("Malformed protobuf payload")
 
-        coordinator.onInboundBytes(0L, ByteArray(0))
+        coordinator.handleInboundBytes(0L, ByteArray(0))
 
         assertEquals(0, stubA.invocationCount)
         assertEquals(0, stubB.invocationCount)
@@ -102,7 +103,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
     @Test
     fun should_earlyExitCleanly_when_decodedBatchIsEmpty() = runEnv {
         bootManager.updateState(BootState.Ready)
-        coordinator.onInboundBytes(0L, ByteArray(0))
+        coordinator.handleInboundBytes(0L, ByteArray(0))
 
         assertEquals(1, payloadCodec.decodeCallCount)
         assertEquals(0, stubA.invocationCount)
@@ -164,7 +165,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         val contextB = intentB.deriveContext()
 
         payloadCodec.nextDecodeResult = listOf(intentA, intentB)
-        coordinator.onInboundBytes(0L, ByteArray(0))
+        coordinator.handleInboundBytes(0L, ByteArray(0))
 
         assertEquals(ReceivedIntent(contextA, payloadA), stubA.lastInvocation)
         assertEquals(ReceivedIntent(contextB, payloadB), stubB.lastInvocation)
@@ -199,7 +200,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         stubA.shouldFail =
             MochaException.Transient.StateIssue("Database constraint violation in Receiver A")
 
-        coordinator.onInboundBytes(0L, ByteArray(0))
+        coordinator.handleInboundBytes(0L, ByteArray(0))
 
         assertEquals(1, stubA.invocationCount)
         assertEquals(1, stubB.invocationCount)
@@ -217,7 +218,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         payloadCodec.decodeError = NullPointerException()
         val testPayload = byteArrayOf(0x01, 0x02)
 
-        coordinator.onInboundBytes(1L, testPayload)
+        coordinator.handleInboundBytes(1L, testPayload)
 
         val quarantinedRecords = quarantineStore.getAll()
         assertEquals(1, quarantinedRecords.size)
@@ -253,7 +254,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         stubA.shouldFail = MochaException.Persistent.Uncategorized("Fire in the cockpit")
 
         assertFailsWith<MochaException.Persistent.Uncategorized> {
-            coordinator.onInboundBytes(0L, ByteArray(0))
+            coordinator.handleInboundBytes(0L, ByteArray(0))
         }
 
         assertEquals(1, stubA.invocationCount)
@@ -281,7 +282,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         )
         payloadCodec.nextDecodeResult = listOf(unroutableIntent, validIntent)
 
-        coordinator.onInboundBytes(0L, ByteArray(0))
+        coordinator.handleInboundBytes(0L, ByteArray(0))
 
         assertEquals(0, stubA.invocationCount)
         assertEquals(1, stubB.invocationCount)
@@ -302,7 +303,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         transactor.shouldThrow = MochaException.Transient.DatabaseBusy("SQLite database locked")
         val initialTime = scope.currentTime
 
-        coordinator.onInboundBytes(0L, byteArrayOf(0x01))
+        coordinator.handleInboundBytes(0L, byteArrayOf(0x01))
 
         assertEquals(2, transactor.executionCount, "Retry plus Success")
         assertTrue(scope.currentTime > initialTime, "Staggered Retry")
@@ -342,7 +343,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
             }
 
             scope.launch {
-                coordinator.onInboundBytes(0L, byteArrayOf(0))
+                coordinator.handleInboundBytes(0L, byteArrayOf(0))
             }
             firstCallSuspended.await()
 
@@ -351,7 +352,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
             payloadCodec.nextDecodeResult = listOf(intent2)
 
             scope.launch {
-                coordinator.onInboundBytes(0L, byteArrayOf(0))
+                coordinator.handleInboundBytes(0L, byteArrayOf(0))
             }
             scope.runCurrent()
 
@@ -381,7 +382,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         )
 
         payloadCodec.nextDecodeResult = listOf(invalidIntent)
-        coordinator.onInboundBytes(0L, ByteArray(0))
+        coordinator.handleInboundBytes(0L, ByteArray(0))
 
         assertEquals(0, stubA.invocationCount)
         assertEquals(1, intentStore.intents.size, "Quarantined Intent")
@@ -400,7 +401,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         )
 
         payloadCodec.nextDecodeResult = listOf(invalidIntent)
-        coordinator.onInboundBytes(0L, ByteArray(0))
+        coordinator.handleInboundBytes(0L, ByteArray(0))
 
         assertEquals(0, stubA.invocationCount)
         assertEquals(1, intentStore.intents.size, "Quarantined Intent")
@@ -419,7 +420,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         )
 
         payloadCodec.nextDecodeResult = listOf(overflowIntent)
-        coordinator.onInboundBytes(0L, ByteArray(0))
+        coordinator.handleInboundBytes(0L, ByteArray(0))
 
         assertEquals(1, intentStore.intents.size)
         assertEquals(303L, intentStore.intents.first().candidateKey)
@@ -461,7 +462,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         )
         payloadCodec.nextDecodeResult = listOf(intent1, intent2, intent3)
 
-        coordinator.onInboundBytes(0L, ByteArray(0))
+        coordinator.handleInboundBytes(0L, ByteArray(0))
 
         assertEquals(listOf(hlc3), nodeManager.updatedHlcFloors)
         assertEquals(listOf(hlc3), hlcFactory.witnessedHlcs)
@@ -481,7 +482,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         )
         payloadCodec.nextDecodeResult = listOf(invalidIntent)
 
-        coordinator.onInboundBytes(0L, ByteArray(0))
+        coordinator.handleInboundBytes(0L, ByteArray(0))
 
         assertEquals(0, nodeManager.updatedHlcFloors.size)
         assertEquals(0, hlcFactory.witnessedHlcs.size)
@@ -519,7 +520,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         intentStore.seedIntents(intent1, intent2)
 
         syncTransport.registerInboundAckHandler { batchId, watermark ->
-            coordinator.onInboundAck(batchId, watermark)
+            coordinator.handleInboundAck(batchId, watermark)
         }
         syncTransport.autoAck = true
 
@@ -539,7 +540,12 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
     @Test
     fun should_coalesceInvalidationBurst_and_processNewlyAddedIntentsInSameSweep() =
         runEnv { scope ->
+            // Given
             bootManager.updateState(BootState.Ready)
+            syncTransport.registerInboundAckHandler { batchId, watermark ->
+                coordinator.handleInboundAck(batchId, watermark)
+            }
+            syncTransport.autoAck = true
 
             val outboundJob = coordinator.startOutboundListener()
             scope.runCurrent()
@@ -576,7 +582,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
             releaseBatch1.complete(Unit)
             scope.advanceUntilIdle()
 
-            // Assert Batch 1 transition: state mutated to SYNCING with a generated client ID
+            // Assert Batch 1 transition: state mutated to SYNCING with a generated batch ID
             val encodedBatch1 = payloadCodec.encodedInvocations[0]
             assertEquals(1, encodedBatch1.size, "Batch 1 size")
             val claimed1 = encodedBatch1.first()
@@ -585,7 +591,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
             assertEquals(SyncStatus.SYNCING, claimed1.syncStatus)
             assertNotNull(claimed1.batchId)
 
-            // Assert Batch 2 transition: state mutated to SYNCING with a distinct client ID
+            // Assert Batch 2 transition: state mutated to SYNCING with a distinct batch ID
             val encodedBatch2 = payloadCodec.encodedInvocations[1]
             assertEquals(1, encodedBatch2.size, "Batch 2 size")
             val claimed2 = encodedBatch2.first()
@@ -594,7 +600,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
             assertEquals(SyncStatus.SYNCING, claimed2.syncStatus)
             assertNotNull(claimed2.batchId)
 
-            assertTrue(claimed1.batchId != claimed2.batchId, "Claimed client must be distinct")
+            assertTrue(claimed1.batchId != claimed2.batchId, "Claimed batch must be distinct")
 
             // Assert Side-Effects
             assertEquals(2, payloadCodec.encodeCallCount)
@@ -634,7 +640,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
         runEnv { scope ->
             bootManager.updateState(BootState.Ready)
             syncTransport.registerInboundAckHandler { batchId, watermark ->
-                coordinator.onInboundAck(batchId, watermark)
+                coordinator.handleInboundAck(batchId, watermark)
             }
             syncTransport.autoAck = true
 
@@ -821,7 +827,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
             bootManager.updateState(BootState.Ready)
             hlcFactory.hydrate(null, TestNodeId.A)
             syncTransport.registerInboundAckHandler { batchId, watermark ->
-                coordinator.onInboundAck(batchId, watermark)
+                coordinator.handleInboundAck(batchId, watermark)
             }
             syncTransport.autoAck = true
             intentStore.failWith = MochaException.Transient.DatabaseBusy("Database busy")
@@ -850,7 +856,7 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
 
                     repeat(operationsPerWorker) { opIndex ->
                         val payload = byteArrayOf(workerId.toByte(), opIndex.toByte())
-                        coordinator.onInboundBytes(0L, payload)
+                        coordinator.handleInboundBytes(0L, payload)
                     }
                 }
             }
@@ -912,5 +918,264 @@ class DefaultSyncCoordinatorTest : MochaPlatformTest() {
             assertEquals(9, workerHook.invalidationCount)
 
             outboundJob.cancelAndJoin()
+        }
+
+    // -------------------------------------------------------------------------
+    // Transport & SendResult Interaction
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun should_skipProcessing_when_transportDisconnected() = runEnv {
+        // Given
+        val testIntent = createTestSyncIntent(
+            hlc = TestHlcFactory.create(),
+            candidateKey = 1L,
+            status = SyncStatus.PENDING
+        )
+        intentStore.seedIntents(testIntent)
+        syncTransport.isConnected = false
+
+        // When
+        coordinator.processQueueUntilExhausted()
+
+        // Then
+        assertEquals(0, intentStore.claimedBatchCallCount)
+        assertTrue(syncTransport.sentBatches.isEmpty())
+    }
+
+    @Test
+    fun should_releaseIntentsAndHalt_when_sendReturnsNoConnection() = runEnv {
+        // Given
+        val testIntent = createTestSyncIntent(
+            hlc = TestHlcFactory.create(),
+            candidateKey = 2L,
+            status = SyncStatus.PENDING
+        )
+        intentStore.seedIntents(testIntent)
+        syncTransport.nextSendResult = SendResult.NoConnection
+
+        // When
+        coordinator.processQueueUntilExhausted()
+
+        // Then
+        assertEquals(1, intentStore.claimedBatchCallCount)
+        val processedIntent = intentStore.intents.first()
+        assertEquals(SyncStatus.PENDING, processedIntent.syncStatus)
+        assertNull(processedIntent.batchId)
+        assertNull(processedIntent.leasedAt)
+        assertTrue(syncTransport.sentBatches.isEmpty())
+    }
+
+    @Test
+    fun should_stampErrorAndHalt_when_sendReturnsTransientFailure() = runEnv {
+        // Given
+        val failureMessage = "Transient Issue"
+        val transientError = MochaException.Transient.StateIssue(failureMessage)
+        val testIntent = createTestSyncIntent(
+            hlc = TestHlcFactory.create(),
+            candidateKey = 3L,
+            status = SyncStatus.PENDING
+        )
+        intentStore.seedIntents(testIntent)
+        syncTransport.nextSendResult = SendResult.Failure(transientError)
+
+        // When
+        coordinator.processQueueUntilExhausted()
+
+        // Then
+        assertEquals(1, intentStore.claimedBatchCallCount)
+        val processedIntent = intentStore.intents.first()
+        assertEquals(SyncStatus.SYNCING, processedIntent.syncStatus)
+        assertNotNull(processedIntent.batchId)
+        assertEquals(failureMessage, processedIntent.lastErrorMessage)
+    }
+
+    @Test
+    fun should_rethrowAndTerminate_when_sendReturnsPersistentFailure() = runEnv {
+        // Given
+        val failureMessage = "Unrecoverable serialization payload corruption"
+        val persistentError = MochaException.Persistent.Uncategorized(failureMessage)
+        val testIntent = createTestSyncIntent(
+            hlc = TestHlcFactory.create(),
+            candidateKey = 4L,
+            status = SyncStatus.PENDING
+        )
+        intentStore.seedIntents(testIntent)
+        syncTransport.nextSendResult = SendResult.Failure(persistentError)
+
+        // When / Then
+        val thrown = assertFailsWith<MochaException.Persistent.Uncategorized> {
+            coordinator.processQueueUntilExhausted()
+        }
+        assertEquals(failureMessage, thrown.message)
+
+        val processedIntent = intentStore.intents.first()
+        assertEquals(SyncStatus.SYNCING, processedIntent.syncStatus)
+        assertEquals(failureMessage, processedIntent.lastErrorMessage)
+        assertEquals(1, intentStore.claimedBatchCallCount)
+    }
+
+    // -------------------------------------------------------------------------
+    // In-Flight Batch & Inbound ACK Coordination
+    // -------------------------------------------------------------------------
+
+    @Test
+    fun should_advanceQueueSequentially_onCorrelatedInboundAck() = runEnv {
+        // Given
+        val intent = createTestSyncIntent(
+            hlc = TestHlcFactory.create(ts = 100),
+            candidateKey = 1L,
+            status = SyncStatus.PENDING
+        )
+        intentStore.seedIntents(intent)
+        syncTransport.onSendHook = { batchId, _ ->
+            coordinator.handleInboundAck(batchId = batchId, watermark = 42L)
+        }
+
+        // When
+        coordinator.processQueueUntilExhausted()
+
+        // Then
+        assertEquals(1, syncTransport.sentBatches.size)
+        assertEquals(2, intentStore.claimedBatchCallCount)
+        assertEquals(42L, nodeManager.getLastOutboundWatermark())
+    }
+
+    @Test
+    fun should_releaseIntentsAndBreakLoop_onAwaitAckTimeout() = runEnv { scope ->
+        // Given
+        val testIntent = createTestSyncIntent(
+            hlc = TestHlcFactory.create(),
+            candidateKey = 6L,
+            status = SyncStatus.PENDING
+        )
+        intentStore.seedIntents(testIntent)
+        val initialTime = scope.currentTime
+
+        // When
+        coordinator.processQueueUntilExhausted()
+
+        // Then
+        assertEquals(initialTime + 15.seconds.inWholeMilliseconds, scope.currentTime)
+        assertEquals(1, intentStore.claimedBatchCallCount)
+        val processedIntent = intentStore.intents.first()
+        assertEquals(SyncStatus.PENDING, processedIntent.syncStatus)
+        assertNull(processedIntent.batchId)
+        assertNull(processedIntent.leasedAt)
+    }
+
+    @Test
+    fun should_releaseIntents_when_inFlightBatchAborted() = runEnv {
+        // Given
+        val testIntent = createTestSyncIntent(
+            hlc = TestHlcFactory.create(),
+            candidateKey = 7L,
+            status = SyncStatus.PENDING
+        )
+        intentStore.seedIntents(testIntent)
+        syncTransport.onSendHook = { _, _ ->
+            assertEquals(SyncStatus.SYNCING, intentStore.intents.first().syncStatus)
+            coordinator.abortInFlightBatch(
+                MochaException.Transient.NetworkDisconnect("Socket connection lost during send")
+            )
+        }
+
+        // When
+        coordinator.processQueueUntilExhausted()
+
+        // Then
+        assertEquals(1, intentStore.claimedBatchCallCount)
+        val processedIntent = intentStore.intents.first()
+        assertEquals(SyncStatus.PENDING, processedIntent.syncStatus)
+        assertNull(processedIntent.batchId)
+        assertNull(processedIntent.leasedAt)
+    }
+
+    @Test
+    fun should_safelySettleWatermark_when_ackArrivesWithNoInFlightBatch() = runEnv {
+        // Given
+        val batchId = 999L
+        val watermark = 50L
+
+        // When
+        coordinator.handleInboundAck(batchId, watermark)
+
+        // Then
+        assertEquals(1, transactor.executionCount)
+        assertEquals(watermark, nodeManager.getLastOutboundWatermark())
+    }
+
+    @Test
+    fun should_ignoreMismatchedAck_and_retainActiveInFlightDeferred() = runEnv { scope ->
+        // Given
+        val testIntent = createTestSyncIntent(
+            hlc = TestHlcFactory.create(),
+            candidateKey = 9L,
+            status = SyncStatus.PENDING
+        )
+        intentStore.seedIntents(testIntent)
+
+        val mismatchedBatchId = 99L
+        val mismatchedWatermark = 40L
+        var capturedBatchId = 0L
+
+        syncTransport.onSendHook = { batchId, _ ->
+            capturedBatchId = batchId
+            coordinator.handleInboundAck(
+                batchId = mismatchedBatchId,
+                watermark = mismatchedWatermark
+            )
+        }
+
+        // When
+        val outboundJob = scope.launch {
+            coordinator.processQueueUntilExhausted()
+        }
+        scope.runCurrent()
+
+        // Then
+        assertTrue(outboundJob.isActive)
+        assertEquals(mismatchedWatermark, nodeManager.getLastOutboundWatermark())
+
+        // Settle active batch
+        coordinator.handleInboundAck(batchId = capturedBatchId, watermark = 41L)
+        scope.runCurrent()
+
+        assertTrue(outboundJob.isCompleted)
+        assertEquals(41L, nodeManager.getLastOutboundWatermark())
+    }
+
+    @Test
+    fun should_settleWatermarkAndAcknowledgeSuccess_when_decoupledAckArrivesAfterOutboundCancelled() =
+        runEnv { scope ->
+            // Given
+            val testIntent = createTestSyncIntent(
+                hlc = TestHlcFactory.create(),
+                candidateKey = 10L,
+                status = SyncStatus.PENDING
+            )
+            intentStore.seedIntents(testIntent)
+
+            var capturedBatchId = 0L
+            syncTransport.onSendHook = { batchId, _ ->
+                capturedBatchId = batchId
+            }
+
+            val outboundJob = scope.launch {
+                coordinator.processQueueUntilExhausted()
+            }
+            scope.runCurrent()
+
+            // When: Outbound sender is killed while waiting for ACK
+            outboundJob.cancelAndJoin()
+            assertTrue(outboundJob.isCancelled)
+
+            // When: Network ACK arrives decoupled/late
+            coordinator.handleInboundAck(batchId = capturedBatchId, watermark = 99L)
+
+            // Then: Database commits watermark and marks intent successful despite dead outbound job
+            assertEquals(99L, nodeManager.getLastOutboundWatermark())
+            val processedIntent = intentStore.intents.first()
+            assertEquals(SyncStatus.SUCCESS, processedIntent.syncStatus)
         }
 }

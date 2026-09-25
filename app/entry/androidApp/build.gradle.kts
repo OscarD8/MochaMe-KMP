@@ -41,6 +41,7 @@ android {
 }
 
 dependencies {
+    implementation(project(":core:annotations"))
     implementation(project(":app:ui"))
     implementation(project(":core:sync-api"))
     implementation(libs.androidx.lifecycle.process)

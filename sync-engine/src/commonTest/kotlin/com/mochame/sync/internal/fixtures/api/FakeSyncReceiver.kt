@@ -1,4 +1,4 @@
-package com.mochame.sync.internal.fixtures
+package com.mochame.sync.internal.fixtures.api
 
 import com.mochame.sync.api.metadata.FeatureContext
 import com.mochame.sync.spi.infrastructure.SyncReceiver

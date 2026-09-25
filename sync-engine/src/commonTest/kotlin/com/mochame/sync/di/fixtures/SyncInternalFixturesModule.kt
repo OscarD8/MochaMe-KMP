@@ -6,8 +6,8 @@ import com.mochame.platform.fixtures.di.FixturesPlatformModule
 import com.mochame.sync.api.hlc.HlcFactory
 import com.mochame.sync.internal.fixtures.FakeQuarantinedPayloadStore
 import com.mochame.sync.fixtures.FakeSyncIntentStore
-import com.mochame.sync.internal.fixtures.SpyHlcFactory
-import com.mochame.sync.internal.fixtures.SpySyncWorkerHook
+import com.mochame.sync.internal.fixtures.infrastructure.SpyHlcFactory
+import com.mochame.sync.internal.fixtures.infrastructure.SpySyncWorkerHook
 import com.mochame.sync.spi.domain.QuarantinedPayloadStore
 import com.mochame.sync.spi.domain.SyncIntentMaintenanceStore
 import com.mochame.sync.spi.infrastructure.SyncIntentStore

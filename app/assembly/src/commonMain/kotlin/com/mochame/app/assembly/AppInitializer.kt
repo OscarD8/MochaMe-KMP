@@ -52,11 +52,11 @@ internal class DefaultAppInitializer(
                 logger.i { "Application initialized successfully..." }
 
                 transport.registerInboundAckHandler { batchId, watermark ->
-                    coordinator.onInboundAck(batchId, watermark)
+                    coordinator.handleInboundAck(batchId, watermark)
                 }
 
                 transport.registerInboundDeltaHandler { watermark, bytes ->
-                    coordinator.onInboundBytes(watermark, bytes)
+                    coordinator.handleInboundBytes(watermark, bytes)
                 }
 
                 transport.setOnConnectedListener {

@@ -9,6 +9,7 @@ import com.mochame.annotations.MainContext
 import com.mochame.logger.test.TestLoggerModule
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.withContext
@@ -114,9 +115,8 @@ suspend fun awaitCondition(
                 }
             }
         }
-        catch (e: Exception){
-            println(message)
-            throw e
+        catch (e: TimeoutCancellationException){
+            throw AssertionError("$message (timed out after $timeout)", e)
         }
     }
 }

@@ -22,6 +22,11 @@ annotation class DefaultContext
 @Qualifier
 annotation class AppBackgroundScope
 
+@Target(AnnotationTarget.VALUE_PARAMETER, AnnotationTarget.FUNCTION)
+@Retention(AnnotationRetention.BINARY)
+@Qualifier
+annotation class AppMainScope
+
 // -----------------------------------------------------------
 // FILE SYSTEM
 // -----------------------------------------------------------

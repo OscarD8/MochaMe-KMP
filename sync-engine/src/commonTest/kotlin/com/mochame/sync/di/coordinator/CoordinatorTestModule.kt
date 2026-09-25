@@ -17,10 +17,10 @@ import com.mochame.sync.di.SyncOrchestrationModule
 import com.mochame.sync.di.fixtures.SyncInternalFixturesModule
 import com.mochame.sync.internal.fixtures.FakeQuarantinedPayloadStore
 import com.mochame.sync.fixtures.FakeSyncIntentStore
-import com.mochame.sync.internal.fixtures.FakeSyncReceiver
 import com.mochame.sync.internal.fixtures.FakeSyncTransport
-import com.mochame.sync.internal.fixtures.SpyHlcFactory
-import com.mochame.sync.internal.fixtures.SpySyncWorkerHook
+import com.mochame.sync.internal.fixtures.api.FakeSyncReceiver
+import com.mochame.sync.internal.fixtures.infrastructure.SpyHlcFactory
+import com.mochame.sync.internal.fixtures.infrastructure.SpySyncWorkerHook
 import com.mochame.sync.internal.fixtures.serialization.FakeIntentCodec
 import com.mochame.sync.internal.fixtures.serialization.FakePayloadCodec
 import com.mochame.sync.orchestration.DefaultSyncCoordinator

@@ -1,4 +1,4 @@
-package com.mochame.sync.internal.fixtures
+package com.mochame.sync.internal.fixtures.infrastructure
 
 import co.touchlab.kermit.Logger
 import com.mochame.sync.api.hlc.HLC

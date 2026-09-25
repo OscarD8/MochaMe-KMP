@@ -146,4 +146,6 @@ class FakeNodeContextManager(
             lastServerResponseTime = timestamp
         )
     }
+
+    fun getLastOutboundWatermark() = lock.withLock { _seededContext?.lastOutboundWatermark ?: 0L }
 }

@@ -15,6 +15,11 @@ class FakeSyncTransport(
     private var _isConnected: Boolean = initialConnected
     private var _failWith: Exception? = null
     private var _sendResult: Boolean = initialSendResult
+    private var _nextSendResult: SendResult? = null
+    private var _onSendHook: (suspend (batchId: Long, payload: ByteArray) -> Unit)? = null
+    private var _autoAck: Boolean = false
+    private var _nextAckWatermark: Long = 1L
+
     private val _sentBatches = mutableListOf<SentBatch>()
     private val _connectCalls = mutableListOf<ConnectCall>()
     private var _pauseCallCount = 0
@@ -36,9 +41,36 @@ class FakeSyncTransport(
         get() = lock.withLock { _failWith }
         set(value) = lock.withLock { _failWith = value }
 
+    /**
+     * Backwards-compatible to original.
+     */
     var sendResult: Boolean
         get() = lock.withLock { _sendResult }
         set(value) = lock.withLock { _sendResult = value }
+
+    /**
+     * One-shot explicit result override to simulate intermediate network states
+     * (e.g., SendResult.NoConnection or specific SendResult.Failure causes)
+     * without decoupling the ambient [isConnected] status.
+     */
+    var nextSendResult: SendResult?
+        get() = lock.withLock { _nextSendResult }
+        set(value) = lock.withLock { _nextSendResult = value }
+
+    /**
+     * Suspending hook invoked when a batch reaches transmission.
+     */
+    var onSendHook: (suspend (batchId: Long, payload: ByteArray) -> Unit)?
+        get() = lock.withLock { _onSendHook }
+        set(value) = lock.withLock { _onSendHook = value }
+
+    var autoAck: Boolean
+        get() = lock.withLock { _autoAck }
+        set(value) = lock.withLock { _autoAck = value }
+
+    var nextAckWatermark: Long
+        get() = lock.withLock { _nextAckWatermark }
+        set(value) = lock.withLock { _nextAckWatermark = value }
 
     val sentBatches: List<SentBatch>
         get() = lock.withLock { _sentBatches.map { it.copy(payload = it.payload.copyOf()) } }
@@ -55,9 +87,6 @@ class FakeSyncTransport(
     val resumeCallCount: Int
         get() = lock.withLock { _resumeCallCount }
 
-    var autoAck: Boolean = false
-    var nextAckWatermark: Long = 1L
-
     override suspend fun connect(host: String, port: Int, groupId: String) {
         val listener = lock.withLock {
             _connectCalls.add(ConnectCall(host, port, groupId))
@@ -67,37 +96,66 @@ class FakeSyncTransport(
         listener?.invoke()
     }
 
-    override suspend fun send(batchId: Long, payload: ByteArray): SendResult = lock.withLock {
-        _failWith?.let {
-            _failWith = null
-            return SendResult.Failure(it)
-        }
+    override suspend fun send(batchId: Long, payload: ByteArray): SendResult {
+        var hookToRun: (suspend () -> Unit)? = null
+        var ackToRun: (suspend () -> Unit)? = null
 
-        if (!_isConnected) {
-            return SendResult.NoConnection
-        }
-
-        _sentBatches.add(SentBatch(batchId, payload.copyOf()))
-
-        if (autoAck) {
-            val ackHandler = _inboundAckHandler
-            val watermark = nextAckWatermark++
-            ackHandler?.let { handler ->
-                handler(batchId, watermark)
+        val result: SendResult = lock.withLock {
+            _onSendHook?.let { hook ->
+                hookToRun = { hook(batchId, payload) }
             }
+
+            _failWith?.let {
+                _failWith = null
+                return@withLock SendResult.Failure(it)
+            }
+
+            val override = _nextSendResult
+            if (override != null) {
+                _nextSendResult = null
+                if (override is SendResult.Success) {
+                    _sentBatches.add(SentBatch(batchId, payload.copyOf()))
+                    if (_autoAck) {
+                        val watermark = _nextAckWatermark++
+                        _inboundAckHandler?.let { handler ->
+                            ackToRun = { handler(batchId, watermark) }
+                        }
+                    }
+                }
+                return@withLock override
+            }
+
+            if (!_isConnected) {
+                return@withLock SendResult.NoConnection
+            }
+
+            _sentBatches.add(SentBatch(batchId, payload.copyOf()))
+
+            if (_autoAck) {
+                val watermark = _nextAckWatermark++
+                _inboundAckHandler?.let { handler ->
+                    ackToRun = { handler(batchId, watermark) }
+                }
+            }
+
+            SendResult.Success
         }
 
-        SendResult.Success
+        // Suspending invocations executed outside thread lock
+        hookToRun?.invoke()
+        ackToRun?.invoke()
+
+        return result
     }
 
-    override fun pause() {
+    override suspend fun pause() {
         lock.withLock {
             _pauseCallCount++
             _isConnected = false
         }
     }
 
-    override fun resume() {
+    override suspend fun resume() {
         lock.withLock {
             _resumeCallCount++
             _isConnected = true
@@ -164,6 +222,10 @@ class FakeSyncTransport(
         _resumeCallCount = 0
         _isConnected = true
         _sendResult = true
+        _nextSendResult = null
+        _onSendHook = null
+        _autoAck = false
+        _nextAckWatermark = 1L
         _failWith = null
         _inboundDeltaHandler = null
         _inboundAckHandler = null

@@ -12,7 +12,7 @@ import com.mochame.sync.internal.fixtures.assertDecodedIntentParity
 import com.mochame.sync.internal.fixtures.createTestSyncIntent
 import com.mochame.sync.internal.fixtures.serialization.FakeBatchCodec
 import com.mochame.sync.internal.fixtures.testBatch
-import com.mochame.sync.internal.fixtures.toRouterWithVersion
+import com.mochame.sync.internal.fixtures.serialization.toRouterWithVersion
 import kotlinx.coroutines.test.TestScope
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerializationException

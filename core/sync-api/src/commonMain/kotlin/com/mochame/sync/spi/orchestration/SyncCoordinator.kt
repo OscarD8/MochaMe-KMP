@@ -19,9 +19,9 @@ interface SyncCoordinator {
     /**
      * Ingests and processes raw inbound bytes received from the remote sync server.
      */
-    suspend fun onInboundBytes(watermark: Long, inbound: ByteArray)
+    suspend fun handleInboundBytes(watermark: Long, inbound: ByteArray)
 
-    suspend fun onInboundAck(batchId: Long, watermark: Long)
+    suspend fun handleInboundAck(batchId: Long, watermark: Long)
 
     suspend fun abortInFlightBatch(exception: Exception)
 }

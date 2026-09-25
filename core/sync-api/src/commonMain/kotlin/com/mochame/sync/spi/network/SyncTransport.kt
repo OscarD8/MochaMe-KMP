@@ -10,7 +10,7 @@ import com.mochame.sync.common.writeLongAt
  */
 interface SyncTransport {
     /**
-     * Whether the underlying socket or connection channel is active and capable of sending frames.
+     * Returns true if the WebSocket session is active and open for transmission.
      */
     val isConnected: Boolean
     suspend fun connect(host: String, port: Int, groupId: String)
@@ -24,12 +24,24 @@ interface SyncTransport {
      */
     suspend fun send(batchId: Long, payload: ByteArray): SendResult
 
-    fun pause()
-    fun resume()
+    suspend fun pause()
+    suspend fun resume()
 
+    /**
+     * Registers a handler for inbound batch acknowledgements.
+     */
     fun registerInboundAckHandler(onAck: suspend (Long, Long) -> Unit)
+    /**
+     * Registers a handler for incoming sync deltas.
+     */
     fun registerInboundDeltaHandler(onReceived: suspend (Long, ByteArray) -> Unit)
+    /**
+     * Registers a callback invoked after the relay completes initial backfill.
+     */
     fun setOnConnectedListener(onConnected: suspend () -> Unit)
+    /**
+     * Registers a callback invoked whenever the socket disconnects.
+     */
     fun setOnDisconnectedListener(onDisconnected: suspend () -> Unit)
 }
 
@@ -137,4 +149,11 @@ object WireFrameFactory {
             else -> error("Unknown wire frame opcode: 0x${bytes[0].toString(16)}")
         }
     }
+}
+
+fun WireFrame.encode(): ByteArray = when (this) {
+    is WireFrame.BackfillComplete -> WireFrameFactory.backfillComplete()
+    is WireFrame.Ack -> WireFrameFactory.ack(batchId, watermark)
+    is WireFrame.Delta -> WireFrameFactory.delta(watermark, payload)
+    is WireFrame.ClientSubmit -> WireFrameFactory.client(batchId, payload)
 }

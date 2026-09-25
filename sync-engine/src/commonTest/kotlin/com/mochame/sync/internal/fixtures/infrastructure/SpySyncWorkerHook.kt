@@ -1,4 +1,4 @@
-package com.mochame.sync.internal.fixtures
+package com.mochame.sync.internal.fixtures.infrastructure
 
 import com.mochame.sync.infrastructure.DefaultSyncWorkerHook
 import com.mochame.sync.spi.infrastructure.SyncWorkerHook

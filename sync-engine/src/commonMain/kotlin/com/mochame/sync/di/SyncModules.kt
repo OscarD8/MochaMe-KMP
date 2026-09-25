@@ -3,6 +3,8 @@ package com.mochame.sync.di
 import com.mochame.annotations.BlobMutex
 import com.mochame.annotations.CoordinatorMutex
 import com.mochame.annotations.JanitorMutex
+import io.ktor.client.engine.HttpClientEngine
+import io.ktor.client.engine.cio.CIO
 import kotlinx.coroutines.sync.Mutex
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Module
@@ -15,11 +17,19 @@ import org.koin.core.annotation.Single
         SyncInfraModule::class,
         SyncStoresModule::class,
         SyncOrchestrationModule::class,
-        SyncConcurrencyModule::class
+        SyncConcurrencyModule::class,
+        NetworkModule::class
     ]
 )
 @ComponentScan("com.mochame.sync.spi.network", "com.mochame.sync.api.repository")
 class SyncProductionModule
+
+@Module
+class NetworkModule {
+
+    @Single
+    fun provideHttpClientEngine(): HttpClientEngine = CIO.create()
+}
 
 @Module
 @ComponentScan("com.mochame.sync.data")

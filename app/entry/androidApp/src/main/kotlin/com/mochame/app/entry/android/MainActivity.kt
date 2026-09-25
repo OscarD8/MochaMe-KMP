@@ -6,16 +6,27 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.lifecycle.ProcessLifecycleOwner
+import com.mochame.annotations.AppMainScope
 import com.mochame.app.ui.MochaComposeAppShell
 import com.mochame.app.ui.di.initKoinCompose
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Module
+import org.koin.core.annotation.Single
 import org.koin.plugin.module.dsl.modules
 
 @Module
 @ComponentScan("com.mochame.app.entry.android")
-class AndroidLifecycleModule
+class AndroidLifecycleModule {
+
+    @Single
+    @AppMainScope
+    fun provideAppMainScope(): CoroutineScope =
+        CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {

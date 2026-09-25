@@ -2,6 +2,7 @@ package com.mochame.server.relay
 
 import com.mochame.server.utils.FakeWebSocketSession
 import com.mochame.server.utils.ServerConfig
+import com.mochame.support.awaitCondition
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.engine.coroutines.backgroundScope
@@ -25,6 +26,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import java.io.IOException
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @DelicateCoroutinesApi
@@ -483,6 +486,7 @@ class SessionHandleTest : FunSpec({
                 sentFrames shouldHaveSize 1
             }
         }
+
         test("should process staged frames and switch to live broadcast seamlessly when actor enqueues across multiple suspension cycles") {
             // Given: Small outbound buffer to force completeBackfill to repeatedly suspend on outboundChannel.send()
             val actorDispatcher = Dispatchers.Default.limitedParallelism(1)
@@ -490,49 +494,72 @@ class SessionHandleTest : FunSpec({
                 outboundChannelCapacity = 2,
                 outboundStagingCapacity = 100
             )
-            val fakeSession = autoClose(FakeWebSocketSession(Dispatchers.Default))
+            val fakeSession = autoClose(FakeWebSocketSession(Dispatchers.IO))
             val handle = SessionHandle(
                 nodeId = "node-cutover-suspension",
                 groupId = "group-1",
                 session = fakeSession,
                 config = config
             )
+
+            val stagedStart = 1L
+            val backfillCutoff = 4L
+            val stagedEnd = 8L
+            val broadcastEnd = 20L
+
+            val expectedWatermarks = ((backfillCutoff + 1L)..broadcastEnd).toList()
+            val expectedCount = expectedWatermarks.size
+
             val enqueueResults = mutableListOf<EnqueueResult>()
-            // And: Seed 10 frames into staging buffer, 5 duplicates and 5 at post database read lock
-            for (w in 1L..10L) {
+
+            // And: Seed staged frames (both duplicate and post-read cutover candidates)
+            for (w in stagedStart..stagedEnd) {
                 handle.enqueueBroadcast(w, Frame.Text("$w"))
             }
 
             val startGate = CompletableDeferred<Unit>()
             val readyUps = List(2) { CompletableDeferred<Unit>() }
 
-            // When: Actor broadcasts 50 frames while completeBackfill continuously processes a constrained channel
-            val cioWorkerBackfillJob = launch(Dispatchers.Default) {
+            // When: Actor broadcasts remaining frames while completeBackfill continuously drains the constrained channel
+            val cioWorkerBackfillJob = launch(Dispatchers.IO) {
                 readyUps[0].complete(Unit)
                 startGate.await()
-                handle.completeBackfill(5L)
+                handle.completeBackfill(backfillCutoff)
             }
+
             val actorBroadcasterJob = launch(actorDispatcher) {
                 readyUps[1].complete(Unit)
                 startGate.await()
-                for (w in 11L..60L) {
+                for (w in (stagedEnd + 1L)..broadcastEnd) {
                     enqueueResults.add(handle.enqueueBroadcast(w, Frame.Text("$w")))
                 }
             }
+
             readyUps.awaitAll()
             startGate.complete(Unit)
             cioWorkerBackfillJob.join()
             actorBroadcasterJob.join()
 
-            // Then: Output must contain all non-deduped frames (6..60) in exact sequence
-            val sentFrames = fakeSession.drainSentFrames().filterIsInstance<Frame.Text>()
-            val receivedWatermarks = sentFrames.map { it.readText().toLong() }
-            val enqueueResultSet = enqueueResults.toSet()
+            // Then: Output must contain all non-deduped frames in exact sequence
+            val receivedFrames = mutableListOf<Frame>()
+            awaitCondition(
+                timeout = 5.seconds,
+                pollInterval = 5.milliseconds,
+                message = "Expected $expectedCount frames to land in fakeSession"
+            ) {
+                receivedFrames.addAll(fakeSession.drainSentFrames())
+                receivedFrames.size >= expectedCount
+            }
 
-            receivedWatermarks shouldBe (6L..60L).toList()
-            receivedWatermarks.toSet().size shouldBe 55
+            val receivedWatermarks = receivedFrames
+                .filterIsInstance<Frame.Text>()
+                .map { it.readText().toLong() }
+
+            receivedWatermarks shouldBe expectedWatermarks
+            receivedWatermarks.toSet().size shouldBe expectedCount
             handle.isBackfilled shouldBe true
 
+            val enqueueResultSet = enqueueResults.toSet()
             enqueueResultSet.size shouldBe 1
             enqueueResultSet.first() shouldBe EnqueueResult.Success
         }

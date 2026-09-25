@@ -5,14 +5,13 @@ import com.mochame.annotations.AppBackgroundScope
 import com.mochame.logger.LogTags
 import com.mochame.logger.withTags
 import com.mochame.sync.api.exceptions.MochaException
-import com.mochame.sync.spi.network.WireFrame
 import com.mochame.sync.spi.network.SendResult
 import com.mochame.sync.spi.network.SyncTransport
+import com.mochame.sync.spi.network.WireFrame
 import com.mochame.sync.spi.network.WireFrameFactory
 import com.mochame.sync.spi.node.NodeContextManager
-import com.mochame.utils.interfaces.TimeUtils
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
+import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.plugins.websocket.pingInterval
@@ -21,10 +20,13 @@ import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
 import io.ktor.websocket.close
 import io.ktor.websocket.readBytes
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -32,23 +34,28 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import org.koin.core.annotation.Single
-import kotlin.concurrent.Volatile
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 
+/**
+ * WebSocket transport implementation for sync networking.
+ *
+ * Manages socket connections, automated retry loops, background pause
+ * debouncing, and message framing between the local node and sync relay.
+ */
 @Single(binds = [SyncTransport::class])
 internal class ClientWebSocketTransport(
     @AppBackgroundScope private val backgroundScope: CoroutineScope,
     private val nodeManager: NodeContextManager,
-    private val timeUtils: TimeUtils,
+    engine: HttpClientEngine,
     logger: Logger
 ) : SyncTransport {
 
     private val logger =
         logger.withTags(LogTags.Layer.TRANSPORT, LogTags.Domain.SYNC, "ClSock")
 
-    private val client = HttpClient(CIO) {
+    private val client = HttpClient(engine) {
         install(WebSockets) {
             pingInterval = 15.seconds
         }
@@ -61,28 +68,23 @@ internal class ClientWebSocketTransport(
         val nodeId: String
     )
 
-    private val lifecycleMutex = Mutex()
-
-    @Volatile
+    private val reconnectSignal = Channel<Unit>(Channel.CONFLATED)
     private var endpoint: ConnectionEndpoint? = null
-    @Volatile
-    private var activeSession: DefaultClientWebSocketSession? = null
-
-    @Volatile
-    private var inboundDeltaHandler: (suspend (watermark: Long, payload: ByteArray) -> Unit)? = null
-    @Volatile
-    private var inboundAckHandler: (suspend (batchId: Long, watermark: Long) -> Unit)? = null
-    @Volatile
-    private var onConnectedListener: (suspend () -> Unit)? = null
-    @Volatile
-    private var onDisconnectedListener: (suspend () -> Unit)? = null
-
     private var connectionJob: Job? = null
     private var pauseDebounceJob: Job? = null
-    private var isPaused: Boolean = false
+
+    private val isPaused = atomic(false)
+    private val activeSession = atomic<DefaultClientWebSocketSession?>(null)
+    private val lifecycleMutex = Mutex()
+
+    private var inboundDeltaHandler: (suspend (watermark: Long, payload: ByteArray) -> Unit)? = null
+    private var inboundAckHandler: (suspend (batchId: Long, watermark: Long) -> Unit)? = null
+    private var onConnectedListener: (suspend () -> Unit)? = null
+    private var onDisconnectedListener: (suspend () -> Unit)? = null
+
 
     override val isConnected: Boolean
-        get() = activeSession?.isActive == true
+        get() = activeSession.value?.isActive == true
 
     override fun setOnConnectedListener(onConnected: suspend () -> Unit) {
         this.onConnectedListener = onConnected
@@ -100,6 +102,13 @@ internal class ClientWebSocketTransport(
         this.inboundAckHandler = onAck
     }
 
+    /**
+     * Connects to the specified endpoint.
+     *
+     * If already connected or connecting to this endpoint, this call wakes up any
+     * active backoff delay to retry immediately (as in a user clicking retry).
+     * Otherwise, it closes any existing connection and starts a new connection loop.
+     */
     override suspend fun connect(
         host: String,
         port: Int,
@@ -108,66 +117,76 @@ internal class ClientWebSocketTransport(
         lifecycleMutex.withLock {
             val nodeId = nodeManager.getNodeId() ?: error("Node Context is not initialized.")
             val newEndpoint = ConnectionEndpoint(host, port, groupId, nodeId.value.toString())
-            if (endpoint == newEndpoint && connectionJob?.isActive == true && !isPaused) {
+
+            pauseDebounceJob?.cancel()
+            pauseDebounceJob = null
+
+            if (endpoint == newEndpoint && connectionJob?.isActive == true && !isPaused.value) {
+                if (activeSession.value == null) {
+                    reconnectSignal.trySend(Unit)
+                }
                 return@withLock
             }
 
             endpoint = newEndpoint
-            isPaused = false
-            pauseDebounceJob?.cancel()
-            pauseDebounceJob = null
+            isPaused.value = false
 
             teardownActiveConnectionLocked()
             startConnectionLoopLocked()
         }
     }
 
-    override fun pause() {
-        backgroundScope.launch {
-            lifecycleMutex.withLock {
-                if (isPaused || pauseDebounceJob?.isActive == true) return@withLock
+    /**
+     * Pauses the transport with a 1.5-second grace period before closing the socket.
+     */
+    override suspend fun pause() {
+        lifecycleMutex.withLock {
+            if (isPaused.value || pauseDebounceJob?.isActive == true) return@withLock
 
-                pauseDebounceJob = backgroundScope.launch {
-                    delay(1.5.seconds)
-                    lifecycleMutex.withLock {
-                        isPaused = true
-                        pauseDebounceJob = null
-                        logger.i { "Grace period expired. Terminating WebSocket connection." }
-                        teardownActiveConnectionLocked()
-                    }
+            pauseDebounceJob = backgroundScope.launch {
+                delay(1.5.seconds)
+                lifecycleMutex.withLock {
+                    isPaused.value = true
+                    pauseDebounceJob = null
+                    logger.i { "Grace period expired. Terminating WebSocket connection." }
+                    teardownActiveConnectionLocked()
                 }
             }
         }
     }
 
-    override fun resume() {
-        backgroundScope.launch {
-            lifecycleMutex.withLock {
-                if (pauseDebounceJob?.isActive == true) {
-                    logger.i { "Resumed within grace window. Preserving existing connection." }
-                    pauseDebounceJob?.cancel()
-                    pauseDebounceJob = null
-                    isPaused = false
-                    return@withLock
-                }
-
-                if (!isPaused || endpoint == null) return@withLock
-                logger.i { "Resuming transport: Re-establishing socket connection." }
-                isPaused = false
-                startConnectionLoopLocked()
+    /**
+     * Resumes the transport, canceling any pending pause debounce or reconnecting
+     * if the grace period has elapsed.
+     */
+    override suspend fun resume() {
+        lifecycleMutex.withLock {
+            if (pauseDebounceJob?.isActive == true) {
+                logger.i { "Resumed within grace window. Preserving existing connection." }
+                pauseDebounceJob?.cancelAndJoin()
+                pauseDebounceJob = null
+                isPaused.value = false
+                return@withLock
             }
+
+            if (!isPaused.value || endpoint == null) return@withLock
+            logger.i { "Resuming transport: Re-establishing socket connection." }
+            isPaused.value = false
+            startConnectionLoopLocked()
         }
     }
 
     private suspend fun teardownActiveConnectionLocked() {
-        val session = activeSession
+        val session = activeSession.getAndSet(null)
         val job = connectionJob
-        activeSession = null
         connectionJob = null
 
         if (session != null) {
+            val listener = onDisconnectedListener
+            if (listener != null) {
+                backgroundScope.launch { listener.invoke() }
+            }
             try {
-                onDisconnectedListener?.invoke()
                 withTimeoutOrNull(500.milliseconds) {
                     session.close(CloseReason(CloseReason.Codes.NORMAL, "App backgrounded"))
                 }
@@ -186,13 +205,13 @@ internal class ClientWebSocketTransport(
         if (connectionJob?.isActive == true) return
 
         connectionJob = backgroundScope.launch {
-            while (isActive && !isPaused) {
+            while (isActive && !isPaused.value) {
                 try {
                     runSingleSession(target)
 
-                    if (isActive && !isPaused) {
+                    if (isActive && !isPaused.value) {
                         logger.i { "WebSocket channel closed remotely. Attempting reconnection in 30s..." }
-                        delay(30.seconds)
+                        withTimeoutOrNull(30.seconds) { reconnectSignal.receive() }
                     }
                 } catch (e: CancellationException) {
                     throw e
@@ -201,23 +220,33 @@ internal class ClientWebSocketTransport(
                     break
                 } catch (e: Exception) {
                     logger.w(e) { "[${e::class.simpleName}] ${e.message}. Retrying in 10s..." }
-                    delay(10.seconds)
+                    withTimeoutOrNull(10.seconds) { reconnectSignal.receive() }
                 } finally {
-                    activeSession = null
+                    activeSession.value = null
                 }
             }
         }
     }
 
+    /**
+     * Sends an outbound batch payload to the connected relay.
+     *
+     * Returns [SendResult.NoConnection] if disconnected or closed during transit,
+     * or [SendResult.Failure] if an error occurs.
+     */
     override suspend fun send(batchId: Long, payload: ByteArray): SendResult {
-        val session = activeSession ?: return SendResult.NoConnection
+        val session = activeSession.value ?: return SendResult.NoConnection
 
         return try {
             val frame = WireFrameFactory.client(batchId, payload)
             session.send(Frame.Binary(fin = true, data = frame))
             SendResult.Success
         } catch (e: CancellationException) {
-            throw e
+            if (currentCoroutineContext().isActive) {
+                SendResult.NoConnection
+            } else {
+                throw e
+            }
         } catch (e: Exception) {
             SendResult.Failure(e)
         }
@@ -231,7 +260,9 @@ internal class ClientWebSocketTransport(
             port = target.port,
             path = "/sync/${target.groupId}/${target.nodeId}?since=$currentWatermark"
         ) {
-            activeSession = this
+            activeSession.value = this
+            reconnectSignal.tryReceive()
+
             try {
                 logger.i { "WebSocket connected to ${target.host}:${target.port} (Since Watermark: $currentWatermark)" }
 
@@ -241,7 +272,13 @@ internal class ClientWebSocketTransport(
                     }
                 }
             } finally {
-                activeSession = null
+                val wasActive = activeSession.compareAndSet(this, null)
+                if (wasActive) {
+                    val listener = onDisconnectedListener
+                    if (listener != null) {
+                        backgroundScope.launch { listener.invoke() }
+                    }
+                }
             }
         }
     }

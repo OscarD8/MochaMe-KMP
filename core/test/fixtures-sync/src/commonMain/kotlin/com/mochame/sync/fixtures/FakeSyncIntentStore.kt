@@ -373,7 +373,6 @@ class FakeSyncIntentStore(private val fakeClock: FakeTimeUtils) :
 
         for (intent in _intents.values) {
             if (intent.batchId == batchId) {
-                if (intent.syncStatus == SyncStatus.SYNCING) continue
                 _intents[intent.hlc] = intent.copy(
                     syncStatus = SyncStatus.PENDING,
                     batchId = null,

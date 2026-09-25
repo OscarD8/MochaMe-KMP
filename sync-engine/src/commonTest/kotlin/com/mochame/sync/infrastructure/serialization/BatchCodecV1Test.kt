@@ -12,7 +12,7 @@ import com.mochame.sync.di.codec.CodecTestModule
 import com.mochame.sync.internal.fixtures.assertDecodedIntentParity
 import com.mochame.sync.internal.fixtures.createTestSyncIntent
 import com.mochame.sync.internal.fixtures.serialization.FakeIntentCodec
-import com.mochame.sync.internal.fixtures.toRouterWithVersion
+import com.mochame.sync.internal.fixtures.serialization.toRouterWithVersion
 import com.mochame.sync.spi.models.SyncIntent
 import com.mochame.utils.fixtures.TestHlcFactory
 import kotlinx.coroutines.test.TestScope

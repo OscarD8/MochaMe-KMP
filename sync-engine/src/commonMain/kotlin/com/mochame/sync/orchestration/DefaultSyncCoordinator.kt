@@ -156,7 +156,7 @@ internal class DefaultSyncCoordinator(
         }
     }
 
-    override suspend fun onInboundBytes(watermark: Long, inbound: ByteArray) {
+    override suspend fun handleInboundBytes(watermark: Long, inbound: ByteArray) {
         logger.v { "Inbound: Received client with ${inbound.size}B..." }
 
         try {
@@ -215,22 +215,23 @@ internal class DefaultSyncCoordinator(
      * Captures the state of the latest outbound payload awaiting ack, updates the database,
      * checks if that current state matches the state the ack was sent for, and calls complete
      * on the awaiting outbound pipeline.
+     *
+     * There is no guard here. The server must be atomic in client to ack/delta response.
      */
-    override suspend fun onInboundAck(batchId: Long, watermark: Long) {
+    override suspend fun handleInboundAck(batchId: Long, watermark: Long) {
         withContext(NonCancellable) {
             val active = inFlightBatch
 
             val rowsUpdated = transactor.runImmediateTransaction {
-                val updated = intentStore.acknowledgeSuccess(batchId)
                 nodeManager.commitOutboundWatermark(watermark, timeUtils.now())
-                updated
+                intentStore.acknowledgeSuccess(batchId)
             }
 
             if (active != null && active.batchId == batchId) {
-                logger.v { "Inbound: Acknowledged client $batchId (updated=$rowsUpdated) to watermark $watermark" }
+                logger.v { "Inbound: Acknowledged batchId-$batchId (updated=$rowsUpdated) to watermark $watermark" }
                 active.deferred.complete(Unit)
             } else {
-                logger.w { "Inbound: Settled client $batchId (updated=$rowsUpdated) to watermark $watermark. inFlightBatch asynchronicity occurred (active: ${active?.batchId})" }
+                logger.w { "Inbound: Settled batchId-$batchId (updated=$rowsUpdated) to watermark $watermark. inFlightBatch asynchronicity occurred (active: ${active?.batchId})" }
             }
         }
     }
@@ -335,7 +336,7 @@ internal class DefaultSyncCoordinator(
     private suspend fun SendResult.processSendFailure(batchId: Long): Boolean {
         when (this) {
             is SendResult.NoConnection -> {
-                logger.w { "Outbound: Connection lost on call to send $batchId. Releasing client, awaiting reconnection..." }
+                logger.w { "Outbound: Connection lost on call to send $batchId. Releasing and awaiting reconnection..." }
                 intentStore.releaseIntents(batchId)
             }
 
@@ -343,11 +344,11 @@ internal class DefaultSyncCoordinator(
                 intentStore.stampLastError(batchId, this.cause.message ?: "Transmission failure")
 
                 if (this.cause is MochaException.Persistent) {
-                    logger.e(this.cause) { "Outbound: Persistent failure on client $batchId. Terminating outbound loop." }
+                    logger.e(this.cause) { "Outbound: Persistent failure on batch $batchId. Terminating outbound loop." }
                     throw this.cause
                     // Maybe need some kind of global app state and manager?
                 } else {
-                    logger.w(this.cause) { "Outbound: Failed to transmit client $batchId. Possible data integrity issue." }
+                    logger.w(this.cause) { "Outbound: Failed to transmit batch $batchId. Janitor to loop retry." }
                 }
             }
 

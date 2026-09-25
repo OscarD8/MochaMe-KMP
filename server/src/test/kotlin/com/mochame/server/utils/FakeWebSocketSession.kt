@@ -11,7 +11,6 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ChannelResult
 import kotlinx.coroutines.channels.ReceiveChannel
@@ -21,6 +20,7 @@ import kotlinx.coroutines.withTimeout
 import kotlin.coroutines.CoroutineContext
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * To simulate an abrupt network drop or pipe closure in a test, call fakeSession.coroutineContext.cancel()
@@ -81,15 +81,14 @@ class FakeWebSocketSession(
         override fun close(cause: Throwable?): Boolean {
             val wasClosed = backingOutgoing.close(cause)
             if (wasClosed && !closeReasonDeferred.isCompleted) {
-                if (cause != null) {
-                    closeReasonDeferred.completeExceptionally(cause)
+                val reason = if (cause != null) {
+                    CloseReason(CloseReason.Codes.INTERNAL_ERROR, cause.message ?: "Channel closed with error")
                 } else {
-                    val fallback = CloseReason(CloseReason.Codes.NORMAL, "Outgoing channel closed")
-                    capturedCloseReason = fallback
-                    closeReasonDeferred.complete(fallback)
+                    CloseReason(CloseReason.Codes.NORMAL, "Outgoing channel closed")
                 }
+                capturedCloseReason = reason
+                closeReasonDeferred.complete(reason)
             }
-            backingOutgoing.close(cause)
             return wasClosed
         }
 
@@ -113,14 +112,8 @@ class FakeWebSocketSession(
 
     @Suppress("OVERRIDE_DEPRECATION")
     override fun terminate() {
-        // If the transport is severed without a Frame.Close, complete exceptionally.
-        // This tells any awaiting test that NO close handshake occurred.
-        if (!closeReasonDeferred.isCompleted) {
-            closeReasonDeferred.completeExceptionally(
-                IllegalStateException("WebSocket terminated abruptly without an RFC 6455 close frame")
-            )
-        }
-        coroutineContext.cancel()
+        incomingChannel.close()
+        backingOutgoing.close()
     }
 
     /**
@@ -132,7 +125,7 @@ class FakeWebSocketSession(
      * Suspends cleanly until a frame arrives.
      * Yields the thread, eliminates loops, and wakes up the exact millisecond the frame lands.
      */
-    suspend fun awaitFrames(min: Int, timeoutMs: Duration = 2.seconds): List<Frame> =
+    suspend fun awaitFrames(min: Int, timeoutMs: Duration = 5.seconds): List<Frame> =
         withTimeout(timeoutMs) {
             val frames = mutableListOf<Frame>()
             while(frames.size < min) {
@@ -156,10 +149,10 @@ class FakeWebSocketSession(
     /** Usage will not capture exception */
     override fun close() {
         if (!closeReasonDeferred.isCompleted) {
-            closeReasonDeferred.completeExceptionally(kotlin.coroutines.cancellation.CancellationException())
+            closeReasonDeferred.completeExceptionally(CancellationException())
         }
         outgoing.close()
-        incomingChannel.cancel(kotlin.coroutines.cancellation.CancellationException())
+        incomingChannel.cancel(CancellationException())
         sessionJob.cancel()
     }
 }

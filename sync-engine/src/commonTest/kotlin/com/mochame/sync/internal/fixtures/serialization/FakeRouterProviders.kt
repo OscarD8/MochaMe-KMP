@@ -1,12 +1,10 @@
-package com.mochame.sync.internal.fixtures
+package com.mochame.sync.internal.fixtures.serialization
 
 import co.touchlab.kermit.Logger
 import com.mochame.sync.infrastructure.serialization.BatchCodecV1
 import com.mochame.sync.infrastructure.serialization.DefaultBatchCodecRouter
 import com.mochame.sync.infrastructure.serialization.DefaultIntentCodecRouter
 import com.mochame.sync.infrastructure.serialization.IntentCodecV1
-import com.mochame.sync.internal.fixtures.serialization.FakeBatchCodec
-import com.mochame.sync.internal.fixtures.serialization.FakeIntentCodec
 import com.mochame.sync.spi.infrastructure.serialization.BatchCodec
 import com.mochame.sync.spi.infrastructure.serialization.BatchCodecRouter
 import com.mochame.sync.spi.infrastructure.serialization.IntentCodecRouter

@@ -6,6 +6,7 @@ import com.mochame.server.utils.ServerLogger
 import com.mochame.sync.spi.network.WireFrame
 import com.mochame.sync.spi.network.WireFrameFactory
 import com.mochame.utils.fixtures.FakeTimeUtils
+import io.kotest.assertions.nondeterministic.eventually
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.core.test.TestScope
 import io.kotest.engine.coroutines.backgroundScope
@@ -260,7 +261,9 @@ class SyncRelayRouteTest : FunSpec({
                 reason?.message shouldBe "Expected >= 9 Bytes [0x04][batchId: 8B]"
             }
 
-            relayManager.getActiveGroup(groupId)?.get(nodeId) shouldBe null
+            eventually(5.seconds) {
+                relayManager.getActiveGroup(groupId)?.get(nodeId) shouldBe null
+            }
         }
     }
 

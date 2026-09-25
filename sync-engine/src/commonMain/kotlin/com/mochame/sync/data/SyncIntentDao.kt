@@ -172,13 +172,12 @@ interface SyncIntentDao {
     SET syncStatus = :pendingStatus,
         batchId = NULL,
         leasedAt = NULL
-    WHERE batchId = :batchId AND syncStatus != :avoidStatus
+    WHERE batchId = :batchId
     """
     )
     suspend fun releaseByBatch(
         batchId: Long,
-        pendingStatus: SyncStatus = SyncStatus.PENDING,
-        avoidStatus: SyncStatus = SyncStatus.SYNCING
+        pendingStatus: SyncStatus = SyncStatus.PENDING
     ): Int
 
     @Query(

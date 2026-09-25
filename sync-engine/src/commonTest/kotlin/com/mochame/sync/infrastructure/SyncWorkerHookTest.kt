@@ -4,7 +4,7 @@ import app.cash.turbine.test
 import com.mochame.support.MochaPlatformTest
 import com.mochame.support.runUnitEnvironment
 import com.mochame.sync.di.fixtures.SyncInternalFixturesModule
-import com.mochame.sync.internal.fixtures.SpySyncWorkerHook
+import com.mochame.sync.internal.fixtures.infrastructure.SpySyncWorkerHook
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async

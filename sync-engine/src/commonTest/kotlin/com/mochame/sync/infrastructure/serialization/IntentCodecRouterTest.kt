@@ -11,7 +11,7 @@ import com.mochame.sync.di.codec.CodecFixtureTestEnv
 import com.mochame.sync.internal.fixtures.assertDecodedIntentParity
 import com.mochame.sync.internal.fixtures.createTestSyncIntent
 import com.mochame.sync.internal.fixtures.serialization.FakeIntentCodec
-import com.mochame.sync.internal.fixtures.toRouterWithVersion
+import com.mochame.sync.internal.fixtures.serialization.toRouterWithVersion
 import kotlinx.coroutines.test.TestScope
 import kotlinx.serialization.ExperimentalSerializationApi
 import org.koin.plugin.module.dsl.modules
