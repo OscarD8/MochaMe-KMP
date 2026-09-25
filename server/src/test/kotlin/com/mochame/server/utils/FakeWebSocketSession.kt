@@ -122,7 +122,7 @@ class FakeWebSocketSession(
     suspend fun awaitCloseReason(): CloseReason = closeReasonDeferred.await()
 
     /**
-     * Suspends cleanly until a frame arrives.
+     * Suspends until a frame arrives.
      * Yields the thread, eliminates loops, and wakes up the exact millisecond the frame lands.
      */
     suspend fun awaitFrames(min: Int, timeoutMs: Duration = 5.seconds): List<Frame> =

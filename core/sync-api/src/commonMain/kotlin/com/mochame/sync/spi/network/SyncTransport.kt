@@ -104,7 +104,7 @@ object WireFrameFactory {
         return out
     }
 
-    /** Encodes an upstream client mutation client frame. */
+    /** Encodes an upstream client intent frame. */
     fun client(batchId: Long, payload: ByteArray): ByteArray {
         val out = ByteArray(9 + payload.size)
         out[0] = OP_CLIENT_SUBMIT

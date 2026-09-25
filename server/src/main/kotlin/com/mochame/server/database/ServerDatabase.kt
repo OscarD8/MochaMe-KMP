@@ -7,6 +7,7 @@ import com.mochame.utils.interfaces.TimeUtils
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -348,16 +349,14 @@ fun CoroutineScope.runtimeLogPruning(
     retention: Duration,
     interval: Duration,
     clock: TimeUtils
-): Job = launch {
-    logger.v { "Runtime log pruning job starting..." }
+): Job = launch(CoroutineName("DatabasePruner")) {
+    logger.i { "Runtime log pruning job starting..." }
 
     while (isActive) {
         try {
             val cutoff = clock.now() - retention
             val pruned = database.pruneExpiredDeltas(cutoff.toEpochMilliseconds())
-            if (pruned > 0) {
-                logger.i { "Pruned $pruned expired deltas from log." }
-            }
+            logger.i { "Deltas pruned from log: $pruned" }
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {

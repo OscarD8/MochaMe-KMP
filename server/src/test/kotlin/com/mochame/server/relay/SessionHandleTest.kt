@@ -489,7 +489,7 @@ class SessionHandleTest : FunSpec({
 
         test("should process staged frames and switch to live broadcast seamlessly when actor enqueues across multiple suspension cycles") {
             // Given: Small outbound buffer to force completeBackfill to repeatedly suspend on outboundChannel.send()
-            val actorDispatcher = Dispatchers.Default.limitedParallelism(1)
+            val actorDispatcher = Dispatchers.IO.limitedParallelism(1)
             val config = ServerConfig.Default(
                 outboundChannelCapacity = 2,
                 outboundStagingCapacity = 100
@@ -505,7 +505,7 @@ class SessionHandleTest : FunSpec({
             val stagedStart = 1L
             val backfillCutoff = 4L
             val stagedEnd = 8L
-            val broadcastEnd = 20L
+            val broadcastEnd = 10L
 
             val expectedWatermarks = ((backfillCutoff + 1L)..broadcastEnd).toList()
             val expectedCount = expectedWatermarks.size

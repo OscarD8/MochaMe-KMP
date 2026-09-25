@@ -52,7 +52,7 @@ class FakeNodeContextManager(
         get() = lock.withLock { _forcedNextNodeId }
         set(value) = lock.withLock { _forcedNextNodeId = value }
 
-    // Must be called inside a lock block
+    // Must be called inside a lock
     private fun getOrInitializeLocked(baseVersion: Int = 0): NodeContext {
         val current = _seededContext ?: NodeContext(
             nodeId = _forcedNextNodeId ?: defaultNodeId,
@@ -111,7 +111,7 @@ class FakeNodeContextManager(
     }
 
     override suspend fun getNodeId(): NodeId? = lock.withLock {
-        _seededContext?.nodeId ?: _forcedNextNodeId ?: defaultNodeId
+        _seededContext?.nodeId ?: _forcedNextNodeId
     }
 
     override suspend fun getMaxHlc(): HLC? = lock.withLock {

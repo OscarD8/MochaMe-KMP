@@ -22,6 +22,7 @@ import io.ktor.websocket.close
 import io.ktor.websocket.readBytes
 import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
@@ -68,13 +69,35 @@ internal class ClientWebSocketTransport(
         val nodeId: String
     )
 
+    /**
+     * Allows manual retry attempts to reinstantiate connection attempts, replacing fixed delay loops.
+     */
     private val reconnectSignal = Channel<Unit>(Channel.CONFLATED)
     private var endpoint: ConnectionEndpoint? = null
+
+    /**
+     * Single coroutine managing the reconnect/retry loop across the lifetime of the connection target.
+     */
     private var connectionJob: Job? = null
+
+    /**
+     * Pending delayed task providing a grace period before closing the active socket on pause.
+     */
     private var pauseDebounceJob: Job? = null
 
+    /**
+     * Flag indicating whether the transport has been explicitly paused and should halt connection loops.
+     */
     private val isPaused = atomic(false)
+
+    /**
+     * The currently established, WebSocket session available for sending and receiving frames.
+     */
     private val activeSession = atomic<DefaultClientWebSocketSession?>(null)
+
+    /**
+     * State transitions across connect, pause, resume, and teardown operations.
+     */
     private val lifecycleMutex = Mutex()
 
     private var inboundDeltaHandler: (suspend (watermark: Long, payload: ByteArray) -> Unit)? = null
@@ -82,7 +105,9 @@ internal class ClientWebSocketTransport(
     private var onConnectedListener: (suspend () -> Unit)? = null
     private var onDisconnectedListener: (suspend () -> Unit)? = null
 
-
+    /**
+     * Useful if an external components lifecycle depends on an active connection.
+     */
     override val isConnected: Boolean
         get() = activeSession.value?.isActive == true
 
@@ -125,6 +150,7 @@ internal class ClientWebSocketTransport(
                 if (activeSession.value == null) {
                     reconnectSignal.trySend(Unit)
                 }
+                logger.v { "Reconnection attempt made against ${newEndpoint.host}:${newEndpoint.port}" }
                 return@withLock
             }
 
@@ -137,18 +163,18 @@ internal class ClientWebSocketTransport(
     }
 
     /**
-     * Pauses the transport with a 1.5-second grace period before closing the socket.
+     * Pauses the transport with a grace period before closing the socket.
      */
     override suspend fun pause() {
         lifecycleMutex.withLock {
             if (isPaused.value || pauseDebounceJob?.isActive == true) return@withLock
 
-            pauseDebounceJob = backgroundScope.launch {
-                delay(1.5.seconds)
+            pauseDebounceJob = backgroundScope.launch(CoroutineName("PauseDebounce")) {
+                delay(5.seconds)
                 lifecycleMutex.withLock {
                     isPaused.value = true
                     pauseDebounceJob = null
-                    logger.i { "Grace period expired. Terminating WebSocket connection." }
+                    logger.i { "Grace period expired. Terminating WebSocket connection..." }
                     teardownActiveConnectionLocked()
                 }
             }
@@ -184,7 +210,7 @@ internal class ClientWebSocketTransport(
         if (session != null) {
             val listener = onDisconnectedListener
             if (listener != null) {
-                backgroundScope.launch { listener.invoke() }
+                backgroundScope.launch(CoroutineName("DisconnectListener")) { listener.invoke() }
             }
             try {
                 withTimeoutOrNull(500.milliseconds) {
@@ -204,7 +230,7 @@ internal class ClientWebSocketTransport(
         val target = endpoint ?: return
         if (connectionJob?.isActive == true) return
 
-        connectionJob = backgroundScope.launch {
+        connectionJob = backgroundScope.launch(CoroutineName("ConnectionLoop")) {
             while (isActive && !isPaused.value) {
                 try {
                     runSingleSession(target)
@@ -231,8 +257,11 @@ internal class ClientWebSocketTransport(
     /**
      * Sends an outbound batch payload to the connected relay.
      *
-     * Returns [SendResult.NoConnection] if disconnected or closed during transit,
+     * @return [SendResult.NoConnection] if the caller is still alive and doing work but the coroutine
+     * termination is upstream,
      * or [SendResult.Failure] if an error occurs.
+     *
+     * @throws CancellationException if the caller itself was canceled.
      */
     override suspend fun send(batchId: Long, payload: ByteArray): SendResult {
         val session = activeSession.value ?: return SendResult.NoConnection

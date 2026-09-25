@@ -4,28 +4,31 @@ import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
 import io.ktor.websocket.WebSocketExtension
 import io.ktor.websocket.WebSocketSession
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.InternalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ChannelResult
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.SendChannel
+import kotlinx.coroutines.withTimeout
 import kotlin.coroutines.CoroutineContext
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 
 class FakeWebSocketSession(parentContext: CoroutineContext) : WebSocketSession {
-    private val sessionJob = Job(parentContext[Job])
+    val sessionJob = Job(parentContext[Job])
     override val coroutineContext: CoroutineContext = parentContext + sessionJob
+    private val isClosed = atomic(false)
 
     val incomingChannel = Channel<Frame>(Channel.UNLIMITED)
     val outgoingChannel = Channel<Frame>(Channel.UNLIMITED)
 
     override val incoming: ReceiveChannel<Frame> get() = incomingChannel
 
-    // Fault injection for TR-WS-09
     var sendException: Throwable? = null
 
-    // Minimal proxy: drops automated Ktor pings and supports sendException
     @OptIn(InternalCoroutinesApi::class)
     override val outgoing: SendChannel<Frame> = object : SendChannel<Frame> by outgoingChannel {
         override suspend fun send(element: Frame) {
@@ -35,6 +38,12 @@ class FakeWebSocketSession(parentContext: CoroutineContext) : WebSocketSession {
                     return
                 }
                 is Frame.Pong -> return
+                is Frame.Close -> {
+                    if (!isClosed.compareAndSet(expect = false, update = true)) {
+                        return
+                    }
+                    outgoingChannel.send(element)
+                }
                 else -> {
                     sendException?.let { throw it }
                     outgoingChannel.send(element)
@@ -59,6 +68,31 @@ class FakeWebSocketSession(parentContext: CoroutineContext) : WebSocketSession {
     override var masking: Boolean = false
 
     override suspend fun flush() = Unit
+
+    /**
+     * Suspends until a frame arrives.
+     * Yields the thread, eliminates loops, and wakes up the exact millisecond the frame lands.
+     */
+    suspend fun awaitFrames(min: Int, timeoutMs: Duration = 5.seconds): List<Frame> =
+        withTimeout(timeoutMs) {
+            val frames = mutableListOf<Frame>()
+            while(frames.size < min) {
+                frames.add(outgoingChannel.receive())
+            }
+            frames
+        }
+
+    /**
+     * Drains sent application frames for assertion checks.
+     */
+    fun drainSentFrames(): List<Frame> {
+        val frames = mutableListOf<Frame>()
+        while (true) {
+            val frame = outgoingChannel.tryReceive().getOrNull() ?: break
+            frames.add(frame)
+        }
+        return frames
+    }
 
     suspend fun close(reason: CloseReason) {
         outgoingChannel.send(Frame.Close(reason))

@@ -5,6 +5,7 @@ import com.mochame.annotations.AppBackgroundScope
 import com.mochame.logger.test.TestLoggerModule
 import com.mochame.node.fixtures.FakeNodeContextManager
 import com.mochame.node.fixtures.di.FixturesNodeModule
+import com.mochame.sync.di.SyncInfraModule
 import com.mochame.sync.infrastructure.ClientWebSocketTransport
 import com.mochame.sync.internal.fixtures.network.FakeWebSocketEngine
 import com.mochame.sync.internal.fixtures.network.FakeWebSocketSession
@@ -25,6 +26,7 @@ import org.koin.core.annotation.Single
 
 @Module(
     includes = [
+        SyncInfraModule::class,
         FixturesNodeModule::class,
         TestLoggerModule::class
     ]
@@ -41,19 +43,6 @@ internal class TransportTestModule {
         },
         parentContext = backgroundScope.coroutineContext,
         config = HttpClientEngineConfig()
-    )
-
-    @Single(binds = [SyncTransport::class, ClientWebSocketTransport::class])
-    fun provideClientWebSocketTransport(
-        @AppBackgroundScope backgroundScope: CoroutineScope,
-        nodeManager: NodeContextManager,
-        engine: HttpClientEngine,
-        logger: Logger
-    ): ClientWebSocketTransport = ClientWebSocketTransport(
-        backgroundScope = backgroundScope,
-        nodeManager = nodeManager,
-        engine = engine,
-        logger = logger
     )
 }
 
@@ -85,5 +74,13 @@ internal class ClientWebSocketTransportTestEnv(
     ) {
         val session = currentSession ?: awaitSession()
         session.close(reason)
+    }
+
+    suspend fun teardown(
+        reason: CloseReason = CloseReason(CloseReason.Codes.NORMAL, "Remote disconnect")
+    ) {
+        val session = currentSession ?: awaitSession()
+        session.close(reason)
+        transport.pause()
     }
 }
