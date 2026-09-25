@@ -19,10 +19,14 @@ import io.ktor.client.request.HttpRequestData
 import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.channels.ClosedSendChannelException
+import kotlinx.coroutines.withTimeout
 import org.koin.core.annotation.ComponentScan
 import org.koin.core.annotation.Factory
 import org.koin.core.annotation.Module
 import org.koin.core.annotation.Single
+import kotlin.time.Duration.Companion.seconds
 
 @Module(
     includes = [
@@ -69,18 +73,13 @@ internal class ClientWebSocketTransportTestEnv(
         )
     }
 
-    suspend fun closeRemotely(
-        reason: CloseReason = CloseReason(CloseReason.Codes.NORMAL, "Remote disconnect")
-    ) {
-        val session = currentSession ?: awaitSession()
-        session.close(reason)
-    }
-
     suspend fun teardown(
         reason: CloseReason = CloseReason(CloseReason.Codes.NORMAL, "Remote disconnect")
     ) {
-        val session = currentSession ?: awaitSession()
-        session.close(reason)
+        try {
+            currentSession?.close(reason)
+        } catch (_: ClosedSendChannelException) {
+        }
         transport.pause()
     }
 }

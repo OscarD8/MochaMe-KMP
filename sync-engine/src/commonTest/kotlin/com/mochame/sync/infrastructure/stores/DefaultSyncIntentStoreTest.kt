@@ -47,7 +47,7 @@ internal class DefaultSyncIntentStoreTest : MochaPlatformTest() {
         val originalIntent = createTestSyncIntent(
             hlc = hlc,
             candidateKey = candidateKey,
-            payload = TestPayloads.DEFAULT_TEST_BYTES
+            payload = TestPayloads.DEFAULT
         )
 
         // When
@@ -77,7 +77,7 @@ internal class DefaultSyncIntentStoreTest : MochaPlatformTest() {
 
         // Verify payload byte consistency
         assertNotNull(retrievedIntent.payload)
-        assertTrue(TestPayloads.DEFAULT_TEST_BYTES.contentEquals(retrievedIntent.payload!!))
+        assertTrue(TestPayloads.DEFAULT.contentEquals(retrievedIntent.payload!!))
     }
 
     // -----------------------------------------------------------

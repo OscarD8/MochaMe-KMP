@@ -97,6 +97,8 @@ object WireFrameFactory {
 
     /** Encodes a downstream delta broadcast frame. */
     fun delta(watermark: Long, payload: ByteArray): ByteArray {
+        require(payload.isNotEmpty())
+
         val out = ByteArray(9 + payload.size)
         out[0] = OP_DELTA
         out.writeLongAt(1, watermark)
@@ -106,6 +108,8 @@ object WireFrameFactory {
 
     /** Encodes an upstream client intent frame. */
     fun client(batchId: Long, payload: ByteArray): ByteArray {
+        require(payload.isNotEmpty())
+
         val out = ByteArray(9 + payload.size)
         out[0] = OP_CLIENT_SUBMIT
         out.writeLongAt(1, batchId)

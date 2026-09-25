@@ -12,6 +12,7 @@ import com.mochame.sync.spi.network.WireFrameFactory
 import com.mochame.sync.spi.node.NodeContextManager
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.HttpClientEngine
+import io.ktor.client.plugins.ResponseException
 import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.client.plugins.websocket.pingInterval
@@ -25,6 +26,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
@@ -34,7 +36,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.io.IOException
 import org.koin.core.annotation.Single
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
@@ -125,6 +129,11 @@ internal class ClientWebSocketTransport(
 
     override fun registerInboundAckHandler(onAck: suspend (Long, Long) -> Unit) {
         this.inboundAckHandler = onAck
+    }
+
+    private suspend fun awaitReconnect(delay: Duration) {
+        while (reconnectSignal.tryReceive().isSuccess) { /* Drain stale triggers */ }
+        withTimeoutOrNull(delay) { reconnectSignal.receive() }
     }
 
     /**
@@ -236,17 +245,24 @@ internal class ClientWebSocketTransport(
                     runSingleSession(target)
 
                     if (isActive && !isPaused.value) {
-                        logger.i { "WebSocket channel closed remotely. Attempting reconnection in 30s..." }
-                        withTimeoutOrNull(30.seconds) { reconnectSignal.receive() }
+                        logger.i { "WebSocket channel closed. Attempting reconnection in 30s..." }
+                        awaitReconnect(30.seconds)
                     }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: MochaException.Persistent) {
-                    logger.e(e) { "Terminating connection until manual trigger." }
+                    logger.e(e) { "[${e::class.simpleName}] ${e.message}. Terminating connection until manual trigger." }
                     break
                 } catch (e: Exception) {
-                    logger.w(e) { "[${e::class.simpleName}] ${e.message}. Retrying in 10s..." }
-                    withTimeoutOrNull(10.seconds) { reconnectSignal.receive() }
+                    when (e) {
+                        is IOException, is ResponseException -> {
+                            logger.w(e) { "[${e::class.simpleName}] ${e.message}. Retrying in 20s..." }
+                            awaitReconnect(20.seconds)
+                        }
+                        else -> {
+                            logger.e(e) { "Unexpected error in connection loop: ${e.message}. Terminating connection..." }
+                        }
+                    }
                 } finally {
                     activeSession.value = null
                 }
@@ -277,6 +293,7 @@ internal class ClientWebSocketTransport(
                 throw e
             }
         } catch (e: Exception) {
+            // Only hits local client errors (e.g. WireFrameFactory serialization failure)
             SendResult.Failure(e)
         }
     }
@@ -321,11 +338,7 @@ internal class ClientWebSocketTransport(
             is WireFrame.BackfillComplete -> {
                 logger.i { "Backfill complete. Triggering outbound pipeline flush." }
                 backgroundScope.launch {
-                    try {
-                        onConnectedListener?.invoke()
-                    } catch (e: Exception) {
-                        logger.e(e) { "Outbound queue flush failed on ready" }
-                    }
+                    onConnectedListener?.invoke()
                 }
             }
 
@@ -336,10 +349,9 @@ internal class ClientWebSocketTransport(
             is WireFrame.Delta -> {
                 try {
                     inboundDeltaHandler?.invoke(wireFrame.watermark, wireFrame.payload)
-                } catch (e: Exception) {
-                    if (e is CancellationException) throw e
-                    logger.e(e) { "Inbound processing failed at watermark ${wireFrame.watermark}. Closing socket." }
+                } catch (e: Exception) { // Likely to be persistent state errors
                     close(CloseReason(CloseReason.Codes.TRY_AGAIN_LATER, "Inbound ingestion error"))
+                    throw e
                 }
             }
 
